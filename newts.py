@@ -75,6 +75,8 @@ def port_free(port: int) -> bool:
     try:
         if sys.platform == "win32" and hasattr(socket, "SO_EXCLUSIVEADDRUSE"):
             s.setsockopt(socket.SOL_SOCKET, socket.SO_EXCLUSIVEADDRUSE, 1)
+        elif os.name == "posix":
+            s.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)  # match HTTPServer after TIME_WAIT
         s.bind(("127.0.0.1", port))
         return True
     except OSError:

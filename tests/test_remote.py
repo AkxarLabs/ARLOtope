@@ -8,6 +8,7 @@ import http.client
 import json
 import os
 import shutil
+import socket
 import subprocess
 import sys
 import threading
@@ -20,6 +21,23 @@ from conftest import REPO, kernel, load
 BASH = shutil.which("bash")
 needs_bash = pytest.mark.skipif(os.name != "posix" or not BASH,
     reason="the fake SSH integration needs a POSIX host and bash (Windows bash may use WSL paths)")
+
+
+@pytest.mark.skipif(os.name != "posix", reason="POSIX HTTP servers reuse closed TCP connections")
+def test_dashboard_port_probe_matches_http_server_reuse():
+    launcher = load("newts.py")
+    with socket.socket() as server:
+        server.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+        server.bind(("127.0.0.1", 0))
+        port = server.getsockname()[1]
+        server.listen()
+        assert not launcher.port_free(port)
+        with socket.create_connection(("127.0.0.1", port)) as client:
+            accepted, _ = server.accept()
+            with accepted:
+                accepted.shutdown(socket.SHUT_WR)
+                assert client.recv(1) == b""
+    assert launcher.port_free(port)
 
 
 @pytest.fixture
@@ -243,7 +261,7 @@ def test_a_stopped_remote_dashboard_comes_back_and_forgetting_its_machine_comes_
     t0 = time.time()
     while time.time() - t0 < 90 and not conn.alive():
         time.sleep(1)
-    assert conn.alive() and conn.cookie, conn.info()
+    assert conn.alive() and conn.cookie, json.dumps(conn.info())
     assert conn.tunnel is first or first.poll() is not None          # never two tunnels for one lab
     assert [x["id"] for x in m.machines._load()] == ["box"]
     m.machines.remove_machine({"id": "box"})

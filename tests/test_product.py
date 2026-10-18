@@ -297,7 +297,7 @@ def test_create_open_and_switch_labs(m, hub, tmp_path):
         assert (dest / "lab" / "config.yaml").exists() and not (dest / ".github").exists()
         assert m.ctx.labfiles.load_yaml(dest / "lab" / "config.yaml")["lab"]["name"] == "Second lab"
         listed, _ = m.labs.labs_list()
-        assert any(l["path"] == str(dest) for l in listed["labs"])
+        assert any(Path(l["path"]).resolve() == dest.resolve() for l in listed["labs"])
         out, code = m.labs.labs_open({"path": str(dest)})
         assert code == 200 and m.ctx.HUB == dest.resolve()
         assert m.labs.labs_open({"path": str(tmp_path)})[1] == 400                     # not a lab
