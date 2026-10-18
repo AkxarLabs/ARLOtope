@@ -14,6 +14,8 @@ import json
 import shutil
 import sys
 import threading
+from pathlib import Path
+from tempfile import TemporaryDirectory
 
 import pytest
 
@@ -287,17 +289,19 @@ def test_programmatic_switch_inserts_a_missing_key(m, hub):
 # ── labs ──────────────────────────────────────────────────────────────────────
 
 def test_create_open_and_switch_labs(m, hub, tmp_path):
-    dest = tmp_path / "labs" / "second"
-    out, code = m.labs.labs_create({"confirm": True, "name": "Second lab", "path": str(dest), "open": False})
-    assert code == 200, out
-    assert (dest / "lab" / "config.yaml").exists() and not (dest / ".github").exists()
-    assert m.ctx.labfiles.load_yaml(dest / "lab" / "config.yaml")["lab"]["name"] == "Second lab"
-    listed, _ = m.labs.labs_list()
-    assert any(l["path"] == str(dest) for l in listed["labs"])
-    out, code = m.labs.labs_open({"path": str(dest)})
-    assert code == 200 and m.ctx.HUB == dest.resolve()
-    assert m.labs.labs_open({"path": str(tmp_path)})[1] == 400                     # not a lab
-    assert m.labs.labs_create({"confirm": True, "path": str(dest)})[1] == 400      # not empty
+    # The suite may keep tmp_path inside the checkout; real Labs must live outside their template.
+    with TemporaryDirectory(prefix="newts-lab-test-") as directory:
+        dest = Path(directory) / "second"
+        out, code = m.labs.labs_create({"confirm": True, "name": "Second lab", "path": str(dest), "open": False})
+        assert code == 200, out
+        assert (dest / "lab" / "config.yaml").exists() and not (dest / ".github").exists()
+        assert m.ctx.labfiles.load_yaml(dest / "lab" / "config.yaml")["lab"]["name"] == "Second lab"
+        listed, _ = m.labs.labs_list()
+        assert any(l["path"] == str(dest) for l in listed["labs"])
+        out, code = m.labs.labs_open({"path": str(dest)})
+        assert code == 200 and m.ctx.HUB == dest.resolve()
+        assert m.labs.labs_open({"path": str(tmp_path)})[1] == 400                     # not a lab
+        assert m.labs.labs_create({"confirm": True, "path": str(dest)})[1] == 400      # not empty
 
 
 # ── HTTP protection ───────────────────────────────────────────────────────────

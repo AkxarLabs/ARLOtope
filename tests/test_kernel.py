@@ -327,8 +327,7 @@ def test_the_journal_is_append_only_and_tolerant(lab):
 def _old_lab(hub):
     """An older lab: the former manifest, a hand-kept registry, approvals.jsonl, marks in documents."""
     (hub.root / "workflow").mkdir(exist_ok=True)
-    old = subprocess.run(["git", "-C", str(REPO), "show", "6d91df6:workflow/stages.yaml"], capture_output=True,
-                         text=True, encoding="utf-8").stdout
+    old = (REPO / "tests/fixtures/legacy-stages.yaml").read_text(encoding="utf-8")
     (hub.root / "workflow" / "stages.yaml").write_text(old, encoding="utf-8")
     shutil.copytree(REPO / ".claude" / "skills", hub.root / ".claude" / "skills")
     rows = [("a", "lit-review", "-"), ("b", "active", "../projects/b"), ("c", "proposal", "-"), ("d", "final", "-"),
