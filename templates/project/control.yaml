@@ -1,0 +1,95 @@
+# ============================================================================
+# {{slug}} — project control file (layer 2 of 3)
+#
+# Created automatically at spawn; THE end-to-end run controls for this project.
+# Resolution order:  experiment yaml  >  THIS FILE  >  hub lab/config.yaml
+#
+# Edit anytime via /configure or by hand — EXCEPT keys marked PI-owned, which
+# require explicit PI approval to change once the proposal is approved. Nothing
+# here approves anything: approvals (e.g. full-scale runs) are records the PI
+# makes at the study's checkpoints, in the hub's lab/approvals.jsonl.
+# ============================================================================
+
+project: "{{slug}}"
+hub_path: "{{hub_path}}"        # absolute path to the hub repo, filled at spawn. Tools that
+                                # bridge back to the hub (e.g. tools/hub_writeback.py) read it.
+                                # Informational — do not edit.
+package: project_pkg            # the importable package under src/ that scripts/run.py +
+                                # sweep.py drive (config/experiment/seeding/tracking). Spawned
+                                # projects keep `project_pkg`; an ADOPTED repo that wraps existing
+                                # code sets this to its OWN package name instead of renaming it
+                                # (autodetected when src/ holds exactly one package; this pins it).
+
+project_type: ml               # the project's methodology TYPE (card: TYPE.md; registry:
+                               # <hub>/templates/project-types/). ml (default) | empirical | simulation |
+                               # theory | target-driven. Decides what an "experiment" is and how the hard
+                               # rules map (staged scale, multi-seed, frozen eval). Chosen at spawn; a
+                               # domain (econ, bio, …) is a separate light profile the agent may attach.
+runner: python-import          # how scripts/run.py executes a run, per the project type:
+                               #   python-import (default) = import <package>.experiment.run(cfg, ctx)
+                               #   shell-command            = run `runner_command` below (ANY language);
+                               #     it reads $CONFIG_PATH/$SEED/$RUN_DIR and writes a flat JSON metrics
+                               #     dict to $RUN_DIR/result.json (same artifact contract either way).
+# runner_command: ["Rscript", "analysis.R"]   # REQUIRED when runner: shell-command (string or list)
+
+budgets:                        # PI-owned. Instructions the agent keeps and the hub's Compute panel
+                                # tracks (it alerts the PI) — not limits a script enforces.
+  smoke_max_minutes: 10         # applied per-stage when an experiment yaml doesn't set
+  pilot_max_minutes: 60         # budget.max_minutes itself (also a Slurm job's time limit)
+  full_max_minutes: 240
+  total_minutes: 0              # the proposal's total compute cap, in minutes (0 = not set; check_project
+                                # warns). scripts/check_project.py reports spent / total from the registry.
+  total_note: ""                # free-text total compute cap from the proposal (informational)
+  # gpu_hours: 0                # optional: this study's GPU-hours budget (the Compute panel tracks it)
+
+data:                           # provenance of the data every run reads (project rule: data provenance).
+  source: ""                    # where it comes from (URL, DOI, internal path)
+  version: ""                   # the release / snapshot date
+  sha256: ""                    # hash of the dataset archive or manifest, filled before any PILOT run
+  split_seed: null              # the seed that built the train / validation / test split
+  license: ""                   # what the licence allows (the paper's data statement is written from here)
+
+seeds:
+  list: [0, 1, 2]               # default seeds for sweeps; a sweep never picks seeds by outcome
+  multi_seed_n: 3               # seeds required before a number is paper-grade
+
+parallelism:
+  max_parallel_subagents: 3     # concurrent worktree subagents (/improve)
+  sweep_parallel: 1             # default --parallel for scripts/sweep.py
+
+loop:                           # /research-loop overrides for this project
+  no_progress_backoff_cycles: 3
+  monitor_poll_seconds: 300
+  mode: execute                 # execute | explore (the LOOP_BRIEF's Mode: overrides per-loop).
+                                # explore enables autonomous in-project re-planning — see below.
+  explore_max_expansion_rounds: 0   # explore: results-grounded "expand" rounds allowed after the
+                                # planned table is exhausted (0 = no frontier expansion; decision
+                                # revisits still fire on their triggers, since those are set by mode)
+  explore_max_new_lines_per_round: 3  # explore: max new PLAN.md lines per expand round
+  # In explore mode the loop may reopen a NON-headline design decision (decisions.md
+  # `Headline: no`) and expand the frontier, as long as the frozen set holds and the
+  # budget is not exceeded. Touching the frozen set, exceeding the budget, or
+  # reopening a HEADLINE decision escalates (PI note, or the campaign's bounds check under
+  # a campaign the PI approved). explore_* are PI-owned (they widen the agent's authority).
+
+monitoring:
+  log_interval_seconds: 60      # expected seconds between ctx.log() calls — pass to
+                                # status.py --log-interval so a healthy run that logs
+                                # sparsely (per-epoch on real workloads) isn't flagged
+                                # stalled. Set this ABOVE your slowest expected log gap.
+
+figures:
+  theme: clean                  # clean | warm | bold | mono — see src/project_pkg/figures.py
+                                # (same sizing/fonts/vector rules; different palette & vibe)
+
+# writing:                      # OPTIONAL per-project override of the hub writing.* defaults.
+#   venue: neurips              #   target venue for THIS project's paper: neurips | icml | iclr |
+#                               #   aclarr | aaai | generic. Absent (this block commented) = inherit
+#                               #   lab/config.yaml. Uncomment to pin a venue for this project only.
+#   page_limit: 9               #   set to the venue's limit (neurips/iclr 9 · icml/aclarr 8 · aaai 7)
+
+# Full-scale runs wait for the study's "Approve full runs" checkpoint (an approval the PI records in the
+# dashboard or with `newts approve`; the stage brief says whether it is approved, with the PI's note).
+
+eval_frozen: true               # the eval protocol in PLAN.md/base.yaml is frozen.
+                                # The agent may NEVER set this false.

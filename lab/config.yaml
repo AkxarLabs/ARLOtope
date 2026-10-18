@@ -1,0 +1,344 @@
+# ============================================================================
+# Newts' Lab — lab-wide configuration (layer 1 of 3)
+#
+# Resolution order:  experiment yaml  >  project control.yaml  >  THIS FILE
+#
+# Skills read this file for defaults; every spawned project gets a control.yaml
+# (layer 2) that can override the project-scoped sections below. View the
+# effective merged config with provenance:
+#     uv run --with pyyaml python tools/show_config.py [<project-path>]
+# Edit via /configure (or by hand). Full key reference: docs/configuration.md
+# ============================================================================
+
+lab:                            # ── hub behavior · PI-owned ──
+  projects_root: "../newts-lab-projects"  # where /spawn-project creates project repos (relative to hub)
+  stale_days: 14                # registry rows older than this get flagged by check_lab.py
+
+compute:                        # ── sharing compute across projects · PI-owned ──
+  max_concurrent_runs: 1        # training runs (PILOT/FULL) the lab should have going at once across ALL
+                                # projects — an instruction agents follow (rules.yaml `compute-share`), not a
+                                # lock; the Compute instrument shows what is actually running and warns.
+                                # Raise it to the number of GPUs your machine can run in parallel.
+  # gpu_hours_budget: 0         # GPU-hours the whole lab may use (0/absent = no budget). Tracked and warned about
+                                # by the Compute instrument — never enforced. A project's own is control.yaml budgets.gpu_hours.
+  scheduler:                    # HOW training runs on this machine — Settings → System detects what it offers
+    kind: local                 # local (run here) | slurm (sbatch; waits for the job) | custom (describe any other)
+    stages: [PILOT, FULL]       # stages sent to the scheduler; SMOKE always runs where it's launched
+    poll_seconds: 30            # how often a waiting run checks its job
+    max_queue_hours: 48         # cancel a job that never started
+    slurm:                      # used when kind: slurm (see docs/compute.md)
+      partition: null
+      account: null
+      qos: null
+      gpus_per_run: null        # → --gres=gpu:N  (or set gres: "gpu:a100:1")
+      gres: null
+      cpus_per_task: null
+      mem: null                 # e.g. 32G
+      constraint: null
+      time_grace_minutes: 10    # --time = the stage budget + this
+      extra_args: []            # more sbatch flags, verbatim: ["--exclusive"]
+      setup: []                 # shell lines run first in the job: ["module load cuda/12.4", "source .venv/bin/activate"]
+    custom:                     # kind: custom — any scheduler, described by commands ({script} / {job})
+      submit: null              # e.g. "qsub {script}"  (prints the job id)
+      state: null               # e.g. "qstat {job}"    (PEND/QUEUE → queued, RUN → running, nothing → left)
+      cancel: null              # e.g. "qdel {job}"
+      header: []                # lines at the top of the job script, e.g. ["#PBS -l walltime=04:00:00"]
+      setup: []
+
+agents:                         # ── subagent settings · PI-owned ──
+                                # Two layers: `tiers` is the PI's model ladder; the per-role keys
+                                # name a tier (or a model directly). Both resolve through
+                                # tools/role_sync.py into the `model:`/`effort:` frontmatter of
+                                # .claude/agents/<role>.md (and the .codex/agents/*.toml). /configure
+                                # and /setup-lab keep them in sync; changing a tier re-renders every
+                                # role that names it.
+  tiers:                        # ── the model ladder · PI-owned ──
+                                # Each tier = a model: an alias (sonnet | opus | haiku | fable), a
+                                # FULL pinned id (e.g. claude-haiku-4-5-20251001 — pin when alias
+                                # drift matters, same rule as the headless backends below), or
+                                # `inherit` (the session model). Ships `inherit` for all three, so
+                                # behavior is unchanged until you set your ladder (see
+                                # docs/configuration.md → "Which tier for which task").
+    strong: inherit             # judgment-heavy, low-volume — paper reviewers, meta-review
+    standard: inherit           # well-specified execution — runner, overseer, critics, advocates
+    fast: inherit               # high-volume / retrieval-shaped work
+  reviewer_model: strong        # → fresh-context-reviewer. Each per-role key is a tier name
+  runner_model: standard        # → experiment-runner.       (strong|standard|fast), a model
+  overseer_model: standard      # → overseer.                alias/id, or `inherit` — resolved via
+                                #                            agents.tiers at render time.
+  critic_model: standard        # ideation critics / scoping advocates. INLINE subagents (no agent
+                                # file): on Claude Code the spawning skill (/ideate, /scope) passes
+                                # this — tier-resolved — as each critic's per-spawn Task `model`;
+                                # backends without a per-spawn model override run them at the session
+                                # model. (Historically a no-op; now applied on Claude Code.)
+  reviewer_effort: ""           # per-role reasoning effort (low|medium|high|xhigh|max). "" = the
+  runner_effort: ""             # model's default. For the three NAMED roles, role_sync renders it into
+  overseer_effort: ""           # BOTH the Claude `effort:` frontmatter and the Codex
+                                # `model_reasoning_effort` (overriding the role-yaml default).
+  critic_effort: ""             # ideation critics / scoping advocates (INLINE, no role file): /ideate
+                                # and /scope read it via `role_sync.py resolve critic` and pass it as
+                                # each critic's per-spawn Task effort. "" = inherit the session.
+
+  programmatic:                 # ── headless TOP-LEVEL agents run by the executor (dashboard / executor_cli) ──
+                                # The hub orchestrator can spawn an independent headless session
+                                # (claude -p / codex exec) PER project, started by the executor
+                                # — NOT a nested subagent. This WIDENS autonomy (N
+                                # autonomous sessions writing to N repos), so it is PI-owned and OFF
+                                # by default. Widen it only on explicit PI request (/configure) or
+                                # transitively under a PI-signed /autopilot campaign brief — the same
+                                # rule as ideation.in_project_approval / loop.explore_*.
+    enabled: false              # MASTER SWITCH · ships OFF (the safe default). false = manual sessions +
+                                # in-session Task subagents only (no headless launching). Set true (via
+                                # /configure, or transitively under a signed /autopilot brief) to let
+                                # the executor launch headless top-level agents. Required for
+                                # autopilot.max_concurrent_projects > 1.
+    backend: claude             # default backend: claude | codex | opencode | acp.
+                                # (codex/opencode are OPTIONAL installs, needed only when selected — each
+                                # needs its own CLI + auth; per-launch override via --backend.)
+    model: inherit              # GLOBAL model override across backends. inherit/blank = each backend uses
+                                # its own backends.<x>.model default below; a real value here forces ALL.
+    permission_mode: auto       # claude --permission-mode. `auto` broadly auto-approves work INSIDE
+                                # the project repo (so it rarely stops to ask) yet still BLOCKS
+                                # dangerous ops — curl|bash, force-push / push to main, destructive
+                                # git (reset --hard, clean -fd), irreversible deletes, infra destroy.
+                                # Paired with the project's permissions.allow engine allowlist
+                                # (templates/project/.claude/settings.json) so routine `uv run …`
+                                # commands are ALWAYS allowed and never accumulate blocks. A blocked
+                                # op is denied (never silently bypassed); the agent escalates it to the
+                                # bus and the PI answers via a directive. NOT bypassPermissions.
+                                # (Fail-safe: in headless -p, repeated blocks abort the session — the
+                                #  allowlist keeps routine work from ever tripping it.)
+                                # (codex uses the sandbox + approval keys below, not this knob.)
+    max_minutes: 240            # wall-clock cap per launched agent — the watchdog kills the tree on breach
+    max_concurrent: 7           # PER-STUDY task ceiling; reviewers, explainers and assistants are excluded.
+                                # Training jobs follow the separate compute.max_concurrent_runs.
+    max_depth: 1                # launch-recursion cap. 1 = hub→project only; a launched agent may NOT
+                                # launch further agents (mirrors the no-nested-subagents rule)
+    max_transcript_mb: 200      # cap each agent's stored stdout transcript (.bus/agents/*.stream.jsonl);
+                                # a runaway/looping agent can't fill the disk before the watchdog. 0 = unlimited.
+    # ── the executor (tools/executor; the dashboard's "Run a procedure", executor_cli.py) ──
+    max_concurrent_total: 7     # lab-wide ceiling on live task sessions; support sessions are excluded
+    hub_max_concurrent: 1       # unscoped Lab jobs at once; study work uses its per-study bucket,
+                                # including study procedures that run in the hub folder
+    daily_max_runs: 0           # usage brake: max run attempts started per day (0 = no cap). Subscription
+                                # plans assume ordinary individual use — this keeps unattended use bounded
+    daily_max_minutes: 0        # usage brake: max headless agent-minutes per day (0 = no cap)
+    writing: plain              # how agents write to you (summaries, questions, pages): plain · ste80 (about 80% of
+                                # the way to ASD-STE100 Simplified Technical English) · ste (strict) · or your own words
+    follow_steps: true          # a run of the step a study stands at goes on to the next step when it is done:
+                                # the kernel names it (the workflow's path and routes), never the agent; it
+                                # stops at a checkpoint, a question, a failure or chain_max_steps. false = stop
+                                # after each step and offer the next one as a button
+    chain_max_steps: 6          # a run launched with chain=loop re-launches its own reported next step at
+                                # most this many times — and ALWAYS stops at any checkpoint / needs-PI report
+    live:                       # runs are LIVE sessions: questions, permission prompts and your messages
+                                # reach the running agent (claude stream-json · codex app-server · opencode
+                                # serve). A run that can't start live falls back to one-shot by itself.
+      enabled: true             # false = one-shot runs only (questions then end the turn; a reply resumes)
+      park_minutes: 60          # a question nobody answered: the process ends, the question stays in
+                                # Needs you, and your answer resumes the same session
+      permission_minutes: 30    # a permission request nobody decided is denied (campaign runs: at once)
+      campaign_question_minutes: 30  # a campaign run takes the recommended option of an unanswered
+                                # question and marks it assumed (Needs you: "Assumed …, change?")
+      linger_minutes: 10        # Ask Newt stays open this long after answering, for your next message
+    backends:                   # per-backend invocation knobs. The safety-critical flags are REFUSED in
+                                # extra_args (so they can't silently negate human-in-loop); set them
+                                # through these DEDICATED keys instead — change as needed.
+      claude:
+        model: claude-opus-4-8  # per-backend default model. Full id PINS the version (the `opus` alias
+                                # can drift to a newer model over time); blank/inherit = the CLI default.
+        effort: high            # claude --effort: low | medium | high | xhigh | max (Opus 4.8 default
+                                # is high). Combines with --model. Blank = the model's default effort.
+        permission_mode: ""     # per-backend override of programmatic.permission_mode above (blank =
+                                # use that default). e.g. `acceptEdits` / `plan` / `dontAsk` /
+                                # `bypassPermissions` (PI-owned) for the claude backend only.
+        extra_args: ""          # appended to `claude -p` (advanced; --permission-mode and
+                                # --dangerously-skip-permissions are refused — use permission_mode above;
+                                # so are the executor's own --settings/--resume/--session-id/--add-dir/…)
+        command: ""             # the CLI to run. Blank = found automatically (PATH, then the usual install
+                                # dirs — e.g. %USERPROFILE%\.local\bin\claude.exe, often NOT on a GUI app's
+                                # PATH). A path string, or an argv list.
+        prompt_via: stdin       # stdin (default; no ~32K Windows command-line limit) | argv
+      codex:
+        model: ""               # use the installed CLI's model default. Set an explicit model only
+                                # when that account supports it; model access varies by auth/provider.
+        reasoning_effort: medium  # codex has NO --effort flag; this passes -c model_reasoning_effort=…
+                                # (minimal | low | medium | high | xhigh). Blank = the model default.
+        sandbox: workspace-write  # codex --sandbox — the codex equivalent of claude's auto+allowlist.
+                                # workspace-write = OS-enforced sandbox: edit files + run commands
+                                # INSIDE the repo, network OFF by default (a HARDER boundary than the
+                                # claude classifier, so codex needs no allowlist). Paired with the
+                                # approval policy below. Live approval requests can reach the dashboard;
+                                # reviewer:auto uses Codex's own reviewer. read-only = stricter; danger-full-access
+                                # removes the boundary entirely (PI-owned escape hatch — avoid).
+        reviewer: auto          # who reviews what codex asks to do outside its sandbox: auto = codex's own
+                                # reviewer agent (approvals_reviewer=auto_review) | me = you, in Needs you.
+                                # Checked against codex 0.162. PI-owned.
+        approval: on-request    # codex approval_policy. A live session (codex app-server) sends each
+                                # approval to the dashboard (Needs you: allow / deny; a campaign denies at
+                                # once). `never` = a blocked op fails back to the model without asking.
+                                # One-shot `codex exec` can't ask: anything but never REJECTS such ops.
+                                # PI-owned.
+        network_access: false   # workspace-write turns network OFF by default; set true to let codex
+                                # reach the network for a genuine need (passes
+                                # `-c sandbox_workspace_write.network_access=true`). PI-owned capability
+                                # widening; the codex config key is version-dependent — verify if it errors.
+        trace_hooks: true       # subagent tracing for headless codex runs: pass trace_hook.py as
+                                # `-c hooks.<Event>=…` flags + --dangerously-bypass-hook-trust (codex runs
+                                # an unreviewed hook only with that flag; it also lets your own
+                                # ~/.codex hooks run unreviewed for that invocation). false = no hooks:
+                                # subagents then show from the stream only (spawn + result, no live steps).
+        extra_args: ""          # appended to `codex exec` (advanced; --sandbox / -a / resume /
+                                # --dangerously-bypass-approvals-and-sandbox / --yolo are refused — use
+                                # the sandbox / approval keys above)
+      opencode:                 # SST opencode (`opencode run --format json`). OPTIONAL install — only
+                                # needed if selected: `curl -fsSL https://opencode.ai/install | bash` (or
+                                # `npm i -g opencode-ai`), then `opencode auth login`. Binary: `opencode`.
+        model: ""               # opencode -m. MUST be provider/model form, e.g. anthropic/claude-sonnet-4-5
+                                # or openai/gpt-5.1 (a bare id is rejected). Blank = opencode's own default.
+        variant: ""             # opencode --variant: provider-specific reasoning effort (Anthropic high|
+                                # max; OpenAI none|minimal|low|medium|high|xhigh; Google low|high). Blank =
+                                # model default. This is opencode's --effort analogue.
+        permission: ""          # autonomous posture (via the OPENCODE_PERMISSION env, not a flag). BLANK =
+                                # opencode's defaults, which already match codex workspace-write: bash/edit
+                                # allow (autonomous in-repo) + external_directory auto-deny (contained out of
+                                # repo). `allow` = force FULL allow (removes the out-of-repo boundary); or a
+                                # YAML object like {bash: {"*": allow, "rm -rf *": deny}, edit: allow} for
+                                # fine-grained hardening. PI-owned. NB: opencode has no OS sandbox.
+        agent: ""               # optional: pin a primary orchestrator agent shipped in the project's
+                                # .opencode/agents/ (mode: primary). Blank = opencode's built-in agent.
+                                # The lab's named roles (experiment-runner, critics, …) are rendered to
+                                # .opencode/agents/ as mode: subagent; the .opencode/plugins/newts-trace.js
+                                # plugin traces every session + subagent into the dashboard's worker logs.
+        skip_permissions: false # also pass --dangerously-skip-permissions. Default OFF: that flag is
+                                # version-dependent (an open request on some builds); the env above is the
+                                # stable control. Turn on only if a host smoke shows the env alone stalls.
+        extra_args: ""          # appended to `opencode run` (advanced; --format / --dir /
+                                # --dangerously-skip-permissions are refused — use the keys above)
+    presets: {}                 # optional named agent configurations
+    default_preset: null
+    role_presets: null
+
+autopilot:                      # ── /autopilot campaign defaults · PI-owned ──
+  max_concurrent_projects: 1    # how many projects /autopilot drives end-to-end AT ONCE. 1 (default) =
+                                # ONE project carried fully through the pipeline before the next is
+                                # spawned (the safe, single-session default). >1 = concurrent multi-
+                                # project mode, which REQUIRES agents.programmatic.enabled (one headless
+                                # top-level session per project); without that enable
+                                # flag, autopilot stays single-session and works one project at a time.
+                                # TRAINING still follows compute.max_concurrent_runs either way.
+
+oversight:                      # ── confabulation circuit-breakers (overseer agent) · PI-owned ──
+  level: standard               # off | standard | strict
+  # standard: verifies author-response verdicts (/review-paper), headline interpretations
+  #           (/analyze), checkpoints a campaign approves for you, the /review-paper phantom-
+  #           experiment sweep, and any meta-review fatal-flaw refutation that unlocks accept
+  # strict:   also grades every fatal flaw (critique-taste) in meta-reviews and audits
+  #           /research-loop "progress" claims at loop exit
+
+ideation:                       # ── /ideate pipeline depth ──
+  candidates: 8                 # initial mechanism-diverse candidates
+  reflection_rounds: 2          # reflect -> evolve cycles per surviving idea
+  critics_per_idea: 2           # parallel fresh-context critic subagents in each reflect pass
+  enable_combination: true      # propose crossovers of complementary survivors
+  in_project: true              # PI-owned kill-switch. allow `/ideate --in-project <slug>`: divergent METHOD-approach
+                                # ideation WITHIN a project's frozen problem/eval/test/seeds/budgets
+                                # (output = candidate approaches, NOT experiments; never a new
+                                # lifecycle state — active -> active). false = capability off.
+  in_project_candidates: 4      # approach candidates an in-project ideation round generates
+  in_project_rounds: 1          # max in-project ideation rounds before stopping (so recursion
+                                # terminates by config, not convention; each round charges its cost
+                                # against the loop's minutes / iteration budget)
+  in_project_approval: pi       # CAMPAIGN-ONLY knob: it ONLY changes behavior under a signed
+                                # /autopilot campaign. MANUAL `/ideate --in-project` runs are ALWAYS
+                                # PI-gated regardless of this value. PI-owned (WIDENS authority — edit
+                                # only on explicit PI request, or transitively under a PI-signed
+                                # /autopilot campaign brief; same rule as loop.explore_*). pi | campaign_auto:
+                                #   pi            = surviving approaches always queue at /propose for
+                                #                   your approval (the safe default, incl. under campaigns).
+                                #   campaign_auto = UNDER A SIGNED CAMPAIGN ONLY, a surviving approach is
+                                #                   auto-approved WITHIN the campaign's delegation bounds +
+                                #                   an overseer `support` check (like a checkpoint the
+                                #                   campaign approves for you); a campaign brief may override back to
+                                #                   `pi`. Any headline-hypothesis change re-enters /propose
+                                #                   (mini-proposal) or a successor idea — never a bare PI
+                                #                   note. A campaign approves only the checkpoints its brief lists.
+
+discuss:                        # ── /discuss collaborative human↔agent session ──
+  max_research_minutes: 15      # cap on live web/arXiv/Semantic-Scholar research DURING a /discuss
+                                # session (it's discussion fuel, not the lit review). 0 = no live
+                                # research (Q&A only). The session itself is human-paced and unbounded.
+
+litreview:                      # ── /lit-review depth ──
+  max_minutes: 45               # cap on the live literature-search phase (0 = unbounded). The
+                                # analogue for /discuss is discuss.max_research_minutes. A capped
+                                # sweep logs what it did NOT cover rather than running forever.
+
+scoping:                        # ── /scope deliberation depth ──
+  options_per_decision: 3       # alternatives generated per design-decision branch
+  advocate_subagents: true      # one parallel advocate per option argues its strongest case
+  max_open_questions: 3         # decisions allowed to stay open (resolved by pilots) before /propose
+
+writing:                        # ── /write-paper · /make-figures ──
+  venue: neurips                # PI-owned. target paper format · project control.yaml may override per-project.
+                                # /write-paper copies the whole templates/paper/venues/<venue>/ dir —
+                                # the official .sty/.bst are VENDORED there, so it compiles offline (no
+                                # fetch). See that dir's README.md for versions/limits/anonymity + how to
+                                # refresh to a newer cycle. One of:
+                                #   neurips  · 1-col, plainnat, ~9pp   (the default; NeurIPS 2025)
+                                #   icml     · 2-col, icml2025.bst, ~8pp
+                                #   iclr     · 1-col, iclr2026.bst, ~9pp
+                                #   aclarr   · 2-col, acl_natbib, ~8pp (ACL Rolling Review)
+                                #   aaai     · 2-col, aaai2026.bst, ~7pp (anon submission, strict format)
+                                #   generic  · venue-agnostic article (templates/paper/main.tex)
+  page_limit: 9                 # PI-owned. target main-text pages; over-length trimmed gradually. Set this to the
+                                # chosen venue's limit (neurips/iclr 9 · icml/aclarr 8 · aaai 7) — it is
+                                # the authoritative knob; `venue` selects the template, not the count.
+  max_reflection_rounds: 3      # verifier-gated revision rounds (gains plateau ~3, regress after)
+  citation_match_threshold: 0.85 # title-similarity gate for .claude/skills/lit-review/tools/s2.py verify
+  cite_grounding_threshold: 0.7 # fraction of a cited paper's title words that must appear in
+                                # lit-review.md for .claude/skills/lit-review/tools/s2.py citecheck to call it "grounded"
+
+critique:                       # ── /critique-paper · /review-paper · PI-owned ──
+  ensemble_external: 3          # reviewer lenses for external-paper triage
+  ensemble_own_draft: 5         # reviewer lenses for our own paper drafts
+  score_anchor_human_mean: 5.4  # calibration anchor — the human-review average Overall
+                                # (mirrored in critique-lenses.md; /critique-paper substitutes it)
+  accept_bar: 7                 # median Overall at/above this + zero unrefuted fatal flaws = accept
+  max_review_cycles: 3          # revision cycles before escalating to the PI
+  claim_rel_tol: 0.001          # relative tolerance checks/audit_claims.py uses to match a paper
+                                # number to its run artifact (looser of this · printed precision).
+                                # Written 0.001 not 1e-3 so YAML parses it as a float, not a string.
+
+experiment:                     # ── experiment loop defaults · project-overridable via control.yaml ──
+  max_debug_depth: 3            # consecutive debug attempts before record-and-move-on
+  num_drafts: 3                 # distinct solution lines /improve maintains
+  max_parallel_subagents: 3     # concurrent worktree subagents
+  multi_seed_n: 3               # seeds required before a number is paper-grade
+
+loop:                           # ── /research-loop defaults · project-overridable via control.yaml ──
+  no_progress_backoff_cycles: 3 # consecutive no-progress cycles before the loop stops
+  monitor_poll_seconds: 300     # cadence for zero-token status.py polling
+  mode: execute                 # PI-owned (with loop.explore_*). execute | explore — the DEFAULT loop mode (the LOOP_BRIEF's
+                                # `Mode:` field overrides per-loop). execute = run the approved
+                                # plan then stop; explore = autonomous in-project iteration —
+                                # frontier expansion + reopening non-headline design decisions,
+                                # bounded by the two caps below and the full-runs checkpoint.
+                                # See docs/autonomy.md.
+  explore_max_expansion_rounds: 0   # explore mode only: how many results-grounded "expand" rounds
+                                # may run after the planned table is exhausted. 0 = no frontier
+                                # expansion (but in explore mode, reopening a non-headline decision
+                                # still fires when its `Revisit if:` trigger does — that is gated by
+                                # the mode, not by this cap). Each round is subject to the anti-burn
+                                # backoff above.
+  explore_max_new_lines_per_round: 3  # explore mode only: max NEW mechanism-distinct lines an
+                                # expand round may append to PLAN.md (each with pre-written criteria)
+
+dashboard:                      # ── optional Vivarium dashboard (dashboard/serve.py) ──
+  port: 8787                    # local-only; see docs/dashboard.md
+  editor: vscode                # "open in editor" deep-links: vscode|cursor|vscodium|windsurf|none
+                                # (local-only → <scheme>://file/<abs-path> opens YOUR editor; none = off)
+  executor: true                # run the executor's scheduler inside the dashboard (starts queued runs,
+                                # reconciles, reads run reports). Launching itself still needs
+                                # agents.programmatic.enabled. false = observe-and-sign only.
+  tail_max_kb: 64               # live-transcript chunk size per poll in a run's view

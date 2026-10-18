@@ -1,0 +1,22 @@
+<script>
+PK.on(d => {
+  const h = PK.h;
+  const studies = d.studies || [];
+  const by = {};
+  for (const s of studies) (by[s.state] = by[s.state] || []).push(s);
+  const states = Object.keys(by);
+  const max = Math.max(1, ...states.map(k => by[k].length));
+  PK.summary(`${studies.length} studies · ${states.length} steps in use`);
+  PK.mount(
+    PK.hero({ value: studies.length, unit: 'studies', label: 'in the lab' }),
+    PK.section('By step'),
+    states.length ? PK.ledger(states.map(k => ({ state: k, n: by[k].length, names: by[k].map(s => s.title || s.id).slice(0, 3).join(', ') })), [
+      { key: 'state', label: 'Step', fmt: v => PK.pill(v) },
+      { key: 'n', label: '', bar: true, max },
+      { key: 'n', label: 'Studies', num: true },
+    ]) : PK.empty('No studies yet', 'Start one from the lab.'),
+    studies.length ? [PK.section('Latest'), PK.ledger(studies.slice().sort((a, b) => String(b.updated).localeCompare(String(a.updated))).slice(0, 6), [
+      { key: 'title', label: 'Study', fmt: (v, s) => v || s.id }, { key: 'state', label: 'Step', fmt: v => PK.pill(v) }, { key: 'updated', label: 'Updated', num: true, fmt: v => v || '' },
+    ], { onclick: s => PK.open('study', s.id) })] : null);
+});
+</script>

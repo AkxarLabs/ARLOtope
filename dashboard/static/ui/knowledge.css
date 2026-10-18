@@ -1,0 +1,14 @@
+.knowledge-toolbar{display:flex;flex-wrap:wrap;gap:12px 18px;align-items:end;padding:20px 36px;border-bottom:1px solid var(--edge)}
+.knowledge-toolbar .field{flex:1;min-width:150px;margin:0}
+.knowledge-toolbar .btn{margin-bottom:2px}
+.knowledge-actions{flex-wrap:wrap;gap:12px 20px;padding-block:12px;border-bottom:1px solid var(--edge);margin-bottom:18px}
+.knowledge-ack{display:flex;align-items:start;gap:8px;font-size:13px;margin-block:16px;cursor:pointer}
+.knowledge-ack input{flex:none;margin-top:3px}
+.knowledge-help{margin-block:0 16px}
+.knowledge-help summary{cursor:pointer}
+.knowledge-help summary:focus-visible{outline:2px solid var(--accent);outline-offset:4px}
+.study-notes{padding-block:18px;border-top:1px solid var(--edge)}
+.study-notes h3{font:450 23px var(--serif);margin:0}
+.study-notes .desk-entry{padding-block:12px}
+.document-library .shelf-doc b,.document-library .reader{overflow-wrap:anywhere}
+@media(max-width:760px){.knowledge-toolbar{padding:18px 20px}.library-mast{flex-wrap:wrap;gap:14px}.library-mast nav{flex-wrap:wrap;gap:18px;font-size:13px}}

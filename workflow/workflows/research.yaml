@@ -1,0 +1,63 @@
+# A workflow: the path a study walks, where each outcome leads, and the PI's checkpoints on the way.
+#
+#   path        the steps in order (workflow/steps.yaml); `done` moves a study to the next one, and `done` at
+#               the last step finishes it
+#   routes      where any other outcome leads, per step; an outcome with no route goes to the PI, who decides
+#   use         swap a procedure for another (a variant) in this workflow only: {lit-review: lit-review-quick}
+#   checkpoints the PI's approvals:
+#                 before: <step>             a study can't enter that step until it is approved
+#                 during: <step> + at: "…"   the agent stops at that point inside the step and asks
+#                 approver: me | me-or-campaign | auto | agent (fresh evidence review)
+#                 judge: {skill: gate-review, rubric: "…", max_attempts: 3, max_visits: 3}
+#                 decisions: {proceed: continue, revise: <step>, stop: parked}
+#                 checks: [...]   scripts the checkpoint shows (and `auto` needs passing) — checks/<name>.py
+#                 watch: [...]    checks that flag work done past it without approval
+#                 evidence: [...] what you look at ({study} = the study's slug, {project} = its project repo)
+#                 means / tell    what it covers, and what agents are told about it
+#
+# Approving a `before:` checkpoint moves the waiting study on, and its new step's work can start.
+
+title: Research paper
+blurb: From an idea to a reviewed paper, with four checkpoints.
+default: true
+
+path: [seed, lit-review, scoping, proposal, setup, active, analysis, writing, internal-review, final]
+
+routes:
+  analysis:        {more-experiments: active, null-result: ask}
+  writing:         {more-experiments: active, reanalyse: analysis}
+  internal-review: {revise: writing, more-experiments: active}
+
+checkpoints:
+  - id: approve-proposal
+    title: Approve the proposal
+    before: setup
+    approver: me-or-campaign
+    evidence: ['studies/{study}/proposal.md', 'studies/{study}/lit-review.md', 'studies/{study}/decisions.md']
+    means: the hypothesis, the frozen evaluation and analysis plan, the budget and the kill criteria
+    tell: Stop when the proposal is written and present it; the project is created only after approval.
+  - id: approve-full-runs
+    title: Approve full runs
+    during: active
+    at: full-scale runs
+    approver: me-or-campaign
+    watch: [full-runs-without-approval]
+    evidence: ['{project}/PLAN.md', '{project}/EXPERIMENT_LOG.md', '{project}/control.yaml']
+    means: the trial runs met their written promotion criteria, and the planned full runs fit the budget
+    tell: Run smoke tests and trial runs freely. Before the first full-scale run, stop and ask for this approval.
+  - id: approve-loop
+    title: Approve the research loop
+    during: active
+    at: starting an unattended research loop
+    approver: me-or-campaign
+    evidence: ['{project}/LOOP_BRIEF.md', '{project}/PLAN.md']
+    means: the loop may run unattended within its LOOP_BRIEF.md (its mode, stop conditions and budget)
+    tell: A research loop starts only once this is approved; its note says the mode (execute or explore).
+  - id: finalize-paper
+    title: Finalize the paper
+    before: final
+    approver: me-or-campaign
+    checks: [claims, multiseed, ablations, eval, prereg]
+    evidence: ['studies/{study}/paper/main.pdf', 'studies/{study}/paper/reviews', 'studies/{study}/paper/claims.yaml']
+    means: the reviewed paper is final; reproducibility pass, artifacts locked, knowledge written back
+    tell: Stop when internal review accepts; finalization starts only after approval.

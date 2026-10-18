@@ -1,0 +1,9 @@
+/* One contextual card, positioned from the renderer's projected character anchor. */
+.agent-peek{position:absolute;left:0;top:0;z-index:5;width:min(300px,calc(100% - 24px));max-height:calc(100% - 90px);overflow:auto;padding:14px;background:var(--paper);border:1px solid var(--edge);border-radius:6px;box-shadow:var(--shadow);visibility:hidden}
+.agent-peek>header{display:flex;align-items:center;gap:9px;margin-bottom:10px}
+.agent-peek header b{display:block;font-size:13px;font-weight:600;overflow-wrap:anywhere}
+.agent-peek header small{display:block;color:var(--ink-soft);font-size:11px;margin-top:3px}
+.agent-peek>p{font-size:12px;line-height:1.5;margin:8px 0 12px;overflow-wrap:anywhere}
+.agent-peek footer{display:flex;justify-content:space-between;gap:8px;margin-top:12px;padding-top:10px;border-top:1px solid var(--edge)}
+.agent-peek-message{display:block;color:var(--ink-soft);font-size:11px;margin:12px 0 7px}
+.agent-peek-message textarea{height:auto;min-height:55px;margin-top:5px;resize:vertical;padding:8px;font-size:12px}

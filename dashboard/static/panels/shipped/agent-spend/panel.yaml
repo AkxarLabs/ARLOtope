@@ -1,0 +1,9 @@
+title: Agent time and spend
+icon: "$"
+description: What your agents cost and how long they worked, by day, backend and study.
+source: collector
+collector: collect.py
+every: 3m
+scope: lab
+made_by: shipped
+tags: [agents, cost, time]

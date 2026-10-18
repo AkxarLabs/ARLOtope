@@ -1,0 +1,21 @@
+<script>
+PK.on(d => {
+  const h = PK.h;
+  const series = d.series || [];
+  PK.mount(
+    PK.hero({ value: '$' + PK.fmt(d.usd_week, 2), label: 'spent by agents this week', delta: `${d.runs_week || 0} runs · ${PK.fmt((d.minutes_week || 0) / 60)} h` }),
+    series.length > 1 ? [PK.section('Per day · 3 weeks'), PK.trace(series, { key: 'usd', height: 84 })] : null,
+    (d.backends || []).length ? [PK.section('By agent'), PK.ledger(d.backends, [
+      { key: 'backend', label: 'Agent' },
+      { key: 'minutes', label: 'Time', bar: true, max: Math.max(...d.backends.map(b => b.minutes), 1) },
+      { key: 'usd', label: 'Spend', num: true, fmt: v => v ? '$' + PK.fmt(v, 2) : 'plan / free' },
+    ])] : null,
+    (d.studies || []).length ? [PK.section('By study'), PK.ledger(d.studies, [
+      { key: 'study', label: 'Study' },
+      { key: 'runs', label: 'Runs', num: true },
+      { key: 'minutes', label: 'Agent time', num: true, fmt: v => PK.fmt(v / 60) + ' h' },
+      { key: 'usd', label: 'Spend', num: true, fmt: v => '$' + PK.fmt(v, 2) },
+    ], { onclick: r => r.study !== 'the lab' && PK.open('study', r.study) })] : null,
+    !series.length ? PK.empty('No agent runs yet', 'Costs appear here as soon as agents work.') : null);
+});
+</script>

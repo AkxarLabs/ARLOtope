@@ -1,0 +1,224 @@
+{
+  "captured": "2026-10-17",
+  "source": "Real dashboard components in an isolated example Lab.",
+  "method": "Playwright with Chrome, 1440x1000 viewport; execution disabled.",
+  "limits": "Synthetic research records. Remote folder listing is illustrative. No agent or SSH connection launched.",
+  "images": [
+    {
+      "file": "agent-presets.webp",
+      "size": [
+        1440,
+        1000
+      ],
+      "bytes": 51312,
+      "sha256": "3ccabd1f04221ea5f9b9849f15f60ed72496505f45e3fbce320bd1e853f03ffb"
+    },
+    {
+      "file": "agents-quota.webp",
+      "size": [
+        1440,
+        1000
+      ],
+      "bytes": 49008,
+      "sha256": "2aceff40e4ae6b95ba0fdfcded2eb652fe47eb6a3697821cbccef84ac84eb094"
+    },
+    {
+      "file": "agents-recovery.webp",
+      "size": [
+        1440,
+        1000
+      ],
+      "bytes": 50070,
+      "sha256": "13abf5e96286370827ccd1dcee5e6e01ebcd87d5b841433ef52fd18a97a81ed1"
+    },
+    {
+      "file": "agents-run.webp",
+      "size": [
+        1440,
+        1000
+      ],
+      "bytes": 55424,
+      "sha256": "6a72d7c07bac360210b9eee20d783d3549f13350bfb3223ddf1436da67507a5c"
+    },
+    {
+      "file": "artifact.webp",
+      "size": [
+        1440,
+        1000
+      ],
+      "bytes": 55698,
+      "sha256": "1ac0897a4a989b72dee27e9e0afa9b3fb6590fdd5417a181a87ba6b6f4b24e53"
+    },
+    {
+      "file": "assistant.webp",
+      "size": [
+        1440,
+        1000
+      ],
+      "bytes": 53068,
+      "sha256": "094a078fbc85dff44455992e07855e9adc263347de524238faed6433e96aef7c"
+    },
+    {
+      "file": "checkpoint.webp",
+      "size": [
+        1440,
+        1000
+      ],
+      "bytes": 54104,
+      "sha256": "346128d55da25a5d72629635796d3466c36d09e000e65995078cd6740ef84bfd"
+    },
+    {
+      "file": "lab-dark.webp",
+      "size": [
+        1440,
+        1000
+      ],
+      "bytes": 90080,
+      "sha256": "e27a5a9a5fe86b942265eac95986a4d52cd000d42e8019c96012d6c60a47e6b8"
+    },
+    {
+      "file": "lab-light.webp",
+      "size": [
+        1440,
+        1000
+      ],
+      "bytes": 61390,
+      "sha256": "44e4d29e265542ac1a1222c54b243037ca9c3e7fd62102dd4778f0e9563f6d3c"
+    },
+    {
+      "file": "library-documents.webp",
+      "size": [
+        1440,
+        1000
+      ],
+      "bytes": 36068,
+      "sha256": "2cfcbc0413498261f2f9f98b490e1f721360d6bbfba99cba0c7340a458ef196c"
+    },
+    {
+      "file": "library-records.webp",
+      "size": [
+        1440,
+        1000
+      ],
+      "bytes": 48062,
+      "sha256": "4b95dc026d0cb5ae23872cf8e1c7c876431f2c5660974319afbf3d4aed15dad5"
+    },
+    {
+      "file": "machine-folder.webp",
+      "size": [
+        1440,
+        1000
+      ],
+      "bytes": 30908,
+      "sha256": "7327a9d11af39f7dd55cd47daa5aacf1379c611c27fa86804e1c487992f2356a"
+    },
+    {
+      "file": "machines.webp",
+      "size": [
+        1440,
+        1000
+      ],
+      "bytes": 28364,
+      "sha256": "2db986c02240533ab38469f47dbfdb636c36eec0bfd0090f550b50659e77ae3e"
+    },
+    {
+      "file": "note.webp",
+      "size": [
+        1440,
+        1000
+      ],
+      "bytes": 30048,
+      "sha256": "f816d94f9711438c18ec05fe82061f378c6f60b9808129f80982a4fb75ceedab"
+    },
+    {
+      "file": "settings-limits.webp",
+      "size": [
+        1440,
+        1000
+      ],
+      "bytes": 66202,
+      "sha256": "350bdef557e7044bdac143c0029e56c5b8bf1d34a30145f98a69dc2b711613c9"
+    },
+    {
+      "file": "setup.webp",
+      "size": [
+        1440,
+        1000
+      ],
+      "bytes": 41050,
+      "sha256": "728c53434116d806bee22c5d52568e28548b6875219bced81da5c23559ad8c91"
+    },
+    {
+      "file": "start-created.webp",
+      "size": [
+        1440,
+        1000
+      ],
+      "bytes": 25248,
+      "sha256": "f5ad4c5b2db94de0238d99a33da69f6f85926759a418497ccc4f709f631a1ac7"
+    },
+    {
+      "file": "start-details.webp",
+      "size": [
+        1440,
+        1000
+      ],
+      "bytes": 41304,
+      "sha256": "64cbca297d6c349740e114b4552606f8920b9197ccdb44cd6dcd96c5b2fd9baa"
+    },
+    {
+      "file": "start-review.webp",
+      "size": [
+        1440,
+        1000
+      ],
+      "bytes": 40736,
+      "sha256": "b415fdab269df90d9a1e1cff149eda17853b1ffa35be2477830cb8990a56e4ef"
+    },
+    {
+      "file": "start-task.webp",
+      "size": [
+        1440,
+        1000
+      ],
+      "bytes": 60082,
+      "sha256": "9ed98df443cbf8fc6f6521b413f17a20a6d5aa3bb1f8f37ee1fb9e8875093058"
+    },
+    {
+      "file": "study-overview.webp",
+      "size": [
+        1440,
+        1000
+      ],
+      "bytes": 58522,
+      "sha256": "e129a7e9861689f1f5ac88e3cf3f2f42d42eabfef69de80fc3245f1938ded655"
+    },
+    {
+      "file": "workflow-map.webp",
+      "size": [
+        1440,
+        1000
+      ],
+      "bytes": 55032,
+      "sha256": "ecca4441391b928383b328550b41409c14195ad8f05803779361736d3f0c3b45"
+    },
+    {
+      "file": "workflow-rooms.webp",
+      "size": [
+        1440,
+        1000
+      ],
+      "bytes": 50862,
+      "sha256": "8a4392c47cb273a28c6d50db8c2f262ba34224e7e50b3e1d0cba5e0002dd5207"
+    },
+    {
+      "file": "workflow-task.webp",
+      "size": [
+        1440,
+        1000
+      ],
+      "bytes": 60616,
+      "sha256": "4b29405a77a357b8b9901440e71d5ffcf1e89a4036c09a937a6e1f1aecef87ef"
+    }
+  ]
+}

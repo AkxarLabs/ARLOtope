@@ -1,0 +1,137 @@
+"""Reconcile project → hub write-backs that were deferred while the hub was unreachable.
+
+    uv run --with pyyaml python tools/process_writebacks.py            # list pending
+    uv run --with pyyaml python tools/process_writebacks.py --apply    # apply + mark done
+
+Scans every study's project `EXPERIMENT_LOG.md` for `HUB-WRITEBACK-PENDING: <id>` blocks
+without a matching `HUB-WRITEBACK-DONE: <id>` marker, applies them to the hub notebook/knowledge,
+and appends a DONE marker (append-only — it never edits the pending line). Run at hub-session
+orientation (`/lab-status`). Idempotent: each block is applied at most once.
+
+Block format (written by a project session when it can't reach the hub):
+    HUB-WRITEBACK-PENDING: <short-id>
+    notebook: <one-line>
+    finding: <one-line, optional>
+    failure: <one-line, optional>
+    question: <one-line, optional>
+"""
+
+from __future__ import annotations
+
+import argparse
+import re
+import sys
+import time
+from pathlib import Path
+
+
+if hasattr(sys.stdout, "reconfigure"):
+    sys.stdout.reconfigure(encoding="utf-8", errors="replace")
+
+HUB = Path(__file__).resolve().parents[1]
+LAB = HUB / "lab"
+sys.path.insert(0, str(HUB / "tools"))
+import labfiles  # noqa: E402 — the lab's files, read one way (tools/labfiles.py)
+PENDING_RE = re.compile(r"^HUB-WRITEBACK-PENDING:\s*(\S+)\s*$")
+# Match only a tool-emitted marker (id + ISO timestamp), so a casual mention of an id in prose
+# can't masquerade as 'done' and suppress a genuinely-pending block of the same id.
+DONE_RE = re.compile(r"^HUB-WRITEBACK-DONE:\s*(\S+)\s+\d{4}-\d\d-\d\dT")
+KEY_RE = re.compile(r"^(notebook|finding|failure|question):\s*(.*)$")
+_KNOW = {"finding": "FINDINGS.md", "failure": "FAILURES.md", "question": "OPEN-QUESTIONS.md"}
+
+
+def _today() -> str:
+    return time.strftime("%Y-%m-%d")
+
+
+def _append(path: Path, text: str) -> None:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    with path.open("a", encoding="utf-8") as f:
+        f.write(text)
+
+
+def projects_root() -> Path:
+    return labfiles.projects_root(HUB)
+
+
+def registry_projects() -> list[tuple[str, Path]]:
+    """(study, its project dir) for every study — where the journal says, else projects_root/<study>."""
+    out = []
+    for row in labfiles.registry_rows(HUB):
+        out.append((row["id"], labfiles.registry_project_path(HUB, row["id"], row) or projects_root() / row["id"]))
+    return out
+
+
+def parse_pending(text: str) -> list[tuple[str, dict]]:
+    lines = text.splitlines()
+    done = {m.group(1) for ln in lines for m in [DONE_RE.match(ln.strip())] if m}
+    blocks, i = [], 0
+    while i < len(lines):
+        m = PENDING_RE.match(lines[i].strip())
+        if m:
+            bid, fields, j = m.group(1), {}, i + 1
+            while j < len(lines):
+                stripped = lines[j].strip()
+                km = KEY_RE.match(stripped)
+                if km:
+                    fields[km.group(1)] = km.group(2).strip()
+                elif not stripped and not fields:
+                    pass   # tolerate blank line(s) between the marker and the first field
+                else:
+                    break
+                j += 1
+            blocks.append((bid, fields))
+            i = j
+        else:
+            i += 1
+    return [(bid, f) for bid, f in blocks if bid not in done]
+
+
+def main() -> int:
+    ap = argparse.ArgumentParser()
+    ap.add_argument("--apply", action="store_true")
+    args = ap.parse_args()
+
+    total = 0
+    for slug, pdir in registry_projects():
+        log = pdir / "EXPERIMENT_LOG.md"
+        if not log.exists():
+            if not pdir.exists():
+                print(f"  ! {slug}: project path not found ({pdir}) — cannot scan for write-backs",
+                      file=sys.stderr)
+            continue
+        for bid, f in parse_pending(log.read_text(encoding="utf-8-sig")):
+            total += 1
+            print(f"- {slug}: pending {bid} — {f}")
+            if not args.apply:
+                continue
+            applied = False
+            if f.get("notebook"):
+                nb = LAB / "notebook" / f"{_today()}-{slug}.md"
+                if not nb.exists():
+                    _append(nb, f"# Notebook — {slug} — {_today()}\n")
+                _append(nb, f"\n## reconciled write-back {bid}\n\n{f['notebook']}\n")
+                applied = True
+            for key, fname in _KNOW.items():
+                if f.get(key):
+                    _append(LAB / "knowledge" / fname,
+                            f"\n- [{_today()}] ({slug}) {f[key]} (reconciled {bid})\n")
+                    applied = True
+            if applied:
+                _append(log, f"\nHUB-WRITEBACK-DONE: {bid} {time.strftime('%Y-%m-%dT%H:%M:%S')}\n")
+            else:
+                # an empty/malformed block: do NOT retire it — that would discard the deferred insight.
+                print(f"  ! {slug}: pending {bid} parsed to no fields — NOT marking done; fix the block",
+                      file=sys.stderr)
+
+    if total == 0:
+        print("no pending write-backs.")
+    elif not args.apply:
+        print(f"\n{total} pending — re-run with --apply to reconcile.")
+    else:
+        print(f"\nreconciled {total} write-back(s) into hub knowledge/notebook.")
+    return 0
+
+
+if __name__ == "__main__":
+    sys.exit(main())

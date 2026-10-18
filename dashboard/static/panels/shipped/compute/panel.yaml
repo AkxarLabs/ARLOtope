@@ -1,0 +1,9 @@
+title: Compute
+icon: "◔"
+description: GPU-hours, jobs and time for the lab and each study, from your runs, nvidia-smi and Slurm.
+source: collector
+collector: collect.py
+every: 2m
+scope: lab
+made_by: shipped
+tags: [compute, gpu, slurm, runs]

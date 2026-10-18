@@ -1,0 +1,26 @@
+# A workflow: the path a study walks, where each outcome leads, and the PI's checkpoints on the way.
+#
+#   path        the steps in order (workflow/steps.yaml); `done` moves a study to the next one, and `done` at
+#               the last step finishes it
+#   routes      where any other outcome leads, per step; an outcome with no route goes to the PI, who decides
+#   use         swap a procedure for another (a variant) in this workflow only: {lit-review: lit-review-quick}
+#   checkpoints the PI's approvals:
+#                 before: <step>             a study can't enter that step until it is approved
+#                 during: <step> + at: "…"   the agent stops at that point inside the step and asks
+#                 approver: me | me-or-campaign | auto | agent (fresh evidence review)
+#                 judge: {skill: gate-review, rubric: "…", max_attempts: 3, max_visits: 3}
+#                 decisions: {proceed: continue, revise: <step>, stop: parked}
+#                 checks: [...]   scripts the checkpoint shows (and `auto` needs passing) — checks/<name>.py
+#                 watch: [...]    checks that flag work done past it without approval
+#                 evidence: [...] what you look at ({study} = the study's slug, {project} = its project repo)
+#                 means / tell    what it covers, and what agents are told about it
+#
+# Approving a `before:` checkpoint moves the waiting study on, and its new step's work can start.
+
+title: Quick study
+blurb: From an idea straight to experiments and an analysis, with no checkpoints at all.
+
+path: [seed, proposal, setup, active, analysis, final]
+
+routes:
+  analysis: {more-experiments: active}

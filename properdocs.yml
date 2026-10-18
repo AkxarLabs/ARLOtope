@@ -1,0 +1,77 @@
+site_name: Newts' Lab
+site_description: A visual research workspace for scientists using coding agents.
+site_url: https://akxarlabs.github.io/newts-lab/
+docs_dir: docs
+exclude_docs: |
+  /plans/
+theme:
+  name: material
+  palette:
+    - scheme: autoscientist
+      toggle:
+        icon: material/weather-night
+        name: Use dark mode
+    - scheme: autoscientist-night
+      toggle:
+        icon: material/weather-sunny
+        name: Use light mode
+  font: false
+  features:
+    - navigation.sections
+    - navigation.top
+    - navigation.footer
+    - content.code.copy
+  icon:
+    logo: material/flask-outline
+
+extra_css:
+  - stylesheets/extra.css
+
+markdown_extensions:
+  - admonition
+  - attr_list
+  - md_in_html
+  - tables
+  - toc:
+      permalink: "§"
+  - pymdownx.highlight
+  - pymdownx.superfences
+
+nav:
+  - Home: index.md
+  - Start here:
+      - First study: getting-started.md
+      - Research-first tour: research-first.md
+      - Dashboard: dashboard.md
+      - Start and follow work: running-work.md
+      - Results & visual summaries: artifacts.md
+      - Notes, answers & sources: knowledge.md
+      - Recover interrupted work: recovering-work.md
+  - Do research:
+      - Research workflows: workflow.md
+      - Procedures & skills: skills.md
+      - Discuss a question: discuss.md
+      - Existing & new projects: projects.md
+      - Methodology types: project-types.md
+      - Target-driven studies: compete.md
+      - Approvals & evidence: monitoring.md
+      - Background work: autonomy.md
+  - Shape your process:
+      - Tasks, agents & rooms: agent-workflows.md
+      - Tags: tags.md
+      - Customization: customising.md
+      - Room previews: room-design.md
+      - Extensions: extending.md
+  - Agents & machines:
+      - ACP agents: acp.md
+      - Remote projects: remote-projects.md
+      - Machines & compute: compute.md
+      - Platform support: platforms-and-agents.md
+  - Reference:
+      - License: licensing.md
+      - Configuration: configuration.md
+      - Tools: tools.md
+      - Dashboard internals: internals.md
+      - Interface language: ui-copy.md
+      - Design rationale: DESIGN.md
+      - Research workflow limits: research-limits.md

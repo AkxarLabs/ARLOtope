@@ -1,0 +1,41 @@
+<!doctype html>
+<html lang="en" data-lamp="day"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<script>document.documentElement.dataset.lamp=new URLSearchParams(location.search).get('lamp')==='night'?'night':'day';</script>
+<title>Lab view</title><link rel="stylesheet" href="ui/ui.css"><link rel="stylesheet" href="ui/research.css">
+<style>
+body{overflow:hidden}
+#scene{position:fixed;inset:0;width:100%;height:100%;visibility:hidden}
+html[data-ready=true] #scene{visibility:visible}
+.world-labels{position:fixed;inset:0;pointer-events:none}
+.world-tip{position:fixed;pointer-events:none}
+.wl-machine{max-width:38vw}.wl-machine b{overflow:hidden;text-overflow:ellipsis;font-size:clamp(12px,1.5vw,18px)}
+.view-controls{position:fixed;bottom:24px;left:50%;transform:translateX(-50%);z-index:3;display:flex;align-items:center;gap:6px;max-width:calc(100% - 320px);padding:6px;background:var(--paper);color:var(--ink);border:1px solid var(--edge);border-radius:8px;box-shadow:0 4px 20px #0002;font:12px var(--sans)}
+.view-controls button{display:flex;align-items:center;justify-content:center;gap:7px;min-height:36px;padding:8px 10px;border:0;border-radius:4px;background:transparent;color:var(--ink-soft);font:inherit;white-space:nowrap;cursor:pointer}
+.view-controls button:hover,.view-controls button[aria-pressed=true]{background:var(--paper-2);color:var(--ink)}
+.view-controls :focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+.view-controls svg{width:16px;height:16px;flex:none;fill:none;stroke:currentColor;stroke-width:1.5;stroke-linecap:round;stroke-linejoin:round}
+.view-agent{display:flex;align-items:center;gap:8px;min-width:0;border-inline:1px solid var(--edge);padding-inline:12px}
+.view-agent>svg{color:var(--ink-faint)}
+.view-agent-fields{min-width:0;width:200px}
+.view-follow{display:block;width:100%;border:0;background:transparent;color:var(--ink);font:500 12px var(--sans);height:32px;cursor:pointer;text-overflow:ellipsis}
+.view-follow:disabled{color:var(--ink-faint);cursor:default}
+.view-follow option{background:var(--paper);color:var(--ink)}
+.view-activity{display:block;max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:var(--ink-soft);font-size:11px;line-height:1.4;padding-bottom:5px}
+.view-activity:empty{display:none}
+.view-controls .view-stop{width:30px;min-height:30px;padding:0;color:var(--ink-soft)}
+.view-controls [hidden]{display:none}
+.preview-error{position:fixed;z-index:5;top:80px;left:24px;right:24px}
+@media(max-width:700px){.view-controls{bottom:78px;width:calc(100% - 32px);max-width:480px;gap:3px}.view-agent{flex:1;padding-inline:8px}.view-agent-fields{width:auto;flex:1}.view-controls button{padding-inline:8px}.view-labels span{display:none}.view-back span{font-size:11px}.view-activity{max-width:42vw}}
+</style>
+</head><body data-page="home"><canvas id="scene" aria-label="Studies and agents in the lab"></canvas>
+<nav class="view-controls" aria-label="Lab camera">
+  <button type="button" class="view-back" title="Show all rooms"><svg viewBox="0 0 20 20" aria-hidden="true"><rect x="3" y="3" width="5" height="5" rx="1"/><rect x="12" y="3" width="5" height="5" rx="1"/><rect x="3" y="12" width="5" height="5" rx="1"/><rect x="12" y="12" width="5" height="5" rx="1"/></svg><span>All rooms</span></button>
+  <div class="view-agent"><svg viewBox="0 0 20 20" aria-hidden="true"><circle cx="10" cy="10" r="5"/><path d="M10 2v3m0 10v3M2 10h3m10 0h3"/></svg><div class="view-agent-fields"><select class="view-follow" aria-label="Follow an agent" disabled><option value="">No agents running</option></select><span class="view-activity"></span></div><button type="button" class="view-stop" aria-label="Stop following" title="Stop following" hidden><svg viewBox="0 0 20 20" aria-hidden="true"><path d="m6 6 8 8m0-8-8 8"/></svg></button></div>
+  <button type="button" class="view-labels" aria-label="Room names" aria-pressed="false" title="Show room names"><svg viewBox="0 0 20 20" aria-hidden="true"><path d="M3 4h9l5 6-5 6H3z"/><circle cx="6.5" cy="10" r="1"/></svg><span>Names</span></button>
+</nav>
+<script type="module">import * as THREE from './vendor/three/three.module.min.js';window.THREE=THREE;dispatchEvent(new Event('three:ready'));</script>
+<script src="world3d/kit.js"></script><script src="world3d/newt.js"></script><script src="world3d/characters.js"></script>
+<script src="world3d/components.js"></script><script src="world3d/layout.js"></script><script src="world3d/model.js"></script>
+<!-- newts:rooms3d -->
+<!-- /newts:rooms3d -->
+<script src="world3d/world.js"></script><script src="ui/lab-view.js"></script></body></html>

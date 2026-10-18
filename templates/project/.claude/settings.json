@@ -1,0 +1,35 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(uv run *)",
+      "Bash(uv sync*)",
+      "Bash(uv pip *)",
+      "Bash(uv lock*)",
+      "Read",
+      "Edit",
+      "Write",
+      "Glob",
+      "Grep"
+    ]
+  },
+  "hooks": {
+    "SessionStart": [
+      { "hooks": [ { "type": "command", "command": "python \"${CLAUDE_PROJECT_DIR}/scripts/trace_hook.py\" --from-repo || python3 \"${CLAUDE_PROJECT_DIR}/scripts/trace_hook.py\" --from-repo", "timeout": 10 } ] }
+    ],
+    "SubagentStart": [
+      { "hooks": [ { "type": "command", "command": "python \"${CLAUDE_PROJECT_DIR}/scripts/trace_hook.py\" --from-repo || python3 \"${CLAUDE_PROJECT_DIR}/scripts/trace_hook.py\" --from-repo", "timeout": 10 } ] }
+    ],
+    "PreToolUse": [
+      { "matcher": "*", "hooks": [ { "type": "command", "command": "python \"${CLAUDE_PROJECT_DIR}/scripts/trace_hook.py\" --from-repo || python3 \"${CLAUDE_PROJECT_DIR}/scripts/trace_hook.py\" --from-repo", "timeout": 10 } ] }
+    ],
+    "PostToolUse": [
+      { "matcher": "*", "hooks": [ { "type": "command", "command": "python \"${CLAUDE_PROJECT_DIR}/scripts/trace_hook.py\" --from-repo || python3 \"${CLAUDE_PROJECT_DIR}/scripts/trace_hook.py\" --from-repo", "timeout": 10 } ] }
+    ],
+    "SubagentStop": [
+      { "hooks": [ { "type": "command", "command": "python \"${CLAUDE_PROJECT_DIR}/scripts/trace_hook.py\" --from-repo || python3 \"${CLAUDE_PROJECT_DIR}/scripts/trace_hook.py\" --from-repo", "timeout": 10 } ] }
+    ],
+    "SessionEnd": [
+      { "hooks": [ { "type": "command", "command": "python \"${CLAUDE_PROJECT_DIR}/scripts/trace_hook.py\" --from-repo || python3 \"${CLAUDE_PROJECT_DIR}/scripts/trace_hook.py\" --from-repo", "timeout": 10 } ] }
+    ]
+  }
+}

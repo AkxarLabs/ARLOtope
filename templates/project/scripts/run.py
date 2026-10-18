@@ -1,0 +1,214 @@
+"""Single entry point for every experiment run.
+
+    uv run python scripts/run.py --config configs/experiments/exp-001-smoke.yaml [--seed N] [-o key=value ...]
+
+Loads config, seeds, creates the run artifact dir, executes, records — success or failure.
+
+If this machine runs training through a job scheduler (compute.scheduler in the hub's lab/config.yaml —
+see scripts/_scheduler.py), a PILOT/FULL run is SUBMITTED and this command WAITS for it: same artifacts,
+same exit codes, same synchronous run for agents and sweep.py. Never call sbatch yourself.
+"""
+
+from __future__ import annotations
+
+import argparse
+import os
+import subprocess
+import sys
+import traceback
+from pathlib import Path
+
+if hasattr(sys.stdout, "reconfigure"):
+    sys.stdout.reconfigure(encoding="utf-8", errors="replace")
+
+sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "src"))
+sys.path.insert(0, str(Path(__file__).resolve().parent))  # scripts/ — for the sibling _scheduler
+
+import _scheduler as scheduler  # noqa: E402 — local vs the machine's job scheduler (slurm | custom)
+
+
+def _control() -> dict:
+    """This project's control.yaml (hub_path, project slug, budgets). Best-effort; {} if unreadable."""
+    ctl = Path(__file__).resolve().parents[1] / "control.yaml"
+    if ctl.exists():
+        try:
+            import yaml
+            return yaml.safe_load(ctl.read_text(encoding="utf-8-sig")) or {}
+        except Exception:  # noqa: BLE001 — a broken control.yaml shouldn't crash the runner
+            return {}
+    return {}
+
+
+def _resolve_pkg() -> str:
+    """The project's importable package under src/ that this runner drives (config /
+    experiment / seeding / tracking). Spawned projects use `project_pkg`; an ADOPTED
+    external repo keeps its own package name by setting `package:` in control.yaml (or
+    $PROJECT_PKG) — no renaming required. Autodetected when there's exactly one package."""
+    src = Path(__file__).resolve().parents[1] / "src"
+    override = os.environ.get("PROJECT_PKG")
+    if override:
+        return override
+    ctl = Path(__file__).resolve().parents[1] / "control.yaml"
+    if ctl.exists():
+        try:
+            import yaml
+            name = (yaml.safe_load(ctl.read_text(encoding="utf-8-sig")) or {}).get("package")
+            if name:
+                return str(name)
+        except Exception:  # noqa: BLE001 — config read is best-effort; fall through to autodetect
+            pass
+    if (src / "project_pkg" / "__init__.py").exists():
+        return "project_pkg"
+    pkgs = [p.name for p in src.iterdir() if (p / "__init__.py").exists()] if src.exists() else []
+    if len(pkgs) == 1:
+        return pkgs[0]
+    raise SystemExit("[run] cannot resolve the project package under src/ — set `package:` in "
+                     "control.yaml (or $PROJECT_PKG) to your package name")
+
+
+import importlib  # noqa: E402 — after sys.path is set up
+
+_PKG = _resolve_pkg()
+load_config = importlib.import_module(f"{_PKG}.config").load_config
+set_seed = importlib.import_module(f"{_PKG}.seeding").set_seed
+_tracking = importlib.import_module(f"{_PKG}.tracking")
+RunContext = _tracking.RunContext
+# NOTE: <pkg>.experiment is imported LAZILY (only for runner: python-import) so a non-Python
+# project TYPE (runner: shell-command) needs no experiment.py at all.
+
+
+# ── the runner/artifact seam (domain-general) ────────────────────────────────────────────────
+# A run is executed one of two ways, declared by `runner:` in control.yaml / the experiment yaml.
+# EITHER WAY the same artifact contract holds — a flat dict of final metrics reaches
+# RunContext.finish (→ runs/<id>/metrics.json + the registry line):
+#   python-import (default): import <pkg>.experiment.run(cfg, ctx)               — the ML/Python path.
+#   shell-command:           run `runner_command` (ANY language: Rscript/Stata/Julia/…). It reads
+#                            $CONFIG_PATH / $SEED / $RUN_DIR and writes the metrics dict to
+#                            $RUN_DIR/result.json. This lets non-Python project TYPES reuse the whole
+#                            engine (config layering, seeding, artifacts, registry) unchanged.
+_RUNNERS = {"python-import", "python", "import", "shell-command", "shell", "command"}
+_NEW_GROUP = {"creationflags": subprocess.CREATE_NEW_PROCESS_GROUP} if os.name == "nt" \
+    else {"start_new_session": True}
+_CHILD: dict = {"proc": None}   # the shell-command child, so a failure can kill its tree
+
+
+def _kill_tree(proc) -> None:
+    """Kill the runner subprocess AND its children (a bare kill leaves grandchildren — an R/Julia
+    worker, a torchrun — running and the machine busy)."""
+    import signal
+    try:
+        if os.name == "nt":
+            subprocess.run(["taskkill", "/T", "/F", "/PID", str(proc.pid)], capture_output=True, check=False)
+        else:
+            os.killpg(os.getpgid(proc.pid), signal.SIGKILL)
+    except (ProcessLookupError, OSError):
+        proc.kill()
+
+
+def _run_command(cfg: dict, ctx) -> dict:
+    """runner: shell-command — execute an external tool (any language) that writes a flat JSON dict
+    of final metrics to $RUN_DIR/result.json. Returns that dict for RunContext.finish to record."""
+    import json
+    import shlex
+    spec = cfg.get("runner_command") or (cfg.get("experiment") or {}).get("command")
+    if not spec:
+        raise SystemExit("[run] runner: shell-command needs `runner_command` (a string or list) in the config")
+    # posix=False on Windows so a backslash path (C:\tools\Rscript.exe) isn't mangled into one token;
+    # prefer the LIST form of runner_command on Windows when the path contains spaces.
+    cmd = spec if isinstance(spec, list) else shlex.split(spec, posix=(os.name != "nt"))
+    repo = Path(__file__).resolve().parents[1]
+    env = dict(os.environ, RUN_DIR=str(ctx.run_dir), RUN_ID=str(ctx.run_id),
+               CONFIG_PATH=str(cfg.get("_config_path", "")), SEED=str(cfg.get("seed", 0)),
+               REPO_ROOT=str(repo))
+    print(f"[run] runner=shell-command: {cmd}", flush=True)
+    proc = subprocess.Popen(cmd, cwd=str(repo), env=env, **_NEW_GROUP)
+    _CHILD["proc"] = proc
+    rc = proc.wait()
+    if rc != 0:
+        raise RuntimeError(f"runner command exited {rc}: {cmd}")
+    out = ctx.run_dir / "result.json"
+    if not out.exists():
+        raise RuntimeError(f"runner wrote no {out.name} in the run dir — the metrics contract is: "
+                           "write a flat JSON dict of final metrics to $RUN_DIR/result.json")
+    try:
+        data = json.loads(out.read_text(encoding="utf-8-sig"))
+    except json.JSONDecodeError as e:
+        raise RuntimeError(f"{out.name} is not valid JSON ({e}) — write a flat JSON dict of metrics")
+    if not isinstance(data, dict):
+        # a list/scalar/null would corrupt the registry + crash every metrics.get(...) consumer
+        raise RuntimeError(f"{out.name}: the metrics contract is a flat JSON DICT, got "
+                           f"{type(data).__name__} — wrap your metrics in an object")
+    return data
+
+
+def main() -> int:
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--config", required=True, help="experiment yaml under configs/experiments/")
+    parser.add_argument("--seed", type=int, default=None, help="override config seed")
+    parser.add_argument("-o", "--override", action="append", default=[], help="dotted override, e.g. toy.n_samples=200")
+    parser.add_argument("--in-job", action="store_true", help=argparse.SUPPRESS)   # set by job.sh on a compute node
+    parser.add_argument("--run-dir", default=None, help=argparse.SUPPRESS)
+    args = parser.parse_args()
+
+    overrides = list(args.override)
+    if args.seed is not None:
+        overrides.append(f"seed={args.seed}")
+
+    cfg = load_config(args.config, overrides)
+    runner = str(cfg.get("runner") or "python-import").strip().lower()
+    if runner not in _RUNNERS:
+        raise SystemExit(f"[run] unknown runner {runner!r} — use python-import | shell-command")
+
+    # Where it runs: here, or (PILOT/FULL on a machine with a job scheduler) submitted and waited for.
+    # Approvals are not checked here: the agent stops at the study's checkpoints (its brief says which),
+    # and the dashboard flags work done past one. Time and GPU use are tracked by the Compute panel.
+    control = _control()
+    in_job_dir = None
+    if args.in_job:
+        # a scheduler job running a run its submitter queued (scripts/_scheduler.py)
+        in_job_dir = Path(args.run_dir or "")
+        try:
+            import json
+            qmeta = json.loads((in_job_dir / "meta.json").read_text(encoding="utf-8"))
+        except (OSError, ValueError):
+            qmeta = {}
+        sch = qmeta.get("scheduler") or {}
+        if qmeta.get("status") != "queued" or not sch.get("job") or \
+                (sch.get("kind") == "slurm" and not os.environ.get("SLURM_JOB_ID")):
+            raise SystemExit("[run] --in-job is only for a queued scheduler job (see scripts/_scheduler.py)")
+    else:
+        sc = scheduler.config(control)
+        if scheduler.wants(sc, scheduler.stage_of(cfg)):
+            passthrough = ["--config", args.config, *(["--seed", str(args.seed)] if args.seed is not None else []),
+                           *[x for o in args.override for x in ("-o", o)]]
+            return scheduler.submit_and_wait(cfg, passthrough, sc, control,
+                                             _tracking.allocate_run_dir, _tracking._bus_emit)
+
+    set_seed(int(cfg.get("seed", 0)))
+    ctx = RunContext(cfg, run_dir=in_job_dir)
+    print(f"[run] {ctx.run_id} -> {ctx.run_dir}", flush=True)
+
+    try:
+        try:
+            if runner in ("shell-command", "shell", "command"):
+                final_metrics = _run_command(cfg, ctx)
+            else:
+                run_experiment = importlib.import_module(f"{_PKG}.experiment").run
+                final_metrics = run_experiment(cfg, ctx)
+        except Exception:
+            child = _CHILD["proc"]   # shell-command: reap a still-live tool tree on the failure path too
+            if child is not None and child.poll() is None:
+                _kill_tree(child)
+            ctx.fail(traceback.format_exc())
+            print(f"[run] FAILED — see {ctx.run_dir / 'error.txt'}")
+            return 1
+
+        ctx.finish(final_metrics)
+        print(f"[run] completed: {final_metrics}")
+        return 0
+    finally:
+        _CHILD["proc"] = None
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())

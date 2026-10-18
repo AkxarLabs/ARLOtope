@@ -1,0 +1,23 @@
+# The places a study can be — shared by every workflow (workflow/workflows/*.yaml walks some of them, in its
+# own order). Each step names the procedure that does its work (`do:` — a skill in .claude/skills/, or any
+# variant of one) and the others a study there can run (`also:`). `room:` is where it stands in the
+# dashboard's world (workflow/rooms.yaml).
+#
+# A procedure never names a step: it ends by reporting an outcome (`newts move <study> <outcome>`) and the
+# study's workflow says where that leads. `parked` and `killed` are the two shelves every lab has — `park`
+# and `kill` lead there from anywhere. The PI shapes this file (agents never edit it); `newts check`
+# validates it.
+
+seed:            {label: Idea, do: triage, room: incubator, also: [discuss]}
+lit-review:      {label: Literature review, do: lit-review, room: study, also: [discuss], tags: [literature], agent: {role: analyst}}
+scoping:         {label: Scoping, do: scope, room: study, also: [discuss]}
+proposal:        {label: Proposal, do: propose, room: study}
+setup:           {label: Project set-up, do: spawn-project, room: lab}
+active:          {label: Experiments, do: experiment, room: lab, also: [improve, research-loop, analyze], tags: [experiments]}
+analysis:        {label: Analysis, do: analyze, room: bench, also: [experiment, make-figures], agent: {role: analyst}}
+writing:         {label: Writing, do: write-paper, room: writing, also: [make-figures, critique-paper], agent: {role: writer}}
+internal-review: {label: Internal review, do: review-paper, room: writing, also: [critique-paper, write-paper], tags: [review], agent: {role: reviewer}}
+final:           {label: Final, do: finalize, room: archive}
+
+parked:          {label: Parked, room: margins}
+killed:          {label: Killed, room: margins}

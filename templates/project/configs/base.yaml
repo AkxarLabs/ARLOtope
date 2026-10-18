@@ -1,0 +1,24 @@
+# Shared DOMAIN defaults (layer between ../control.yaml and configs/experiments/*).
+# Run-config resolution: experiment yaml > this file > ../control.yaml. (The hub
+# lab/config.yaml shapes SKILL behavior only — the run-config loader never reads it.)
+# The `eval` block is FROZEN once the proposal is approved (see PLAN.md).
+# Run-control values (budgets, seeds policy, parallelism) belong in ../control.yaml —
+# budget.max_minutes is normally mapped per-stage from control.yaml's budgets block
+# (recorded with the run, and the job's time limit under a scheduler such as Slurm).
+
+experiment_name: base
+stage: SMOKE            # SMOKE | PILOT | FULL — FULL waits for the study's full-runs checkpoint, if any
+seed: 0
+
+eval:
+  primary_metric: toy_abs_error   # replace with the project's frozen metric
+  # validation/test definitions live here once the domain is set; the experiment loop
+  # may read validation, never test.
+
+# Domain config goes below (model, data, training...). Every value an experiment varies
+# must be a config key — no hardcoded variants in code.
+toy:
+  n_samples: 100
+  true_mean: 3.14
+  noise_std: 1.0
+  sleep_seconds: 0      # artificial slowdown; exists so long-run handling is testable

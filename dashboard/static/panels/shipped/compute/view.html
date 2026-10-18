@@ -1,0 +1,45 @@
+<div id="root"></div>
+<script>
+PK.on((d, ctx) => {
+  const h = PK.h;
+  const study = ctx.study;
+  const rows = (d.studies || []).filter(s => !study || s.study === study);
+  const used = study ? (rows[0] || {}).gpu_hours || 0 : d.gpu_hours || 0;
+  const budget = study ? (rows[0] || {}).budget : d.gpu_hours_budget;
+  const running = (d.running || []).filter(r => !study || r.study === study);
+  const alerts = (d.alerts || []).filter(a => !study || !a.study || a.study === study);
+  const over = budget && used > budget;
+  PK.summary(`${PK.fmt(used)}${budget ? ' of ' + PK.fmt(budget) : ''} GPU-hours · ${running.length} running`);
+  PK.mount(
+    h('div', { class: 'pk-row', style: { alignItems: 'center', gap: '18px' } },
+      PK.ring(used, budget, { label: budget ? 'OF ' + PK.fmt(budget) : 'GPU-H', center: PK.fmt(used), size: 96 }),
+      h('div', { style: { flex: 1, minWidth: '150px' } },
+        PK.hero({ value: used, unit: 'GPU-h', label: study ? 'used by this study' : 'used across the lab, all time',
+          delta: budget ? (over ? 'over budget' : Math.round(100 * used / budget) + '% of budget') : 'no budget set', tone: over ? 'bad' : budget && used > .8 * budget ? 'warm' : '' }))),
+    h('div', { class: 'pk-grid', style: { marginTop: '14px' } },
+      PK.stat({ k: 'Running', n: PK.fmt(running.length, 0), s: d.slurm ? 'Slurm + local' : 'on this machine' }),
+      PK.stat({ k: 'Queued', n: PK.fmt(study ? (rows[0] || {}).queued || 0 : d.jobs_queued || 0, 0), s: d.slurm ? 'in Slurm' : 'waiting' }),
+      PK.stat({ k: 'Longest', n: running.length ? PK.fmt(Math.max(...running.map(r => r.hours))) + ' h' : '—',
+        s: running.some(r => r.over) ? 'past expected' : 'running now', tone: running.some(r => r.over) ? 'warm' : '' }),
+      d.gpus && d.gpus.length ? PK.stat({ k: 'GPUs', n: `${d.gpus.length}`, s: Math.round(d.gpus.reduce((a, g) => a + (g.util || 0), 0) / d.gpus.length) + '% busy' }) : null),
+    alerts.length ? PK.alerts(alerts) : null,
+    (d.series || []).length > 1 ? [PK.section('GPU-hours per day · 3 weeks'), PK.trace(d.series, { key: 'gpu_hours', height: 84, tone: over ? 'bad' : '' })] : null,
+    !study && rows.length ? [PK.section('By study'), PK.ledger(rows, [
+      { key: 'study', label: 'Study' },
+      { key: 'gpu_hours', label: 'Used', bar: true, max: r => r.budget || Math.max(...rows.map(x => x.gpu_hours), 1) },
+      { key: 'gpu_hours', label: 'GPU-h', num: true, fmt: (v, r) => PK.fmt(v) + (r.budget ? ' / ' + PK.fmt(r.budget) : '') },
+      { key: 'running', label: 'Now', num: true, fmt: (v, r) => v ? PK.pill(v + ' running', 'teal') : r.queued ? PK.pill(r.queued + ' queued', 'warm') : '·' },
+    ], { onclick: r => PK.open('study', r.study) })] : null,
+    running.length ? [PK.section('Running now'), PK.ledger(running, [
+      { key: 'run_id', label: 'Run', fmt: v => h('span', { class: 'pk-mono' }, v) },
+      { key: 'stage', label: 'Stage', fmt: v => PK.pill(String(v || '').toLowerCase()) },
+      { key: 'hours', label: 'Time', num: true, fmt: (v, r) => PK.fmt(v) + ' h' + (r.expected_h ? ' / ' + PK.fmt(r.expected_h) : '') },
+    ], { onclick: r => PK.open('study', r.study) })] : null,
+    !rows.length && !running.length ? PK.empty('Nothing has run yet', 'GPU-hours appear here once training runs start.') : null,
+    (d.gpus || []).length ? [PK.section('GPUs on this machine'), PK.ledger(d.gpus, [
+      { key: 'name', label: 'GPU', fmt: (v, g) => `${g.index} · ${v}` },
+      { key: 'util', label: 'Busy', bar: true, max: 100 },
+      { key: 'mem_used', label: 'Memory', num: true, fmt: (v, g) => PK.fmt((v || 0) / 1024) + ' / ' + PK.fmt((g.mem_total || 0) / 1024) + ' GB' },
+    ])] : null);
+});
+</script>
