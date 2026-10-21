@@ -86,6 +86,8 @@ handoff. See [recovery](docs/recovering-work.md) for limits, retries and what is
 
 ## Documentation
 
+[Public beta candidate notes](RELEASE_NOTES.md) describe the included features and known limits.
+
 [Getting started](docs/getting-started.md) · [Research-first tour](docs/research-first.md) ·
 [Customizing research](docs/customising.md) · [Workflow format](docs/workflow.md) ·
 [Configuration](docs/configuration.md) · [Compute](docs/compute.md) ·

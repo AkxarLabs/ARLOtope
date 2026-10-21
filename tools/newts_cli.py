@@ -65,6 +65,9 @@ ROUTE_VERBS = {
     "/api/room-draft": "dashboard-only", "/api/workflow/run": "dashboard-only",
     # The starter has its own small CLI, tools/research_start.py, rather than a new kernel verb.
     "/api/starter": "dashboard-only", "/api/starter/repository": "dashboard-only", "/api/starter/draft": "dashboard-only",
+    "/api/starter/plan": "dashboard-only", "/api/study/entry/cancel": "dashboard-only",
+    # Generated history also has tools/study_history.py --save; it is not a kernel verb.
+    "/api/study/history/save": "dashboard-only",
     "/api/study/tags": "tags",
     "/api/run": "start / ask", "/api/run/answer": "answer", "/api/run/reply": "reply", "/api/run/interrupt": "stop",
     "/api/run/explain": "dashboard-only", "/api/run/handoff": "dashboard-only",

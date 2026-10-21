@@ -23,6 +23,30 @@ their declared inputs. An agent turn ending without its task outcome stays unfin
 The study's **History** tab keeps task passes and agent attempts together. Saving its generated
 history snapshot is optional; the underlying workflow and run records are already retained.
 
+## Agent compatibility
+
+All adapters use the same studies, task outcomes, queue and research checkpoints. Conversation
+features depend on the installed harness and its active transport:
+
+| Agent | Live interaction | Continue or fork |
+|---|---|---|
+| Claude Code | Streamed questions and permissions | Resume a saved session; native fork through the CLI |
+| Codex | App-server questions and approval requests | Resume a saved thread; native fork through the app server |
+| opencode | Server questions and permission requests | Resume a saved session; native fork through the live server |
+| ACP | Requests the server exports, including supported forms | Loading and native fork require the server's advertised capabilities |
+
+Live interaction must be enabled and the installed harness must support that transport. The native
+adapters can also use one-shot execution; it does not provide the same live conversation features.
+ACP has no one-shot fallback. Continue requires a compatible saved session on the same backend,
+machine and project. A new conversation with an evidence handoff remains a separate option;
+it does not restore the full hidden conversation. See [task conversations](agent-workflows.md)
+and [ACP configuration and verification limits](acp.md).
+
+Protocol fixtures check request handling, continuation and failure paths without provider credits.
+Recorded live checks cover Codex publication/interaction, an Antigravity ACP text turn and session
+loading, and opencode ACP session setup. They do not certify every provider's tools, forms, model
+access or native forks. Check your installed agent before assigning a long run.
+
 ## Work on several studies
 
 Repeat **New study** for each question or repository, then start a task in each. Existing tasks

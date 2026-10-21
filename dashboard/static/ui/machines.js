@@ -94,6 +94,9 @@
 
   function RemoteLab({ m, lab, reload, fl }) {
     const [busy, setBusy] = useState(false);
+    const [pollError, setPollError] = useState('');
+    const [pollAttempt, setPollAttempt] = useState(0);
+    const waitingRead = useRef(0);
     const st = STATE[lab.state] || STATE.idle;
     const open = async (interactive) => {
       setBusy(true);
@@ -112,26 +115,37 @@
     // an interactive connect: poll until it's up, then switch to it
     useEffect(() => {
       if (lab.state !== 'waiting') return undefined;
-      const t = setInterval(async () => {
+      setPollError('');
+      let active = true, timer;
+      const token = ++waitingRead.current;
+      const current = () => active && token === waitingRead.current;
+      const poll = async () => {
         const x = await NL.get('/api/machines');
+        if (!current()) return;
+        if (x.error) { setPollError(x.error + ' Connection checks retry automatically.'); timer = setTimeout(poll, 2500); return; }
+        setPollError('');
         const l2 = ((x.machines || []).find(y => y.id === m.id) || { labs: [] }).labs.find(y => y.path === lab.path);
         if (l2 && l2.state === 'connected') {
-          clearInterval(t);
           const u = await NL.api('/api/machines/use', { id: m.id, path: lab.path });
+          if (!current()) return;
           if (u.ok) { NL.go(''); location.reload(); }
-        } else if (l2 && l2.state !== 'waiting') { clearInterval(t); reload(); }
-      }, 2500);
-      return () => clearInterval(t);
-    }, [lab.state]);
+          else { setPollError(u.error || 'Could not open this lab.'); reload(); }
+        } else if (l2 && l2.state !== 'waiting') reload();
+        else timer = setTimeout(poll, 2500);
+      };
+      timer = setTimeout(poll, 2500);
+      return () => { active = false; clearTimeout(timer); };
+    }, [lab.state, lab.path, m.id, pollAttempt]);
     return html`<div class="labrow">
       <div class="grow"><b>${lab.lab_name || lab.name || lab.path.split('/').filter(Boolean).pop()}</b> <${NL.Pill} tone=${st[0]}>${st[1]}</${NL.Pill}>
         ${lab.exists === false ? html` <${NL.Pill} tone="warn">no lab there yet</${NL.Pill}>` : null}
         <div class="mono small muted">${lab.path}</div>${lab.error ? html`<div class="small warn">${lab.error}</div>` : null}
+        ${pollError ? html`<div class="small warn" role="alert">${pollError} <button class="link small" onClick=${()=>setPollAttempt(n=>n+1)}>Retry</button></div>` : null}
         <${LabStatus} l=${fleetLab(fl, 'remote', lab.path, m.id)} />
         <div class="small muted keep-why">${lab.keep_connected ? 'Kept connected: activity and requests refresh on this page every 15 s.'
           : 'Keep connected to refresh this lab’s activity here while another lab is open.'}</div></div>
       <div class="row">${lab.state === 'waiting' ? html`<${NL.Spinner} /><span class="small muted">sign in in the terminal window…</span>` : html`<${NL.Btn} small kind="primary" busy=${busy} onClick=${() => open(false)}>Switch to this lab</${NL.Btn}>`}
-        ${['connected', 'reconnecting', 'waiting', 'error'].includes(lab.state) ? html`<button class="link small" onClick=${async () => { const r = await NL.api('/api/machines/disconnect', { id: m.id, path: lab.path }); if (r.was_current) { NL.go('labs'); location.reload(); } else reload(); }}>Disconnect</button>` : null}
+        ${['connected', 'reconnecting', 'waiting', 'error'].includes(lab.state) ? html`<button class="link small" disabled=${busy} onClick=${async () => { setBusy(true); ++waitingRead.current; const r = await NL.api('/api/machines/disconnect', { id: m.id, path: lab.path }); setBusy(false); if (!r.ok) { setPollError(r.error || 'Could not disconnect.'); return; } if (r.was_current) { NL.go('labs'); location.reload(); } else reload(); }}>Disconnect</button>` : null}
         <label class="small keep keep-vis" title="Keep this lab’s activity and requests updated on this page"><input type="checkbox" checked=${!!lab.keep_connected}
           onChange=${async e => { await NL.act('/api/fleet/keep', { id: m.id, path: lab.path, keep: e.target.checked }); reload(); NL.refreshFleet(); }} /> keep connected</label></div></div>`;
   }

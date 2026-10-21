@@ -95,9 +95,11 @@ def test_hub_run_completes_and_records_everything(hub, monkeypatch):
     trans = [(r["from"], r["to"]) for r in executor.ledger(lab) if r["run_id"] == m["run_id"]]
     assert trans[:3] == [(None, "queued"), ("queued", "starting"), ("starting", "running")]
     assert trans[-1][1] == "completed"
-    # the CLI was invoked as designed: slash command on stdin, session pre-assigned, no gate env any more
+    # This thin Lab has no installed native skill. Use the runtime file explicitly,
+    # with the session pre-assigned and no retired gate environment.
     c = calls(lab, m)[0]
-    assert c["stdin"] == "/lab-status" and m["transport"] == "live"
+    assert (REPO / '.claude/skills/lab-status/SKILL.md').as_posix() in c["stdin"]
+    assert 'procedure `/lab-status`' in c["stdin"] and m["transport"] == "live"
     assert "--session-id" in c["argv"] and c["argv"][c["argv"].index("--session-id") + 1] == m["session_id"]
     assert c["argv"][c["argv"].index("--permission-mode") + 1] == "auto"
     assert "--append-system-prompt-file" in c["argv"] and "--settings" in c["argv"]
@@ -286,7 +288,8 @@ def test_live_start_failure_falls_back_to_one_shot(hub, monkeypatch):
     assert m["attempt"] == 1 and len(m["attempts"]) == 1
     c = calls(lab, m)   # (the failing live start exits before the fake logs its call)
     assert len(c) == 1 and "--input-format" not in c[0]["argv"]
-    assert c[0]["stdin"] == "/lab-status"                              # one-shot: the prompt on stdin
+    assert (REPO / '.claude/skills/lab-status/SKILL.md').as_posix() in c[0]["stdin"]
+    assert 'procedure `/lab-status`' in c[0]["stdin"]  # one-shot keeps the runtime-file instruction
     assert "retrying one-shot" in (lab.bus / "agents" / m["stream"]).read_text(encoding="utf-8")
 
 
