@@ -3,17 +3,12 @@ on:
   workflow_dispatch:
 jobs:
   macos-probe:
-    timeout-minutes: 10
-    strategy:
-      fail-fast: false
-      matrix:
-        python: ['3.12', '3.15']
+    timeout-minutes: 15
     runs-on: macos-latest
     steps:
       - uses: actions/checkout@v4
       - uses: astral-sh/setup-uv@v5
-      - name: Remote Lab and local Lab lifecycle probes
+      - name: Full suite with a diagnostic per-test deadline
         env:
-          UV_PYTHON: ${{ matrix.python }}
           NEWTS_HOME: ${{ runner.temp }}/newts-probe-home
-        run: uv run --with pyyaml --with pytest python -m pytest tests/test_product.py tests/test_profiles.py tests/test_remote.py -vv -s -o faulthandler_timeout=45
+        run: uv run --with pyyaml --with pytest --with pytest-timeout python -m pytest tests/ -vv -s --timeout=180 --timeout-method=thread

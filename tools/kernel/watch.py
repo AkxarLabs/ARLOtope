@@ -99,6 +99,8 @@ def _content(path: Path) -> str | None:
         if path.is_symlink():
             digest.update(str(path.readlink()).encode('utf-8'))
         else:
+            if not path.is_file():
+                return 'missing' if not path.exists() else None
             with path.open('rb') as stream:
                 for chunk in iter(lambda: stream.read(1 << 20), b''):
                     digest.update(chunk)
