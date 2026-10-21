@@ -442,6 +442,44 @@ def _git(cwd, *a):
     subprocess.run(["git", *a], cwd=str(cwd), check=True, capture_output=True)
 
 
+def test_watch_compares_existing_dirty_content_and_reversions(tmp_path):
+    _git(tmp_path, 'init', '-q')
+    file = tmp_path / 'method.py'
+    file.write_text('original\n', encoding='utf-8')
+    _git(tmp_path, 'add', '.')
+    _git(tmp_path, '-c', 'user.email=t@t', '-c', 'user.name=t', 'commit', '-qm', 'baseline')
+    file.write_text('existing edit\n', encoding='utf-8')
+    snap = K.watch.snapshot([tmp_path])
+    assert K.watch.changes(snap) == {'written': [], 'deleted': [], 'commits': 0}
+    file.write_text('new edit, same dirty status\n', encoding='utf-8')
+    assert K.watch.changes(snap)['written'] == [file.as_posix()]
+    _git(tmp_path, 'checkout', '--', 'method.py')
+    assert K.watch.changes(snap)['written'] == [file.as_posix()]
+    file.unlink()
+    snap = K.watch.snapshot([tmp_path])
+    assert K.watch.changes(snap)['deleted'] == []  # An existing deletion is not a new run action.
+
+
+def test_watch_limits_an_enclosing_repo_to_all_selected_folders(tmp_path):
+    _git(tmp_path, 'init', '-q')
+    _git(tmp_path, '-c', 'user.email=t@t', '-c', 'user.name=t', 'commit', '-qm', 'baseline', '--allow-empty')
+    first, second = tmp_path / 'first', tmp_path / 'second'
+    first.mkdir(); second.mkdir()
+    outside = tmp_path / 'unrelated.txt'
+    outside.write_text('prior edit\n', encoding='utf-8')
+    snap = K.watch.snapshot([first, second])
+    outside.write_text('concurrent edit elsewhere\n', encoding='utf-8')
+    for folder in (first, second):
+        (folder / 'result.md').write_text('in scope\n', encoding='utf-8')
+    assert K.watch.changes(snap)['written'] == sorted((p / 'result.md').as_posix() for p in (first, second))
+    _git(tmp_path, 'add', 'unrelated.txt')
+    _git(tmp_path, '-c', 'user.email=t@t', '-c', 'user.name=t', 'commit', '-qm', 'outside selected folders')
+    assert K.watch.changes(snap)['commits'] == 0
+    snap = K.watch.snapshot([first])
+    (first / 'result.md').unlink()
+    assert K.watch.changes(snap)['deleted'] == [(first / 'result.md').as_posix()]
+
+
 def test_a_runs_digest_flags_what_it_did(lab):
     pdir = lab.make_project("w")
     lab.add_registry_row("w", state="active", project=str(pdir))
