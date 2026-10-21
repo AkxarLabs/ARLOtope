@@ -111,9 +111,14 @@ def test_hub_run_completes_and_records_everything(hub, monkeypatch):
     st = json.loads((run_dir(lab, m) / "settings.json").read_text(encoding="utf-8"))
     allow = st["permissions"]["allow"]
     verbs = ("move", "next", "brief", "approved", "status", "flags", "propose")
+    cli_path = (REPO / 'tools/newts_cli.py').as_posix()
+    scoped_commands = tuple(f'{path} --hub "{hub.root.as_posix()}" {verb}:*)'
+                            for path in (cli_path, f'"{cli_path}"') for verb in verbs)
     assert allow and all(("lab_bus.py" in a and (" emit:*)" in a or " escalate:*)" in a))
-                         or ("newts.py" in a and any(f" {v}:*)" in a for v in verbs)) for a in allow)
+                         or ("newts.py" in a and any(f" {v}:*)" in a for v in verbs))
+                         or a.endswith(scoped_commands) for a in allow)
     assert any("newts.py move:*)" in a for a in allow)
+    assert any(f'{cli_path} --hub "{hub.root.as_posix()}" move:*)' in a for a in allow)
     assert not any(f" {v}:*)" in a for a in allow for v in ("approve", "revoke", "changes", "ack"))
     assert c["env"]["NEWTS_RUN_ID"] == m["run_id"]
     assert Path(c["cwd"]).resolve() == hub.root.resolve()
