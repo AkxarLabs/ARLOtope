@@ -65,7 +65,7 @@ def all_studies(hub) -> dict[str, dict]:
     from . import branches
     evs = journal.events(hub)
     for slug, s in list(st.items()):
-        if model.workflow(s['workflow'], hub).get('nodes'):
+        if model.workflow(s['workflow'], hub).get('nodes') or s.get('entry'):
             st[slug] = branches.fold(hub, s, evs)
     return st
 
@@ -131,7 +131,7 @@ def rows(hub) -> list[dict]:
                     "project": s["project"] or "", "updated": (s["since"] or s["updated"] or "")[:10],
                     "next": _next_text(hub, s), "finished": s["finished"], "waiting": s["waiting"], "use": s["use"], "was": s["was"],
                     "touched": s["updated"] or "", "tags": study_tags(hub, s['id'])})
-        for key in ('active_steps', 'runnable', 'task_waits', 'completed_steps', 'joins', 'blocked_reason'):
+        for key in ('active_steps', 'runnable', 'task_waits', 'completed_steps', 'joins', 'blocked_reason', 'entry', 'entry_cancelled'):
             if key in s:
                 out[-1][key] = s[key]
     return out
@@ -179,7 +179,7 @@ def _record(hub, slug: str, kind: str, by: str, **fields) -> dict:
 
 # ── acting ───────────────────────────────────────────────────────────────────────────────────────
 def new(hub, slug: str, title: str = "", workflow: str | None = None, at: str | None = None,
-        by: str | None = None) -> dict:
+        by: str | None = None, entry=None) -> dict:
     """File a study. Slugs are never reused — a killed or parked one keeps its record."""
     by = by or actor()
     if os.environ.get('NEWTS_GATE_JUDGE'):
@@ -191,6 +191,12 @@ def new(hub, slug: str, title: str = "", workflow: str | None = None, at: str | 
     w = model.workflow(workflow, hub)
     if workflow and w["id"] != workflow:
         raise StudyError(f"no workflow {workflow!r}")
+    if entry:
+        _pi(by)
+        from .entry import prepare
+        entry = prepare(hub, w, entry)
+        if at:
+            raise StudyError('Use the starting plan or a direct placement, not both.')
     first = at or w["path"][0]
     if first not in w["path"]:
         raise StudyError(f"{first!r} is not a step of the {w['id']} workflow")
@@ -198,7 +204,7 @@ def new(hub, slug: str, title: str = "", workflow: str | None = None, at: str | 
     if passed and str(by).startswith("run:"):
         raise StudyError(f"filing {slug} at {first} would pass {passed[0]['title']} — only the PI places a study "
                          "past a checkpoint (file it at the start, and ask)")
-    ev = _record(hub, slug, "new", by, workflow=w["id"], title=title.strip()[:200], step=first)
+    ev = _record(hub, slug, "new", by, workflow=w["id"], title=title.strip()[:200], step=first, entry=entry)
     _bus(hub, "state_change", slug, f"filed at {first}")
     return ev
 
@@ -281,7 +287,7 @@ def reconcile(hub, by: str = "pi") -> list[dict]:
     for it, and a wait whose destination step is gone stays for the PI to move. → [{study, checkpoint, result}]"""
     out = []
     for slug, s in all_studies(hub).items():
-        if model.workflow(s['workflow'], hub).get('nodes'):
+        if s.get('active_steps') is not None:
             continue  # Task waits are derived independently; never reset other active branches.
         w = s.get("waiting") or {}
         cid, to = w.get("checkpoint"), w.get("to")
@@ -313,7 +319,7 @@ def move(hub, slug: str, outcome: str, note: str = "", by: str | None = None) ->
     s = study(hub, slug)
     if not s:
         raise StudyError(f"no study {slug!r} (file it first: newts new {slug} --title …)")
-    if model.workflow(s['workflow'], hub).get('nodes'):
+    if s.get('active_steps') is not None:
         from . import branches
         return branches.move(hub, s, outcome, note, by)
     here = model.step(s["step"], hub)
@@ -379,7 +385,7 @@ def move_to(hub, slug: str, to: str, note: str = "", by: str = "pi") -> dict:
 def resume(hub, slug: str, by: str) -> dict | None:
     """After an approval: carry a waiting study's move through if nothing else on the way waits."""
     s = study(hub, slug)
-    if s and model.workflow(s['workflow'], hub).get('nodes'):
+    if s and s.get('active_steps') is not None:
         return {'moved': bool(s['runnable']), 'step': s['step'], 'runnable': s['runnable']}
     w = (s or {}).get("waiting")
     if not s or not w or not w.get("to") or not w.get("checkpoint"):

@@ -397,7 +397,8 @@ def test_the_brief_says_where_how_to_finish_and_what_the_pi_added(lab):
     text, h = K.brief.brief(lab.root, "analyze", study="k")
     assert text.startswith("NEWTS BRIEF /analyze · study k · sha=" + h)
     assert "k is at **Analysis**" in text and "`more-experiments` → Experiments" in text
-    assert "`done` → Writing" in text and "`null-result` the PI decides" in text and "newts.py\" move k" in text
+    assert "`done` → Writing" in text and "`null-result` the PI decides" in text
+    assert K.brief.newts_cmd(lab.root) + ' move k' in text
     assert text.index("Report effect sizes") < text.index("look at layer 7")             # lab-wide, then the study's
     assert "Plot every seed." in text and "The PI's note: 3 seeds max" in text
     with pytest.raises(KeyError):
@@ -482,6 +483,24 @@ def test_a_hold_flag_stops_the_studys_launches_until_acknowledged(lab):
         lab_profile.check_launch(Lab(lab.root), "experiment", "h")
     K.watch.ack(lab.root, f["id"])
     lab_profile.check_launch(Lab(lab.root), "experiment", "h")
+
+
+def test_frozen_watch_applies_to_controlled_projects_even_if_control_is_deleted(lab):
+    pdir = lab.root / "existing"
+    pdir.mkdir()
+    lab.add_registry_row("attached", state="active", project=str(pdir))
+    m = {"run_id": "r-control", "subject": "attached"}
+    snap = K.watch.snapshot([pdir], lab.root)
+    dg = K.watch.digest(lab.root, m, snap, [], pdir)
+    assert "frozen-broken" not in {f["rule"] for f in dg["flags"]}
+    control = pdir / "control.yaml"
+    control.write_text("eval_frozen: false\n", encoding="utf-8")
+    dg = K.watch.digest(lab.root, m, snap, [], pdir)
+    assert any(f["rule"] == "frozen-broken" and f["hold"] for f in dg["flags"])
+    snap = K.watch.snapshot([pdir], lab.root)
+    control.unlink()
+    dg = K.watch.digest(lab.root, m, snap, [], pdir)
+    assert any(f["rule"] == "frozen-broken" and f["hold"] for f in dg["flags"])
 
 
 def test_a_journal_rewritten_during_a_run_is_flagged(lab):

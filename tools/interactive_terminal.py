@@ -12,6 +12,24 @@ def has_pty():
     return os.name == "posix"
 
 class Session:
+    @classmethod
+    def open(cls, sessions, argv, cwd, purpose, *, request_id=None, limit=8, cols=100, rows=28):
+        """Caller holds its session lock. Repeated creation requests return the same process."""
+        if request_id is not None:
+            if not isinstance(request_id, str) or len(request_id) != 32 or any(c not in '0123456789abcdef' for c in request_id):
+                raise ValueError('Invalid terminal request ID.')
+            for session in sessions.values():
+                if getattr(session, 'request_id', None) == request_id:
+                    if (session.argv, session.cwd, session.purpose) != (argv, cwd, purpose):
+                        raise ValueError('This terminal request belongs to another command.')
+                    return session, False
+        if sum(not s.exited for s in sessions.values()) >= limit:
+            raise ValueError('Close an existing terminal first.')
+        session = cls(argv, cwd, purpose, cols, rows)
+        session.request_id = request_id
+        sessions[session.id] = session
+        return session, True
+
     def __init__(self, argv: list[str], cwd: str, purpose: str, cols: int = 100, rows: int = 28):
         self.id = secrets.token_hex(8)
         self.argv, self.cwd, self.purpose = argv, cwd, purpose

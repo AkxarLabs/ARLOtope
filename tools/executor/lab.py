@@ -78,10 +78,13 @@ class Lab:
     def project_dir(self, slug: str) -> Path | None:
         """A registered project's dir: the registry Project column wins, else projects_root/<slug>.
         Only an existing directory counts (a pre-spawn idea has none)."""
+        return self._project_dir(self.row(slug) or {'id': slug, 'project': ''})
+
+    def _project_dir(self, row: dict) -> Path | None:
         import remote_projects
-        if remote_projects.project(self.hub, slug):
-            return self.project_workdir(slug)
-        p = labfiles.project_dir(self.hub, slug)
+        if remote_projects.location(row.get('project')):
+            return self.project_workdir(row['id'])
+        p = labfiles.project_dir(self.hub, row['id'], row)
         return p if (p and p.is_dir()) else None
 
     def project_workdir(self, slug):
@@ -95,7 +98,7 @@ class Lab:
         """(slug, dir) for every registry row whose project dir exists."""
         out, seen = [], set()
         for r in self.registry_rows():
-            d = self.project_dir(r["id"])
+            d = self._project_dir(r)
             if d and d not in seen:
                 seen.add(d)
                 out.append((r["id"], d))

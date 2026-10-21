@@ -116,6 +116,8 @@ def fold(evs: list[dict], shelves=("parked", "killed")) -> dict[str, dict]:
                 for s in out.values():
                     s["step"] = mp.get(s["step"], s["step"])
                     s["was"] = mp.get(s["was"], s["was"])
+                    if s.get('entry'):
+                        s['entry'] = dict(s['entry'], tasks={mp.get(k, k): v for k, v in s['entry']['tasks'].items()})
                     if s["waiting"]:
                         s["waiting"] = dict(s["waiting"], at=mp.get(s["waiting"].get("at"), s["waiting"].get("at")),
                                             to=mp.get(s["waiting"].get("to"), s["waiting"].get("to")))
@@ -129,6 +131,10 @@ def fold(evs: list[dict], shelves=("parked", "killed")) -> dict[str, dict]:
         if k == "new":
             s.update(workflow=e.get("workflow") or s["workflow"], title=e.get("title") or s["title"],
                      step=e.get("step"), since=e.get("ts"), created=s["created"] or e.get("ts"), finished=False)
+            if e.get('entry'):
+                s['entry'] = e['entry']
+        elif k == 'entry-cancelled':
+            s['entry_cancelled'] = True
         elif k == "move":
             if e.get("to") in shelves and s["step"] not in shelves:
                 s["was"] = s["step"]

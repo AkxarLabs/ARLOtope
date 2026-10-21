@@ -1,7 +1,7 @@
 # Extending the Lab
 
 Change a method or workflow through the existing definitions. **Workflow** offers the map, shared
-steps and procedures; **Advanced** contains roles, stage groups, rules, checks, project types and
+steps and procedures; **Advanced** contains roles, rooms, rules, checks, project types and
 instruments. Agent harness/model presets belong in Settings, not in role instructions.
 
 Dashboard edits stay in a draft. Use **Review & publish** to inspect changes and validation problems;
@@ -147,6 +147,9 @@ uv run --with pyyaml python tools/new.py check budget-under --like writeback
 
 ## Add a workflow
 
+Optional external research engines use [declarative framework definitions](external-frameworks.md)
+on ordinary tasks. The Sakana preset demonstrates this without adding an agent backend or core dependency.
+
 Use **New workflow** or **Make a copy** on the map. For a file-based copy:
 
 ```bash
@@ -221,3 +224,11 @@ Quick study, individual procedures and custom workflows can produce a replicatio
 analysis, simulation or verified derivation. Keep its agreed evidence and final checks explicit.
 A methodology profile should adapt the contract rather than silently omit traceability or evaluation.
 See [project types](project-types.md) and [skills](skills.md).
+## Collector execution
+
+Custom collectors execute the checked bytes from a temporary sibling file. Their working directory
+stays the Lab root, and sibling resources remain available. The temporary filename differs;
+`NEWTS_COLLECTOR` gives the original absolute script path. The collector folder must permit temporary
+files. Copies are removed after execution when the OS releases them. Trusted shipped collectors
+keep their installed paths and need no write access to the installation. This preserves the existing
+interpreter choices; it does not create a sandbox or freeze a collector's other dependencies.

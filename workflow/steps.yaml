@@ -19,5 +19,13 @@ writing:         {label: Writing, do: write-paper, room: writing, also: [make-fi
 internal-review: {label: Internal review, do: review-paper, room: writing, also: [critique-paper, write-paper], tags: [review], agent: {role: reviewer}}
 final:           {label: Final, do: finalize, room: archive}
 
+# External phase tasks use the same graph, rooms, agents and checkpoint model.
+external-setup:   {label: Task setup, room: study}
+external-search:  {label: Investigation, room: lab}
+external-compare: {label: Baselines & ablations, room: lab}
+external-eval:    {label: Final evaluation, room: bench}
+external-analyze: {label: Post-hoc analysis, room: bench}
+external-write:   {label: External writing, room: writing}
+
 parked:          {label: Parked, room: margins}
 killed:          {label: Killed, room: margins}

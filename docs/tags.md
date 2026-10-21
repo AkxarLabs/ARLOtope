@@ -12,6 +12,8 @@ Tags help you find studies, tasks and reusable methods. They never choose an age
 
 Enter comma-separated labels. Spaces become dashes, letters become lowercase and duplicate labels are removed. Prefer a few useful labels, such as `replication`, `literature` or `dataset-a`. Reuse an existing spelling when it fits.
 
+The Studies tag filter is saved in its URL, such as `#/studies?tag=replication`. Bookmark it or use Back and Forward to revisit filters.
+
 ## File and command reference
 
 Study tags live in `IDEA.md` YAML frontmatter:

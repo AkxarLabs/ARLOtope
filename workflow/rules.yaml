@@ -272,14 +272,16 @@ protected_paths:
 # changed (`writes:` / `deletes:` globs; {project} = the study's project repo, else relative to the lab —
 # seen through git, so a script the agent ran counts too), commands it ran (`runs:`), calls the lab refused
 # it (`denials: N`), or a check that fails for its study (`check: <name>`; `when: project` = only once the
-# study has a project). A checkpoint adds its own (`watch:` on it), until it is approved.
+# study has a project; `when: project-control` = control.yaml exists now or existed when the run started).
+# Plain attached repositories need no evaluation contract. Explicit frozen checks remain strict.
+# A checkpoint adds its own (`watch:` on it), until it is approved.
 watch:
   - {id: eval-protocol-edited, writes: ["{project}/configs/base.yaml"], level: warn,
      say: "the frozen evaluation protocol (configs/base.yaml) was edited"}
   - {id: control-edited, writes: ["{project}/control.yaml"], level: warn,
      say: "control.yaml (budgets, seeds, the frozen flag) was edited"}
   - {id: tests-removed, deletes: ["{project}/tests/**"], level: warn, say: "tests were deleted"}
-  - {id: frozen-broken, check: frozen, when: project, level: block, hold: true,
+  - {id: frozen-broken, check: frozen, when: project-control, level: block, hold: true,
      say: "the frozen evaluation is no longer frozen"}
   - {id: ledger-rewritten, check: append-only, when: project, level: block, hold: true,
      say: "a ledger (EXPERIMENT_LOG.md, runs/registry.jsonl) was rewritten"}

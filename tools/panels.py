@@ -42,6 +42,7 @@ import re
 import shutil
 import subprocess
 import sys
+import tempfile
 import time
 from pathlib import Path
 
@@ -174,21 +175,23 @@ def collector_sha(p: dict) -> str | None:
     return hashlib.sha256(f.read_bytes()).hexdigest()[:16] if f else None
 
 
-def collector_approved(hub, p: dict) -> bool:
+def collector_approved(hub, p: dict, code: bytes | None = None) -> bool:
     if "collector" not in p["sources"]:
         return True
     if p["origin"] == "shipped":
         return True
-    sha = collector_sha(p)
+    sha = collector_sha(p) if code is None else hashlib.sha256(code).hexdigest()[:16]
     rec = journal.latest(hub, "lab", f"panel:{p['id']}")
     return bool(sha and rec and rec.get("decision") == "approved" and rec.get("sha") == sha)
 
 
-def approve_collector(hub, pid: str, by: str = "pi", via: str = "dashboard") -> dict:
+def approve_collector(hub, pid: str, by: str = "pi", via: str = "dashboard", expected_sha: str | None = None) -> dict:
     p = _need(hub, pid)
     sha = collector_sha(p)
     if not sha:
         raise ValueError(f"panel {pid} has no collector to approve")
+    if expected_sha is not None and sha != expected_sha:
+        raise ValueError('The collector changed. Review the updated code before approving.')
     return checkpoints.decide_lab(hub, f"panel:{pid}", "approved", by=by, via=via,
                                   note=f"its collector {p.get('collector')} may run", sha=sha)
 
@@ -213,13 +216,31 @@ def _run_collector(hub, p: dict, study: str | None = None, timeout: float = 60) 
     if not f:
         return {"error": f"the collector {p.get('collector')!r} is missing"}
     env = dict(os.environ, NEWTS_HUB=str(hub), NEWTS_PANEL=p["id"], NEWTS_STUDY=study or "",
+               NEWTS_COLLECTOR=str(f.resolve()),
                NEWTS_PROJECTS=str(labfiles.projects_root(Path(hub))),
                NEWTS_CONFIG=json.dumps(labfiles.config(Path(hub)) or {}, default=str))
     env.pop("NEWTS_RUN_ID", None)
+    snapshot = None
     try:
+        code = f.read_bytes()
+        if not collector_approved(hub, p, code):
+            return {"error": "its collector is waiting for your approval"}
+        if p["origin"] != "shipped":
+            # A sibling keeps __dirname / script-parent resources and the original cwd intact.
+            with tempfile.NamedTemporaryFile(dir=f.parent, prefix=".newts-collector-", suffix=f.suffix, delete=False) as copy:
+                snapshot = Path(copy.name)
+                copy.write(code)
+            snapshot.chmod(0o700)
+            f = snapshot
         r = subprocess.run(_interpreter(f), cwd=str(hub), env=env, capture_output=True, timeout=timeout)
     except (OSError, subprocess.TimeoutExpired) as e:
         return {"error": f"the collector did not finish: {e}"[:400]}
+    finally:
+        if snapshot is not None:
+            try:
+                snapshot.unlink(missing_ok=True)
+            except OSError:
+                pass  # A lingering child/OS file lock must not discard the collector's result.
     out = (r.stdout or b"")[:MAX_OUT + 1]
     if len(out) > MAX_OUT:
         return {"error": "the collector printed more than 2 MB"}
@@ -338,9 +359,6 @@ def collect(hub, pid: str, study: str | None = None, timeout: float = 60) -> dic
     err = None
     for src in p["sources"]:
         if src == "collector":
-            if not collector_approved(hub, p):
-                err = "its collector is waiting for your approval"
-                continue
             r = _run_collector(hub, p, study, timeout)
             if r.get("error"):
                 err = r["error"]

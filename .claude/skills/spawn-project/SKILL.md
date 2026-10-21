@@ -10,7 +10,6 @@ newts:
   hint: study slug
   title: Create the project repo
   does: Creates the project repository from the proposal and runs its smoke test.
-  world: builds-project   # its run raises the study's project room (scaffolding until it exists)
   stops: when the smoke test is green
   outcomes:
     scaffold-failed: "the scaffold stays red (sync, smoke, tests or readiness lint) after the debug budget; the PI decides"

@@ -54,16 +54,14 @@
   /* ── one procedure, for one study: added instructions · which variant does it · its skill · what the agent reads ── */
   NL.ProcedureSheet = ({ name, study, onClose }) => {
     const [tab, setTab] = useState('instructions');
-    const [d, setD] = useState(null);
-    const [n, setN] = useState(0);
-    const reload = () => setN(x => x + 1);
-    useEffect(() => { NL.get('/api/workflow/item?kind=procedure&name=' + encodeURIComponent(name) + '&study=' + encodeURIComponent(study)).then(setD); }, [name, study, n]);
+    const g = NL.useGet('/api/workflow/item?kind=procedure&name=' + encodeURIComponent(name) + '&study=' + encodeURIComponent(study));
+    const d = g.data, reload = g.reload;
     const p = (NL.WF.procedures || {})[name] || {};
     const layer = (d && d.study_layer) || {};
     const tabs = [{ id: 'instructions', label: 'Instructions' }, ...((d && (d.variants || []).length) ? [{ id: 'variant', label: 'Variant' }] : []),
       { id: 'skill', label: 'Its skill' }, { id: 'brief', label: 'What the agent reads' }];
     return html`<${NL.Sheet} wide kicker=${'For this study · /' + name} title=${p.title || '/' + name} sub=${p.does || ''} onClose=${onClose}>
-      ${!d ? html`<${NL.Spinner} />` : d.error ? html`<div class="warn">${d.error}</div>` : html`
+      ${!d ? html`<${NL.LoadState} ...${g} />` : html`
         <${NL.Tabs} tabs=${tabs} value=${tab} onChange=${setTab} />
         ${tab === 'instructions' ? html`
           <p class="muted">Added to <b>${p.title || name}</b> whenever it runs on <b>${study}</b>, on top of its skill. Preferences, datasets or baselines to use, things to avoid.</p>
@@ -100,14 +98,13 @@
 
   /* instructions for one step of a study's workflow, whichever procedure does it */
   const StudyStepSheet = ({ step, study, onClose }) => {
-    const [d, setD] = useState(null);
-    const [n, setN] = useState(0);
+    const g = NL.useGet('/api/workflow/item?kind=step&name=' + encodeURIComponent(step) + '&study=' + encodeURIComponent(study));
+    const d = g.data;
     const label = NL.STATE_LABEL[step] || step;
-    useEffect(() => { NL.get('/api/workflow/item?kind=step&name=' + encodeURIComponent(step) + '&study=' + encodeURIComponent(study)).then(setD); }, [step, study, n]);
     return html`<${NL.Sheet} kicker="For this study · the whole step" title=${label} onClose=${onClose}>
-      ${!d ? html`<${NL.Spinner} />` : d.error ? html`<div class="warn">${d.error}</div>` : html`
+      ${!d ? html`<${NL.LoadState} ...${g} />` : html`
         <p class="muted">Added to every procedure that runs at <b>${label}</b> on <b>${study}</b>.</p>
-        <${LayerEditor} kind="step" name=${step} study=${study} rows=${5} value=${(d.study_layer || {}).add} onSaved=${() => setN(x => x + 1)}
+        <${LayerEditor} kind="step" name=${step} study=${study} rows=${5} value=${(d.study_layer || {}).add} onSaved=${g.reload}
           placeholder="e.g. Keep every run at this step under 2 GPU-hours." />`}
     </${NL.Sheet}>`;
   };
@@ -115,12 +112,9 @@
   /* ── an agent's proposal ─────────────────────────────────────────────── */
   const PROPOSAL_ITEM = { add: 'procedure', step: 'step', role: 'role' };
   NL.ProposalSheet = ({ id, onClose }) => {
-    const [r, setR] = useState(null);
-    const [cur, setCur] = useState(null);
-    useEffect(() => { NL.get('/api/workflow/proposal?id=' + encodeURIComponent(id)).then(x => {
-      setR(x);
-      if (x && x.ok) NL.get(`/api/workflow/item?kind=${PROPOSAL_ITEM[x.kind] || 'procedure'}&name=${encodeURIComponent(x.name)}${x.study ? '&study=' + encodeURIComponent(x.study) : ''}`).then(setCur);
-    }); }, [id]);
+    const g = NL.useGet('/api/workflow/proposal?id=' + encodeURIComponent(id)), r = g.data;
+    const current = NL.useGet(r ? `/api/workflow/item?kind=${PROPOSAL_ITEM[r.kind] || 'procedure'}&name=${encodeURIComponent(r.name)}${r.study ? '&study=' + encodeURIComponent(r.study) : ''}` : null);
+    const cur = current.data;
     const decide = async accept => { const x = await NL.act('/api/workflow/proposal', { id, accept }, accept ? 'Accepted' : 'Declined'); if (x.ok) onClose(); };
     const layer = cur && (r && r.study ? cur.study_layer || {} : cur.lab || {});
     const before = (layer && layer.add) || '';
@@ -128,11 +122,11 @@
     const what = r && r.ok ? (r.kind === 'step' ? 'the step ' + (NL.STATE_LABEL[r.name] || r.name) : r.kind === 'role' ? 'the role ' + r.name : '/' + r.name) : '';
     return html`<${NL.Sheet} wide kicker="An agent suggests" title=${r && r.ok ? 'Instructions for ' + what : 'A suggested change'}
       sub=${r && r.ok ? (r.study ? 'for ' + r.study : 'for the whole lab') : ''} onClose=${onClose}
-      footer=${r && r.ok && r.status === 'pending' ? html`<${NL.Btn} kind="ghost" onClick=${() => decide(false)}>Decline</${NL.Btn}><${NL.Btn} kind="primary" onClick=${() => decide(true)}>Accept</${NL.Btn}>` : null}>
-      ${!r ? html`<${NL.Spinner} />` : r.error ? html`<div class="warn">${r.error}</div>` : html`
+      footer=${r && r.ok && r.status === 'pending' ? html`<${NL.Btn} kind="ghost" onClick=${() => decide(false)}>Decline</${NL.Btn}><${NL.Btn} kind="primary" disabled=${!cur} onClick=${() => decide(true)}>Accept</${NL.Btn}>` : null}>
+      ${!r ? html`<${NL.LoadState} ...${g} />` : html`
         ${r.why ? html`<blockquote class="quote">${r.why}</blockquote>` : null}
         <div class="muted small">from ${r.by ? html`<a class="link" href=${'#/run/' + r.by}>run ${r.by}</a>` : 'an agent'} · ${NL.ago(r.ts)} · ${r.status}</div>
-        <${NL.Section} title="What changes"><${NL.Diff} a=${before} b=${after} /></${NL.Section}>`}
+        ${!cur ? html`<${NL.LoadState} ...${current} />` : html`<${NL.Section} title="What changes"><${NL.Diff} a=${before} b=${after} /></${NL.Section}>`}`}
     </${NL.Sheet}>`;
   };
 

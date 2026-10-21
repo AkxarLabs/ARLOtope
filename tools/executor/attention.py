@@ -114,7 +114,8 @@ def run_items(lab: Lab, runs: list[tuple[Path, dict]]) -> list[dict]:
             elif m.get('needs_followup'):
                 out.append(_item('followup', 'warn', f'followup:{rid}:{att}', m, 'Agent stopped · Task unfinished',
                                  body=rep.get('summary') or m.get('last_message') or '',
-                                 actions=([{'id':'resume','label':'Continue task'}] if m.get('session_id') else []) + [{'id':'tail','label':'View output'}]))
+                                 actions=([{'id':'resume','label':'Continue task'}] if m.get('session_id') else [])
+                                 + [{'id':'handoff','label':'New agent with handoff'}, {'id':'tail','label':'View output'}]))
             else:
                 out.append(_item("report", "info", f"report:{rid}:{att}", m, f"{label} finished",
                                  body=rep.get("summary") or (m.get("last_message") or "")[:400],

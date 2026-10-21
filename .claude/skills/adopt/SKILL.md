@@ -27,7 +27,8 @@ question without changing its environment, runner or repository structure.
 ## Lightweight attachment (default)
 
 The dashboard's **New study** journey can already file the study and attach a local folder, or clone a
-public GitHub repository after review. Read its `studies/<slug>/IDEA.md`; do not file it twice.
+GitHub repository after review. It can reuse GitHub CLI sign-in on the selected machine for private
+repositories. Read its `studies/<slug>/IDEA.md`; do not file it twice.
 For a terminal attachment, use:
 
 ```bash
@@ -39,7 +40,15 @@ An exact `--repo owner/repository` clones a working copy instead. It downloads s
 install dependencies or run unfamiliar project code merely because the repository was attached.
 Read the existing README, relevant code and notebook files, then propose the smallest useful next
 task. Existing runners, package managers, notebooks and artifact locations remain valid. Link existing
-evidence honestly; attachment is not verification. No steps or checkpoints are waived or approved.
+evidence honestly; attachment is not verification. Attachment alone waives no steps or checkpoints.
+
+The dashboard's task-map starting choices map the PI's existing work onto the selected
+workflow's actual task IDs, not fixed concepts such as ideation or proposal. Read its recorded reuse
+and omission decisions and references. Those are PI selections, not completed agent runs or verified
+results. A note is optional; reuse still needs evidence references. Skipping affects the initial pass:
+if a loop returns to the task, it runs normally. These choices do not approve checkpoints. An agent may suggest a plan
+using the task IDs and revision supplied in the starter brief; the PI reviews and applies it. Do not
+invent task IDs, execute a suggested plan yourself, or infer a checkpoint approval from supplied work.
 
 Stop here unless the PI wants the structured experiment/paper pipeline or explicitly requests
 scaffolding. For such work, continue below and add only the contract needed for the requested task.
@@ -51,7 +60,7 @@ Explain the additions before making them; preserve all existing project files.
 and seed this interview from its Outcomes and open threads: carry the settled framing into `IDEA.md`
 and don't re-ask what's already decided.
 
-Ask what exists (don't make the PI pick a step name; infer it), and which workflow the study follows
+Ask what exists (don't make the PI pick a step name; suggest a fit for review), and which workflow the study follows
 (the default unless the PI names one; `uv run --with pyyaml python newts.py workflow` lists them).
 Then read that workflow's `path` (`workflow/workflows/<id>.yaml`) and each step's `do:` procedure
 (`workflow/steps.yaml`), and find the step whose procedure is the next one the work needs:
@@ -64,8 +73,9 @@ Then read that workflow's `path` (`workflow/workflows/<id>.yaml`) and each step'
 | An existing code repo, possibly with results | see "Adopting a repo" | `/experiment` if experiments remain, `/analyze` if the results are in |
 | A draft paper that needs only the review machinery | `studies/<slug>/paper/` with the draft and a real `claims.yaml` (every number → an artifact) | `/review-paper` |
 
-If the workflow has no step with that procedure, pick the next step on its path that does fit, and
-say so.
+This table illustrates the shipped research workflow only. For a custom workflow, inspect its actual
+instructions, required evidence, routes and checkpoints. Propose which tasks should run or use
+existing work; do not force them into the table's research stages. Leave uncertain tasks runnable.
 
 ## 2. File the study and scaffold
 
@@ -78,7 +88,7 @@ say so.
 **Adopting a repo** (registering external code as the study's project):
 1. Record it: `uv run --with pyyaml python newts.py project <slug> <path>`. It may live anywhere;
    `lab.projects_root` is only the default for spawned projects.
-2. Retrofit the project contract — copy from `templates/project/` **everything
+2. Only for the structured pipeline explicitly requested above, retrofit the project contract — copy from `templates/project/` **everything
    `scripts/check_project.py` requires** that is missing (it gates step 4, so the list must match):
    `control.yaml` (fill budgets with the PI), `CLAUDE.md` + `AGENTS.md` (substitute placeholders),
    `PLAN.md` (write WITH the PI: frozen eval, kill criteria, done vs planned), `EXPERIMENT_LOG.md`

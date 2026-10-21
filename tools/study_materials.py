@@ -141,4 +141,8 @@ def suggestion(path, meta):
     if isinstance(tags, list):
         import tagging
         out['tags'] = tagging.normalize(tags)
+    if 'entry' in data:
+        if not isinstance(data['entry'], dict):
+            raise ValueError('The starting plan must be a task mapping.')
+        out['entry'] = data['entry']
     return out

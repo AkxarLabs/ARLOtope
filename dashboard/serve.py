@@ -1,4 +1,4 @@
-"""Vivarium — the Newts' Lab dashboard: the HTTP server. Optional, local-only.
+"""Newts' Lab dashboard: the HTTP server. Optional, local-only.
 
     uv run --with pyyaml python dashboard/serve.py [--port 8787] [--hub <another lab's hub root>]
     (or just: uv run --with pyyaml python newts.py — starts this and opens the browser)
@@ -54,6 +54,7 @@ sys.path.insert(0, str(HERE))
 # The dashboard's modules — each one area of the product; all share ctx (the lab being shown), none
 # imports this one.
 import ctx  # noqa: E402
+import labfiles  # noqa: E402
 import starter  # noqa: E402
 import sources  # noqa: E402
 import term  # noqa: E402
@@ -80,7 +81,6 @@ import system  # noqa: E402
 
 executor = sources.executor   # tools/executor, or None (the dashboard then stays observe-and-sign)
 TOKEN = secrets.token_urlsafe(24)    # this server process's session secret (the cookie below)
-SERVER = None                        # the running HTTP server (labs.server_stop shuts it down)
 VERSION = "2.0"
 
 # The lab this dashboard shows: a local hub (ctx.HUB), or a lab on another machine reached through an SSH
@@ -107,12 +107,13 @@ def _inject_remote(raw: bytes, conn) -> bytes:
 # re-reads the whole lab; with the TTL under the 1.5 s SSE tick a single client always recomputes fresh
 # (never staler than one tick), while N concurrent clients + the index seed share one read instead of N.
 _SNAP_LOCK = threading.Lock()
+_SNAP_COMPUTE = threading.Lock()
 
 
 _SNAP_TTL = 1.0
 
 
-_snap_cache = {"ts": 0.0, "value": None, "sig": None}
+_snap_cache = {"ts": 0.0, "value": None, "sig": None, "version": 0}
 
 
 def _sig(snap: dict) -> str:
@@ -124,20 +125,25 @@ def _sig(snap: dict) -> str:
 
 
 def _snapshot_cached(with_sig: bool = False):
-    now = time.time()
-    with _SNAP_LOCK:
-        if _snap_cache["value"] is not None and (now - _snap_cache["ts"]) < _SNAP_TTL:
-            return (_snap_cache["value"], _snap_cache["sig"]) if with_sig else _snap_cache["value"]
-    snap = sources.snapshot()
-    try:
-        snap["lab_info"] = {"name": labs.lab_name(ctx.HUB), "path": str(ctx.HUB), "setup": settings.setup_status(),
-                            "desktop": term.desktop(), "pty": term.has_pty(), "platform": sys.platform}
-    except Exception:  # noqa: BLE001
-        snap["lab_info"] = {"name": ctx.HUB.name, "path": str(ctx.HUB)}
-    sig = _sig(snap)
-    with _SNAP_LOCK:
-        _snap_cache["ts"], _snap_cache["value"], _snap_cache["sig"] = now, snap, sig
-    return (snap, sig) if with_sig else snap
+    with _SNAP_COMPUTE:
+        while True:
+            with _SNAP_LOCK:
+                if _snap_cache["value"] is not None and time.time() - _snap_cache["ts"] < _SNAP_TTL:
+                    return (_snap_cache["value"], _snap_cache["sig"]) if with_sig else _snap_cache["value"]
+                version = _snap_cache['version']
+            with labfiles.read_batch():
+                snap = sources.snapshot()
+                try:
+                    snap["lab_info"] = {"name": labs.lab_name(ctx.HUB), "path": str(ctx.HUB), "setup": settings.setup_status(),
+                                        "desktop": term.desktop(), "pty": term.has_pty(), "platform": sys.platform}
+                except Exception:  # noqa: BLE001
+                    snap["lab_info"] = {"name": ctx.HUB.name, "path": str(ctx.HUB)}
+            sig = _sig(snap)
+            with _SNAP_LOCK:
+                if version != _snap_cache['version']:
+                    continue  # the Lab switched while this read was in flight
+                _snap_cache.update(ts=time.time(), value=snap, sig=sig)
+                return (snap, sig) if with_sig else snap
 
 
 class Handler(BaseHTTPRequestHandler):
@@ -152,13 +158,13 @@ class Handler(BaseHTTPRequestHandler):
     def _send(self, code: int, body: bytes, ctype: str, headers: dict | None = None) -> None:
         self.send_response(code)
         self.send_header("Content-Type", ctype)
-        for k, v in (headers or {}).items():
+        for k, v in {"Content-Length": str(len(body)), **(headers or {})}.items():
             self.send_header(k, v)
-        self.send_header("Content-Length", str(len(body)))
         self.send_header("Cache-Control", "no-store")
         self.end_headers()
         try:
-            self.wfile.write(body)
+            if self.command != "HEAD":
+                self.wfile.write(body)
         except ConnectionError:
             pass
 
@@ -190,8 +196,8 @@ class Handler(BaseHTTPRequestHandler):
     def _body(self) -> dict:
         try:
             return json.loads(self._raw_body() or b"{}")
-        except json.JSONDecodeError:
-            return {}
+        except (ValueError, RecursionError) as error:
+            raise ValueError("Invalid JSON body: malformed or nested too deeply.") from error
 
     def _refuse(self, body: dict, code: int):
         """Refuse a POST — after reading its body: closing a socket with unread data resets the
@@ -221,6 +227,12 @@ class Handler(BaseHTTPRequestHandler):
                 return False
         return True
 
+    def do_HEAD(self):
+        # Preview checks use the same file authorization/resolution as GET, without a second download.
+        if self.path.split("?", 1)[0] not in FILE_ROUTES:
+            return self._send(405, b"HEAD is only supported for files", "text/plain")
+        return self.do_GET()
+
     def do_GET(self):
         # The index seed and every /api/* GET carry the full lab snapshot (titles, metrics, directives,
         # the paper). Guard them with the same localhost/same-origin check as the POSTs so a DNS-rebound
@@ -239,7 +251,7 @@ class Handler(BaseHTTPRequestHandler):
             return self._json({"error": "no dashboard session; reload the page"}, 403)
         route = self.path.split("?", 1)[0]
         if ctx.REMOTE is not None and route.startswith("/api/") and not _is_local_route(route):
-            return self._proxy("GET")
+            return self._proxy(self.command)
 
         if route in GET_ROUTES:
             try:
@@ -267,6 +279,11 @@ class Handler(BaseHTTPRequestHandler):
         if ctype.split(";")[0].strip() in ("text/html", "image/svg+xml", "application/xhtml+xml", "text/xml"):
             hdrs["Content-Security-Policy"] = "sandbox allow-scripts"
         try:
+            if self.command == "HEAD":
+                with f.open("rb") as source:
+                    source.read(1)  # Check readability as well as existence.
+                    size = os.fstat(source.fileno()).st_size
+                return self._send(200, b"", ctype, {**hdrs, "Content-Length": str(size)})
             self._send(200, f.read_bytes(), ctype, hdrs)
         except OSError:
             self._send(404, b"unreadable", "text/plain")
@@ -295,7 +312,7 @@ class Handler(BaseHTTPRequestHandler):
                 return self._json({"error": f"lost the connection to {name}; reconnecting", "remote": conn.info()}, 502)
             if r.status == 403 and attempt == 0:
                 body = r.read()
-                if b"session" in body:        # the remote server restarted: new session token
+                if method == "HEAD" or b"session" in body:  # HEAD has no error body to inspect.
                     conn.refresh_cookie()
                     continue
                 return self._send(403, body, r.getheader("Content-Type") or "application/json")
@@ -326,7 +343,10 @@ class Handler(BaseHTTPRequestHandler):
         hc.close()
         if route == "/api/state" and ctype.startswith("application/json"):
             data = _inject_remote(data, conn)
-        return self._send(r.status, data, ctype)
+        headers = {name: r.getheader(name) for name in ("Content-Security-Policy", "X-Content-Type-Options") if r.getheader(name)}
+        if method == "HEAD" and r.getheader("Content-Length"):
+            headers["Content-Length"] = r.getheader("Content-Length")
+        return self._send(r.status, data, ctype, headers)
 
     def _remote_seed(self) -> str:
         conn = ctx.REMOTE
@@ -385,9 +405,17 @@ class Handler(BaseHTTPRequestHandler):
                  ".txt": "text/plain"}.get(target.suffix, "application/octet-stream")
         charset = "; charset=utf-8" if ctype.startswith(("text/", "application/j", "image/svg")) else ""
         body = target.read_bytes()
+        headers = {"Access-Control-Allow-Origin": "*"}  # public assets, including modules in opaque frames
         if target.name == "lab-view.html":
+            q = self._query()
+            if q.get('roomdraft') and q.get('embedded') != '1':
+                if not self._local_only():
+                    return self._send(403, b"refused: cross-origin/non-localhost request", "text/plain")
+                from urllib.parse import urlencode
+                return self._send(302, b'', 'text/plain', {'Location': '/?' + urlencode({'roomdraft': q['roomdraft']})})
             body = _with_rooms3d(body.decode("utf-8"), "world3d/rooms/").encode("utf-8")
-        self._send(200, body, f"{ctype}{charset}")
+            headers['Content-Security-Policy'] = 'sandbox allow-scripts'
+        self._send(200, body, f"{ctype}{charset}", headers)
 
     def _serve_sse(self) -> None:
         self.send_response(200)
@@ -430,13 +458,18 @@ class Handler(BaseHTTPRequestHandler):
             return self._json({"error": f"internal error: {e}"}, 500)
 
     def _dispatch_post(self):
-        body = self._body()
+        try:
+            body = self._body()
+        except ValueError as error:
+            return self._json({"error": str(error)}, 400)
         if not isinstance(body, dict):
             return self._json({"error": "body must be a JSON object"}, 400)
         fn = POST_ROUTES.get(self.path.split("?", 1)[0])
         if fn is None:
             return self._send(404, b"not found", "text/plain")
         out, code = fn(body)
+        if self.path.split('?', 1)[0] == '/api/starter' and 200 <= code < 300:
+            _forget_snapshot()  # Open study must see the study just created, even within the cache TTL.
         return self._json(out, code)
 
 
@@ -465,6 +498,8 @@ GET_ROUTES = {
     '/api/room-draft': room_design.get,
     '/api/assistant': assistant.view,
     "/api/starter": starter.view,
+    '/api/frameworks': starter.frameworks_view,
+    "/api/starter/github": starter.github_view,
     '/api/starter/draft': starter.draft_view,
     "/api/state": lambda q: (_snapshot_cached(), 200),
     "/api/run": lambda q: runops.run_detail(q.get("run_id", "")),
@@ -481,6 +516,7 @@ GET_ROUTES = {
     "/api/summary": lambda q: ({"ok": True, **fleet.lab_summary(ctx.HUB)}, 200),
     "/api/checkpoint": decisions.checkpoint_view,
     "/api/study/timeline": decisions.timeline,
+    '/api/study/history': decisions.history,
     "/api/panels": panels_api.list_panels,
     "/api/panel": panels_api.get_panel,
     "/api/panel/data": panels_api.panel_data,
@@ -505,7 +541,6 @@ GET_ROUTES = {
 # GET routes that answer with a file: fn(query) -> (path, content type) | None (404)
 FILE_ROUTES = {
     '/api/knowledge/attachment': lambda q: __import__('knowledge_api').attachment(q),
-    '/api/room-resource': room_design.resource,
     "/api/paper": lambda q: _typed(library.paper_pdf(q.get("idea", "")), "application/pdf"),
     "/api/figure": lambda q: _typed(library.figure_file(q.get("idea", ""), q.get("name", ""))),
     "/api/libfile": lambda q: library.lib_file(q.get("scope", ""), q.get("slug"), q.get("rel", "")),
@@ -549,6 +584,9 @@ POST_ROUTES = {
     '/api/starter/draft': starter.draft_op,
     "/api/study/tags": starter.tags,
     "/api/starter/repository": starter.lookup,
+    "/api/study/entry/cancel": starter.cancel_entry,
+    '/api/study/history/save': lambda b: decisions.history(b,save=True),
+    "/api/starter/plan": starter.preview_entry,
     "/api/run": runops.launch_run,
     **{f"/api/run/{op}": functools.partial(runops._run_op, op) for op in ("answer", "reply", "handoff", "interrupt", "stop", "resume", "cancel")},
     "/api/run/permission": runops.permission_run,
@@ -628,7 +666,7 @@ switch_hub = ctx.switch_hub   # (the lab picker; caches clear themselves through
 
 def _forget_snapshot(_old=None, _new=None) -> None:
     with _SNAP_LOCK:
-        _snap_cache.update(ts=0.0, value=None, sig=None)
+        _snap_cache.update(ts=0.0, value=None, sig=None, version=_snap_cache['version'] + 1)
 
 
 ctx.on_change(_forget_snapshot)
@@ -637,6 +675,7 @@ ctx.on_change(_forget_snapshot)
 class LabServer(ThreadingHTTPServer):
     """On Windows SO_REUSEADDR lets a second server silently share the port; bind exclusively instead."""
     daemon_threads = True
+    request_queue_size = 128  # a cold page and its 3D frame open many asset connections at once
     allow_reuse_address = sys.platform != "win32"
 
     def handle_error(self, request, client_address):
@@ -677,13 +716,12 @@ def main() -> int:
                              "Off by default; also enabled by VIVARIUM_DEMO=1.")
     args = parser.parse_args()
     Handler.demo = bool(args.demo) or os.environ.get("VIVARIUM_DEMO", "").lower() in ("1", "true", "yes")
-    global SERVER
     try:
         server = LabServer(("127.0.0.1", args.port), Handler)
     except OSError as e:
         print(f"port {args.port} is busy ({e}) — start with --port <another>, or use newts.py (it picks one)")
         return 3
-    SERVER = ctx.SERVER = server
+    ctx.SERVER = server
     labs.remember_lab(ctx.HUB)
     ticker._SCHED_HUBS.add(ctx.HUB)
     _migrate()
@@ -691,7 +729,7 @@ def main() -> int:
     if not Handler.demo:
         panels_api.start_keeper()
         fleet.start_keeper()          # remote labs stay connected whether or not this dashboard runs agents
-    print(f"Vivarium — the living lab · http://127.0.0.1:{args.port}  (Ctrl-C to stop)")
+    print(f"Newts' Lab · http://127.0.0.1:{args.port}  (Ctrl-C to stop)")
     if executor is None:
         print("  executor: not available (tools/executor missing) — observe-and-sign only")
     elif cfg.get("executor", True) is False:
@@ -706,7 +744,7 @@ def main() -> int:
     try:
         server.serve_forever()
     except KeyboardInterrupt:
-        print("\nlights out in the vivarium.")
+        print("\nNewts' Lab stopped.")
     ticker.handoff_scheduler()
     return 0
 

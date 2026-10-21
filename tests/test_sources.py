@@ -270,6 +270,35 @@ def test_directive_threads_carry_record_target(hub, monkeypatch):
     assert th["target"] == "spark-1"
 
 
+def test_snapshot_keeps_targeted_hub_instructions_before_and_after_project_attachment(hub, monkeypatch):
+    m = _mod(hub, monkeypatch)
+    hub.add_registry_row('pending', state='proposal')
+    hub.add_registry_row('other', state='proposal')
+    bus = hub.lab / '.bus'
+    bus.mkdir(parents=True, exist_ok=True)
+    rows = [{'id': f'd-{i:03}', 'target': 'pending', 'ts': f'2026-10-19T10:00:0{i}',
+             'kind': 'command', 'action': action, 'text': action} for i, action in enumerate(('park', 'kill', 'prioritize'), 1)]
+    rows += [{'id': 'd-004', 'target': 'hub', 'text': 'Lab instruction'},
+             {'id': 'd-005', 'target': 'other', 'text': 'Another study'}]
+    (bus / 'directives.jsonl').write_text(''.join(json.dumps(row) + '\n' for row in rows), encoding='utf-8')
+    first = m.snapshot()
+    item = next(it for it in first['items'] if it['id'] == 'pending')
+    assert not item['has_project'] and item['state'] == 'proposal'
+    assert [d['action'] for d in item['directives']] == ['park', 'kill', 'prioritize']
+    assert all(d['scope'] == 'hub' and d['state'] == 'pending' for d in item['directives'])
+    assert len(first['directives']) == 5, 'the existing hub API remains complete'
+    project = hub.make_project('pending')
+    (project / '.bus').mkdir()
+    (project / '.bus/directives.jsonl').write_text(json.dumps({'id': 'd-001', 'ts': '2026-10-19T11:00:00', 'text': 'Project instruction'}) + '\n', encoding='utf-8')
+    (bus / 'events.jsonl').write_text(json.dumps({'kind': 'directive_seen', 'data': {'ref': 'd-001'}}) + '\n', encoding='utf-8')
+    second = m.snapshot()
+    item = next(it for it in second['items'] if it['id'] == 'pending')
+    assert item['has_project'] and len(item['directives']) == 4
+    assert item['directives'][0]['state'] == 'seen'
+    assert item['directives'][-1]['scope'] == 'project'
+    assert item['state'] == 'proposal', 'a pending instruction never claims its outcome happened'
+
+
 # ── escalation lifecycle: an escalation_resolved event clears it ───────────────
 
 def test_escalations_unresolved_and_resolved(hub, monkeypatch):

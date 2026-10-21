@@ -7,6 +7,8 @@ the dashboard's shared state (ctx.HUB / ctx.LAB), which serve and sources both r
 
 from __future__ import annotations
 
+import pytest
+
 from conftest import REPO, load
 
 
@@ -20,6 +22,34 @@ def _mod(hub, monkeypatch):
     monkeypatch.setattr(m.ctx, "HUB", hub.root)
     monkeypatch.setattr(m.ctx, "LAB", hub.lab)
     return m
+
+
+@pytest.mark.parametrize('raw', [b'{', b'\xff', b'[' * 2000 + b'0' + b']' * 2000,
+                               b'{"n":' + b'9' * 5000 + b'}', b'[]', b'null'])
+def test_invalid_post_body_is_rejected_before_dispatch(hub, monkeypatch, raw):
+    m = _mod(hub, monkeypatch)
+    handler = object.__new__(m.Handler)
+    handler.path = '/test'
+    handler._raw_body = lambda: raw
+    sent, calls = [], []
+    handler._json = lambda body, code=200: sent.append((body, code))
+    monkeypatch.setattr(m, 'POST_ROUTES', {'/test': lambda body: (calls.append(body) or {'ok': True}, 200)})
+    handler._dispatch_post()
+    assert sent[0][1] == 400 and sent[0][0].get('error')
+    assert calls == []
+
+
+@pytest.mark.parametrize('raw, expected', [(b'', {}), (b'{}', {}), (b'{"note":"Hello"}', {'note': 'Hello'})])
+def test_valid_and_empty_post_bodies_keep_their_existing_contract(hub, monkeypatch, raw, expected):
+    m = _mod(hub, monkeypatch)
+    handler = object.__new__(m.Handler)
+    handler.path = '/test'
+    handler._raw_body = lambda: raw
+    sent, calls = [], []
+    handler._json = lambda body, code=200: sent.append((body, code))
+    monkeypatch.setattr(m, 'POST_ROUTES', {'/test': lambda body: (calls.append(body) or {'ok': True}, 200)})
+    handler._dispatch_post()
+    assert calls == [expected] and sent == [({'ok': True}, 200)]
 
 
 def test_empty_lab_snapshot_includes_machine_choices(hub, monkeypatch):
@@ -52,6 +82,34 @@ def test_optional_module_is_served_as_javascript(hub, monkeypatch, tmp_path):
     handler._send=lambda *args:sent.append(args)
     handler._serve_static('vendor/example/module.mjs')
     assert sent[0][0]==200 and sent[0][2].startswith('application/javascript')
+
+
+def test_renderer_is_opaque_and_static_modules_allow_its_origin(hub, monkeypatch):
+    m = _mod(hub, monkeypatch)
+    handler = object.__new__(m.Handler)
+    handler.path = '/static/lab-view.html?embedded=1'
+    sent = []
+    handler._send = lambda *args: sent.append(args)
+    handler._serve_static('lab-view.html')
+    assert sent[-1][3]['Content-Security-Policy'] == 'sandbox allow-scripts'
+    assert 'allow-same-origin' not in sent[-1][3]['Content-Security-Policy']
+    handler._serve_static('vendor/three/three.module.min.js')
+    assert sent[-1][3]['Access-Control-Allow-Origin'] == '*'
+
+
+def test_direct_room_preview_opens_the_dashboard_owner(hub, monkeypatch):
+    m = _mod(hub, monkeypatch)
+    handler = object.__new__(m.Handler)
+    handler.path = '/static/lab-view.html?roomdraft=study-123'
+    handler.headers = {'Host': '127.0.0.1:8787'}
+    sent = []
+    handler._send = lambda *args: sent.append(args)
+    handler._serve_static('lab-view.html')
+    assert sent[-1][0] == 302
+    assert sent[-1][3]['Location'] == '/?roomdraft=study-123'
+    handler.headers['Origin'] = 'null'
+    handler._serve_static('lab-view.html')
+    assert sent[-1][0] == 403
 
 
 
@@ -469,6 +527,24 @@ def test_withdraw_disambiguates_colliding_ids_by_ts(hub, monkeypatch):
     proj_lines = _read_jsonl(pbus / "directives.jsonl")
     assert any(r.get("kind") == "withdraw" for r in hub_lines)          # landed on the hub bus
     assert not any(r.get("kind") == "withdraw" for r in proj_lines)     # NOT the project's d-001
+
+
+@pytest.mark.parametrize('scope', ['hub', 'project'])
+def test_scoped_withdraw_disambiguates_identical_ids_and_timestamps(hub, monkeypatch, scope):
+    import json
+    m = _mod(hub, monkeypatch)
+    hub.add_registry_row('demo', state='proposal')
+    hub_bus = hub.lab / '.bus'
+    project_bus = hub.make_project('demo') / '.bus'
+    for bus in (hub_bus, project_bus):
+        bus.mkdir(parents=True, exist_ok=True)
+        (bus / 'directives.jsonl').write_text(json.dumps({'id': 'd-001', 'ts': '2026-10-19T10:00:00',
+            'target': 'demo', 'text': str(bus)}) + '\n', encoding='utf-8')
+    out, code = m.bus.withdraw_post({'target': 'demo', 'id': 'd-001', 'ts': '2026-10-19T10:00:00', 'scope': scope})
+    assert code == 200 and out['ok']
+    for name, bus in [('hub', hub_bus), ('project', project_bus)]:
+        assert any(r.get('kind') == 'withdraw' for r in _read_jsonl(bus / 'directives.jsonl')) == (name == scope)
+    assert m.bus.withdraw_post({'target': 'demo', 'id': 'd-001', 'scope': '../elsewhere'})[1] == 400
 
 
 def test_withdraw_falls_back_to_target_bus_for_unknown_ref(hub, monkeypatch):

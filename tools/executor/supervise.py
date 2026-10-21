@@ -307,7 +307,7 @@ def _prepare(lab: Lab, b, st: _State, workdir: Path, rd: Path, is_live: bool):
     """The Attempt (CLI, prompt, env, the backend's sidecars) — or an exit code when it can't start."""
     m, run_id, prog = st.m, st.m["run_id"], lab.prog()
     try:
-        profile.begin_run(lab, m)
+        m['task_followup'] = bool(profile.begin_run(lab, m))
     except ValueError as error:
         st.transition('failed', reason=str(error), last_message=str(error), finished=now())
         return 1

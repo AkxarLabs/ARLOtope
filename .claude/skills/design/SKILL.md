@@ -40,6 +40,10 @@ separate model loop, renderer SDK, browser installation or special tool protocol
    skill/rubric and `decisions` mapped to `continue`, a task ID or a shelf. Preserve researcher-owned
    default approvals unless the request explicitly changes them. See docs/agent-workflows.md.
    Include role instructions, skills and expected outputs.
+   For an external research engine, read `docs/external-frameworks.md`. Prefer a declarative
+   `workflow/frameworks/<id>.yaml` and node `external: {framework: <id>, phase: <phase>}` over
+   another backend or scheduler. Keep inputs/budgets in project `.newts/frameworks.yaml`.
+   Preserve phase contracts and checkpoints; a CLI's successful exit alone proves no result.
    Leave `agent.preset` unset to inherit role defaults, or reference an existing saved preset.
    Do not invent model IDs, install agents or modify Lab/study agent settings in a workflow proposal.
    Context sources may be earlier causal tasks: a revision can continue its writer after an independent

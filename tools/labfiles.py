@@ -23,10 +23,35 @@ from __future__ import annotations
 
 import json
 import time
+from contextlib import contextmanager
+from contextvars import ContextVar
 from pathlib import Path
 
 DEFAULT_PROJECTS_ROOT = "../newts-lab-projects"
 _EMPTY = ("—", "-", "")
+_reads = ContextVar('lab_reads', default=None)
+
+
+@contextmanager
+def read_batch():
+    """Reuse registry, config and model reads within one snapshot, never between requests."""
+    if _reads.get() is not None:
+        yield
+        return
+    token = _reads.set({})
+    try:
+        yield
+    finally:
+        _reads.reset(token)
+
+
+def cached_read(key, read):
+    cache = _reads.get()
+    if cache is None:
+        return read()
+    if key not in cache:
+        cache[key] = read()
+    return cache[key]
 
 
 def read_text(path) -> str:
@@ -104,13 +129,14 @@ def read_env(path) -> dict:
 
 
 def config(hub) -> dict:
-    return load_yaml(Path(hub) / "lab" / "config.yaml")
+    path = Path(hub) / "lab" / "config.yaml"
+    return cached_read(('config', path), lambda: load_yaml(path))
 
 
 def registry_rows(hub) -> list[dict]:
     """Every study, as the kernel's journal has it (lab/REGISTRY.md is the same, written out)."""
     from kernel import studies  # noqa: PLC0415 — lazy: the kernel reads this module's helpers
-    return studies.rows(hub)
+    return cached_read(('registry', Path(hub)), lambda: studies.rows(hub))
 
 
 def row(hub, slug: str) -> dict | None:
@@ -123,7 +149,7 @@ def projects_root(hub) -> Path:
 
 
 def registry_project_path(hub, slug: str, r: dict | None = None) -> Path | None:
-    r = r or row(hub, slug)
+    r = r if r is not None else row(hub, slug)
     raw = ((r or {}).get("project") or "").strip().strip("`")
     if raw in _EMPTY:
         return None
@@ -134,7 +160,8 @@ def registry_project_path(hub, slug: str, r: dict | None = None) -> Path | None:
 
 
 def project_dir(hub, slug: str, r: dict | None = None) -> Path | None:
-    if str((r or row(hub, slug) or {}).get('project') or '').startswith('newts+ssh://'):
+    r = r if r is not None else (row(hub, slug) or {})
+    if str(r.get('project') or '').startswith('newts+ssh://'):
         return None
     p = registry_project_path(hub, slug, r)
     if p:

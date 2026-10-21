@@ -63,11 +63,7 @@ class Worker:
         owner, slug = safe_id(data['owner']), safe_id(data['study'])
         marker = root / '.bus' / 'newts-owner.json'
         with self.lock:
-            if marker.exists():
-                current = json.loads(marker.read_text(encoding='utf-8'))
-                if current.get('owner') != owner or current.get('study') != slug:
-                    raise ValueError('This project belongs to another Lab or study. Open its Lab instead.')
-            elif claim:
+            if not marker.exists() and claim:
                 if (root / 'lab/config.yaml').is_file():
                     raise ValueError('This folder is a Lab. Connect that Lab instead of attaching it as a project.')
                 control = root / 'control.yaml'
@@ -77,12 +73,16 @@ class Worker:
                     old_hub = Path(config.get('hub_path') or '')
                     if old_hub.is_absolute() and (old_hub / 'lab/config.yaml').is_file():
                         raise ValueError('This project is attached to an existing Lab. Connect that Lab instead.')
-                atomic(marker, {'owner': owner, 'study': slug})
-            else:
-                raise ValueError('Attach the project to this Lab first.')
             if claim:
                 from project_identity import register
                 register(root, owner, slug, data.get('lab_id'), data.get('title'))
+            elif marker.exists():
+                current = json.loads(marker.read_text(encoding='utf-8'))
+                if current.get('owner') != owner or current.get('study') != slug:
+                    raise ValueError(f'Project "{root}" belongs to another Lab or study '
+                                     f'(study: {current.get("study")}, execution owner: {current.get("owner")}). Open its Lab instead.')
+            else:
+                raise ValueError('Attach the project to this Lab first.')
         return root, root / '.bus' / 'newts' / owner
 
     def info(self, data):
@@ -106,6 +106,15 @@ class Worker:
                 'git': shutil.which('git'), 'npm': shutil.which('npm'), 'clis': clis, 'labs': labs, 'projects':discover(), 'runtime': self.runtime}
 
     def call(self, method, data):
+        if method == 'frameworks':
+            from frameworks import installed
+            return {'frameworks': installed(data['definitions'], data.get('project')), 'machine': 'remote'}
+        if method == 'framework-receipt':
+            from frameworks import completion
+            return completion(data['definition'], data['project'], data['study'], data['phase'])
+        if method == 'framework-activity':
+            from framework_activity import read
+            return read(**data)
         if method == 'browse':
             from project_files import browse
             return browse(data.get('path'), data.get('hidden') is True)
@@ -114,8 +123,30 @@ class Worker:
             return discover(data.get('root'), max(0,min(int(data.get('depth',2)),8)))
         if method == 'info':
             return self.info(data)
+        if method == 'github':
+            import github_access as github
+            action = data.get('action')
+            if action == 'status':
+                return github.status()
+            if action == 'repositories':
+                return github.repositories()
+            if action == 'lookup':
+                import re
+                name = data.get('repository', '')
+                if not re.fullmatch(r'[A-Za-z0-9][A-Za-z0-9-]{0,38}/[A-Za-z0-9_.-]{1,100}', name) or name.split('/')[1] in ('.', '..'):
+                    raise ValueError('Use an exact owner/repository.')
+                if data.get('authenticated'):
+                    value = github.repository(name)
+                else:
+                    import urllib.request
+                    with urllib.request.urlopen(urllib.request.Request('https://api.github.com/repos/'+name, headers={'User-Agent':'Newts-Lab'}), timeout=12) as response:
+                        value = json.loads(response.read(1_000_001))
+                return {'name':value['full_name'],'url':'https://github.com/'+value['full_name'],
+                        'description':str(value.get('description') or '')[:500],'language':value.get('language'),
+                        'archived':bool(value.get('archived')),'private':bool(value.get('private'))}
+            raise ValueError('Choose connection status, repositories or lookup.')
         if method == 'clone':
-            # Public GitHub repositories only; an explicit attach action authorizes the download.
+            # An explicit attach action authorizes a fixed-host download using this machine's sign-in.
             import re
             repo = data['repository']
             if not re.fullmatch(r'[A-Za-z0-9-]+/[A-Za-z0-9_.-]+', repo) or repo.split('/')[1] in ('.', '..'):
@@ -123,11 +154,13 @@ class Worker:
             dest = Path(data['path']).expanduser()
             if not dest.is_absolute() or dest.exists():
                 raise ValueError('Choose a new absolute clone destination.')
-            result = subprocess.run(['git', 'clone', '--', 'https://github.com/' + repo + '.git', str(dest)],
-                env={**os.environ, 'GIT_TERMINAL_PROMPT': '0', 'GCM_INTERACTIVE': 'Never'},
+            from github_access import clone_argv
+            argv = clone_argv(repo, dest) if data.get('github_auth') is True else ['git', 'clone', '--', 'https://github.com/' + repo + '.git', str(dest)]
+            result = subprocess.run(argv,
+                env={**os.environ, 'GIT_TERMINAL_PROMPT': '0', 'GCM_INTERACTIVE': 'Never', 'GH_PROMPT_DISABLED': '1'},
                 capture_output=True, text=True, timeout=180)
             if result.returncode:
-                raise ValueError(result.stderr[-1000:])
+                raise ValueError('Could not clone the repository. Check GitHub access on this machine, or attach an existing checkout.')
             return {'path': str(dest.resolve())}
         if method.startswith('term/'):
             return self.terminal(method, data)
@@ -300,6 +333,12 @@ class Worker:
                     action_content = stream.read(512*1024)
             result['actions'] = base64.b64encode(action_content).decode()
             result['actions_offset'] = action_offset+len(action_content)
+            if data.get('framework_activity'):
+                from framework_activity import read
+                try:
+                    result['external_activity'] = read(**data['framework_activity'])
+                except (OSError, ValueError, TypeError) as error:
+                    result['external_activity'] = {'error':str(error)}
             return result
         if method == 'response':
             cid = safe_id(data['id'])
@@ -341,9 +380,13 @@ class Worker:
         from executor.backends import resolve_cli
         if method == 'term/open':
             backend, purpose = data['backend'], data['purpose']
-            argv = resolve_cli(backend, data.get('config') or {})
+            argv = resolve_cli(backend, data.get('config') or {}) if backend != 'github' else None
             if purpose == 'login':
-                argv = login_argv(backend, argv or [])
+                if backend == 'github':
+                    from github_access import login_argv as github_login
+                    argv = github_login()
+                else:
+                    argv = login_argv(backend, argv or [])
             elif purpose == 'install':
                 command = install_command(backend)
                 argv = ['bash', '-lc', command] if command else None
@@ -351,10 +394,9 @@ class Worker:
                 raise ValueError('Choose install or login.')
             if not argv:
                 raise ValueError('Configure this agent command and sign in manually.')
-            if len([t for t in self.terminals.values() if not t.exited]) >= 8:
-                raise ValueError('Close an existing terminal first.')
-            session = Session(argv, str(Path.home()), purpose)
-            self.terminals[session.id] = session
+            with self.lock:
+                session, _ = Session.open(self.terminals, argv, str(Path.home()), purpose,
+                                          request_id=data.get('request_id'))
             return {'ok': True, 'id': session.id, 'pty': os.name == 'posix', 'title': purpose.title() + ' · ' + backend}
         session = self.terminals.get(data.get('id'))
         if not session:
@@ -481,6 +523,9 @@ def serve(port):
 
 
 def main():
+    if len(sys.argv) > 1 and sys.argv[1] == 'framework':
+        from frameworks import main as framework_main
+        return framework_main(sys.argv[2:])
     if len(sys.argv)>1 and sys.argv[1]=='knowledge':
         from knowledge import main as knowledge_main
         return knowledge_main(sys.argv[2:])

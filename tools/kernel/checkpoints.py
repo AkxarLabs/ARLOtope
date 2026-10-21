@@ -52,31 +52,40 @@ def project_dir(hub, slug: str) -> Path | None:
 
 
 def _fill(hub: Path, slug: str, rel: str) -> Path | None:
-    pdir = project_dir(hub, slug)
-    if "{project}" in rel and not pdir:
-        return None
-    s = rel.replace("{study}", slug).replace("{project}", pdir.as_posix() if pdir else "")
-    p = Path(s)
+    if "{project}" in rel:
+        pdir = project_dir(hub, slug)
+        if not pdir:
+            return None
+        rel = rel.replace("{project}", pdir.as_posix())
+    p = Path(rel.replace("{study}", slug))
     return p if p.is_absolute() else Path(hub) / p
 
 
 def evidence(hub, slug: str, cp: dict) -> list[dict]:
+    import remote_projects as remote
+
+    refs = [str(rel) for rel in cp.get("evidence") or []]
+    needs_project = any('{project}' in rel for rel in refs)
+    location = remote.project(hub, slug) if needs_project else None
+    pdir = project_dir(hub, slug) if needs_project and not location else None
+    paths = [rel[len('{project}/'):].replace('{study}', slug) for rel in refs
+             if location and rel.startswith('{project}/')]
+    states = {}
+    if paths:
+        try:
+            states = remote.file_states(hub, slug, paths)
+        except remote.RemoteError:
+            pass  # an unavailable worker leaves evidence visible, marked missing
     out = []
-    for rel in cp.get("evidence") or []:
-        import remote_projects as remote
-        location = remote.project(hub, slug)
-        if location and str(rel).startswith('{project}/'):
-            path = str(rel).replace('{project}/','',1).replace('{study}',slug)
-            try:
-                exists = remote.file_states(hub, slug, [path]).get(path) is not None
-            except remote.RemoteError:
-                exists = False
+    for rel in refs:
+        if location and rel.startswith('{project}/'):
+            path = rel[len('{project}/'):].replace('{study}', slug)
             out.append({'path':remote.uri(location['machine'],location['path'].rstrip('/')+'/'+path),
-                        'name':path,'exists':exists,'dir':False,'remote':True})
+                        'name':path,'exists':states.get(path) is not None,'dir':False,'remote':True})
             continue
-        p = _fill(Path(hub), slug, str(rel))
-        if p is None:
+        if '{project}' in rel and not pdir:
             continue
+        p = _fill(Path(hub), slug, rel.replace('{project}', pdir.as_posix()) if pdir else rel)
         try:
             shown = p.resolve().relative_to(Path(hub).resolve()).as_posix()
         except ValueError:

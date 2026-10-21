@@ -25,10 +25,10 @@
         <${NL.Field} label="Role"><${NL.Select} value=${opts.role||''} onChange=${v=>set('role',v)} options=${[{value:'',label:'Task default'},...Object.entries(agents?.roles||{}).map(([value,label])=>({value,label}))]}/></${NL.Field}>
         <${NL.Field} label="Model" hint="Use selected agent settings"><${NL.Input} value=${opts.model} onInput=${v => set('model', v)} placeholder=${chosen?.model||'Agent default'} mono /></${NL.Field}>
         ${['claude','codex'].includes(backend)?html`<${NL.Field} label="Effort"><${NL.Select} value=${opts.effort} onChange=${v => set('effort', v)} options=${[{ value: '', label: 'default' }, 'low', 'medium', 'high', 'xhigh', 'max']} /></${NL.Field}>`:null}
-        <${NL.Field} label="Time limit (minutes)" hint=${'default ' + Math.round((x.config || {}).max_minutes || 240)}><${NL.Input} type="number" min="5" value=${opts.max_minutes} onInput=${v => set('max_minutes', v)} /></${NL.Field}>
+        <${NL.Field} label="Time limit (min)" hint=${'default ' + Math.round((x.config || {}).max_minutes || 240)}><${NL.Input} type="number" min="5" value=${opts.max_minutes} onInput=${v => set('max_minutes', v)} /></${NL.Field}>
         ${allowChain ? html`<${NL.Field} label="When it finishes"><${NL.Select} value=${opts.chain} onChange=${v => set('chain', v)}
           options=${[{ value: '', label: 'As the lab is set' }, { value: 'off', label: 'Stop and report' }, { value: 'next', label: 'Run the next step' }, { value: 'loop', label: 'Keep going until a checkpoint' }]} /></${NL.Field}>` : null}
-        ${allowRepeat ? html`<${NL.Field} label="Repeat every (minutes)" hint="blank = once · stops at a checkpoint or a failure"><${NL.Input} type="number" min="5" value=${opts.repeat_minutes} onInput=${v => set('repeat_minutes', v)} /></${NL.Field}>` : null}
+        ${allowRepeat ? html`<${NL.Field} label="Repeat every (min)" hint="blank = once · stops at a checkpoint or a failure"><${NL.Input} type="number" min="5" value=${opts.repeat_minutes} onInput=${v => set('repeat_minutes', v)} /></${NL.Field}>` : null}
         ${allowRepeat && opts.repeat_minutes ? html`<${NL.Field} label="At most (times)"><${NL.Input} type="number" min="1" value=${opts.max_repeats} onInput=${v => set('max_repeats', v)} /></${NL.Field}>` : null}
       </div></details>`;
   };
@@ -134,21 +134,6 @@
   NL.openStart = (props) => NL.open(NL.StartSheet, props || {}, { key: 'start' });
   NL.openAsk = (text, target) => NL.open(AskConfirm, { text: text || '', target: target || 'hub' }, { kind: 'dialog', key: 'ask' });
 
-  /* ── Ask Newt: the bar under the world ─────────────────────────────────── */
-  NL.AskBar = ({ target }) => {
-    const s = NL.useLab();
-    const [v, setV] = useState('');
-    const study = target && target !== 'hub' ? NL.item(s, target) : null;
-    const toAgent = text => NL.open(AskConfirm, { text, target: target || 'hub', onSent: () => setV('') }, { kind: 'dialog', key: 'ask' });
-    // a question the lab's live state already answers is answered here — free, instant, no agent session
-    const send = () => { const q = v.trim(); if (!q) return; if (NL.quickAnswer && NL.quickAnswer(q, s)) return NL.open(NL.AnswerSheet, { text: q, target, onAgent: () => toAgent(q) }, { key: 'answer' }); toAgent(q); };
-    return html`<div class="askbar" role="search">
-      <span class="askbar-newt" aria-hidden="true">🦎</span>
-      <input class="askbar-in" value=${v} onInput=${e => setV(e.target.value)} onKeyDown=${e => e.key === 'Enter' && (e.preventDefault(), send())}
-        placeholder=${study ? `Ask about ${NL.clip(study.title || study.id, 30)}, or give an instruction…` : 'Ask a question, or give the lab an instruction…'} aria-label="Task instructions" />
-      <button class="askbar-more" title="Save a human note" onClick=${() => NL.openNote(target, v)}>✉</button>
-      <button class="askbar-go" disabled=${!v.trim()} onClick=${send} aria-label="send">➤</button></div>`;
-  };
   const AskConfirm = ({ text, target, onSent, onClose }) => {
     const s = NL.useLab();
     const [t, setT] = useState(text);
@@ -166,14 +151,13 @@
   /* ── Plan a campaign (writes and approves lab/campaigns/<date>-<slug>.md) ───── */
   /* what a walk-away start needs, checked live (GET /api/campaign/preflight) */
   NL.Preflight = ({ onReady }) => {
-    const [p, setP] = useState(null);
-    const load = () => NL.get('/api/campaign/preflight').then(x => { setP(x); onReady && onReady(!!(x && x.ready)); });
-    useEffect(() => { load(); }, []);
-    if (!p) return html`<${NL.Spinner} />`;
+    const read = NL.useGet('/api/campaign/preflight'), p = read.data;
+    useEffect(() => { onReady && onReady(!!p?.ready); }, [p]);
+    if (!p) return html`<${NL.LoadState} ...${read} />`;
     return html`<div class="preflight">${(p.checks || []).map(c => html`<div class=${cls('pf-row', c.ok ? 'ok' : c.warn_only ? 'warn' : 'bad')} key=${c.id}>
         <span class="pf-ico">${c.ok ? '✓' : c.warn_only ? '!' : '✕'}</span><span class="pf-t"><b>${c.label}</b>${c.detail ? html`<small>${c.detail}</small>` : null}</span>
         ${!c.ok && c.fix ? html`<a class="link small" href=${'#/' + c.fix} onClick=${() => NL.closeTop && NL.closeTop()}>fix →</a>` : null}</div>`)}
-      <div class="row end"><button type="button" class="link small" onClick=${load}>check again</button></div></div>`;
+      <div class="row end"><button type="button" class="link small" onClick=${read.reload}>check again</button></div></div>`;
   };
 
   const CampaignForm = ({ onDone }) => {

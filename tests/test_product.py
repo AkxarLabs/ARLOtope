@@ -71,6 +71,21 @@ def test_free_form_run(m, hub):
     assert m.runops.launch_run({"prompt": "go", "chain": "loop", "confirm": True})[1] == 400
 
 
+def test_study_history_is_read_only_until_explicit_snapshot_save(m,hub):
+    K.studies.new(hub.root,'recorded',by='pi')
+    before=K.journal.path(hub.root).read_bytes()
+    data,status=m.decisions.history({'study':'recorded'})
+    assert status==200 and data['events'][0]['kind']=='new'
+    assert not (hub.root/'studies/recorded/history').exists()
+    saved,status=m.decisions.history({'study':'recorded'},save=True)
+    assert status==200 and Path(saved['path']).is_file()
+    assert K.journal.path(hub.root).read_bytes()==before
+    group=next(g for g in m.library.lib_tree()['groups'] if g.get('slug')=='recorded')
+    assert any(s['title']=='Workflow history' for s in group['sections'])
+    assert m.decisions.history({'study':'../bad'},save=True)[1]==400
+    assert '/api/study/history/save' in m.POST_ROUTES
+
+
 def test_free_form_run_inside_a_project(m, hub):
     hub.add_registry_row("idea-p", state="active")
     pdir = hub.make_project("idea-p")
@@ -153,6 +168,45 @@ def test_decide_approves_moves_and_starts_the_next_steps_work(m, hub):
     assert "checkpoint_approved" in kinds
     out, code = m.decisions.decide(dict(body, confirm=True, decision="revoked"))
     assert code == 200 and not _appr(m).approved(hub.root, "idea-g", "finalize-paper")
+
+
+@pytest.mark.parametrize('session_id', [None, 'saved-session'])
+def test_unfinished_task_can_handoff_without_claiming_completion(m, hub, session_id):
+    hub.add_registry_row('handoff', state='proposal')
+    lab = m.executor.Lab(hub.root)
+    source = m.executor.enqueue(lab, m.executor.RunSpec('propose', target='handoff'))
+    path = m.executor.find_run(lab, source['run_id'])[2]
+    cursor = len(K.journal.events(hub.root, 'handoff'))
+    m.executor.manifest.transition(lab, path, source, 'completed', by='fixture', session_id=session_id,
+                                   assigned_step='proposal', assigned_journal_index=cursor)
+    result, code = m.runops._run_op('handoff', {'run_id':source['run_id'], 'confirm':True})
+    assert code == 200, result
+    new = _manifest(m, hub, result['run_id'])
+    assert new['run_id'] != source['run_id'] and new['parent'] == source['run_id']
+    assert new['context']['mode'] == 'fresh' and new['context']['method'] == 'handoff'
+    assert new['context']['source_run'] == source['run_id']
+    assert not new.get('session_id') and new['skill'] == source['skill']
+    new_path = m.executor.find_run(lab, new['run_id'])[2]
+    prompt = (m.executor.run_dir(new_path.parent, new['run_id']) / 'prompt.md').read_text(encoding='utf-8')
+    assert source['run_id'] in prompt and 'Your independent task:' in prompt
+    assert K.studies.study(hub.root, 'handoff')['step'] == 'proposal'
+    assert len(K.journal.events(hub.root, 'handoff')) == cursor
+
+
+def test_early_checkpoint_request_does_not_promise_a_workflow_transition(m, hub, monkeypatch):
+    """A run footer can ask for approval before the kernel receives the task outcome."""
+    hub.add_registry_row("early", state="proposal")
+    monkeypatch.setattr(m.decisions, "_asking", lambda *_: {"run_id": "requesting-run", "session": True})
+    ready, code = m.decisions.checkpoint_view({"study": "early", "id": "approve-proposal"})
+    assert code == 200 and ready["asking"] and not ready["waiting"]
+    out, code = m.decisions.decide({"study": "early", "checkpoint": "approve-proposal", "confirm": True, "start": True})
+    assert code == 200 and "moved" not in out and "launch" not in out
+    assert "no task was started" in out["warnings"][0]
+    assert hub.study("early")["step"] == "proposal"
+    assert _appr(m).approved(hub.root, "early", "approve-proposal")
+    # Approval is permission, not completion; only the task's outcome advances it.
+    moved = K.studies.move(hub.root, "early", "done")
+    assert moved["moved"] and moved["step"] == "setup"
 
 
 def test_decide_changes_requested_is_recorded_and_approves_nothing(m, hub):

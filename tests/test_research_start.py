@@ -152,3 +152,32 @@ def test_http_starter_requires_confirmation_and_keeps_workflow_choices(hub, monk
     assert status == 200 and any(w['id'] == 'research' for w in context['workflows'])
     result, status = server.starter.create({'confirm': True, 'title': 'A study', 'question': 'Why?'})
     assert status == 201 and result['ok']
+
+
+def test_attachment_conflict_is_clear_in_http_and_cli_and_can_be_corrected(hub, tmp_path, start, monkeypatch, capsys):
+    from conftest import REPO
+    import project_identity as I
+    project = tmp_path/'registered project'; project.mkdir()
+    I.register(project, 'other-owner', 'existing-study', 'other-lab')
+    paths = [project/'.bus/newts-owner.json', project/'.newts/project.json', I.home()/'projects.json']
+    before = {path: path.read_bytes() for path in paths}
+    monkeypatch.syspath_prepend(str(REPO/'dashboard'))
+    api = load('dashboard/starter')
+    monkeypatch.setattr(api.ctx, 'HUB', hub.root)
+    body = {'confirm': True, 'title': 'A study', 'question': 'Why?', 'local': str(project)}
+    response, status = api.create(body)
+    assert status == 400 and 'other-lab' in response['error'] and str(project) in response['error']
+    monkeypatch.setattr('sys.argv', ['research_start.py', '--hub', str(hub.root), '--title', 'A study',
+                                   '--question', 'Why?', '--local', str(project)])
+    with pytest.raises(SystemExit) as error:
+        start.main()
+    assert error.value.code == 1
+    output = capsys.readouterr()
+    assert 'other-lab' in output.err and str(project) in output.err and 'Traceback' not in output.err
+    assert {path: path.read_bytes() for path in paths} == before
+    assert kernel().studies.rows(hub.root) == [] and not (hub.root/'studies/a-study').exists()
+    correct = tmp_path/'unattached project'; correct.mkdir()
+    (correct/'.gitignore').write_text('data/\n', encoding='utf-8')
+    response, status = api.create({**body, 'local': str(correct)})
+    assert status == 201 and response['ok']
+    assert (correct/'.gitignore').read_text(encoding='utf-8') == 'data/\n'

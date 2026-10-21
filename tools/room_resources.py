@@ -44,15 +44,23 @@ def validate(data):
     return data
 
 
+def read_one(folder):
+    folder = Path(folder)
+    raw = (folder / 'room.json').read_bytes()
+    module = folder / 'extra.js'
+    has_module = module.is_file()
+    source = module.read_bytes() if has_module else b''
+    return {'definition': validate(json.loads(raw)),
+            'revision': hashlib.sha256(raw + source).hexdigest()[:16],
+            'module': has_module, 'module_src': source.decode('utf-8')}
+
+
 def read(hub):
     result = {}
     for file in sorted((Path(hub) / 'lab/rooms').glob('*/room.json')):
         if not ID.fullmatch(file.parent.name): continue
         try:
-            data = validate(json.loads(file.read_text(encoding='utf-8')))
-            module = file.parent / 'extra.js'
-            digest = hashlib.sha256(file.read_bytes() + (module.read_bytes() if module.is_file() else b'')).hexdigest()[:16]
-            result[file.parent.name] = {'definition': data, 'revision': digest, 'module': module.is_file()}
+            result[file.parent.name] = read_one(file.parent)
         except (ValueError, OSError):
             continue
     return result

@@ -183,6 +183,11 @@ def test_autopilot_brief_must_live_in_campaigns_and_be_approved(hub):
 def test_prompt_forms(hub):
     lab = setup(hub)
     v = spec.validate(lab, RunSpec(skill="propose", target="idea-a"))
+    fallback = spec.profile.render_prompt(lab, v, spec.slash_command(v), True)
+    assert (REPO / '.claude/skills/propose/SKILL.md').as_posix() in fallback
+    local_skill = hub.root / '.claude/skills/propose/SKILL.md'
+    local_skill.parent.mkdir(parents=True)
+    local_skill.write_text((REPO / '.claude/skills/propose/SKILL.md').read_text(encoding='utf-8'), encoding='utf-8')
     assert spec.profile.render_prompt(lab, v, spec.slash_command(v), spec.backends.get("claude").native_slash) == "/propose idea-a"          # native slash command
     p = spec.profile.render_prompt(lab, v, spec.slash_command(v), spec.backends.get("codex").native_slash)
     assert "SKILL.md" in p and "/propose idea-a" in p                        # other agents read the file
@@ -442,6 +447,29 @@ def test_existing_session_continues_at_depth_cap_but_new_agent_cannot_launch(hub
     disabled = setup(hub, enabled=False)
     with pytest.raises(SpecError, match='off'):
         executor.resume(disabled, m['run_id'])
+
+
+@pytest.mark.parametrize('backend', ['claude', 'codex', 'opencode', 'acp'])
+def test_task_followup_preserves_session_and_assignment_without_completing_it(hub, backend):
+    from task_completion import flag_runs
+    lab = setup(hub)
+    m = executor.enqueue(lab, RunSpec('propose', target='idea-a'))
+    path = executor.find_run(lab, m['run_id'])[2]
+    cursor = len(K.journal.events(hub.root, 'idea-a'))
+    manifest.transition(lab, path, m, 'completed', by='fixture', session_id='existing-session', backend=backend,
+                        assigned_step='proposal', assigned_journal_index=cursor)
+    assert flag_runs(hub.root, [m])[0]['needs_followup']
+    items = executor.attention.collect(lab)
+    followup = next(a for a in items if a['kind'] == 'followup')
+    assert [(a['id'], a['label']) for a in followup['actions']][:2] == [
+        ('resume', 'Continue task'), ('handoff', 'New agent with handoff')]
+    updated = executor.reply(lab, m['run_id'], 'Finish the assigned task and report its outcome.')
+    assert updated['status'] == 'queued' and updated['backend'] == backend
+    assert updated['session_id'] == 'existing-session'
+    assert updated['assigned_step'] == 'proposal' and updated['assigned_journal_index'] == cursor
+    assert updated['resume'] == {'mode':'reply', 'text':'Finish the assigned task and report its outcome.'}
+    assert K.studies.study(hub.root, 'idea-a')['step'] == 'proposal'
+    assert len(K.journal.events(hub.root, 'idea-a')) == cursor
 
 
 def test_cli_inspection_exposes_evidence_paths_and_message_source(hub, monkeypatch, capsys):

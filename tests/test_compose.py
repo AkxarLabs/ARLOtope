@@ -45,6 +45,27 @@ def _wf(m, wid):
     return next(w for w in _draft(m)["workflows"] if w["id"] == wid)
 
 
+def test_extension_additions_stay_in_a_reviewable_draft(m, hub):
+    extension = hub.root / 'extensions/review-study'
+    files = extension / 'workflow/workflows'
+    files.mkdir(parents=True)
+    (extension / 'extension.yaml').write_text('title: Review study\nblurb: A reusable workflow\n', encoding='utf-8')
+    definition = yaml.safe_load((hub.root / 'workflow/workflows/quick.yaml').read_text(encoding='utf-8'))
+    definition.update(id='review-study', title='Review study', default=False)
+    (files / 'review-study.yaml').write_text(yaml.safe_dump(definition), encoding='utf-8')
+    view, code = m.compose.view()
+    assert code == 200 and any(e['name'] == 'review-study' and not e['added'] for e in view['extensions'])
+    assert 'prereg' in view['audits'] and isinstance(view['watch'], list)
+    _op(m, op='extension-use', name='review-study')
+    view, code = m.compose.view()
+    assert code == 200 and not view['draft']['problems']
+    assert _wf(m, 'review-study')['title'] == 'Review study'
+    assert not (hub.root / 'workflow/workflows/review-study.yaml').exists()
+    out, code = m.compose.op({'op': 'publish', 'note': 'Install reviewed workflow'})
+    assert code == 200, out
+    assert K.model.workflow('review-study', hub.root)['title'] == 'Review study'
+
+
 def test_edits_go_to_a_draft_until_published_and_can_be_undone(m, hub):
     before = (hub.root / ".claude/skills/scope/SKILL.md").read_text(encoding="utf-8")
     assert not m.compose.view()[0]["draft"]["active"]
@@ -93,7 +114,8 @@ def test_workflows_and_checkpoints_are_composed_without_yaml(m, hub):
     """A workflow is copied (its checkpoints get ids of their own — approvals are per id), a checkpoint is added,
     moved and removed, a workflow made default and removed; the view shows the audits checkpoints may run."""
     v = m.compose.view()[0]
-    assert [w["id"] for w in v["workflows"]] == ["research", "quick", "target"] and "prereg" in v["audits"]
+    assert v['workflows'][0]['id'] == 'research'
+    assert {w['id'] for w in v['workflows']} == {'research', 'quick', 'target', 'sakana'} and 'prereg' in v['audits']
     _op(m, op="workflow", id="lean", new=True, like="research", fields={"title": "Lean paper"})
     assert [c["id"] for c in _wf(m, "lean")["checkpoints"]] == ["approve-proposal-lean", "approve-full-runs-lean",
                                                                 "approve-loop-lean", "finalize-paper-lean"]
@@ -119,7 +141,7 @@ def test_workflows_and_checkpoints_are_composed_without_yaml(m, hub):
 
 
 def test_the_last_workflow_stays_and_a_study_is_never_stranded(m, hub):
-    for wid in ("quick", "target"):
+    for wid in [w['id'] for w in m.compose.view()[0]['workflows'] if w['id'] != 'research']:
         _op(m, op="workflow-delete", id=wid)
     assert m.compose.op({"op": "workflow-delete", "id": "research"})[1] == 400
     _op(m, op="discard")
@@ -170,8 +192,9 @@ def test_rooms_without_yaml(m, hub):
     _op(m, op="copy", kind="room", like="lab", name="replication", plain=True, steps=["analysis"])
     rooms = {r["id"]: r for r in K.model.rooms(m.compose._draft())}
     assert rooms["replication"]["steps"] == ["analysis"] and "analysis" not in rooms["bench"]["steps"]
-    _op(m, op="room", id="replication", fields={"title": "The Replication Bench", "per_project": True})
-    assert next(r for r in _draft(m)["rooms"] if r["id"] == "replication")["per_project"] is True
+    _op(m, op="room", id="replication", fields={"title": "The Replication Bench"})
+    assert next(r for r in _draft(m)["rooms"] if r["id"] == "replication")["title"] == "The Replication Bench"
+    assert 'per_project' not in K.define.dump_rooms([{'id': 'old', 'per_project': True}])
     assert m.compose.problems() == []
     assert m.compose.op({"op": "delete", "kind": "room", "name": "replication"})[1] == 400   # say where its steps go
     _op(m, op="delete", kind="room", name="replication", move_to="bench")

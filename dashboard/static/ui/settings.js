@@ -3,7 +3,7 @@
 (function () {
   'use strict';
   const NL = window.NL;
-  const { html, useState, useEffect, cls } = NL;
+  const { html, useState, useEffect, useLayoutEffect, cls } = NL;
 
   const LOGIN = { claude: 'Opens a window running `claude auth login`. Sign in with your Anthropic account in the browser it opens.',
     codex: 'Opens a window running `codex login`. Sign in with ChatGPT or an API key there.',
@@ -14,20 +14,30 @@
   NL.AgentsSignIn = ({ compact }) => {
     const s = NL.useLab();
     const [fresh, setFresh] = useState(null);
+    const [healthError, setHealthError] = useState('');
     const [busy, setBusy] = useState(false);
-    const check = async () => { setBusy(true); const h = await NL.get('/api/executor/health?fresh=1'); setFresh(h); setBusy(false); NL.refresh(); };
+    const read = NL.useRef(0), alive = NL.useRef(true);
+    useEffect(() => () => { alive.current = false; read.current++; }, []);
+    const check = async () => { const request = ++read.current; setBusy(true);
+      const h = await NL.get('/api/executor/health?fresh=1');
+      if (!alive.current || read.current !== request) return null;
+      setHealthError(h.error || ''); if (!h.error) setFresh(h); setBusy(false); NL.refresh();
+      return h.error ? null : h;
+    };
     const clis = (fresh && fresh.clis) || NL.exec(s).clis || {};
     // after "Sign in", poll for a few minutes until the CLI reports signed in
     const [watch, setWatch] = useState(null);
     useEffect(() => {
       if (!watch) return undefined;
-      let n = 0; const t = setInterval(async () => { n++; const h = await NL.get('/api/executor/health?fresh=1'); setFresh(h);
-        if ((h.clis || {})[watch] && h.clis[watch].logged_in) { clearInterval(t); setWatch(null); NL.toast(`${watch} is signed in`, 'ok'); NL.refresh(); }
-        if (n > 40) { clearInterval(t); setWatch(null); } }, 6000);
-      return () => clearInterval(t);
+      let n = 0, off = false, timer;
+      const poll = async () => { const h = await check(); if (off) return;
+        if (h?.clis?.[watch]?.logged_in) { setWatch(null); NL.toast(`${watch} is signed in`, 'ok'); }
+        else if (++n > 40) setWatch(null); else timer = setTimeout(poll, 6000);
+      };
+      timer = setTimeout(poll, 6000); return () => { off = true; clearTimeout(timer); read.current++; };
     }, [watch]);
     const term = async (purpose, backend) => { const how = await NL.runOnLabMachine(purpose, backend); if (how) setWatch(purpose === 'login' ? backend : null); };
-    return html`<div class=${cls('clis', compact && 'compact')}>${['claude', 'codex', 'opencode'].map(b => {
+    return html`<div>${healthError ? html`<${NL.LoadState} error=${healthError} stale=${true} reload=${check} />` : null}<div class=${cls('clis', compact && 'compact')}>${['claude', 'codex', 'opencode'].map(b => {
       const c = clis[b] || {};
       if (NL.DEMO) return html`<div class="cli cli-unknown"><div class="cli-top"><b>${b}</b><${NL.Pill} tone="muted">demo: not checked</${NL.Pill}></div>
         <div class="muted small">${WHAT[b]}</div><div class="muted small">The demo doesn't look at this computer's agents.</div></div>`;
@@ -41,7 +51,7 @@
           <button class="link small" onClick=${check} disabled=${busy}>${busy ? 'checking…' : 'check again'}</button></div>
         ${!compact && st !== 'ok' ? html`<div class="muted small">${!c.found ? 'Opens a terminal window that installs it (you watch it run).' : LOGIN[b]} Your credentials go to the CLI, never to this page.</div>` : null}
       </div>`;
-    })}</div>`;
+    })}</div></div>`;
   };
 
   /* every settings form saves the same way: the changed keys, shown old → new, confirmed, then written */
@@ -148,11 +158,11 @@
   };
 
   const LabForm = () => {
-    const [c, setC] = useState(null);
-    const [v, setV] = useState({});
-    const load = () => NL.get('/api/lab/config').then(x => { setC(x.config || {}); setV({ ...(x.config || {}) }); });
-    useEffect(() => { load(); }, []);
-    if (!c) return html`<${NL.Spinner} />`;
+    const { data, error, reload: load } = NL.useGet('/api/lab/config');
+    const c = data && data.config;
+    const [v, setV] = useState(null);
+    useLayoutEffect(() => { if (c) setV({ ...c }); }, [c]);
+    if (!c || !v) return html`<${NL.LoadState} error=${error} reload=${load} />`;
     const keys = ['name', 'projects_root', 'max_concurrent_runs', 'gpu_hours_budget', 'oversight', 'venue', 'page_limit', 'max_concurrent_projects',
       'loop_mode', 'explore_rounds', 'in_project_approval', 'keep_awake'];
     const diff = changed(keys, v, c);
@@ -180,15 +190,13 @@
   };
 
   const Keys = () => {
-    const [k, setK] = useState(null);
-    const load = () => NL.get('/api/keys').then(setK);
-    useEffect(() => { load(); }, []);
+    const { data: k, error, reload: load } = NL.useGet('/api/keys');
     const edit = async (key, label) => {
       const val = await NL.confirm({ title: `${label} key`, input: 'Paste the key (stored in lab/.env.local, never shown again)', ok: 'Save' });
       if (val) { await NL.act('/api/keys', { key, value: val }, 'Saved'); load(); }
     };
     const [custom, setCustom] = useState('');
-    if (!k) return html`<${NL.Spinner} />`;
+    if (!k) return html`<${NL.LoadState} error=${error} reload=${load} />`;
     return html`<div class="form"><p class="muted">Literature search works without keys, but rate-limited. Keys are kept in <span class="mono">${k.file}</span> in this lab and handed to every run. They are never shown or sent anywhere else.</p>
       ${(k.keys || []).map(x => html`<div class="keyrow"><b>${x.label}</b><span class="mono small muted">${x.key}</span><span class="grow"></span>
         <${NL.Pill} tone=${x.set ? 'ok' : 'muted'}>${x.set ? (x.where === 'environment' ? 'set in your environment' : 'saved') : 'not set'}</${NL.Pill}>
@@ -233,11 +241,10 @@
 
   /* questions, approvals and checkpoints → ntfy / a webhook, sent by the lab's scheduler (works with this page closed) */
   const PhoneNotify = () => {
-    const [c, setC] = useState(null);
+    const { data: c, error, reload: load } = NL.useGet('/api/notify');
     const [v, setV] = useState({ ntfy: '', webhook: '', link: '' });
-    const load = () => NL.get('/api/notify').then(x => { setC(x); setV({ ntfy: '', webhook: '', link: x.link || '' }); });
-    useEffect(() => { load(); }, []);
-    if (!c) return html`<${NL.Spinner} />`;
+    useLayoutEffect(() => { if (c) setV({ ntfy: '', webhook: '', link: c.link || '' }); }, [c]);
+    if (!c) return html`<${NL.LoadState} error=${error} reload=${load} />`;
     const changes = Object.fromEntries(Object.entries(v).filter(([k, x]) => k === 'link' ? x !== (c.link || '') : x.trim()));
     const save = async () => { const r = await NL.act('/api/notify', { confirm: true, ...changes }); if (r.ok) load(); };
     const clear = async k => { if (await NL.confirm({ title: `Stop sending to ${k}?`, ok: 'Stop' })) { const r = await NL.act('/api/notify', { confirm: true, [k]: '' }); if (r.ok) load(); } };
@@ -272,7 +279,7 @@
     const load = fresh => NL.get('/api/system' + (fresh ? '?fresh=1' : '')).then(x => { setD(x); if (x.ok) setSc(JSON.parse(JSON.stringify(x.scheduler || { kind: 'local' }))); });
     useEffect(() => { load(false); }, []);
     if (!d) return html`<${NL.Spinner} />`;
-    if (!d.ok) return html`<div class="note note-warn">${d.error}</div>`;
+    if (!d.ok) return html`<${NL.LoadState} error=${d.error} reload=${() => load(true)} />`;
     const f = d.facts || {};
     const s2 = NL.getState() || {};
     const where = s2.remote ? s2.remote.name : 'this computer';
@@ -327,12 +334,12 @@
   const effortOpts = xs => xs.map(e => ({ value: e, label: e || 'the model’s default' }));
   const AgentModels = () => {
     const forced = ((NL.exec(NL.useLab()).config || {}).model || '').trim();
-    const [c, setC] = useState(null);
-    const [v, setV] = useState({});
+    const { data, error, reload: load } = NL.useGet('/api/lab/config');
+    const c = data && data.config;
+    const [v, setV] = useState(null);
     const [customModels,setCustomModels]=useState({});
-    const load = () => NL.get('/api/lab/config').then(x => { setC(x.config || {}); setV({ ...(x.config || {}) }); });
-    useEffect(() => { load(); }, []);
-    if (!c) return html`<${NL.Spinner} />`;
+    useLayoutEffect(() => { if (c) setV({ ...c }); }, [c]);
+    if (!c || !v) return html`<${NL.LoadState} error=${error} reload=${load} />`;
     const keys = ['claude_model', 'claude_effort', 'codex_model', 'codex_effort', 'opencode_model', 'opencode_variant',
       'tier_strong', 'tier_standard', 'tier_fast', 'reviewer_model', 'runner_model', 'overseer_model', 'critic_model',
       'reviewer_effort', 'runner_effort', 'overseer_effort', 'critic_effort'];
@@ -391,7 +398,7 @@
     { id: 'notifications', label: 'Notifications', group: 'lab', C: Notifications, blurb: 'Desktop preferences stay in this browser. Phone and chat delivery are shared Lab settings.' },
   ];
   // the lab's own definition lives on the Workflow page (a draft you publish); Settings links there so it is one place
-  const WORKFLOW_LINKS = [['', 'Overview'], ['procedures', 'Procedures'], ['roles', 'Roles'], ['rules', 'Rules'], ['rooms', 'Stage groups'], ['types', 'Project types'], ['history', 'Change log']];
+  const WORKFLOW_LINKS = [['', 'Overview'], ['procedures', 'Procedures'], ['roles', 'Roles'], ['rules', 'Rules'], ['rooms', 'Rooms'], ['types', 'Project types'], ['history', 'Change log']];
   NL.SETTINGS_SECTIONS = SECTIONS;
   const GROUPS = [['lab', 'This lab'], ['browser', 'This browser']];
   NL.SettingsPage = ({ args }) => {

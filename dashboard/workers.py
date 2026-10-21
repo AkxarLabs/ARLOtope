@@ -38,7 +38,7 @@ RUN_KEYS = ("assignment", "explains", "context", "workflow_node", "workflow_visi
              "cli_version", "model_used", "repeat_minutes", "not_before", "answers_given", "schema",
              "kind", "args", "model", "effort", "max_repeats", "repeat_index", "campaign",
              "repeat_child", "campaign_cycle", "campaign_final", "failure_kind", "limit_reset", "campaign_retries",
-             "brief_sha", "chain_step", "transport", "pending_permissions", "assumed", "limits", "pid")
+             "brief_sha", "chain_step", "transport", "pending_permissions", "assumed", "limits", "pid", "external_activity")
 
 
 def _r10(x) -> int | None:
@@ -387,6 +387,9 @@ def agents(runs: list[dict], roster: list[dict]) -> list[dict]:
         if not rid or (st not in (*LIVE, "waiting_input", "queued") and not r.get('needs_followup')) or (st == "queued" and not _due(r, now)):
             continue
         main, doing = f"run:{rid}", r.get("in_tool")
+        activity = (r.get('external_activity') or {}).get('current')
+        if activity and activity.get('state') == 'running' and st in LIVE:
+            doing = {'kind':activity['kind'], 'tool':'external framework', 'summary':activity['label'], 'since':activity['time']}
         asking = st == "waiting_input" or bool(r.get("pending_permissions")) or r.get('needs_followup') or (doing or {}).get("kind") == "ask"
         status = "queued" if st == "queued" else "asking" if asking else \
             "stalled" if (r.get("heartbeat_age_s") or 0) > STALL_S else "working"

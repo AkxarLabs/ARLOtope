@@ -92,14 +92,16 @@ Discovery checks identities and paths, flags missing folders and duplicate copie
 scans a chosen folder to bounded depth. It does not attach projects by itself. A project owned by
 another Lab is refused. Do not delete an ownership file to force a transfer.
 
+Attachment errors name the selected folder and recorded Lab ID or study/execution owner. A mismatch between the two project-ID records names both files and IDs. Restore matching records rather than deleting a marker. Local and remote attachment validate identities before writing registration records, so a rejected claim can be corrected and retried. See [Git and backup guidance](knowledge.md#what-to-keep-in-git) for which files travel with a project.
+
 **By machine**, the default Lab layout, gives machines separate spaces. **Unified** places the same
 work in shared rooms. This changes presentation, not execution, filtering or context.
 
 ## Separate remote Labs
 
-**Connections → Labs & machines → Separate Labs** opens or creates a full Lab on that host.
+**Machines → Separate Labs** opens or creates a full Lab on that host.
 Switching to it changes the dashboard’s owning journal and settings; it does not merge studies.
-**Keep connected** refreshes its activity on the Labs & machines page.
+**Keep connected** refreshes its activity on the Machines page.
 
 ## Security and verification limits
 

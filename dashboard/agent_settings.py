@@ -1,5 +1,4 @@
 """Saved agent choices at Lab and study scope; no second agent manager."""
-import json
 import shutil
 from pathlib import Path
 import yaml

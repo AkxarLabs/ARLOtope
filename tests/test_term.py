@@ -72,3 +72,47 @@ def test_only_fixed_purposes(m, hub):
     pi = [json.loads(x) for x in (hub.lab / ".bus" / "pi-actions.jsonl").read_text(encoding="utf-8").splitlines()]
     assert pi[-1]["action"] == "term.login"
     assert m.term.read({"id": "nope"})[1] == 404
+
+
+def test_read_retry_replays_absolute_bytes_and_reports_clipped_output(monkeypatch):
+    import threading
+    monkeypatch.syspath_prepend(str(REPO / 'tools'))
+    import interactive_terminal as terminal
+    monkeypatch.setattr(terminal, 'MAX_BUF', 8)
+    s = object.__new__(terminal.Session)
+    s.lock, s.buf, s.base = threading.Lock(), bytearray(), 0
+    s.exited, s.code = False, None
+    s._append(b'abcdefgh')
+    first = s.read(3)
+    assert s.read(3) == first and base64.b64decode(first['data']) == b'defgh'
+    s._append(b'ijkl')
+    clipped = s.read(0)
+    assert clipped['skipped'] == 4 and clipped['offset'] == 12
+    assert base64.b64decode(clipped['data']) == b'efghijkl'
+    assert s.read(clipped['offset'])['data'] == ''
+
+
+def test_creation_retry_reuses_process_on_dashboard_and_worker(m, monkeypatch):
+    from project_worker import Worker
+    created = []
+    def init(self, argv, cwd, purpose, cols=100, rows=28):
+        created.append(argv)
+        self.id, self.argv, self.cwd, self.purpose = 'request-session', argv, cwd, purpose
+        self.exited = False
+    monkeypatch.setattr(m.term.Session, '__init__', init)
+    monkeypatch.setattr(m.term, 'SESSIONS', {})
+    monkeypatch.setattr(m.term, 'command_for', lambda *_: (['fake-agent', 'login'], None))
+    body = {'purpose': 'login', 'backend': 'claude', 'request_id': 'a' * 32}
+    first, code = m.term.open_session(body)
+    assert code == 200
+    assert m.term.open_session(body)[0]['id'] == first['id'] and len(created) == 1
+    assert m.term.open_session({**body, 'request_id': 'bad'})[1] == 400
+    import terminal
+    import executor.backends
+    monkeypatch.setattr(executor.backends, 'resolve_cli', lambda *_: ['fake-agent'])
+    monkeypatch.setattr(terminal, 'login_argv', lambda *_: ['fake-agent', 'login'])
+    worker = Worker()
+    original = worker.terminal('term/open', body)
+    assert worker.terminal('term/open', body)['id'] == original['id'] and len(created) == 2
+    with pytest.raises(ValueError, match='another command'):
+        worker.terminal('term/open', {**body, 'purpose': 'install'})

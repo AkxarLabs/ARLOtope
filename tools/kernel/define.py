@@ -91,8 +91,8 @@ WORKFLOW_HEAD = """\
 ROOMS_HEAD = """\
 # Research stage groups, also used as columns on the Studies board. A step belongs to the group
 # its `room:` names in workflow/steps.yaml. The legacy key keeps existing workflows compatible.
-# The optional Lab view draws these groups using fixed built-in rooms; `per_project: true` draws
-# one instance per live project. Existing placement metadata remains readable.
+# The Lab draws one shared room per definition (one set per machine in By-machine view).
+# Existing placement metadata remains readable.
 
 """
 
@@ -159,7 +159,7 @@ def dump_workflow(w: dict) -> str:
 
 
 def dump_rooms(rooms: list[dict]) -> str:
-    keep = ("id", "label", "title", "place", "facing", "per_project")
+    keep = ("id", "label", "title", "place", "facing")
     return ROOMS_HEAD + "\n".join(f"- {_flow({k: r[k] for k in keep if k in r})}" for r in rooms) + "\n"
 
 

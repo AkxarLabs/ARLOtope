@@ -61,7 +61,7 @@
       case 'needs': return { title: needs.length ? `${NL.plural(needs.length, 'thing')} ${needs.length === 1 ? 'needs' : 'need'} you` : 'Nothing needs you right now',
         body: list(needs.slice(0, 12).map(a => html`<li><button type="button" class="link" onClick=${() => NL.attAct ? NL.attAct(a, (a.actions || [])[0] || { id: a.kind === 'artifact' ? 'artifact' : 'tail' }) : null}>${a.title}</button>${a.body ? html`<span class="muted"> · ${NL.clip(a.body, 90)}</span>` : null}</li>`), 'Agents ask here when they need a decision.') };
       case 'running': return { title: active.length ? `${NL.plural(active.length, 'agent')} at work` : 'No agents are running',
-        body: list(active.map(r => runLine(s, r)), 'Choose Start task on the Agents page.') };
+        body: list(active.map(r => runLine(s, r)), 'Choose Start task in All agents.') };
       case 'failed': {
         const bad = runs.filter(r => ['failed', 'timeout', 'killed'].includes(r.status) && (Date.parse(r.finished || r.created) || 0) > dayAgo(s));
         const quiet = runs.filter(r => NL.RUN_ACTIVE.has(r.status) && (r.heartbeat_age_s || 0) > 180);

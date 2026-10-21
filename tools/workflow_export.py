@@ -20,6 +20,11 @@ def export(hub, workflow):
     skills = list(dict.fromkeys(p for n in ns for p in ([n.get('procedure')] if n.get('procedure') else []) + n.get('skills', [])))
     skills += [c.get('judge', {}).get('skill') or 'gate-review' for c in w['checkpoints'] if c.get('approver')=='agent']
     resources, missing = {}, []
+    from frameworks import definitions, requirements
+    for fid in requirements(w):
+        definition = definitions(hub).get(fid)
+        if definition:
+            resources['resources/frameworks/'+fid+'.yaml'] = Path(definition['file']).read_bytes()
     for skill in dict.fromkeys(skills):
         folder = model.skills_root(hub) / skill
         if not (folder/'SKILL.md').is_file():
@@ -55,6 +60,13 @@ def export(hub, workflow):
         lines += [f'### {n["id"]}: {n["label"]}', '', f'Agent: {json.dumps(n.get("agent") or {"role":"general"})}',
                   f'Context: {json.dumps(n.get("context") or {"mode":"fresh"})}', f'Room: {n.get("room") or "unspecified"}', '']
         lines.append('Read role instructions: `resources/roles/'+((n.get('agent') or {}).get('role') or 'general')+'.md`.')
+        if n.get('external'):
+            external = n['external']
+            lines += [f'External tool: `{external["framework"]}`, phase `{external["phase"]}`.',
+                      f'Recipe: `resources/frameworks/{external["framework"]}.yaml`. Requires the installed '
+                      'Newts framework runner, upstream executable and project `.newts/frameworks.yaml`. '
+                      'Inspect the phase receipt and original evidence before reporting completion. '
+                      'If the tool is unavailable, stop; do not substitute a prose-only result.']
         for p in ([n.get('procedure')] if n.get('procedure') else []) + n.get('skills', []):
             lines.append(f'- Read and follow `resources/skills/{p}/SKILL.md`.')
         lines += ['', n.get('instructions') or '', n['additional_instructions'], '', 'Outputs: '+(', '.join(n.get('outputs') or []) or 'as defined by the skills')+'.',

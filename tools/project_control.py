@@ -17,7 +17,10 @@ def control(argv):
     parser.add_argument('--data', action='append', default=[])
     parser.add_argument('--hub', help=argparse.SUPPRESS)
     parser.add_argument('--json', action='store_true', help=argparse.SUPPRESS)
+    parser.add_argument('--run-id', help=argparse.SUPPRESS)
     args = vars(parser.parse_args(argv))
+    if args.pop('run_id') not in (None, os.environ.get('NEWTS_RUN_ID')):
+        parser.error('This event belongs to another run.')
     args.pop('hub')
     args.pop('json')
     try:

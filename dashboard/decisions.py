@@ -16,6 +16,7 @@ Nothing here writes into a document: a decision is a journal record.
 from __future__ import annotations
 
 import ctx  # noqa: E402
+import labfiles  # noqa: E402
 import sources  # noqa: E402
 import runops  # noqa: E402
 from kernel import checkpoints, journal, model, studies, watch  # noqa: E402
@@ -28,11 +29,12 @@ def checkpoint_view(q: dict) -> tuple[dict, int]:
     if not slug or not cid:
         return {"error": "which study and checkpoint?"}, 400
     try:
-        out = checkpoints.readiness(ctx.HUB, slug, cid)
+        with labfiles.read_batch():
+            out = checkpoints.readiness(ctx.HUB, slug, cid)
+            out["asking"] = _asking(slug, cid)
+            out["title"] = (ctx.row(slug) or {}).get("title") or slug
     except checkpoints.CheckpointError as e:
         return {"error": str(e)}, 400
-    out["asking"] = _asking(slug, cid)
-    out["title"] = (ctx.row(slug) or {}).get("title") or slug
     return out, 200
 
 
@@ -98,7 +100,7 @@ def _start_next(slug: str, backend=None) -> tuple[dict | None, str | None]:
     """Queue the work of the step a study stands at now. → (the launch result, its procedure)."""
     nxt = studies.next_for(ctx.HUB, slug)
     s=studies.study(ctx.HUB,slug)
-    if s and model.workflow(s['workflow'],ctx.HUB).get('nodes'):
+    if s and s.get('active_steps') is not None:
         try:
             import lab_profile
             runs=lab_profile.start_graph(executor.Lab(ctx.HUB),slug,executor.enqueue,executor.RunSpec,**({'backend':backend} if backend else {}))
@@ -150,6 +152,8 @@ def decide(body: dict) -> tuple[dict, int]:
                 out["launch"] = res
                 if not res.get("failed"):
                     out["note"] += f", /{proc} started"
+    if decision == "approved" and body.get("start") and not moved:
+        out["warnings"] = ["Approval recorded. No workflow step moved, so no task was started. Continue the current task from its run."]
     if decision == "changes-requested":
         asking = _asking(slug, cid)
         if asking and asking.get("session") and executor is not None:
@@ -253,7 +257,7 @@ def timeline(q: dict) -> tuple[dict, int]:
     evs = journal.events(ctx.HUB, slug) + journal.events(ctx.HUB, "lab", kinds=("remap",))
     evs.sort(key=lambda e: str(e.get("ts") or ""))
     keep = ("ts", "kind", "by", "from", "to", "outcome", "checkpoint", "decision", "note", "step", "at", "workflow",
-            "use", "path", "map", "level", "say", "run", "id")
+            "use", "path", "map", "level", "say", "run", "id", "node", "visit", "refs", "run_id", "selected_by", "workflow_revision")
     return {"ok": True, "events": [dict({k: e[k] for k in keep if k in e}, **({"acked": True} if e.get("id") in acked else {}))
                                     for e in evs][-300:]}, 200
 
@@ -268,3 +272,14 @@ def ack_flag(body: dict) -> tuple[dict, int]:
         return {"error": str(e)}, 400
     ctx.pi_log({"action": "flag.ack", "flag": fid})
     return {"ok": True, "note": "acknowledged"}, 200
+
+
+def history(q, save=False):
+    import study_history
+    slug=ctx.need_slug(q,'study')
+    if not slug:
+        return {'error':'Choose a study.'},400
+    try:
+        return (study_history.save(ctx.HUB,slug) if save else {'ok':True,**study_history.read(ctx.HUB,slug)}),200
+    except (ValueError,OSError) as error:
+        return {'error':str(error)},400

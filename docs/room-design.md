@@ -2,6 +2,11 @@
 
 Rooms group work in the visual Lab. Moving a task to a room does not change dependencies, context, agent assignment or checkpoint authority.
 
+Studies share the defined rooms. Starting or attaching a study does not create a room. Each agent
+uses its own workflow task's room, including parallel tasks. Create a room explicitly and assign
+tasks to it when you need another space. **By machine** repeats the room set for each machine;
+**Unified** shows one shared set. Older `per_project` room settings are ignored and dropped on save.
+
 ## Group tasks first
 
 1. Open **Workflow → By room**.
@@ -36,4 +41,4 @@ Components are in `dashboard/static/world3d/components.js`; builders and materia
 
 For room-specific geometry, a draft may include `extra.js`, an ES module exporting `default function (Lab3D) { ... }`. Register a uniquely named component with `Lab3D.defineComponent`, then use it in `room.json`. The module loads in draft and applied views. Keep changes within the assigned draft and inspect browser errors before applying.
 
-A running dashboard exposes the preview at `/static/lab-view.html?roomdraft=<id>`. The room designer uses normal shell/browser tools; it does not need a separate renderer or tool service. See [customizing the process](customising.md) for workflow edits.
+A running dashboard exposes the preview at `/static/lab-view.html?roomdraft=<id>`. This opens the draft in the dashboard's room-design sheet. Both draft and applied geometry run in an isolated frame; the dashboard supplies their definitions and module source. Room scripts can build geometry but cannot access the dashboard's DOM or authenticated APIs. Use the designer's normal shell/browser tools for project files and references. No separate renderer or tool service is needed. See [customizing the process](customising.md) for workflow edits.

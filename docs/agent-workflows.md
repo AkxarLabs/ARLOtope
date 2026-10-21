@@ -1,23 +1,42 @@
 # Tasks, agents and rooms
 
-Use **Workflow** to compose work, choose who performs it and decide which conversation each task uses. The same saved definition appears in **Flow**, **Sequence** and **By room**.
+Use **Workflow** to compose work, choose who performs it and decide which conversation each task uses. The same saved definition appears in **Flow**, **List** and **By room**. List shows every task, including workflows with branches or loops; Flow shows their connections. Open the selected workflow to change presets.
+
+## Text definitions and agent designers
+
+The visual editor and agents use the same YAML definitions in `workflow/workflows/`, with shared
+task definitions in `workflow/steps.yaml`. Task methods are Markdown skills. There is no separate
+agent-only workflow language. The [workflow reference](workflow.md) gives examples and fields;
+[external tool definitions](external-frameworks.md) add command-based research engines without
+another scheduler.
+
+An agent designer can propose tasks, skill sequences, roles, conversation sources, parallel
+branches, joins, outcome routes, loops, rooms and checkpoints. **Adapt a workflow** gives it the
+existing definitions and a private proposal folder. It validates with `newts check --design`,
+then the researcher reviews and publishes the proposal in Workflow.
+
+During execution, agents report declared outcomes and the engine follows their routes. An LLM
+judge can select a configured decision route; visit limits bound repeated work. A single task
+can also follow several skills and choose its own working steps. These forms of adaptation do
+not require rewriting the running graph. Changes to the shared graph use the normal proposal,
+validation and publication path; a task is not automatically allowed to publish its own redesign.
 
 ## Edit a task
 
 1. Select a task card in **Flow**. Its inspector opens beside the map, or below it on narrow screens.
-2. Give the task a useful name. Choose a **Skill / procedure** or **Own instructions**. A **Skill sequence** supplies several methods within one task.
-3. Write **Task instructions** and **Expected output files**. Output paths are relative to the study's working area; keep them specific enough to check.
-4. Choose **Run this task as**, an agent choice and **Agent context**.
-5. Open **Connections & execution** for destinations, named outcomes, joins, tags and an optional visit limit.
-6. **Save composition to draft**, then **Review & publish** the shared change.
+2. Give the task a useful name. Choose a **Skill** or **Instructions only**, write **Task instructions**, and choose its **Room**.
+3. **Output files** names specific files you want produced; blank uses the skill and task instructions. Paths are relative to the working area. **More skills & tools** contains skill sequences and external research phases.
+4. Open **Agent & conversation** for role, agent and conversation choices. **Model & role instructions** contains overrides. Collapsed headings show configured choices.
+5. Open **Connections & loops** for destinations, named outcomes, joins, tags and **Maximum passes**.
+6. **Save workflow draft**, then **Review & publish** the shared change.
 
 ![A workflow map with tasks and branches](assets/current/workflow-map.webp)
 
 *Demonstration fixture: connections describe task readiness and routes.*
 
-![A selected task and its editable inspector](assets/current/workflow-task.webp)
+![A selected task with grouped settings](assets/current/workflow-task-grouped.png)
 
-*Demonstration fixture: the task's method, agent and context are separate choices.*
+*Isolated test Lab: name, skill, instructions and room stay visible. Output files, agents and connections expand in place. No task was launched.*
 
 **Task starting points** offers Literature, Experiment, Analyze, Independent review and Write. These fill ordinary editable task fields; they do not create a new kind of runner. **Duplicate task** copies an existing task. Changing a role preserves your instructions; choosing Reviewer starts fresh with no author-summary handoff. You can explicitly change that context afterward, but inherited context is not an independent review.
 
@@ -29,11 +48,11 @@ designer and custom task roles count normally. See [capacity](compute.md#agent-s
 
 Open **Settings → Agents & models → Agent choices** to save named presets. A preset selects a harness and optional model/effort; multiple presets may use one harness. ACP presets can use different compatible commands. Save a preset before **Test**. An executable check or ACP initialization is not proof of authentication or model access; those are checked when a task starts.
 
-![Named agent choices and role preferences](assets/current/agent-presets.webp)
+![Compact role-to-agent choices with harness names](assets/current/agent-role-rows.png)
 
-*Demonstration fixture: presets are launch settings, not permanently running agents.*
+*Interface fixture with Codex, Claude, OpenCode and ACP presets. These are choices, not live provider checks or permanently running agents; the fixture was not saved.*
 
-Choose a Lab default and optional role-specific choices. **New study → Agent choices (optional)** saves study preferences; existing studies expose **Agents**. A general study default preserves inherited specialist choices. **Use study default** on a role deliberately removes that inherited specialization.
+Choose a Lab default and role-specific choices under **Agents by role**. **New study → Study settings** saves study preferences; existing studies expose **Agents**. A general study default preserves inherited specialist choices. **Use study default** on a role deliberately removes that inherited specialization.
 
 For fresh tasks, selection order is:
 
@@ -58,6 +77,8 @@ For a new conversation, **Include a summary of prior work** enables handoff; **E
 
 Continue/fork chooses one **Context from** source. It may be an earlier causal task rather than an immediate predecessor: Draft → Review → Revise can wait for Review while continuing Draft's writer. It cannot select unrelated live work or rewind a session after later work has changed it. Missing, stale or unsupported sources produce an error instead of silently starting fresh. A task can select its previous loop visit with an initial fresh visit.
 
+An exception is work explicitly supplied through a study's starting plan: it has evidence references, but no native conversation to continue or fork. A task selecting that source starts fresh with those references. Actual run sources still undergo the normal context checks.
+
 Only one task can own a continued session at a time. Native fork support depends on the harness/version; ACP requires advertised capabilities. A native fork creates another conversation, not an isolated repository or worktree. Legacy `context.mode: fork` means a portable handoff; native forks use `native-fork`.
 
 ## Connect tasks and outcomes
@@ -66,7 +87,55 @@ Connections control when tasks become ready. Several ordinary destinations launc
 
 A named outcome replaces the ordinary `done` route. For example, a review can report `revise` to return to writing or `more-experiments` to return to experiments. Set **Maximum task visits** to bound a loop. Rooms only group the display; they do not change these connections.
 
+## Start with existing work
+
+Select a task in **New study** to choose **Run task**, **Use existing work** or **Skip at start**. No built-in stage names are required. Skipping requires no explanation. Reuse needs file paths, uploaded filenames, knowledge record IDs or source URLs; a note is optional. These references remain claims supplied by the researcher until checked.
+
+Reuse and omission are distinct journal events, separate from an agent's completion. Both follow the task's ordinary route, or a selected named outcome, and participate in branch joins. They change the starting plan only. If a later task routes work back here, an agent runs this task normally. A before-task or during-task checkpoint still blocks resolution until its configured approval is recorded. Creation never launches an agent.
+
+For example, **Use existing work** on Literature review initially continues with your supplied
+references. If a later review sends the workflow back to Literature review, that task runs. A
+“pass” is reaching a task again, not sending another message to an agent. Separately, a task that
+continues its own previous conversation starts fresh on its first pass, because no previous
+conversation exists yet. These rules do not withhold documents until a later message.
+
+The study's Overview and History retain the choices and references. **Run remaining tasks normally** cancels pending choices without erasing earlier decisions. Changes to task instructions, skills, connections or checkpoints invalidate pending choices; review the changed workflow or cancel the plan. Presentation changes such as room, label and tags do not invalidate it.
+
+The plan is stored in the study's `new` journal event as `entry: {revision, tasks}`. Each task ID maps to `{action: reuse|omit, note, refs, outcome}`. Resolved choices append `task-reused` or `task-omitted` with the task visit and destinations. The same graph fold handles readiness, loops, checkpoint waits and joins; no second execution engine is involved.
+
+## Run the workflow
+
 **Run ready tasks** starts eligible work. Each task visit has an owning run; finishing a branch does not finish other branches. Declared outputs and the task's accepted outcome matter separately from process exit. A task that stops without its outcome remains unfinished. Inspect it, then **Continue task** or use **New agent with handoff** if the original conversation cannot resume.
+
+### Study history
+
+**Study → History** groups the recorded workflow tasks by pass and owning agent sessions. It links
+conversations and published outputs, and keeps repeated passes separate. A timed-out or stopped
+agent remains distinct from a completed workflow task. **Decisions & changes** contains the original
+workflow events, including reuse, omissions and checkpoint decisions; older changes can be expanded.
+
+The underlying records are already durable: `lab/journal.jsonl` for workflow events,
+`lab/.bus/runs.jsonl` for agent state transitions, and the run manifests/transcripts under the
+owning bus's `agents/` directory. Local mirrors retain connected-machine run records. Transcript
+coverage depends on the harness and retained data; an offline mirror may be stale.
+
+**Save history to study** refreshes `studies/<id>/history/workflow.md` and `workflow.json`. These
+generated snapshots appear in Library → Documents → Workflow history. They are not another
+editable ledger; the live History view reads original records. JSON includes full workflow events,
+task passes, available agent attempt records, state transitions, output references and source paths.
+Its workflow definition is the current definition at export time, not a reconstruction of past code.
+Refresh the snapshot after more work when you want an updated file.
+
+Agents can inspect or save the same projection:
+
+```bash
+uv run --with pyyaml python tools/study_history.py <study>
+uv run --with pyyaml python tools/study_history.py <study> --save
+```
+
+![Recorded workflow tasks and their agent sessions](assets/current/study-workflow-history.png)
+
+*Completed Sakana test records, grouped without launching another campaign.*
 
 ## Questions, checkpoints and permissions
 

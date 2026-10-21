@@ -126,6 +126,28 @@ def assert_current(lab, run):
     assert_available(lab, run.get('session_id'), run['run_id'], expected=run)
 
 
+def workflow_evidence(lab, incoming, imported):
+    """Carry accepted source references along the same causal edges as real run IDs."""
+    result = {(e['node'], e.get('visit')): e for e in imported}
+    seen, queue = set(), [r for r in incoming.values() if r]
+    while queue:
+        rid = queue.pop()
+        if rid in seen:
+            continue
+        seen.add(rid)
+        hit = find_run(lab, rid)
+        if hit:
+            record = hit[3]
+            for e in record.get('input_evidence') or []:
+                result[(e['node'], e.get('visit'))] = e
+            queue.extend(r for r in record.get('input_runs') or [] if r)
+    return list(result.values())
+
+
+class MissingWorkflowSource(SpecError):
+    """No conversation exists for a causal task, e.g. researcher-supplied work."""
+
+
 def workflow_sources(lab, incoming, context, node):
     """Find exact causal source runs, never the latest unrelated run with the same node name."""
     requested = context.get('from')
@@ -148,6 +170,8 @@ def workflow_sources(lab, incoming, context, node):
                 queue.extend(record.get('input_runs') or [])
         if not found and task == node and context.get('initial') == 'fresh':
             continue
+        if not found:
+            raise MissingWorkflowSource('The context source has no completed run. Start fresh with its evidence instead.')
         if len(found) != 1:
             raise SpecError('Choose an unambiguous completed context source, or start new with evidence handoff.')
         result.append(find_run(lab, next(iter(found)))[3])

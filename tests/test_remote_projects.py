@@ -75,6 +75,16 @@ def test_worker_bundle_is_execution_only(worker):
     assert info['protocol']==1 and 'clis' in info
 
 
+def test_worker_reads_framework_activity_without_launching(worker):
+    root=worker['root']/'observed-project'
+    path=root/'.newts/framework-runs/demo/tool/run/events.jsonl'
+    path.parent.mkdir(parents=True)
+    path.write_text(json.dumps({'event':'work','timestamp':'now','fields':{'label':'Reading evidence'}}))
+    definition={'id':'tool','activity':{'files':['events.jsonl'],'events':{'work':{'state':'running','kind':'read'}}}}
+    result=R.rpc('box','framework-activity',{'definition':definition,'project':str(root),'study':'demo','phase':'work'})
+    assert result['current']['label']=='Reading evidence' and result['current']['kind']=='read'
+
+
 def test_worker_knowledge_records_and_project_cli(hub,worker):
     import research_start,knowledge
     root=worker['root']/'knowledge-project';root.mkdir()
@@ -88,6 +98,27 @@ def test_worker_knowledge_records_and_project_cli(hub,worker):
     assert done.returncode==0,done.stderr
     assert json.loads(done.stdout)['acknowledgements']
     assert (root/'.newts/project.json').is_file()
+
+
+def test_checkpoint_evidence_reads_remote_files_together_and_stays_fresh(hub, worker, monkeypatch):
+    import research_start
+    root = worker['root'] / 'review-project'
+    root.mkdir()
+    research_start.create(hub.root, title='Remote review', question='Check evidence.', local=str(root), machine='box')
+    (root / 'notes.md').write_text('Notes', encoding='utf-8')
+    cp = {'evidence': ['{project}/notes.md', '{project}/report.md']}
+    calls = []
+    rpc = R.rpc
+    def measured(machine, action, *args, **kwargs):
+        if action == 'files':
+            calls.append(1)
+        return rpc(machine, action, *args, **kwargs)
+    monkeypatch.setattr(R, 'rpc', measured)
+    first = kernel().checkpoints.evidence(hub.root, 'remote-review', cp)
+    assert [e['exists'] for e in first] == [True, False] and len(calls) == 1
+    (root / 'report.md').write_text('New report', encoding='utf-8')
+    second = kernel().checkpoints.evidence(hub.root, 'remote-review', cp)
+    assert all(e['exists'] for e in second) and len(calls) == 2
 
 
 def test_remote_retained_attachment_downloads_without_bundling_controller(hub,worker,monkeypatch):
@@ -264,6 +295,26 @@ def test_ownership_and_remote_files(worker):
     (lab / 'lab/config.yaml').write_text('lab: {}', encoding='utf-8')
     with pytest.raises(R.RemoteError, match='Connect that Lab'):
         R.rpc('box', 'attach', dict(data, path=str(lab)))
+
+
+def test_remote_attach_checks_durable_identity_before_writing_local_owner(worker):
+    root = worker['root']/'portable project'; (root/'.newts').mkdir(parents=True)
+    identity = root/'.newts/project.json'
+    original = json.dumps({'schema': 1, 'project_id': 'portable-id', 'lab_id': 'owning-lab',
+                           'name': 'Portable project', 'knowledge_dir': '.newts/knowledge'})
+    identity.write_text(original, encoding='utf-8')
+    data = {'path': str(root), 'owner': 'execution-owner', 'study': 'portable-study', 'lab_id': 'wrong-lab'}
+    with pytest.raises(R.RemoteError) as error:
+        R.rpc('box', 'attach', data)
+    assert 'owning-lab' in str(error.value) and str(root) in str(error.value)
+    assert identity.read_text(encoding='utf-8') == original
+    assert not (root/'.bus/newts-owner.json').exists()
+    assert not (worker['root']/'home/projects.json').exists()
+    # A failed claim must not poison a later legitimate attachment.
+    result = R.rpc('box', 'attach', {**data, 'lab_id': 'owning-lab'})
+    assert Path(result['path']) == root.resolve()
+    assert json.loads(identity.read_text(encoding='utf-8'))['project_id'] == 'portable-id'
+    assert json.loads((root/'.bus/newts-owner.json').read_text(encoding='utf-8'))['owner'] == data['owner']
 
 
 def test_worker_refuses_cross_origin(worker):

@@ -147,6 +147,7 @@ def test_an_agents_page_is_served_sandboxed(art, hub, tmp_path, monkeypatch):
     sent = {}
 
     class H(m.Handler):
+        command = 'GET'
         def __init__(self):        # no socket: just the method under test
             pass
 

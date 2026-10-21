@@ -4,6 +4,14 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Newts' Lab</title>
+<script>
+(() => {
+  let failed = false;
+  const show = () => { failed = true; const note = document.getElementById('load-error'); if (note) note.hidden = false; };
+  addEventListener('error', e => { if (e.target.tagName === 'SCRIPT' || e.target.rel === 'stylesheet') show(); }, true);
+  addEventListener('DOMContentLoaded', () => { if (failed || !window.NL?.boot) show(); });
+})();
+</script>
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Ctext y='.9em' font-size='90'%3E%F0%9F%A6%8E%3C/text%3E%3C/svg%3E">
 <link rel="stylesheet" href="static/vendor/katex.min.css">
 <link rel="preload" href="static/vendor/fonts/instrument-sans-wght-normal.woff2" as="font" type="font/woff2" crossorigin>
@@ -17,6 +25,9 @@
 <link rel="stylesheet" href="static/ui/agent-peek.css">
 </head>
 <body data-page="home">
+<div id="load-error" role="alert" hidden style="position:fixed;inset:0 0 auto;z-index:2147483647;padding:16px;font:16px system-ui;color:var(--ink,CanvasText);background:var(--paper,Canvas)">
+Some interface files could not load. <button type="button" onclick="location.reload()">Reload the page</button>
+</div>
 <div id="app"></div>
 <noscript><p style="padding:2em;font:16px system-ui">Newts' Lab needs JavaScript to display this local research workspace.</p></noscript>
 

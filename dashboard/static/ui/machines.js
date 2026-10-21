@@ -13,8 +13,11 @@
     connected: ['ok', 'connected'], reconnecting: ['warn', 'reconnecting…'], error: ['bad', 'error'], auth: ['warn', 'needs sign-in'] };
 
   /* ── every lab at once: GET /api/fleet, polled while a page shows it (shared by the top bar) ─────── */
-  const fleet = { data: null, t: null, subs: new Set(), at: 0 };
-  const pull = async () => { if (NL.DEMO) return; const x = await NL.get('/api/fleet'); if (x && x.ok) { fleet.data = x; fleet.at = Date.now(); fleet.subs.forEach(f => f(x)); } };
+  const fleet = { data: null, t: null, subs: new Set(), at: 0, pending: null };
+  const pull = () => { if (NL.DEMO) return; if (fleet.pending) return fleet.pending;
+    fleet.pending = NL.get('/api/fleet').then(x => { if (x.ok) { fleet.data = x; fleet.at = Date.now(); }
+      else fleet.data = { ...fleet.data, error: x.error || 'Could not read machine summaries.' };
+      fleet.subs.forEach(f => f(fleet.data)); }).finally(() => { fleet.pending = null; }); return fleet.pending; };
   /* demo mode: the synthetic fleet (NL.demoFleet, demo.js) in /api/fleet's shape — never the real labs */
   const slug = x => String(x || '').toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
   let demoFl = null;
@@ -31,7 +34,7 @@
   // what GET /api/labs and /api/machines would say, built from the demo fleet
   const demoLabs = () => { const fl = demoFleet(), here = fl.labs.find(l => l.current) || {};
     return { current: here.path, labs: fl.labs.filter(l => l.kind === 'local').map((l, i) => ({ name: l.name, path: l.path, current: !!l.current, exists: true,
-      ideas: l.current ? 13 : 4, opened: new Date(Date.now() - (i + 1) * 26 * 3600e3).toISOString() })) }; };
+      ideas: l.current ? (NL.getState()?.items || []).length : 4, opened: new Date(Date.now() - (i + 1) * 26 * 3600e3).toISOString() })) }; };
   const demoMachines = () => { const by = {};
     demoFleet().labs.filter(l => l.kind === 'remote').forEach(l => {
       const m = by[l.machine_id] = by[l.machine_id] || { id: l.machine_id, name: l.machine, host: `you@${l.machine}.example.org`, reach: { ok: true }, labs: [],
@@ -235,8 +238,9 @@
     const cur = s.remote;
     const fl = NL.useFleet();
     return html`<div class="page page-narrow">
-      <header class="page-head"><div><h1>Labs & machines</h1></div></header>
+      <header class="page-head"><div><h1>Machines</h1></div></header>
       ${error ? html`<p class="note note-warn" role="alert">${error} <button type="button" class="link" onClick=${load}>Retry</button></p>` : null}
+      ${fl?.error ? html`<${NL.LoadState} error=${fl.error} reload=${NL.refreshFleet} stale=${!!fl.labs} />` : null}
       ${cur ? html`<div class="note">Showing <b>${cur.lab_name || cur.lab}</b> on <b>${cur.name}</b> (${cur.host}). <button class="link" onClick=${async () => { await NL.api('/api/machines/local', {}); NL.go(''); location.reload(); }}>Back to this computer</button></div>` : null}
       ${fl && (fl.labs || []).length > 1 ? (() => {
         const sum = (xs, k) => xs.reduce((a, l) => a + (+((l.summary || {})[k]) || 0), 0);
@@ -297,32 +301,50 @@
   NL.openAddMachine=(onConnected,options={})=>NL.open(NL.AddMachineSheet,{...options,onConnected:typeof onConnected==='function'?onConnected:undefined}, {key:'add-machine'});
 
   NL.ProjectMachineSetup = ({id,onClose,autoConnect=true,onConnected,onProject}) => {
-    const mounted=useRef(true);
-    useEffect(()=>()=>{mounted.current=false},[]);
+    const mounted=useRef(true),epoch=useRef(0);
+    const current=token=>mounted.current&&token===epoch.current;
+    useEffect(()=>{mounted.current=true;return()=>{mounted.current=false;epoch.current++}},[id]);
     const [info,setInfo]=useState(null),[error,setError]=useState(''),[busy,setBusy]=useState(false),[waiting,setWaiting]=useState(false),
       [agent,setAgent]=useState('claude'),[command,setCommand]=useState(''),[config,setConfig]=useState({}),[remaining,setRemaining]=useState(null);
-    const inspect=async()=>{const r=await NL.api('/api/project-machines/inspect',{id});if(!mounted.current)return;if(r.error)setError(r.error);else{setInfo(r);setConfig(r.agent_config||{});setAgent(r.default_agent||'claude');setError('');onConnected?.(id)}};
-    useEffect(()=>{if(autoConnect)connect(false);else NL.get('/api/project-machines').then(r=>{const m=r?.machines?.find(m=>m.id===id);if(r.error)setError(r.error);else if(['auth','error'].includes(m?.state))setError(m.error||'Reconnect when you are ready.');else if(m?.state==='waiting')setWaiting(true);else if(m?.state==='connected')inspect()})},[id]);
+    const inspect=async(token=epoch.current)=>{setBusy('Checking…');try{
+      const r=await NL.api('/api/project-machines/inspect',{id});if(!current(token))return;
+      if(r.error)setError(r.error);else{setInfo(r);setConfig(r.agent_config||{});setAgent(r.default_agent||'claude');setError('');onConnected?.(id)}
+    }finally{if(current(token))setBusy(false)}};
+    useEffect(()=>{const token=epoch.current;if(autoConnect)connect(false);else NL.get('/api/project-machines').then(r=>{
+      if(!current(token))return;const m=r?.machines?.find(m=>m.id===id);
+      if(r.error)setError(r.error);else if(['auth','error'].includes(m?.state))setError(m.error||'Reconnect when you are ready.');
+      else if(['waiting','starting','reconnecting'].includes(m?.state))setWaiting(true);else if(m?.state==='connected')inspect(token);
+    })},[id]);
     useEffect(()=>{setCommand(JSON.stringify(config[agent]?.command||[]))},[agent,config]);
-    useEffect(()=>{if(!waiting)return;let active=true,t;const poll=async()=>{
-      const r=await NL.get('/api/project-machines'),m=r?.machines?.find(m=>m.id===id);if(!active)return;
+    useEffect(()=>{if(!waiting)return;let active=true,t;const token=epoch.current,poll=async()=>{
+      const r=await NL.get('/api/project-machines');if(!active||!current(token))return;
+      if(r.error){setError(r.error);t=setTimeout(poll,2000);return}
+      setError('');const m=r.machines?.find(m=>m.id===id);
       setRemaining(m?.login_deadline?Math.max(0,Math.ceil((m.login_deadline*1000-Date.now())/60000)):null);
-      if(m?.state==='connected'){setWaiting(false);await inspect();return}
+      if(m?.state==='connected'){setWaiting(false);await inspect(token);return}
       if(!m||!['waiting','starting','reconnecting'].includes(m.state)){setWaiting(false);setError(m?.error||r?.error||'Connection closed. Try again.');return}
       t=setTimeout(poll,2000)};poll();return()=>{active=false;clearTimeout(t)}},[waiting,id]);
-    const connect=async interactive=>{if(!mounted.current)return;setBusy(true);setError('');try{const r=await NL.api('/api/project-machines/connect',{id,confirm:true,interactive});if(!mounted.current)return;
-      if(r.needs_interactive)return await connect(true);if(r.error)setError(r.error);else if(['waiting','starting'].includes(r.state))setWaiting(true);else await inspect();}finally{setBusy(false)}};
-    const cancel=async()=>{const r=await NL.api('/api/project-machines/disconnect',{id});if(r.error){setError(r.error);return false}setWaiting(false);setError('');setInfo(null);setRemaining(null);NL.refresh();return true};
+    const connect=async interactive=>{if(!mounted.current)return;const token=++epoch.current;
+      setWaiting(false);setInfo(null);setBusy('Connecting…');setError('');try{
+        const r=await NL.api('/api/project-machines/connect',{id,confirm:true,interactive});if(!current(token))return;
+        if(r.needs_interactive&&!interactive)return await connect(true);
+        if(r.error||r.needs_interactive)setError(r.error||'Could not open sign-in. Try again.');
+        else if(['waiting','starting','reconnecting'].includes(r.state))setWaiting(true);else await inspect(token);
+      }finally{if(current(token))setBusy(false)}};
+    const cancel=async()=>{const token=++epoch.current;setWaiting(false);setBusy('Disconnecting…');try{
+      const r=await NL.api('/api/project-machines/disconnect',{id});if(!current(token))return false;
+      if(r.error){setError(r.error);return false}setError('');setInfo(null);setRemaining(null);NL.refresh();return true;
+    }finally{if(current(token))setBusy(false)}};
     const retry=async()=>{if(await cancel())await connect(true)};
     const saveConfig=async next=>{const r=await NL.api('/api/project-machines/inspect',{id,agent_config:next,default_agent:agent});if(r.error)setError(r.error);else{setConfig(next);setInfo(r);setError('')}};
     const save=async()=>{let parsed;try{parsed=JSON.parse(command);if(!Array.isArray(parsed)||!parsed.length)throw Error('Use a JSON argument array.')}catch(e){setError(e.message);return}
       return saveConfig({...config,[agent]:{command:parsed}})};
     return html`<${NL.Sheet} title=${id} onClose=${onClose}>
-      ${waiting?html`<p role="status">Finish signing in in the SSH window. Keep it open.</p>${remaining!==null?html`<p class="muted small">Up to ${remaining} min left. Missed the prompt? Open a new one.</p>`:null}<div class="row"><${NL.Btn} busy=${busy} onClick=${retry}>Restart sign-in</${NL.Btn}><${NL.Btn} onClick=${cancel}>Cancel connection</${NL.Btn}></div>`:!info?html`<p class="muted small" role="status">${busy?'Connecting…':error?'Your machine is saved. You can retry whenever you are ready.':'Connect over SSH to browse projects.'}</p><${NL.Btn} kind="primary" busy=${busy} onClick=${()=>connect(false)}>${error?'Try again':'Connect'}</${NL.Btn}>`:html`
-      <div class="row between"><p class="muted small" role="status">Connected · ${info.platform}</p><${NL.Btn} small onClick=${cancel}>Disconnect</${NL.Btn}></div>
+      ${waiting?html`<p role="status">Finish signing in in the SSH window. Keep it open.</p>${remaining!==null?html`<p class="muted small">Up to ${remaining} min left. Missed the prompt? Open a new one.</p>`:null}<div class="row"><${NL.Btn} busy=${busy} onClick=${retry}>Restart sign-in</${NL.Btn}><${NL.Btn} busy=${busy} onClick=${cancel}>Cancel connection</${NL.Btn}></div>`:!info?html`<p class="muted small" role="status">${busy|| (error?'Your machine is saved. You can retry whenever you are ready.':'Connect over SSH to browse projects.')}</p><${NL.Btn} kind="primary" busy=${busy} onClick=${()=>connect(false)}>${error?'Try again':'Connect'}</${NL.Btn}>`:html`
+      <div class="row between"><p class="muted small" role="status">Connected · ${info.platform}</p><${NL.Btn} small busy=${busy} onClick=${cancel}>Disconnect</${NL.Btn}></div>
       <${ProjectBrowser} machine=${id} initial=${info.projects} onClose=${onClose} onProject=${onProject}/>
       <details class="more"><summary>Agents & commands</summary><${NL.Field} label="Agent"><${NL.Select} value=${agent} onChange=${async value=>{setAgent(value);const r=await NL.api('/api/project-machines/inspect',{id,default_agent:value});if(r.error)setError(r.error)}} options=${['claude','codex','opencode','acp']}/></${NL.Field}>
-      <div class="row">${info.clis?.[agent]?.found?html`<span>Installed${info.clis[agent].logged_in===true?' · Signed in':''}</span>${agent!=='acp'&&info.clis[agent].logged_in!==true?html`<${NL.Btn} onClick=${()=>NL.open(NL.TerminalSheet,{purpose:'login',backend:agent,machine:id})}>Sign in</${NL.Btn}>`:null}`:agent!=='acp'?html`<${NL.Btn} onClick=${()=>NL.open(NL.TerminalSheet,{purpose:'install',backend:agent,machine:id})}>Install ${agent}</${NL.Btn}>`:null}<${NL.Btn} onClick=${inspect}>Check again</${NL.Btn}></div>
+      <div class="row">${info.clis?.[agent]?.found?html`<span>Installed${info.clis[agent].logged_in===true?' · Signed in':''}</span>${agent!=='acp'&&info.clis[agent].logged_in!==true?html`<${NL.Btn} onClick=${()=>NL.open(NL.TerminalSheet,{purpose:'login',backend:agent,machine:id})}>Sign in</${NL.Btn}>`:null}`:agent!=='acp'?html`<${NL.Btn} onClick=${()=>NL.open(NL.TerminalSheet,{purpose:'install',backend:agent,machine:id})}>Install ${agent}</${NL.Btn}>`:null}<${NL.Btn} busy=${busy} onClick=${()=>inspect()}>Check again</${NL.Btn}></div>
       ${agent==='acp'?html`<p class="muted small">Use this agent’s own login command on the machine.</p>`:null}
       <details><summary>Custom command</summary><${NL.Field} label="Command arguments" hint="JSON array. Use an existing executable or wrapper for a specific environment."><${NL.Input} value=${command} onInput=${setCommand} mono placeholder='["/path/to/agent", "--acp"]'/></${NL.Field}><div class="row"><${NL.Btn} onClick=${save}>Save command</${NL.Btn}>${config[agent]?.command?html`<${NL.Btn} onClick=${()=>{const next={...config};delete next[agent];return saveConfig(next)}}>Use default command</${NL.Btn}>`:null}</div></details></details>
       ${info.labs?.length?html`<p><a href="#/labs" onClick=${onClose}>Open connected labs →</a></p>`:null}`}

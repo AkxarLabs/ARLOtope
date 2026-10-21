@@ -22,6 +22,8 @@ if '--version' not in sys.argv and sys.argv[1:3] != ['auth', 'status'] and os.en
     s = studies.study(hub, slug)
     node = next(n for n in branches.nodes(model.workflow(s['workflow'], hub), model.steps(hub)) if n['id'] == sid)
     root = Path(s['project']) if s.get('project') else hub / 'studies' / slug
+    if not root.is_absolute():
+        root = hub / root
     for rel in node.get('outputs', []):
         path = root / rel
         path.parent.mkdir(parents=True, exist_ok=True)

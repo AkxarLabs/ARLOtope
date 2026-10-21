@@ -1,9 +1,9 @@
 /* Newts' Lab — the world: the lab as an open-plan tabletop (three.js), drawn from the live lab.
  *
  * The rooms are the workflow's, on plots round the PI's desk (world3d/layout.js), each in its own look
- * (a built-in world3d/rooms/<id>.js, the lab's lab/rooms3d/<id>.json, or plain). A room the workflow marks
- * `per_project` (the Lab) is one room PER LIVE PROJECT: a new project gets a new lab, built while
- * /spawn-project runs; its look can follow the project's type (lab/rooms3d/lab.<type>.json).
+ * (a built-in world3d/rooms/<id>.js, the lab's lab/rooms3d/<id>.json, or plain).
+ * Rooms come from the workflow definition and are shared by studies. By-machine view repeats them
+ * in connected spaces; agents use their task's room assignment.
  * Every agent at work (the snapshot's `agents`: a run's main agent, every subagent it spawned, and any session
  * no run accounts for) is a newt in its room, in its run's family colour, a subagent smaller. Each stands at the
  * furniture for the call it is in right now (a shelf to read, a bench to run an experiment, a whiteboard to brief
@@ -50,7 +50,7 @@ L.createWorld = async function createWorld(canvas, opts) {
   let settled = false;
   const knownRooms = new Set();
 
-  // ── what the table holds: the workflow's rooms, a lab per live project ───────────────────────────
+  // ── what the table holds: the workflow's shared rooms ─────────────────────────────────────────
   const M = L.model, wfOf = M.wfOf, procsOf = M.procsOf, roomList = M.roomList;
   function plainSpec(id, procs) {
     const n = Math.max(1, procs.length), w = Math.max(7, 2.4 * n + 2), stations = {}, props = [];
@@ -67,7 +67,7 @@ L.createWorld = async function createWorld(canvas, opts) {
   // ── building the table (again whenever its rooms or their definitions change) ───────────────────
   function buildStatic(s) {
     const wf = wfOf(s), list = roomList(s);
-    const sig = JSON.stringify([s.world_view,s.room_designs, list.map(r => [r.id,r.machine,r.machineName,r.sourceId,r.lobby, r.place, r.facing, r.type, r.building, r.empty, r.title, r.kicker]), (wf.workflows || []).map(w => [w.id, w.path || w.steps, w.nodes, (w.checkpoints || []).map(c => [c.id, c.before, c.during])])]);
+    const sig = JSON.stringify([s.world_view,s.room_designs, list.map(r => [r.id,r.machine,r.machineName,r.sourceId,r.lobby,r.place,r.facing,r.title,r.kicker]), (wf.workflows || []).map(w => [w.id, w.path || w.steps, w.nodes, (w.checkpoints || []).map(c => [c.id, c.before, c.during])])]);
     if (sig === staticSig && W) return false;
     staticSig = sig;
     const previousRooms=W?W.rooms:{};
@@ -91,12 +91,12 @@ L.createWorld = async function createWorld(canvas, opts) {
     const fillLight = new THREE.DirectionalLight(TH.fillColor, TH.fill ?? 0.4); fillLight.position.set(30, 18, -20); scene.add(fillLight);   // a soft pink-blue fill: no harsh shadow sides
     renderer.toneMappingExposure = TH.exposure;
     // where every room stands
-    const plan = M.placeRooms(list, wf);      // the plan, then the lab district
+    const plan = M.placeRooms(list, wf);
     const DIR = { s: [0, 1], n: [0, -1], e: [1, 0], w: [-1, 0] }, RY = { s: 0, n: Math.PI, e: Math.PI / 2, w: -Math.PI / 2 };
     const rooms = {};
     for (const r of list) {
-      const look = (r.type && L.rooms[`${r.base.id}.${r.type}`]) || L.rooms[r.base.id] || plainSpec(r.base.id, procsOf(wf, r.states, r.base.id));
-      const sp = scaled(look, r.study || r.empty ? ROOMSCALE * 1.05 : ROOMSCALE), p = plan[r.id], turned = p.facing === 'e' || p.facing === 'w';
+      const look = L.rooms[r.base.id] || plainSpec(r.base.id, procsOf(wf, r.states, r.base.id));
+      const sp = scaled(look, ROOMSCALE), p = plan[r.id], turned = p.facing === 'e' || p.facing === 'w';
       rooms[r.id] = { ...r, cell: p.cell, facing: p.facing, spec: sp, ry: RY[p.facing], dir: DIR[p.facing], ex: turned ? sp.size[1] : sp.size[0], ez: turned ? sp.size[0] : sp.size[1], procs: procsOf(wf, r.states, r.base.id) };
     }
     // the grid: columns as wide as their widest room, rows as deep as their deepest, streets between
@@ -198,7 +198,7 @@ L.createWorld = async function createWorld(canvas, opts) {
     const reused=new Set();
     for(const o of Object.values(rooms)){
       const old=previousRooms[o.id];
-      if(old&&old.renderTheme===theme&&old.building===o.building&&JSON.stringify(old.spec)===JSON.stringify(o.spec)&&JSON.stringify(old.extraProps)===JSON.stringify(o.extraProps)){
+      if(old&&old.renderTheme===theme&&JSON.stringify(old.spec)===JSON.stringify(o.spec)&&JSON.stringify(old.extraProps)===JSON.stringify(o.extraProps)){
         for(const key of ['g','floor','floorMat','floorBase','walls','rising'])o[key]=old[key];o.g.position.set(o.x,0,o.z);o.g.rotation.y=o.ry;group.add(o.g);pickables.add(o.floor);recolor(o.g);reused.add(o.id);
       }else buildRoom(o,group);
       o.renderTheme=theme;
@@ -214,7 +214,7 @@ L.createWorld = async function createWorld(canvas, opts) {
       const st = w.path || w.steps || [], at = c.during || (w.nodes ? c.before : st[st.indexOf(c.before) - 1]);
       const grouped = w.nodes?.[at]?.room;
       const candidates=Object.values(rooms).filter(o=>(o.machine||'local')===district.id);
-      const host = (grouped && candidates.find(o=>o.base.id===grouped)) || candidates.find(o => (o.states || []).includes(at) && !o.extra && !o.building) || candidates.find(o => (o.states || []).includes(at));
+      const host = (grouped && candidates.find(o=>o.base.id===grouped)) || candidates.find(o => (o.states || []).includes(at));
       if (!host) continue;
       const k = lit[host.id] = (lit[host.id] || 0) + 1, f = c.during ? 0.9 : 0.35, side = (k - 1) * 0.9 - 0.45;
       const dx = host.door[0] - host.street[0], dz = host.door[1] - host.street[1], len = Math.hypot(dx, dz) || 1;
@@ -240,7 +240,7 @@ L.createWorld = async function createWorld(canvas, opts) {
     const where = a => {
       const r = a.run_id && runs.get(a.run_id);
       if (r) { const rid = placeOfRun(s, r); if (W.rooms[rid]) return rid; }
-      const it = a.study && item(s, a.study), rid = it && (labOf(it) || roomOfItem(s, it));
+      const it = a.study && item(s, a.study), rid = it && roomOfItem(s, it);
       return rid && W.rooms[rid] ? rid : null;
     };
     const up = ((s && s.artifacts) || []).filter(a => !a.answered && (!a.seen || a.question)).slice(0, 30).map(a => ({ a, room: where(a) })).filter(x => x.room);
@@ -302,25 +302,18 @@ L.createWorld = async function createWorld(canvas, opts) {
     const trim = { glow: sp.accent, gi: {day:0,night:0.55} };
     g.add(K.box(w, 0.05, 0.22, sp.accent, 0, 0.14, d / 2 - 0.11, trim));
     o.walls = [];
-    const wallH = o.building ? 0.5 : 1.5;
+    const wallH = 1.5;
     if(sp.shell)for(const s of sp.shell){const wall=K.box(...s.size,sp.wall||'plaster',s.at[0],.14+s.at[1]-s.size[1]/2,s.at[2]);wall.userData.physicsSolid=true;g.add(wall);}
     if (!sp.shell&&sp.walls !== false) for (const [lx, lz, len, nx, nz] of [[0, -d / 2, w, 0, -1], [-w / 2, 0, d, -1, 0], [w / 2, 0, d, 1, 0]]) {
-      const wall = K.box(nz ? len : 0.16, wallH, nz ? 0.16 : len, sp.wall || 'plaster', lx, 0.14, lz, o.building ? { alpha: 0.55 } : undefined); g.add(wall);
+      const wall = K.box(nz ? len : 0.16, wallH, nz ? 0.16 : len, sp.wall || 'plaster', lx, 0.14, lz); g.add(wall);
       const cap = K.box(nz ? len + 0.02 : 0.2, 0.06, nz ? 0.2 : len + 0.02, sp.accent, lx, 0.14 + wallH + 0.0, lz, trim); g.add(cap);
       o.walls.push({ wall, cap, n: [nx, nz], lx, lz, h: wallH });
     }
     const sign = K.sign(o.title, { h: 0.42 }); sign.position.set(0, 1.25, -d / 2 + 0.1); g.add(sign);
     if (knownRooms.size && !knownRooms.has(o.id) && !reduced) { g.scale.y = 0.02; o.rising = true; }   // a new room rises out of the table
     knownRooms.add(o.id);
-    if (o.building) {            // a lab going up: scaffolding, cones, crates, the furniture still to come
-      [[-w / 2 + 0.4, -d / 2 + 0.4], [w / 2 - 0.4, -d / 2 + 0.4], [-w / 2 + 0.4, d / 2 - 0.6], [w / 2 - 0.4, d / 2 - 0.6]].forEach(([x, z]) => g.add(K.box(0.12, 2.6, 0.12, 'ochre', x, 0.14, z)));
-      g.add(K.box(w, 0.1, 0.12, 'ochre', 0, 2.6, -d / 2 + 0.4)); for (let i = 0; i < 4; i++) g.add(K.cone(0.18, 0.45, 'amber', -w / 3 + i * w / 4.5, 0.14, d / 2 - 0.4));
-      g.add(K.at(K.build('crates', { n: 4 }), 0, 0.14, 0));
-      return;
-    }
     for (const p of (sp.props || []).concat(o.extraProps)) { const m = K.build(p.c, p.props); m.position.set(p.at[0], 0.14, p.at[1]); m.rotation.y = p.rot || 0; g.add(m); }
     g.add(K.box(Math.min(3.4, w * 0.4), 0.42, 0.5, 'woodLight', o.shelfAt[0] + Math.min(3.4, w * 0.4) / 2, 0.14, o.shelfAt[1]));
-    if (o.empty) { const s2 = K.sign('No projects yet — a lab is built for each one', { h: 0.28, font: 'italic 500 34px Newsreader, Georgia, serif' }); s2.position.set(0, 0.6, d / 2 - 0.05); g.add(s2); }
     const pl = new THREE.PointLight(0xffc98a, 18, 11, 1.5); pl.userData.labNightIntensity=18; pl.visible=theme==='night'; pl.position.set(0, 2.8, 0); g.add(pl);
   }
 
@@ -349,7 +342,7 @@ L.createWorld = async function createWorld(canvas, opts) {
   }
 
   // ── who should be where, from the snapshot ───────────────────────────────────────────────────────
-  const item = M.item, roomOfItem = (s, it) => M.roomOfItem(s, it, W.rooms), labOf = it => M.labOf(it, W.rooms);
+  const item = M.item, roomOfItem = (s, it) => M.roomOfItem(s, it, W.rooms);
   const placeOfRun = (s, r) => M.placeOfRun(s, r, W.rooms);
   const ACTS = M.ACTS;
   // calls come and go faster than a newt can walk: an agent keeps to what it is at for a moment before it walks off to
@@ -599,8 +592,8 @@ L.createWorld = async function createWorld(canvas, opts) {
     if (!ag) return '';
     if (r && !ag.parent) {
       if (r.status === 'waiting_input') return '? ' + ((r.pending_question && (r.pending_question.question || r.pending_question.text)) || 'a question for you');
-      if (r.status === 'queued') return 'queued — starts when a slot frees';
-      if ((r.pending_permissions || []).length) return '✋ asks to ' + ((r.pending_permissions[0].tool) || 'do something') + ' — Needs you';
+      if (r.status === 'queued') return 'queued · starts when a slot frees';
+      if ((r.pending_permissions || []).length) return '✋ asks to ' + ((r.pending_permissions[0].tool) || 'do something') + ' · Needs you';
     }
     const d = ag.doing, act = d && ACTS[d.kind];          // (the sign of the call itself; where it stands may lag a moment)
     if (d) return `${act ? act[0] + ' ' : ''}${d.summary || d.tool || (act && act[1]) || ''}`;
@@ -615,7 +608,7 @@ L.createWorld = async function createWorld(canvas, opts) {
       if (a.courier) { const it = item(s, a.courier); return `<b>Carrying “${esc(it ? it.title || it.id : a.courier)}”</b><small>to its next room</small>`; }
       const sp = a.spec, r = sp.run, ag = sp.agent || {};
       const on = r && (r.subject || (r.target !== 'hub' ? r.target : '')), it0 = on && item(s, on);
-      const who = ag.parent ? esc(ag.label || ag.role || 'subagent') : r ? `${esc((window.NL && NL.procTitle) ? NL.procTitle(r.skill || 'ask') : r.skill)}${it0 ? ' · ' + esc(it0.title || it0.id) : ''}`
+      const who = ag.display_label ? esc(ag.display_label) : ag.parent ? esc(ag.label || ag.role || 'subagent') : r ? `${esc(((s.workflow?.procedures||{})[r.skill]||{}).title || r.label || r.skill)}${it0 ? ' · ' + esc(it0.title || it0.id) : ''}`
         : `${esc(ag.role || 'agent')}${ag.interactive ? ' · your session' : ''}`;
       const kids = [...actors.values()].filter(x => x.spec.parent === sp.key && !x.leaving).length;
       return `<b>${who}</b><small>${esc(NLclip(doing(sp), 90))}</small>${kids ? `<small>${kids} subagent${kids === 1 ? '' : 's'}</small>` : ''}`;
@@ -651,7 +644,7 @@ L.createWorld = async function createWorld(canvas, opts) {
       if (a.leaving || a.courier || a.path.length || (a.spec.pose !== 'wait' && a.spec.pose !== 'sleep')) continue;
       const h = a.n.group.position, [sx, sy, vis] = toScreen(h.x, 1.75 * a.spec.scale * 1.25 + 0.15, h.z);
       if (vis) out.push(a.spec.pose === 'wait' ? `<div class="wl-bub ask icon" style="left:${sx}px;top:${sy}px">?</div>`
-        : `<div class="wl-zz" style="left:${sx}px;top:${sy}px"><i>z</i><i>z</i><i>z</i></div>`);
+        : `<div class="wl-bub zzz" style="left:${sx}px;top:${sy}px">zzz</div>`);
     }
     const html = out.join(''); if (overlay.innerHTML !== html) overlay.innerHTML = html;
   }
@@ -813,7 +806,7 @@ L.createWorld = async function createWorld(canvas, opts) {
     },
     setView(m) { if (m === 'WORLD') setViewState('WORLD'); },
     goRoom(k) { if (W && W.rooms[k]) setViewState('ROOM', k); },
-    focusProject(id) { if (!W) return; const it = item(snap, id), rid = (it && (labOf(it) || roomOfItem(snap, it))) || null; if (rid) setViewState('ROOM', rid); },
+    focusProject(id) { if (!W) return; const it = item(snap, id), rid = (it && roomOfItem(snap, it)) || null; if (rid) setViewState('ROOM', rid); },
     back() { setViewState('WORLD'); },
     viewInfo() { return { level: view.level === 'ROOM' ? 'REGION' : 'WORLD', label: view.label }; },
     agentAnchor(id) {

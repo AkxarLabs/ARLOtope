@@ -19,7 +19,10 @@ from . import instructions, journal, model, studies
 
 def newts_cmd(hub) -> str:
     """The command an agent runs to talk to the kernel, from anywhere (the hub or a project repo)."""
-    return f'uv run --with pyyaml python "{(Path(hub) / "newts.py").as_posix()}"'
+    local = Path(hub) / 'newts.py'
+    if local.is_file():
+        return f'uv run --with pyyaml python "{local.as_posix()}"'
+    return f'uv run --with pyyaml python "{(model.CODE / "tools/newts_cli.py").as_posix()}" --hub "{Path(hub).as_posix()}"'
 
 
 def sha(text: str) -> str:
@@ -121,6 +124,10 @@ def brief(hub, proc: str, study: str | None = None) -> tuple[str, str]:
                      f"workflow \"{model.workflow(s['workflow'], hub).get('title')}\". You are running /{proc}: "
                      f"{p.get('does') or p.get('title') or ''}".rstrip())
         parts.append(outcomes_block(hub, study, proc))
+        adopted = journal.events(hub, study, ('task-reused', 'task-omitted'))
+        if adopted:
+            parts.append('## Existing work selected by the researcher\n\nThese are recorded first-visit decisions, not agent runs or verified results.\n' + '\n'.join(
+                f"- {e['node']}: {e['kind']} — {e.get('note', '')}" + ('\n  ' + '\n  '.join(e.get('refs', [])) if e.get('refs') else '') for e in adopted))
     import tagging
     labels = {'Procedure': tagging.normalize(p.get('tags'))}
     if s:

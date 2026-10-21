@@ -33,7 +33,6 @@ import yaml
 import tagging
 
 import ctx  # noqa: E402
-import sources  # noqa: E402
 from kernel import define, diff, model, rules, studies  # noqa: E402
 
 ROOTS = diff.ROOTS
@@ -374,11 +373,6 @@ def _op_room(b: dict) -> str:
     for k in ("label", "title"):
         if str(f.get(k) or "").strip():
             r[k] = str(f[k]).strip()
-    if "per_project" in f:                # one room per live project (the Lab), or one for the whole lab
-        if f["per_project"]:
-            r["per_project"] = True
-        else:
-            r.pop("per_project", None)
     _save(d, {"rooms"})
     return "room updated"
 
@@ -972,6 +966,7 @@ def view(q: dict | None = None) -> tuple[dict, int]:
                for n, p in labfiles.domain_profiles(root).items()]
     ins = ctx.tool("kernel").instructions
     out.update({
+        'frameworks': __import__('frameworks').installed(__import__('frameworks').definitions(root)),
         "steps": v["steps"], "workflows": v["workflows"], "rooms": v["rooms"], "procedures": procs, "roles": roles,
         "tags": tagging.catalog(ctx.HUB, m),
         "audits": [a["name"] for a in rules.audits(root)], "watch": rl.get("watch") or [],

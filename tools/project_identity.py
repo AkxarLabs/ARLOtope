@@ -53,10 +53,14 @@ def register(root, owner, study, lab_id=None, title=None):
             raise ValueError('The durable project identity is invalid.')
         if not isinstance(old, dict) or marker.exists() and not old:
             raise ValueError('The project identity is invalid. Restore .bus/newts-owner.json before attaching it.')
-        if durable and (lab_id is not None and durable.get('lab_id') not in (None,lab_id) or old.get('project_id') and old['project_id'] != durable['project_id']):
-            raise ValueError('The project identities disagree or belong to another Lab.')
+        if durable and lab_id is not None and durable.get('lab_id') not in (None,lab_id):
+            raise ValueError(f'Project "{root}" belongs to another Lab (Lab ID: {durable["lab_id"]}). Open its owning Lab.')
+        if durable and old.get('project_id') and old['project_id'] != durable['project_id']:
+            raise ValueError(f'Project identity mismatch in "{root}": .bus/newts-owner.json has ID "{old["project_id"]}", '
+                             f'but .newts/project.json has ID "{durable["project_id"]}". Restore matching records before attaching.')
         if old and (old.get('owner') != owner or old.get('study') != study):
-            raise ValueError('This project is attached to another Lab or study. Open its owning Lab.')
+            raise ValueError(f'Project "{root}" is attached to another Lab or study (study: {old.get("study")}, '
+                             f'execution owner: {old.get("owner")}). Open its owning Lab.')
         value = {**old,'schema':2,'owner':owner,'study':study,'project_id':old.get('project_id') or durable.get('project_id') or uuid.uuid4().hex,
                  'lab_id':lab_id or old.get('lab_id') or durable.get('lab_id'), 'title':title or old.get('title') or durable.get('name') or study}
         rows = read(index, [])

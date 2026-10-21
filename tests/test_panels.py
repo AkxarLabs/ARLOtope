@@ -122,11 +122,155 @@ def test_a_shipped_collector_is_the_labs_own_code(pn, hub):
         pn.approve_collector(hub.root, "plain")
 
 
+def test_collector_approval_can_bind_to_the_reviewed_version(pn, hub):
+    folder = _panel(pn.lab_dir(hub.root), 'reviewed', {'title': 'Reviewed', 'collector': 'collect.py'},
+                    collector=('collect.py', COLLECT))
+    sha = pn.collector_sha(pn.get(hub.root, 'reviewed'))
+    (folder/'collect.py').write_text(COLLECT.replace('12.5', '99'), encoding='utf-8')
+    before = K.journal.events(hub.root)
+    with pytest.raises(ValueError, match='collector changed'):
+        pn.approve_collector(hub.root, 'reviewed', expected_sha=sha)
+    assert K.journal.events(hub.root) == before
+    current = pn.collector_sha(pn.get(hub.root, 'reviewed'))
+    result = pn.approve_collector(hub.root, 'reviewed', expected_sha=current)
+    assert result['sha'] == current
+    assert pn.collect(hub.root, 'reviewed')['data']['gpu_hours'] == 99
+
+
+def test_collector_api_shows_one_code_version_and_refuses_a_changed_review(pn, hub, monkeypatch):
+    import hashlib
+    monkeypatch.syspath_prepend(str(REPO/'dashboard'))
+    api = load('dashboard/panels_api')
+    monkeypatch.setattr(api.ctx, 'HUB', hub.root)
+    monkeypatch.setattr(api, '_p', lambda: pn)
+    folder = _panel(pn.lab_dir(hub.root), 'reviewed', {'title': 'Reviewed', 'collector': 'collect.py'},
+                    collector=('collect.py', COLLECT))
+    response, status = api.get_panel({'id': 'reviewed'})
+    assert status == 200 and response['collector']['sha'] == hashlib.sha256((folder/'collect.py').read_bytes()).hexdigest()[:16]
+    (folder/'collect.py').write_text(COLLECT.replace('12.5', '99'), encoding='utf-8')
+    result, status = api.approve_collector({'id': 'reviewed', 'confirm': True, 'sha': response['collector']['sha']})
+    assert status == 400 and 'collector changed' in result['error']
+    assert not pn.collector_approved(hub.root, pn.get(hub.root, 'reviewed'))
+    refreshed, _ = api.get_panel({'id': 'reviewed'})
+    result, status = api.approve_collector({'id': 'reviewed', 'confirm': True, 'sha': refreshed['collector']['sha']})
+    assert status == 200 and result['data']['data']['gpu_hours'] == 99
+
+
+def test_collector_review_hash_matches_its_code_even_if_file_changes_during_the_read(pn, hub, monkeypatch):
+    import hashlib
+    monkeypatch.syspath_prepend(str(REPO/'dashboard'))
+    api = load('dashboard/panels_api')
+    monkeypatch.setattr(api.ctx, 'HUB', hub.root)
+    monkeypatch.setattr(api, '_p', lambda: pn)
+    folder = _panel(pn.lab_dir(hub.root), 'reviewed', {'title': 'Reviewed', 'collector': 'collect.py'},
+                    collector=('collect.py', COLLECT))
+    old = (folder/'collect.py').read_bytes()
+    sha = pn.collector_sha
+    def changed(panel):
+        (folder/'collect.py').write_text(COLLECT.replace('12.5', '99'), encoding='utf-8')
+        return sha(panel)
+    monkeypatch.setattr(pn, 'collector_sha', changed)
+    result, status = api.get_panel({'id': 'reviewed'})
+    assert status == 200
+    assert result['collector']['code'] == old.decode('utf-8')
+    assert result['collector']['sha'] == hashlib.sha256(old).hexdigest()[:16]
+
+
 def test_an_agent_run_cannot_approve_a_collector(pn, hub, monkeypatch):
     _panel(pn.lab_dir(hub.root), "gpu", {"title": "GPU", "collector": "collect.py"}, collector=("collect.py", COLLECT))
     monkeypatch.setenv("NEWTS_RUN_ID", "hub-design-1")
     with pytest.raises(K.checkpoints.CheckpointError):
         pn.approve_collector(hub.root, "gpu")
+
+
+def test_collector_edit_before_execution_is_rechecked(pn, hub, monkeypatch):
+    folder = _panel(pn.lab_dir(hub.root), 'race', {'title': 'Race', 'collector': 'collect.py'}, collector=('collect.py', COLLECT))
+    pn.approve_collector(hub.root, 'race')
+    original = pn._run_collector
+    def changed(*args):
+        (folder/'collect.py').write_text(COLLECT.replace('12.5', '99'), encoding='utf-8')
+        return original(*args)
+    monkeypatch.setattr(pn, '_run_collector', changed)
+    result = pn.collect(hub.root, 'race')
+    assert 'waiting for your approval' in result['error'] and result['data'] == {}
+    assert not list(folder.glob('.newts-collector-*'))
+
+
+def test_collector_executes_the_checked_bytes_if_source_changes_at_launch(pn, hub, monkeypatch):
+    folder = _panel(pn.lab_dir(hub.root), 'race', {'title': 'Race', 'collector': 'collect.py'}, collector=('collect.py', COLLECT))
+    pn.approve_collector(hub.root, 'race')
+    original = pn.subprocess.run
+    seen = []
+    def changed(command, **options):
+        script = pn.Path(command[-1])
+        assert script.parent == folder and script != folder/'collect.py'
+        assert script.read_text(encoding='utf-8') == COLLECT
+        seen.append(script)
+        (folder/'collect.py').write_text(COLLECT.replace('12.5', '99'), encoding='utf-8')
+        return original(command, **options)
+    monkeypatch.setattr(pn.subprocess, 'run', changed)
+    result = pn.collect(hub.root, 'race')
+    assert result['data']['gpu_hours'] == 12.5 and result['error'] is None
+    assert not pn.collector_approved(hub.root, pn.get(hub.root, 'race'))
+    assert seen and not any(path.exists() for path in seen)
+
+
+@pytest.mark.parametrize('suffix', ['.py', '.js', '.ps1', '.sh', '.bash', '.r'])
+def test_collector_snapshot_keeps_language_parent_cwd_environment_and_cleans_up(pn, hub, monkeypatch, suffix):
+    from types import SimpleNamespace
+    folder = _panel(pn.lab_dir(hub.root), 'paths', {'title': 'Paths', 'collector': 'collect'+suffix}, collector=('collect'+suffix, COLLECT))
+    pn.approve_collector(hub.root, 'paths')
+    paths = []
+    def run(command, **options):
+        script = pn.Path(command[-1]);paths.append(script)
+        assert script.suffix == suffix and script.parent == folder
+        assert script.read_bytes() == (folder/('collect'+suffix)).read_bytes()
+        assert options['cwd'] == str(hub.root)
+        assert options['env']['NEWTS_COLLECTOR'] == str((folder/('collect'+suffix)).resolve())
+        assert options['env']['NEWTS_STUDY'] == 'a-study' and 'NEWTS_RUN_ID' not in options['env']
+        return SimpleNamespace(returncode=0, stdout=b'{"ok":true}', stderr=b'')
+    monkeypatch.setattr(pn.subprocess, 'run', run)
+    assert pn.collect(hub.root, 'paths', 'a-study')['data'] == {'ok': True}
+    assert paths and not any(path.exists() for path in paths)
+
+
+@pytest.mark.parametrize('suffix', ['.py', '.js'])
+def test_native_collector_keeps_sibling_resources_and_original_path(pn, hub, monkeypatch, tmp_path, suffix):
+    if suffix == '.js' and not pn.shutil.which('node'):
+        pytest.skip('Node is not installed')
+    monkeypatch.setenv('NEWTS_HOME', str(tmp_path/'user space 研究'))
+    code = ('import json, os\nfrom pathlib import Path\nprint(json.dumps({'
+            '"resource":Path(__file__).with_name("resource.txt").read_text(),'
+            '"cwd":str(Path.cwd()),"original":os.environ["NEWTS_COLLECTOR"]}))\n')
+    if suffix == '.js':
+        code = 'console.log(JSON.stringify({resource:require("fs").readFileSync(require("path").join(__dirname,"resource.txt"),"utf8"),cwd:process.cwd(),original:process.env.NEWTS_COLLECTOR}));'
+    folder = _panel(pn.user_dir(), 'paths', {'title': 'Paths', 'collector': 'collect'+suffix}, collector=('collect'+suffix, code))
+    (folder/'resource.txt').write_text('sibling resource')
+    pn.approve_collector(hub.root, 'paths')
+    result = pn.collect(hub.root, 'paths')
+    assert result['data'] == {'resource': 'sibling resource', 'cwd': str(hub.root), 'original': str((folder/('collect'+suffix)).resolve())}
+    assert not list(folder.glob('.newts-collector-*'))
+
+
+def test_collector_snapshot_is_removed_after_timeout(pn, hub, monkeypatch):
+    folder = _panel(pn.lab_dir(hub.root), 'timeout', {'title': 'Timeout', 'collector': 'collect.py'}, collector=('collect.py', COLLECT))
+    pn.approve_collector(hub.root, 'timeout')
+    def run(command, **options):
+        assert pn.Path(command[-1]).exists()
+        raise pn.subprocess.TimeoutExpired(command, options['timeout'])
+    monkeypatch.setattr(pn.subprocess, 'run', run)
+    assert 'did not finish' in pn.collect(hub.root, 'timeout')['error']
+    assert not list(folder.glob('.newts-collector-*'))
+
+
+def test_shipped_collector_needs_no_write_access_to_its_installation(pn, hub, monkeypatch):
+    folder = _panel(pn.lab_dir(hub.root), 'shipped', {'title': 'Shipped', 'collector': 'collect.py'}, collector=('collect.py', COLLECT))
+    panel = pn.get(hub.root, 'shipped');panel['origin'] = 'shipped'
+    def no_copy(**_kwargs):
+        pytest.fail('A trusted shipped collector must not write to its installation.')
+    monkeypatch.setattr(pn.tempfile, 'NamedTemporaryFile', no_copy)
+    assert pn._run_collector(hub.root, panel)['data']['gpu_hours'] == 12.5
+    assert not list(folder.glob('.newts-collector-*'))
 
 
 def test_a_broken_collector_is_reported_not_raised(pn, hub):

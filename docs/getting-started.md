@@ -24,27 +24,52 @@ Choose **New study**, then select the starting point inline:
 
 - **A research question** for a topic or first task without an attached repository.
 - **An existing project** for a folder on this computer or a connected machine. Choose the machine and use **Browse…** to select the folder.
-- **A GitHub repository** for an exact public `owner/repository` or repository URL. Press **Look up repository**, then review the new working-copy location. For a private repository, clone it with your normal tools and attach the existing folder.
+- **A GitHub repository** for an `owner/repository` or repository URL. The Lab reuses GitHub CLI sign-in on the selected machine. **Choose repository** lists up to 50 accessible repositories, including private ones; type an exact name for anything else. If needed, use **Connect GitHub**, complete sign-in in the terminal/browser, then **Check connection**. Public URLs also work without GitHub CLI.
 
-Fill in **Study title** and **What would you like to investigate?** Choose a **Starting workflow**. Selecting a starting point reveals its fields on this page; it does not create the study.
+Fill in **Study title** and **What would you like to investigate?** The selected **Starting workflow** appears above its map. Open **Change workflow** to choose another. The map shows tasks, connections and checkpoints before you create anything. Select a task to inspect it. Selecting a starting point reveals its fields on this page; it does not create the study.
 
 ![New study details with starting-point choices and research fields](assets/current/start-details.webp)
 
 *Demonstration fixture: study details before saving. Use your own question and project location.*
 
-Expand **Brief & materials** if you have a brief, papers, notes or images. Uploading files does not launch an agent. The limits shown in the form are 5 MB per file and 20 MB per draft. Optional **Agent help → Suggest study details** does launch an agent turn; review its proposal before **Apply suggestion**.
+Expand **Add a brief or files** if you have a brief, papers, notes or images. Uploading files does not launch an agent. The limits shown in the form are 5 MB per file and 20 MB per draft. **Agent help → Suggest study details** launches an agent turn; review its proposal before **Apply suggestion**.
 
-**Tags & study ID** and **Agent choices (optional)** can remain at their defaults. The latter saves study-level agent preferences; it is separate from the agent used for an optional suggestion.
+If materials cannot load, **Retry** rereads the saved draft and keeps your typed details. Creation
+waits until the materials are readable, including on the Review screen. If an upload response is
+lost, reload the materials before uploading again: the first upload may already have been saved.
+Retrying the read does not repeat an upload or launch another analysis agent.
+
+Already have an idea, results or documentation? Select that task on the map. Keep **Run task**, choose **Use existing work** with references, or **Skip at start**. A note is optional. These choices use your workflow's tasks, including custom ones. They set where the study starts: if a loop returns to a skipped or reused task later, it runs normally. Checkpoints still require their configured decisions. Agent help may suggest these choices, but only applying and creating the study saves your starting choices.
+
+![Workflow map and a task selected for existing work](assets/current/workflow-start.png)
+
+*Isolated test Lab: the first task uses a supplied brief. No study or research agent was created for this screenshot. On a phone, task cards list their next destinations instead of shrinking the diagram.*
+
+**Use existing work** means the task is already covered: name the work and supply references.
+**Skip at start** means not to do that task at the beginning, without claiming completion. No reason is required.
+For example, link a literature review you already wrote using the first option; use the second if
+that review is not needed for this study. Both follow the selected outcome's route. Neither creates
+missing outputs or verifies the quality of existing work.
+
+**Study settings** contains tags, agent choices and the generated study ID. Leave it closed to use the defaults. Agent choices apply to this study; they are separate from the agent used for a suggestion. Review shows what you selected; use **Back** to change it rather than configuring it twice.
 
 ## 3. Review and create
 
 Press **Review study**. Check the question, workflow, files, machine and project path. Use **Back** to correct anything.
+
+When using a starting plan, the review also previews ready tasks, checkpoint waits and branches waiting at joins. Reusing a task records your evidence references; it does not claim that an agent performed or independently verified the work.
+
+The workflow map stays visible on the review screen and is available under **Workflow map** on the study. Optional agent choices sit before the main action; they can remain at their defaults.
 
 ![Reviewing a demonstration study before creation](assets/current/start-review.webp)
 
 *Demonstration fixture: the review page makes the proposed study and attachment visible before creation.*
 
 Choose **Create study**, or **Clone & create study** for GitHub. Attaching a folder adds Lab registration files; existing code and environment stay in place. Cloning downloads source without installing dependencies or running repository code. Creating a study does not start a research agent or approve a checkpoint.
+
+For an attached or cloned project, expand **Files added to this project** on the review or success screen. It explains the portable `.newts/` records and local `.bus/` records. The Lab leaves your ignore files unchanged; see [what to keep in Git](knowledge.md#what-to-keep-in-git).
+
+If attachment reports another Lab, it names the selected folder and recorded Lab ID or study/owner. Open the owning Lab or choose a different folder. A project-ID mismatch names both conflicting files and IDs; restore matching records from a known backup. Do not remove identity files to bypass the check. Failed identity validation creates no study and leaves existing registration records unchanged.
 
 ## 4. Start one task
 

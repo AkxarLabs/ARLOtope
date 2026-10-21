@@ -62,6 +62,7 @@ nav:
       - Customization: customising.md
       - Room previews: room-design.md
       - Extensions: extending.md
+      - External research tools: external-frameworks.md
   - Agents & machines:
       - ACP agents: acp.md
       - Remote projects: remote-projects.md

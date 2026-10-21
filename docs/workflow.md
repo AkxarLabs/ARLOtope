@@ -171,15 +171,28 @@ The following tables are generated from the shipped definitions. Edit the workfl
 | `writing` — Writing | `/write-paper` | `/make-figures`, `/critique-paper` | writing |
 | `internal-review` — Internal review | `/review-paper` | `/critique-paper`, `/write-paper` | writing |
 | `final` — Final | `/finalize` |  | archive |
+| `external-setup` — Task setup |  |  | study |
+| `external-search` — Investigation |  |  | lab |
+| `external-compare` — Baselines & ablations |  |  | lab |
+| `external-eval` — Final evaluation |  |  | bench |
+| `external-analyze` — Post-hoc analysis |  |  | bench |
+| `external-write` — External writing |  |  | writing |
 
 | Workflow | Path | Routes | Checkpoints |
 |---|---|---|---|
 | Research paper (`research`) — default | `seed` → `lit-review` → `scoping` → `proposal` → `setup` → `active` → `analysis` → `writing` → `internal-review` → `final` | analysis: `more-experiments` → active, `null-result` → ask; writing: `more-experiments` → active, `reanalyse` → analysis; internal-review: `revise` → writing, `more-experiments` → active | Approve the proposal (before `setup`); Approve full runs (during `active`, at full-scale runs); Approve the research loop (during `active`, at starting an unattended research loop); Finalize the paper (before `final`) |
+| Agentic Scientist · Sakana (`sakana`) | `seed` → `external-setup` → `external-search` → `external-compare` → `external-eval` → `external-analyze` → `external-write` → `internal-review` → `final` | — | Review the task and budget (before `external-setup`); Review the frozen selection (before `external-eval`) |
 | Quick study (`quick`) | `seed` → `proposal` → `setup` → `active` → `analysis` → `final` | analysis: `more-experiments` → active | none |
 | Target-driven (`target`) | `active` → `final` | — | Approve external scoring (during `active`, at sending an output to an external scorer); Choose the final output (before `final`) |
 <!-- workflow:end -->
 
 ## Research workflow safeguards
+
+The default frozen-evaluation watch applies when a project's `control.yaml` exists at the start
+or end of a run, including deletion during the run. Plain attached repositories need no Lab
+evaluation contract. Explicit `frozen` checks in a procedure or checkpoint still require that
+contract and remain strict. A custom watch can use `when: project` for any attached project, or
+`when: project-control` for this contract-aware condition.
 
 ### The paper-refinement loop (and its safeguards)
 

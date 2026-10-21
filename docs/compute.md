@@ -21,7 +21,7 @@ use an SSH window on the controller. Keep that window open. **Restart sign-in** 
 attempt; **Cancel connection** stops it. Provider login is separate and runs on the project machine.
 See [remote setup and recovery](remote-projects.md).
 
-**Connections** in the Lab and **Machines & compute** in the footer open **Labs & machines**.
+**Machines** in the Lab and footer opens machine connections and compute readings.
 Its **Separate Labs** controls open or create an independent Lab on a machine. **Keep connected**
 refreshes that Lab’s activity on this page while you work elsewhere; it does not merge journals.
 

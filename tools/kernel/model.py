@@ -24,6 +24,7 @@ from pathlib import Path
 
 import yaml
 import tagging
+import labfiles
 
 CODE = Path(__file__).resolve().parents[2]          # this code's own hub (the template a lab was made from)
 WORKFLOW = Path("workflow")
@@ -97,11 +98,16 @@ def _sig(files: list[Path]) -> tuple:
 
 
 def load(hub=None) -> dict:
+    """The signature-checked definition, reused inside an explicit read batch."""
+    return labfiles.cached_read(('model', hub_of(hub)), lambda: _load(hub))
+
+
+def _load(hub=None) -> dict:
     """The definition, normalised (cached until any of its files changes):
 
         steps      {id: {id, label, do, also, room, shelf}}   in library order, the two shelves last
         workflows  [{id, title, blurb, default, path, routes, use, checkpoints}]   the default first
-        rooms      [{id, label, title, place?, facing?, per_project?}]
+        rooms      [{id, label, title, place?, facing?}]
         procedures {name: definition}
 
     Raises ModelError (or a yaml error) on a file it can't read."""
@@ -166,7 +172,8 @@ def normalise(raw: dict) -> dict:
         w["default"] = bool(w.get("default"))
         wfs.append(w)
     wfs.sort(key=lambda w: (not w["default"], str(w.get("order", "")), w["title"].lower()))
-    rooms = [dict(r) for r in (raw.get("rooms") or []) if isinstance(r, dict) and r.get("id")]
+    rooms = [{k:v for k,v in r.items() if k != 'per_project'}
+             for r in (raw.get("rooms") or []) if isinstance(r, dict) and r.get("id")]
     return {"steps": steps, "workflows": wfs, "rooms": rooms}
 
 
@@ -484,6 +491,16 @@ def check(hub=None, checks: set[str] | None = None) -> list[str]:
     for w in m["workflows"]:
         probs += _check_workflow(w, st, procs, cids, checks)
         for sid, node in (w.get('nodes') or {}).items() if isinstance(w.get('nodes'), dict) else []:
+            if isinstance(node, dict) and isinstance(node.get('external'), dict):
+                import frameworks
+                external = node['external']
+                try:
+                    frameworks.validate(external)
+                    definition = frameworks.definitions(hub).get(external['framework']) or {}
+                    if external['phase'] not in definition.get('phases', {}):
+                        probs.append(f'workflow {w["id"]}: task {sid} names an unknown framework phase')
+                except ValueError:
+                    pass  # the graph validator reports the malformed external field
             if isinstance(node, dict) and isinstance(node.get('room'), str) and node['room'] and node['room'] not in room_ids:
                 probs.append(f"workflow {w['id']}: task {sid} names an unknown room")
     for name, p in procs.items():
@@ -699,5 +716,6 @@ def convert(doc: dict) -> dict:
                 routes.setdefault(a, {})[f"to-{b}"] = b
         out_wfs.append({"id": w["id"], "title": w.get("title") or w["id"], "blurb": w.get("blurb", ""),
                         "default": i == 0, "path": path, "routes": routes, "checkpoints": cps})
-    rooms = [{k: v for k, v in r.items() if k != "states"} for r in doc.get("rooms") or [] if isinstance(r, dict)]
+    rooms = [{k: v for k, v in r.items() if k not in ('states', 'per_project')}
+             for r in doc.get("rooms") or [] if isinstance(r, dict)]
     return {"steps": steps, "workflows": out_wfs, "rooms": rooms}

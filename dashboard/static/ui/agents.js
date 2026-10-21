@@ -5,34 +5,38 @@
 
   const agentCache=new Map();
   NL.useAgentSettings=study=>{
-    const key=study||'', [data,setData]=useState(()=>agentCache.get(key)||null),[revision,setRevision]=useState(0);
+    const key=study||'', [revision,setRevision]=useState(0);
     useEffect(()=>{const reload=()=>setRevision(v=>v+1);window.addEventListener('nl-agent-settings',reload);return()=>window.removeEventListener('nl-agent-settings',reload)},[]);
-    useEffect(()=>{let on=true;setData(agentCache.get(key)||null);NL.get('/api/agent-settings'+(study?'?study='+encodeURIComponent(study):'')).then(r=>{if(on){setData(r);if(r.ok)agentCache.set(key,r)}});return()=>{on=false}},[key,revision]);
-    return data;
+    const read=NL.useGet('/api/agent-settings'+(study?'?study='+encodeURIComponent(study):''),revision);
+    useEffect(()=>{if(read.data?.ok)agentCache.set(key,read.data)},[read.data]);
+    const data=read.data||read.previous||agentCache.get(key);
+    return data||read.error?{...data,error:read.error,reload:read.reload}:null;
   };
   NL.AgentChoice=({value='',onChange,study,role='general',label='Agent',custom=true})=>{
     const data=NL.useAgentSettings(study),lab=NL.useLab(),resolved=data?.resolved?.[role];
     const options=[{value:'',label:'Use role defaults'+(resolved?' · '+(resolved.label||resolved.backend):'')},
-      ...(data?.presets||[]).map(p=>({value:'preset:'+p.id,label:p.label||p.id})),
+      ...(data?.presets||[]).map(p=>({value:'preset:'+p.id,label:(p.label||p.id)+' · '+p.backend})),
       ...(custom?NL.backends(lab).map(b=>({value:'backend:'+b.id,label:b.id+' · custom settings'})):[])];
     return html`<${NL.Field} label=${label}><${NL.Select} value=${value} onChange=${onChange} options=${options}/>
-      ${!value&&resolved?html`<small class="muted">${resolved.source}${resolved.model?' · '+resolved.model:''}</small>`:null}
-      ${data?.error?html`<small role="alert">${data.error}</small>`:null}</${NL.Field}>`;
+      ${!value&&resolved?html`<small class="muted">${resolved.backend}${resolved.model?' · '+resolved.model:''} · ${resolved.source}</small>`:null}
+      ${data?.error?html`<${NL.LoadState} error=${data.error} reload=${data.reload} stale=${!!data.presets} />`:null}</${NL.Field}>`;
   };
-  NL.AgentAssignments=({study,onDraft,value,compact=false})=>{
+  NL.AgentAssignments=({study,onDraft,value})=>{
     const data=NL.useAgentSettings(study),[draft,setDraft]=useState(value||null),[editing,setEditing]=useState(''),[preset,setPreset]=useState({}),[error,setError]=useState(''),[busy,setBusy]=useState(false),[message,setMessage]=useState('');
     useEffect(()=>{if(data?.ok&&!draft)setDraft(study?data.study:data.defaults)},[data,study]);
-    if(data?.error)return html`<p role="alert">${data.error}</p>`;
+    if(data?.error&&!data.presets)return html`<${NL.LoadState} error=${data.error} reload=${data.reload} />`;
     if(!data||!draft)return html`<${NL.Spinner}/>`;
     const all=Object.fromEntries(data.presets.map(p=>[p.id,Object.fromEntries(Object.entries(p).filter(([k])=>!['id','found'].includes(k)))])),current=draft.presets||all;
+    const choices=Object.entries(current).map(([id,p])=>({value:id,label:(p.label||id)+' · '+p.backend}));
     const change=v=>{setDraft(v);setMessage('');onDraft?.(v)};
     const setRole=(role,v)=>{const roles={...(draft.role_presets||{})};if(v==='@inherit')delete roles[role];else roles[role]=v==='@default'?null:v;change({...draft,role_presets:roles})};
     const save=async()=>{setBusy(true);setError('');const body={settings:study?draft:{...draft,presets:current},...(study?{study}:{})};const r=await NL.api('/api/agent-settings',body);setBusy(false);if(r.error)setError(r.error);else{agentCache.clear();const {presets,...saved}=draft;setDraft(saved);window.dispatchEvent(new Event('nl-agent-settings'));setMessage('Saved. Applies to new tasks.');NL.refresh()}};
     const commitPreset=()=>{try{const next={...preset};if(typeof next.command==='string'){if(next.command.trim())next.command=JSON.parse(next.command);else delete next.command}if(!/^[a-zA-Z0-9][a-zA-Z0-9_-]{0,79}$/.test(editing))throw Error('Use a short ID with letters, numbers, dashes or underscores.');if(!next.label?.trim())throw Error('Name this preset.');change({...draft,presets:{...current,[editing]:next}});setEditing('');setError('')}catch(e){setError(e.message)}};
     return html`<div class="agent-assignments">
-      <${NL.Field} label=${study||onDraft?'Default agent':'Lab default agent'}><${NL.Select} value=${draft.default_preset||''} onChange=${v=>change({...draft,default_preset:v||null})} options=${[{value:'',label:'Use existing '+(study||onDraft?'Lab':'harness')+' settings'},...Object.entries(current).map(([id,p])=>({value:id,label:p.label||id}))]}/></${NL.Field}>
-      <details open=${!compact}><summary>Agents by role</summary><p class="muted small">Role choices take precedence over the general default. Child agents use their harness settings.</p>
-        ${Object.entries(data.roles).map(([id,label])=>html`<${NL.Field} key=${id} label=${label}><${NL.Select} value=${Object.hasOwn(draft.role_presets||{},id)?draft.role_presets[id]??'@default':'@inherit'} onChange=${v=>setRole(id,v)} options=${[{value:'@inherit',label:study||onDraft?'Use Lab role setting':'Use general default'},...(study||onDraft?[{value:'@default',label:'Use study default'}]:[]),...Object.entries(current).map(([key,p])=>({value:key,label:p.label||key}))]}/></${NL.Field}>`)}
+      ${data.error?html`<${NL.LoadState} error=${data.error} reload=${data.reload} stale />`:null}
+      <${NL.Field} label=${study||onDraft?'Default agent':'Lab default agent'}><${NL.Select} value=${draft.default_preset||''} onChange=${v=>change({...draft,default_preset:v||null})} options=${[{value:'',label:'Use existing '+(study||onDraft?'Lab':'harness')+' settings'},...choices]}/></${NL.Field}>
+      <details><summary>Agents by role <span class="muted small">${Object.keys(draft.role_presets||{}).length?'· '+NL.plural(Object.keys(draft.role_presets).length,'custom choice'):''}</span></summary><p class="muted small">Override the default for specific roles. Child agents use their harness settings.</p>
+        <div class="agent-role-rows">${Object.entries(data.roles).map(([id,label])=>html`<${NL.Field} key=${id} label=${label}><${NL.Select} value=${Object.hasOwn(draft.role_presets||{},id)?draft.role_presets[id]??'@default':'@inherit'} onChange=${v=>setRole(id,v)} options=${[{value:'@inherit',label:study||onDraft?'Use Lab role setting':'Use general default'},...(study||onDraft?[{value:'@default',label:'Use study default'}]:[]),...choices]}/></${NL.Field}>`)}</div>
       </details>
       ${!study&&!onDraft?html`<section class="preset-list"><header class="row"><h3 class="grow">Agent presets</h3><${NL.Btn} small onClick=${()=>{let id='new-agent',i=2;while(current[id])id='new-agent-'+i++;setEditing(id);setPreset({label:'',backend:'codex'});setError('')}}>Add preset</${NL.Btn}></header>
         ${draft.presets?html`<p class="muted small">Save your changes to test a preset.</p>`:null}
@@ -48,6 +52,7 @@
   };
   NL.placeAgentPeek=(panel,anchor)=>{
     if(!panel||!anchor)return;
+    if(panel.style.visibility==='visible'&&panel.matches(':hover,:focus-within'))return;
     const {x,y,width,height,visible}=anchor,w=panel.offsetWidth,h=panel.offsetHeight;
     const side=x+24+w<=width-12?'right':'left';
     const left=Math.max(12,Math.min(width-w-12,side==='right'?x+24:x-w-24));
@@ -60,9 +65,10 @@
     const assistant=target.kind==='assistant',agent=(s.agents||[]).find(a=>a.id===target.agent_id)||target.agent||{};
     const run=target.kind==='run'&&NL.run(s,target.id),sub=target.sub&&(run?.subagents||[]).find(a=>a.id===target.sub);
     const study=NL.item(s,agent.subject||agent.project||agent.idea||run?.subject);
-    const title=assistant?'Workspace assistant':agent.label||sub?.description||(run&&NL.runTitle(run))||'Agent';
+    const title=assistant?'Workspace assistant':NL.agentTitle({...agent,run_id:run?.run_id||agent.run_id,parent:target.sub||agent.parent,label:agent.label||sub?.description},s);
     const role=agent.role||sub?.type||run?.role||'general',status=agent.status||sub?.status||run?.status||'idle';
-    const doing=agent.doing?.summary||sub?.last_message||run?.last_action?.summary||agent.last||'';
+    const doing=agent.doing?.summary||sub?.last_message||run?.external_activity?.current?.label||run?.last_action?.summary||agent.last||'';
+    const output=run&&NL.artifactsOf(s).find(a=>a.run_id===run.run_id||a.about?.run===run.run_id);
     const live=run?.transport==='live'&&run.pid&&(NL.RUN_ACTIVE.has(run.status)||run.status==='waiting_input');
     const canMessage=run?.session_id&&!run.pending_question&&(live||run.status==='waiting_input'||NL.RUN_DONE.has(run.status));
     const details=()=>{onClose();if(assistant)NL.openAssistant();else if(target.kind==='run')NL.openRun(target.id,target.sub);else NL.openWorker(target.id)};
@@ -73,12 +79,14 @@
       finally{setBusy(false)}
     };
     return html`<aside ref=${nodeRef} class="agent-peek" role="dialog" aria-modal="false" aria-label="Agent preview">
-      <header><${NL.AgentAvatar} backend=${agent.backend||run?.backend} size=${26}/><div class="grow"><b>${NL.clip(title,70)}</b><small>${assistant?'Lab overview':NL.roleOf(role).label+' · '+(NL.RUN_WORD[status]||status.replaceAll('_',' '))}</small></div><button type="button" class="iconbtn sm" aria-label="Close agent preview" onClick=${onClose}>×</button></header>
-      ${assistant?html`<p>Studies: ${(s.items||[]).length} · For you: ${(s.attention||[]).length}</p>`:html`${study?html`<a class="link small" href=${'#/study/'+study.id}>${study.title||study.id}</a>`:null}${doing?html`<p>${NL.clip(doing,180)}</p>`:null}`}
+      <header><${NL.AgentAvatar} backend=${agent.backend||run?.backend} size=${26}/><div class="grow"><b>${NL.clip(title,70)}</b><small>${assistant?'Lab overview':NL.roleOf(role).label+' · '+(run && !target.sub ? NL.runStateLabel(run) : NL.RUN_WORD[status]||status.replaceAll('_',' '))}</small></div><button type="button" class="iconbtn sm" aria-label="Close agent preview" onClick=${onClose}>×</button></header>
+      ${assistant?html`<p>Studies: ${(s.items||[]).length} · Inbox: ${(s.attention||[]).length}</p>`:html`${study?html`<a class="link small" href=${'#/study/'+study.id}>${study.title||study.id}</a>`:null}${doing?html`<p>${NL.clip(doing,180)}</p>`:null}`}
+      ${study&&run?.workflow_node?html`<small class="muted">${NL.taskLabel(study,run.workflow_node)}${run.workflow_visit>1?' · pass '+run.workflow_visit:''}</small>`:null}
+      ${output?html`<p><a class="link small" href=${'#/artifacts/'+output.id}>${output.title} ↗</a></p>`:null}
       ${run?.pending_question?html`<button type="button" class="link small" onClick=${details}>Answer the agent’s question →</button>`:run?.pending_permissions?.length?html`<button type="button" class="link small" onClick=${details}>Review permission request →</button>`:null}
-      ${run?.needs_followup?html`<p>Agent stopped · Task unfinished</p><button type="button" class="link small" onClick=${details}>Continue task →</button>`:null}
+      ${run?.needs_followup?html`<p>The workflow is waiting for this task.</p><button type="button" class="link small" onClick=${details}>Continue task →</button>`:null}
       ${canMessage?html`<label class="agent-peek-message">${target.sub?'Message via parent':'Message'}<textarea class="input" rows="2" aria-label="Message this agent" value=${text} onInput=${e=>setText(e.target.value)} onKeyDown=${e=>{if(e.key==='Enter'&&(e.ctrlKey||e.metaKey)){e.preventDefault();send()}}}/></label><div class="row end"><${NL.Btn} small disabled=${!text.trim()||busy} onClick=${send}>${busy?'Sending…':'Send'}</${NL.Btn}></div>`:target.kind==='worker'?html`<p class="muted small">Messages and questions stay in its terminal.</p>`:null}
-      <footer>${!assistant?html`<${NL.Btn} small onClick=${onFollow}>Follow</${NL.Btn}>`:null}<${NL.Btn} small onClick=${details}>${assistant?'Open assistant':'Open details'}</${NL.Btn}></footer>
+      <footer>${!assistant?html`<${NL.Btn} small onClick=${onFollow}>Follow</${NL.Btn}>`:null}<${NL.Btn} small onClick=${details}>${assistant?'Open assistant':'Conversation'}</${NL.Btn}>${study?html`<a class="link small" href=${'#/study/'+study.id+'/history'}>History</a>`:null}</footer>
     </aside>`;
   };
   NL.AGENT_CHARACTERS = [{ id: 'newt', label: 'Newt' }, { id: 'human', label: 'Scientist' }, { id: 'robot', label: 'Robot' }];

@@ -113,9 +113,12 @@ def journal_rewritten(hub, mark: dict | None) -> bool:
 
 
 def snapshot(dirs: list[Path], hub=None) -> dict:
-    """{repo root: {head, dirty}} for each dir inside a git repo (others are left out), and the journal's mark."""
+    """Git state, existing project contracts (also outside git), and the journal's position."""
     out: dict = {"_journal": _journal_mark(hub)} if hub else {}
+    out["_controls"] = []
     for d in dict.fromkeys(Path(x).resolve() for x in dirs if x):
+        if (d / "control.yaml").is_file():
+            out["_controls"].append(d.as_posix())
         top = (_git(d, "rev-parse", "--show-toplevel") or "").strip()
         top = Path(top).as_posix() if top else ""
         if not top or top in out:
@@ -193,7 +196,7 @@ def _match(paths: list[str], pats: list[str], hub: Path, project: Path | None) -
 
 
 def evaluate(hub, ws: list[dict], ch: dict, cmds: list[str], denials: int, project: Path | None,
-             study: str | None, run: str | None) -> list[dict]:
+             study: str | None, run: str | None, controls: tuple | list = ()) -> list[dict]:
     """Raise a flag for each watch the run tripped. → the flags."""
     out = []
     for w in ws:
@@ -206,7 +209,14 @@ def evaluate(hub, ws: list[dict], ch: dict, cmds: list[str], denials: int, proje
             hits += [c for c in cmds if any(fnmatch.fnmatchcase(c.strip(), str(p)) for p in w["runs"])]
         if w.get("denials") and denials >= int(w["denials"]):
             hits.append(f"{denials} refused calls")
-        if w.get("check") and study and (w.get("when") != "project" or project):
+        when = w.get("when")
+        applies = True
+        if when == "project":
+            applies = bool(project)
+        elif when == "project-control":
+            applies = bool(project and ((project / "control.yaml").is_file()
+                                       or project.resolve().as_posix() in controls))
+        if w.get("check") and study and applies:
             from . import checkpoints  # noqa: PLC0415
             from .model import check_spec  # noqa: PLC0415
             item = w["check"] if isinstance(w["check"], dict) else str(w["check"])
@@ -262,7 +272,7 @@ def digest(hub, m: dict, snap: dict, bus_dirs: list[Path], project: Path | None 
     from . import studies  # noqa: PLC0415
     wid = studies.workflow_of(hub, study) if study else None
     ws = watches(hub) + checkpoint_watches(hub, study, wid)
-    raised = evaluate(hub, ws, ch, cmds, denials, project, study, run)
+    raised = evaluate(hub, ws, ch, cmds, denials, project, study, run, (snap or {}).get("_controls", []))
     raised += _outside_writes(hub, m, ch, study, run)
     if journal_rewritten(hub, (snap or {}).get("_journal")):
         raised.append(flag(hub, "block", "the journal was rewritten during this run (the kernel only appends)",

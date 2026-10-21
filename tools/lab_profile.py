@@ -36,6 +36,12 @@ TOOLS = Path(__file__).resolve().parent
 _SLUG = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._-]{0,120}$")
 
 
+def runtime_file(hub, relative):
+    """A Lab may own its resources without containing another copy of the installed runtime."""
+    local = Path(hub) / relative
+    return local if local.is_file() else model.CODE / relative
+
+
 def safe_id(s) -> str | None:
     return s if isinstance(s, str) and _SLUG.match(s) and ".." not in s else None
 
@@ -112,9 +118,9 @@ def render_prompt(lab, v: dict, cmd: str, native_slash: bool) -> str:
     """The user prompt. Hub runs on a backend with native slash commands (claude expands them) use the
     command itself. Project runs — and every other backend — name the procedure file explicitly, because
     project repos don't ship the lifecycle skills (their AGENTS.md points at the hub's copies)."""
-    if native_slash and v["level"] == "hub":
+    if native_slash and v["level"] == "hub" and (lab.hub / '.claude/skills' / v['skill'] / 'SKILL.md').is_file():
         return cmd
-    skill_file = (lab.hub / ".claude" / "skills" / v["skill"] / "SKILL.md").as_posix()
+    skill_file = runtime_file(lab.hub, f'.claude/skills/{v["skill"]}/SKILL.md').as_posix()
     rest = cmd.split(" ", 1)[1] if " " in cmd else ""
     return (f"Run the Newts' Lab procedure `/{v['skill']}`" + (f" with arguments: {rest}" if rest else "")
             + f". Its procedure file is {skill_file} — read it and follow it step by step, exactly as if "
@@ -267,13 +273,13 @@ def preamble(lab, run_id: str, v: dict, ask_tool: str | None) -> str:
         "--data summary=\"<≤200 chars: what you did and what the PI should look at>\" (needs_pi=other only for a "
         "decision that is not one of the step's outcomes).",
     ]
-    lines.append(f'- Publish useful milestones in Results: python "{(lab.hub / "tools/artifact.py").as_posix()}" '
+    lines.append(f'- Publish useful milestones in Results: python "{runtime_file(lab.hub, "tools/artifact.py").as_posix()}" '
                  'publish --title "..." --file <path>. A requested visual summary can be one interactive HTML '
                  'file with inline CSS/JS/SVG. Link findings to evidence; publish once per milestone, '
                  'not for routine updates.')
     subject = v.get('subject')
     if v.get('skill') != 'gate-judge':
-        command=f'python "{(lab.hub / "tools/knowledge.py").as_posix()}" --hub "{lab.hub.as_posix()}"'
+        command=f'python "{runtime_file(lab.hub, "tools/knowledge.py").as_posix()}" --hub "{lab.hub.as_posix()}"'
         if subject and studies.study(lab.hub,subject):command+=f' --study {subject}'
         lines += [f'- Shared knowledge and human notes: `{command} list` (or `search "<terms>"`, `show <id>`). '
                   'Read relevant records at check-in. Human notes are context, not queued tasks or approvals. '
@@ -283,7 +289,7 @@ def preamble(lab, run_id: str, v: dict, ask_tool: str | None) -> str:
                   'Record only what you actually read; include version/DOI when known. Ordinary Markdown files and subfolders also work.']
     if subject and v.get('skill') != 'gate-judge' and studies.study(lab.hub, subject):
         records = (lab.hub / 'studies' / subject).as_posix()
-        publisher = (lab.hub / 'tools/artifact.py').as_posix()
+        publisher = runtime_file(lab.hub, 'tools/artifact.py').as_posix()
         lines += [f'- Shared study records: "{records}". Read IDEA.md, MATERIALS.md and relevant notes when present. '
                   'Keep study documents there; keep code, data and run evidence in the project. '
                   'Use its existing organization; do not scaffold an attached repository without being asked.',
@@ -344,7 +350,7 @@ def next_command(lab, m: dict) -> tuple[bool, str | None]:
     """What comes after a finished run, when the lab knows: for a run about a study, its new step's procedure —
     but only if the study moved during the run (a run that reported nothing leaves nothing to follow), and
     nothing while it waits, is shelved or has finished. → (known, "/<procedure> <study>" or None)."""
-    if m.get('explains'):
+    if m.get('explains') or m.get('task_followup'):
         return True, None
     slug = m.get("subject")
     import gate_reviews as judges
@@ -404,7 +410,7 @@ def watch_finish(lab, m: dict, workdir: Path, run_dir: Path | None = None) -> di
 def start_step(lab, slug: str, enqueue, keeper, **spec_kw) -> str | None:
     """Queue the work of the step a study stands at now (after an approval moved it on). Returns the run id."""
     s = studies.study(lab.hub, slug)
-    if s and model.workflow(s['workflow'], lab.hub).get('nodes'):
+    if s and s.get('active_steps') is not None:
         runs = start_graph(lab, slug, enqueue, keeper.RunSpec, **spec_kw)
         return runs[0] if runs else None
     nxt = studies.next_for(lab.hub, slug)
@@ -504,11 +510,13 @@ def start_graph(lab, slug, enqueue, spec_type, retry=False, **options):
     """Dispatch eligible graph tasks; each reports through the ordinary study journal."""
     from kernel.branches import nodes
     from executor import contexts
+    from kernel.entry import apply, pending
+    apply(lab.hub, slug)
     s = studies.study(lab.hub, slug)
     if not s or s['finished']:
         return []
     w = model.workflow(s['workflow'], lab.hub)
-    if not w.get('nodes'):
+    if s.get('active_steps') is None:
         raise ValueError('Save and publish a task composition before running its graph.')
     from gate_reviews import start_waiting
     from gate_reviews import current_evidence
@@ -522,6 +530,7 @@ def start_graph(lab, slug, enqueue, spec_type, retry=False, **options):
         cp = model.checkpoint(wait['checkpoint'], s['workflow'], lab.hub)
         if cp.get('approver') == 'auto':
             studies._try_auto(lab.hub, slug, cp)
+    apply(lab.hub, slug)
     s = studies.study(lab.hub, slug)
     node_map = {n['id']: n for n in nodes(w, model.steps(lab.hub))}
     result = list(judge_runs)
@@ -536,11 +545,34 @@ def start_graph(lab, slug, enqueue, spec_type, retry=False, **options):
             if not retry or owner.get('status') in ACTIVE | PAUSED | {'queued'}:
                 continue
         node = node_map[sid]
+        if node.get('external'):
+            import frameworks
+            frameworks.check_launch(lab.hub, s, node['external'])
         context = dict(node.get('context') or {'mode': 'fresh'})
         source = None
+        imported = contexts.workflow_evidence(lab, token.get('incoming_runs', {}),
+                    [e for e in journal.events(lab.hub, slug, ('task-reused', 'task-omitted'))
+                     if e.get('node') in token.get('incoming_runs', {}) and token['incoming_runs'][e['node']] is None])
         if context.get('mode') != 'fresh' or context.get('handoff'):
             from executor.contexts import workflow_sources
-            sources = workflow_sources(lab, token.get('incoming_runs', {}), context, sid)
+            requested = context.get('from')
+            requested = requested if isinstance(requested, list) else [requested]
+            imported_context = {e['node'] for e in imported}
+            try:
+                sources = workflow_sources(lab, token.get('incoming_runs', {}), context, sid)
+            except contexts.MissingWorkflowSource:
+                if not any(n in imported_context for n in requested):
+                    raise
+                sources = []
+                for n in requested:
+                    try:
+                        sources += workflow_sources(lab, token.get('incoming_runs', {}), {**context, 'from': n}, sid)
+                    except contexts.MissingWorkflowSource:
+                        if n not in imported_context:
+                            raise
+                # Existing evidence is a handoff, never an invented native conversation.
+                context = ({'mode': 'fresh', 'handoff': True, 'from': [r['workflow_node'] for r in sources]}
+                           if sources else {'mode': 'fresh'})
             if not sources and context.get('initial') == 'fresh':
                 context = {'mode': 'fresh'}
             elif any(r.get('status') != 'completed' for r in sources):
@@ -549,12 +581,15 @@ def start_graph(lab, slug, enqueue, spec_type, retry=False, **options):
                 source = sources[0]
                 context['run_id'] = source['run_id']
                 context['run_ids'] = [r['run_id'] for r in sources]
-            else:
+            elif context.get('mode') != 'fresh':
                 raise ValueError('The selected context source has not finished successfully.')
         agent = node.get('agent') or {}
         task = node.get('instructions') or ''
+        if imported:
+            task += '\nExisting work selected by the researcher (not agent-generated or independently verified):\n' + '\n'.join(
+                e['node'] + ': ' + e['note'] + '\n' + '\n'.join(e.get('refs', [])) for e in imported)
         procedure = node.get('procedure')
-        if not task and not procedure and not node.get('skills') and not node.get('outputs'):
+        if not task and not procedure and not node.get('skills') and not node.get('outputs') and not node.get('external'):
             if node.get('next'):
                 raise ValueError(f"Add instructions or a skill to task {sid} before running it.")
             from kernel.branches import move
@@ -568,13 +603,22 @@ def start_graph(lab, slug, enqueue, spec_type, retry=False, **options):
                      'Use each skill for its method. Intermediate skills must not move the study or start later tasks. '
                      'Complete the whole sequence and any requested repeat-until work before reporting one task outcome; '
                      'still stop at any applicable checkpoint.\n') + '\n'.join(
-                f'{i+1}. Read and follow {(lab.hub / ".claude/skills" / p / "SKILL.md").as_posix()}.' for i,p in enumerate(node['skills']))
+                f'{i+1}. Read and follow {runtime_file(lab.hub, f".claude/skills/{p}/SKILL.md").as_posix()}.' for i,p in enumerate(node['skills']))
         if node.get('tags'):
             task += '\nTask tags: ' + ', '.join(node['tags'])
-        evidence = [p for predecessor in token.get('incoming_runs', {}) for p in node_map.get(predecessor, {}).get('outputs', [])]
+        evidence = [p for predecessor, rid in token.get('incoming_runs', {}).items() if rid
+                    for p in node_map.get(predecessor, {}).get('outputs', [])]
         import remote_projects
         remote = remote_projects.location(s.get('project'))
         root = remote['path'] if remote else str(checkpoints.project_dir(lab.hub, slug) or lab.hub / 'studies' / slug)
+        if any(n.get('external') for n in node_map.values()):
+            import frameworks
+            task += '\nExternal tool setup guide: ' + runtime_file(lab.hub, 'docs/external-frameworks.md').as_posix()
+            task += '\nOriginal framework receipts, logs and evidence roots:\n' + '\n'.join(
+                root.rstrip('/\\') + '/.newts/framework-runs/' + slug + '/' + fid for fid in frameworks.requirements(w))
+        if node.get('external'):
+            import frameworks
+            task += frameworks.task_prompt(lab.hub, root, slug, node['external'])
         if evidence:
             task += '\nDeclared input artifacts (read the files; no author summary is supplied here):\n' + '\n'.join(
                 root.rstrip('/\\') + '/' + p for p in dict.fromkeys(evidence))
@@ -586,9 +630,9 @@ def start_graph(lab, slug, enqueue, spec_type, retry=False, **options):
             task += '\n\n'.join(text for text in additions if text)
         task += (f"\nYour assigned task is {sid} in study {slug}, visit {token['visit']}. "
                  'Other branches may be active. Work on this task only. '
-                 f"When finished, report `python {(lab.hub / 'newts.py').as_posix()} move {slug} done`. "
+                 f"When finished, report `{kbrief.newts_cmd(lab.hub)} move {slug} done`. "
                  'The engine identifies your assigned task from NEWTS_RUN_NODE. Do not run the next task.\n'
-                 + 'Expected additional outputs (relative to the project, or study folder): ' + ', '.join(node.get('outputs') or []))
+                 + f'Output root: {root}. Expected additional outputs relative to it: ' + ', '.join(node.get('outputs') or []))
         task += '\nDeclared outcome routes: ' + json.dumps({'done':node.get('next') or [],
                     **w.get('routes', {}).get(sid, {}), **node.get('outcomes', {})})
         task += '\nReport the outcome that matches the evidence. A named outcome replaces the ordinary done route.'
@@ -598,6 +642,7 @@ def start_graph(lab, slug, enqueue, spec_type, retry=False, **options):
         spec = spec_type(skill='workflow-task', prompt_override=task, target=slug, role=agent.get('role') or 'general',
                          label=node['label'], chain='off', extra={'workflow_node': sid, 'workflow_visit': token['visit'],
                          'context': context, 'role_instructions': agent.get('instructions') or '', 'agent': agent,
+                         'input_evidence': imported,
                          'input_runs': list(token.get('incoming_runs', {}).values()),
                          'context_outputs': list(dict.fromkeys(root.rstrip('/\\')+'/'+p for source_id in (
                              context.get('from') if isinstance(context.get('from'), list) else [context.get('from')])
@@ -609,7 +654,7 @@ def start_graph(lab, slug, enqueue, spec_type, retry=False, **options):
 def begin_run(lab, manifest):
     if manifest.get('workflow_node'):
         from kernel.branches import begin_run as admit
-        admit(lab.hub, manifest)
+        return admit(lab.hub, manifest)
 
 
 # ── the hooks every run carries ──────────────────────────────────────────────────────────────────
@@ -625,13 +670,17 @@ def agent_commands(hub: Path, bus: Path) -> list[tuple[tuple[str, ...], tuple[st
     (the run footer, a campaign's dispatch) and the kernel's agent verbs (report an outcome, read where a study
     stands, suggest a change). A backend that asks before each command pre-approves exactly these."""
     b, n = Path(bus).as_posix(), (Path(hub) / "newts.py").as_posix()
-    return [((b, f'"{b}"'), ("emit", "escalate")), (("newts.py", n, f'"{n}"'), AGENT_VERBS)]
+    commands = [((b, f'"{b}"'), ("emit", "escalate")), (("newts.py", n, f'"{n}"'), AGENT_VERBS)]
+    if not (Path(hub) / 'newts.py').is_file():
+        cli = (TOOLS / 'newts_cli.py').as_posix()
+        commands.append(((cli, f'"{cli}"'), tuple(f'--hub "{Path(hub).as_posix()}" {v}' for v in AGENT_VERBS)))
+    return commands
 
 
 def bus_script(hub: Path, level: str, workdir: Path) -> Path:
     """Reuse a project's script, or the hub's scoped script for an unscaffolded attachment."""
     local = Path(workdir) / 'scripts/lab_bus.py'
-    return local if level != 'hub' and local.is_file() else Path(hub) / 'tools/lab_bus.py'
+    return local if level != 'hub' and local.is_file() else runtime_file(hub, 'tools/lab_bus.py')
 
 
 def trace_script(workdir: Path) -> Path | None:

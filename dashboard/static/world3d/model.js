@@ -1,11 +1,9 @@
 /* Lab3D.model — what the world shows, worked out from the lab's snapshot with no drawing at all (so it is
- * testable on its own, tests/test_world.py): which rooms stand on the table (a lab per live project), where
- * each stands (the plan, then the lab district), and which room every study and every run belongs in.
+ * testable on its own, tests/test_world.py): the defined rooms, their placement, and where each task runs.
  * world.js draws what this decides. */
 (function () {
   'use strict';
   const L = (window.Lab3D = window.Lab3D || {});
-  const ACTIVE = new Set(['starting', 'running', 'resuming']);
   const M = {};
   // Machine boundaries affect presentation only. Execution records and IDs stay unchanged.
   M.machineOf = (s, value, seen=new Set()) => {
@@ -26,7 +24,7 @@
     return [{id:'local',name:'This computer'},...[...new Set([...known.keys(),...used])].filter(id=>id!=='local'&&(used.has(id)||known.get(id)?.state==='connected')).sort().map(id=>known.get(id)||{id,name:id})];
   };
   const roomKey = (s,id,machine='local') => s.world_view==='full'&&machine!=='local'?'machine/'+encodeURIComponent(machine)+'/'+id:id;
-  const pickRoom = (s,rooms,id,study,machine) => [study&&roomKey(s,id+':'+study,machine),roomKey(s,id,machine)].find(k=>k&&rooms[k])||null;
+  const pickRoom = (s,rooms,id,machine) => {const key=roomKey(s,id,machine);return rooms[key]?key:null};
 
   /** the lab's definition the snapshot carries (else the dashboard's, else the shipped default): its steps (each
    *  with the procedure that does it and the room it stands in), workflows, rooms and procedures */
@@ -38,54 +36,28 @@
     ...(wf.steps || []).filter(x => ids.includes(x.id)).flatMap(x => [x.do, ...(x.also || [])]),
     ...(wf.workflows || []).flatMap(w => Object.entries(w.nodes || {}).filter(([id,n]) => room?n.room===room:ids.includes(id)).map(([id,n]) => n.procedure || (n.instructions?'task:'+id:null)))
   ].filter(Boolean))];
-  /** a shelf, or the step that ends every workflow it is on */
-  const terminal = (wf, st) => {
-    const x = (wf.steps || []).find(y => y.id === st);
-    if (x && x.shelf) return true;
-    const on = (wf.workflows || []).filter(w => (w.path || []).includes(st));
-    return on.length > 0 && on.every(w => w.path[w.path.length - 1] === st);
-  };
   // how a procedure's run shows in the world is the procedure's own say (its `world:` key), never its name
   M.worldRole = (s, skill) => ((M.wfOf(s).procedures || {})[skill] || {}).world || null;
-  M.building = (s, it) => (s.runs || []).some(r => M.worldRole(s, r.skill) === 'builds-project' && (r.subject === it.id || r.target === it.id)
-    && (ACTIVE.has(r.status) || (r.status === 'queued' && (!r.not_before || Date.parse(r.not_before) <= Date.now()))));
-  /** a room is one per live project when the workflow says so — or, unsaid, when most procedures it holds run
-   *  inside a project (the Lab's do), so a lab made before the flag gets its project labs too */
-  M.perProject = (wf, r) => {
-    if (r.per_project != null) return !!r.per_project;
-    if ((wf.workflows||[]).some(w=>Object.values(w.nodes||{}).some(n=>n.room===r.id))) return false;
-    const ps = M.procsOf(wf, stepsIn(r)), lv = wf.procedures || {};
-    return ps.length > 0 && ps.filter(p => (lv[p] || {}).level === 'project').length * 2 > ps.length;
-  };
-
-  /** the rooms on the table: the workflow's, with a per-project room standing once per live project (titled
-   *  by its study), one more while /spawn-project builds a new one, and the bare room when there are none */
+  /** Defined rooms are shared by studies. By-machine view repeats the same definitions per machine. */
   M.roomList = function roomList(s) {
-    if(s.world_view==='full')return M.machineGroups(s).flatMap(m=>{
-      const state={...s,world_view:'unified',items:(s.items||[]).filter(i=>(i.machine||'local')===m.id),runs:(s.runs||[]).filter(r=>M.machineOf(s,r)===m.id)};
-      const list=M.roomList(state).map(r=>({...r,id:roomKey(s,r.id,m.id),sourceId:r.id,machine:m.id,machineName:m.name||m.id}));
-      if(m.id!=='local')list.push({id:roomKey(s,'hub',m.id),sourceId:'hub',machine:m.id,machineName:m.name||m.id,title:'Desk',states:[],base:{id:'machine-desk',label:'Desk'},lobby:true});
-      return list;
-    });
-    const wf = M.wfOf(s), items = (s && s.items) || [], out = [];
+    if(s.world_view==='full'){
+      const shared=M.roomList({...s,world_view:'unified'});
+      return M.machineGroups(s).flatMap(m=>{
+        const list=shared.map(r=>({...r,id:roomKey(s,r.id,m.id),sourceId:r.id,machine:m.id,machineName:m.name||m.id}));
+        if(m.id!=='local')list.push({id:roomKey(s,'hub',m.id),sourceId:'hub',machine:m.id,machineName:m.name||m.id,title:'Desk',states:[],base:{id:'machine-desk',label:'Desk'},lobby:true});
+        return list;
+      });
+    }
+    const wf = M.wfOf(s), out = [];
     for (const original of wf.rooms || []) {
       const grouped=(wf.workflows||[]).flatMap(w=>Object.entries(w.nodes||{}).filter(([,n])=>n.room===original.id).map(([id])=>id));
       const r={...original,steps:[...new Set([...stepsIn(original),...grouped])]};
-      if (!M.perProject(wf, r)) { out.push({ id: r.id, base: r, title: r.title || r.label || r.id, kicker: r.title && r.label && r.label !== r.title ? r.label : null, states: stepsIn(r), place: r.place, facing: r.facing }); continue; }
-      const live = items.filter(i => i.has_project && !terminal(wf, i.state));
-      const raising = items.filter(i => !i.has_project && M.building(s, i));
-      const waiting = items.filter(i => !i.has_project && !M.building(s, i) && stepsIn(r).includes(i.state) && !i.finished);
-      if (!live.length && !raising.length && !waiting.length) out.push({ id: r.id, base: r, title: r.title || r.id, kicker: r.label || null, states: stepsIn(r), place: r.place, facing: r.facing, empty: true });
-      live.forEach((it, k) => out.push({ id: `${r.id}:${it.id}`, base: r, title: it.title || it.id, kicker: r.label || 'Lab', states: stepsIn(r), study: it.id, type: it.project_type,
-        place: k === 0 ? r.place : null, facing: k === 0 ? r.facing : null, extra: k > 0 }));
-      raising.forEach(it => out.push({ id: `${r.id}:${it.id}`, base: r, title: it.title || it.id, kicker: 'a lab being built', states: [], study: it.id, building: true, extra: true }));
-      waiting.forEach(it => out.push({ id: `${r.id}:${it.id}`, base: r, title: it.title || it.id, kicker: 'no project yet', states: [], study: it.id, building: true, extra: true }));
+      out.push({ id: r.id, base: r, title: r.title || r.label || r.id, kicker: r.title && r.label && r.label !== r.title ? r.label : null, states: stepsIn(r), place: r.place, facing: r.facing });
     }
     return out;
   };
 
-  /** where every room stands: the plan (layout.js) for the workflow's rooms, then each further project lab on
-   *  the free plot nearest its kind's first lab — a lab district (outward on a tie) → {id: {cell, facing, auto}} */
+  /** Deterministic room layout, repeated with an offset for each machine. */
   M.placeRooms = function placeRooms(list, wf) {
     if(list.some(r=>r.machine)){
       const plan={},ids=[...new Set(list.map(r=>r.machine))];let end;
@@ -98,49 +70,31 @@
       return plan;
     }
     const side = (wf.steps || []).filter(x => x.shelf).map(x => x.id);
-    const plan = L.plan(list.filter(r => !r.extra).map(r => ({ id: r.id, place: r.place, facing: r.facing, states: r.states })), side);
-    const taken = new Set(['0,0', ...Object.values(plan).map(x => x.cell.join(','))]);
-    for (const r of list.filter(x => x.extra)) {
-      const first = list.find(x => x.base === r.base && !x.extra), at = (first && plan[first.id]) ? plan[first.id].cell : [1, 0];
-      let best = null;
-      for (let k = 1; k <= Math.max(Math.abs(at[0]), Math.abs(at[1])) + 3 || !best; k++) for (const c of L.ringCells(k)) {
-        if (taken.has(c.join(','))) continue;
-        const d = Math.abs(c[0] - at[0]) + Math.abs(c[1] - at[1]) - Math.max(Math.abs(c[0]), Math.abs(c[1])) * 0.01;
-        if (!best || d < best.d) best = { c, d };
-      }
-      taken.add(best.c.join(',')); plan[r.id] = { cell: best.c, facing: L.autoFacing(best.c), auto: true };
-    }
-    return plan;
+    return L.plan(list.map(r => ({ id: r.id, place: r.place, facing: r.facing, states: r.states })), side);
   };
 
-  // which room a study, a project's lab, a procedure and a run belong in — `rooms` is what stands: {id: {study, building}}
+  // Task assignments select rooms; study/project identity never creates a room.
   M.item = (s, id) => ((s && s.items) || []).find(i => i.id === id);
-  M.roomOfItem = function roomOfItem(s, it, rooms, machine=it.machine||'local') {
-    const w=(M.wfOf(s).workflows||[]).find(w=>w.id===it.workflow),rid=w?.nodes?.[it.state]?.room;
-    if(rid&&pickRoom(s,rooms,rid,it.id,machine))return pickRoom(s,rooms,rid,it.id,machine);
-    const base = (M.wfOf(s).rooms || []).find(r => stepsIn(r).includes(it.state));
-    if (!base) return null;
-    return pickRoom(s,rooms,base.id,it.id,machine);
+  M.roomForStep = function roomForStep(s, id, rooms, machine='local', workflow) {
+    const wf=M.wfOf(s),w=(wf.workflows||[]).find(w=>w.id===workflow);
+    const rid=w?.nodes?.[id]?.room||(wf.steps||[]).find(t=>t.id===id)?.room
+      ||wf.rooms.find(r=>stepsIn(r).includes(id))?.id;
+    return rid?pickRoom(s,rooms,rid,machine):null;
   };
-  M.labOf = (it, rooms, machine=it.machine||'local') => Object.keys(rooms).find(k => rooms[k].study === it.id && !rooms[k].building&&(!rooms[k].machine||rooms[k].machine===machine)) || null;
+  M.roomOfItem = (s,it,rooms,machine=it.machine||'local') => M.roomForStep(s,it.state,rooms,machine,it.workflow);
   M.roomForProc = function roomForProc(s, proc, rooms, machine='local') {
     const wf = M.wfOf(s), st = (wf.steps || []).find(x => x.do === proc) || (wf.steps || []).find(x => (x.also || []).includes(proc));
-    const base = st && (wf.rooms || []).find(r => stepsIn(r).includes(st.id));
-    return base?pickRoom(s,rooms,base.id,null,machine):null;
+    return st?M.roomForStep(s,st.id,rooms,machine):null;
   };
-  /** a run stands where its work is: a room-designing procedure in the room it designs, a project-building one in the
-   *  project room it raises (both by the procedure's `world:` key),
-   *  a project-level procedure in its project's lab, other work on a study in that study's room, the rest in
-   *  the room of the step it does — or at your desk */
+  /** A bound task uses its assigned room; other work uses its procedure, study step, or the desk. */
   M.placeOfRun = function placeOfRun(s, r, rooms) {
-    const procs = M.wfOf(s).procedures || {}, subj = r.subject || (r.target && r.target !== 'hub' ? r.target : null), it = subj && M.item(s, subj);
+    const subj = r.subject || (r.target && r.target !== 'hub' ? r.target : null), it = subj && M.item(s, subj);
     const role = M.worldRole(s, r.skill);
     const machine=M.machineOf(s,r),hub=roomKey(s,'hub',machine);
-    if(it&&r.workflow_node){const w=(M.wfOf(s).workflows||[]).find(w=>w.id===it.workflow),rid=w?.nodes?.[r.workflow_node]?.room;if(rid&&pickRoom(s,rooms,rid,it.id,machine))return pickRoom(s,rooms,rid,it.id,machine)}
-    if (role === 'designs-room') { const rid = String(r.args || '').split(/\s+/)[0],key=pickRoom(s,rooms,rid,null,machine); if(key)return key; }
-    if (role === 'builds-project' && it) { const site = Object.keys(rooms).find(k => rooms[k].study === it.id&&(!rooms[k].machine||rooms[k].machine===machine)); if (site) return site; }
-    if (it) { const lab = M.labOf(it, rooms,machine); if ((procs[r.skill] || {}).level === 'project' && lab) return lab; return M.roomOfItem(s, it, rooms,machine) || hub; }
-    return M.roomForProc(s, r.skill, rooms,machine) || hub;
+    const task=r.workflow_node||r.assigned_step;
+    if(task){const key=M.roomForStep(s,task,rooms,machine,it?.workflow);if(key)return key}
+    if (role === 'designs-room') { const rid = String(r.args || '').split(/\s+/)[0],key=pickRoom(s,rooms,rid,machine); if(key)return key; }
+    return M.roomForProc(s,r.skill,rooms,machine)||(it&&M.roomOfItem(s,it,rooms,machine))||hub;
   };
 
   /** where agents work in a room, by what they are doing: every piece of furniture that serves an activity (its
@@ -174,7 +128,7 @@
     const run = a.run_id ? (s.runs || []).find(r => r.run_id === a.run_id) : null;
     let room;
     if (run) room = M.placeOfRun(s, run, rooms);
-    else { const it = a.subject && M.item(s, a.subject),machine=M.machineOf(s,a); room = it ? ((a.target && M.labOf(it, rooms,machine)) || M.roomOfItem(s, it, rooms,machine)) : null; }
+    else { const it = a.subject && M.item(s, a.subject),machine=M.machineOf(s,a); room = it ? M.roomOfItem(s, it, rooms,machine) : null; }
     room = room && rooms[room] ? room : 'hub';
     const kind = (a.doing && a.doing.kind) || null;
     const pose = a.status === 'asking' || kind === 'ask' ? 'wait' : a.status === 'queued' ? 'idle' : a.status === 'stalled' ? 'sleep'

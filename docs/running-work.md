@@ -12,13 +12,16 @@ You can create several studies before launching any work.
    **Run ready tasks** queues eligible task nodes. Check the selected agent, role and context.
 4. Launch. The Lab saves the instruction and agent settings, then queues the run. The scheduler
    checks capacity, holds, workflow eligibility, gates, backend availability and usage backoff.
-5. Follow the character, open its conversation, or use **All agents**. A queued task waits for
+5. Use **Show in lab** to focus the character and its task panel, open its conversation, or use **All agents**. A queued task waits for
    admission; creating or queuing it does not mean the model is already running.
 
 An accepted task outcome updates the workflow. Ordered tasks can follow the next step when that
 launch option is enabled. Graph tasks use their connections to make branches ready; joins wait for
 their declared inputs. An agent turn ending without its task outcome stays unfinished. See
 [recovery](recovering-work.md).
+
+The study's **History** tab keeps task passes and agent attempts together. Saving its generated
+history snapshot is optional; the underlying workflow and run records are already retained.
 
 ## Work on several studies
 
@@ -36,6 +39,21 @@ has its own approved project/dispatch limits; those do not restrict manually sta
 An open task chat process reserves a slot even while waiting for your next message. A fully parked
 question releases it. Native subagents and independently started terminals are outside the managed
 session cap. See [what counts as a slot](compute.md#agent-slots-and-experiment-jobs).
+
+## Hold or steer a study
+
+**Hold** prevents new agents from starting for that study; existing work keeps running. Use
+**View hold** or the study's **Controls** to release it. Checkpoint decisions can still be recorded
+while held, but starting the next task waits for release.
+
+**Prioritize**, **Park** and **Kill** send instructions for an agent's next inbox check. They do
+not immediately change the workflow state. **Pending instructions** shows them in the study's
+Overview and Controls, including before a project folder exists. The study list shows a pending
+count. **Seen; awaiting action** means an agent has read an instruction without completing it yet.
+Use **Withdraw** to cancel a pending request. Inbox and History also keep these records.
+
+These instructions are separate from [human notes](knowledge.md#add-a-human-note), which provide
+context and optional read receipts without queuing work.
 
 ## Know when something needs you
 

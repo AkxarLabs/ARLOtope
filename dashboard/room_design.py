@@ -33,25 +33,9 @@ def drafts(q=None):
 def get(q):
     try:
         folder = _draft(q.get('id'))
-        data = R.validate(json.loads((folder / 'room.json').read_text(encoding='utf-8')))
-        module = folder / 'extra.js'
-        return {'ok': True, **_meta(folder), 'definition': data,
-                'module': module.is_file(), 'revision': str((folder / 'room.json').stat().st_mtime_ns) + (str(module.stat().st_mtime_ns) if module.is_file() else '')}, 200
+        return {'ok': True, **_meta(folder), **R.read_one(folder)}, 200
     except (ValueError, OSError) as error:
         return {'error': str(error)}, 400
-
-
-def resource(q):
-    try:
-        if q.get('draft'):
-            folder = _draft(q['draft'])
-        else:
-            rid = q.get('room')
-            if not isinstance(rid, str) or not R.ID.fullmatch(rid): return None
-            folder = ctx.HUB / 'lab/rooms' / rid
-        file = folder / 'extra.js'
-        return (file, 'text/javascript') if file.is_file() else None
-    except (ValueError, OSError): return None
 
 
 def op(body):

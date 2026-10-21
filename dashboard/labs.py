@@ -134,6 +134,12 @@ def terminal_open(body: dict) -> tuple[dict, int]:
     import terminal   # noqa: E402
     if purpose == "shell":
         res = terminal.open_terminal("echo Newts' Lab — this is your lab folder", ctx.HUB)
+    elif purpose == 'login' and backend == 'github':
+        import term
+        argv, err = term.command_for(purpose, backend)
+        if err:
+            return {'error': err}, 400
+        res = terminal.open_terminal(argv, ctx.HUB)
     elif purpose in ("login", "install"):
         if backend not in sources.executor.backends.BACKENDS if sources.executor else ("claude", "codex", "opencode"):
             return {"error": "unknown backend"}, 400

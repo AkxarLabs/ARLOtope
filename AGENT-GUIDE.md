@@ -57,6 +57,12 @@ when the task does not pin a selection. Continue/fork retains the captured sourc
 Use declared causal sources; never pick an unrelated recent run. Independent review starts fresh
 with author-summary handoff off. Assignment files are researcher-owned. See docs/agent-workflows.md.
 
+**Workflow history.** `tools/study_history.py <study>` reads recorded task passes, owning sessions,
+available attempts, workflow decisions and output references. `--save` refreshes generated Markdown
+and JSON under `studies/<study>/history/` for the Library. These snapshots are not a new journal or
+approval source. Read original evidence and available transcripts; old/missing child records and
+offline remote mirrors do not establish complete coverage. See docs/agent-workflows.md.
+
 **Configured independent gate reviews.** A published checkpoint may explicitly use `approver: agent`.
 The ordinary executor launches a fresh reviewer with the declared evidence, rubric and review skill;
 the engine validates its JSON decision, evidence revision, task visit and checks before recording it

@@ -5,10 +5,11 @@
 (function () {
 'use strict';
 const NL = window.NL;
+const DEMO_CLIS = Object.fromEntries(['claude','codex','opencode'].map(id => [id, { found:true, logged_in:true, note:'Simulated agent' }]));
 
 const BASE_ITEMS = [
   { id: 'spark-1', title: 'Sparse attention', state: 'seed' },
-  { id: 'spark-2', title: 'Token routing', state: 'triaged' },
+  { id: 'spark-2', title: 'Token routing', state: 'seed' },
   { id: 'lit-1', title: 'Distillation curricula', state: 'lit-review' },
   { id: 'scope-1', title: 'Adaptive optimizers', state: 'scoping' },
   { id: 'prop-1', title: 'Curriculum distillation', state: 'proposal', waiting: ['approve-proposal'], next: 'waiting for your approval' },
@@ -81,7 +82,7 @@ const DOCS = { 'IDEA.md': it => `# ${it.title}\n\nState: **${it.state}**.\n\nThe
   'proposal.md': PROPOSAL, 'PLAN.md': it => `# Plan: ${it.title}\n\n| exp | stage | status |\n|---|---|---|\n| exp-012 | PILOT | done |\n| exp-014 | PILOT | rerun |`,
   'EXPERIMENT_LOG.md': () => NL.demoRunFile({ kind: 'md' }).text };
 NL.demoRead = (path, b) => {
-  const it = BASE_ITEMS.find(i => i.id === (b.idea || b.slug)) || BASE_ITEMS[4];
+  const it = (NL.getState()?.items || BASE_ITEMS).find(i => i.id === (b.idea || b.slug)) || BASE_ITEMS[4];
   if (path === '/api/read' && b.what === 'checkpoint') return { ok: true, sections: b.checkpoint === 'finalize-paper'
     ? [{ title: 'Meta-review', path: 'paper/reviews/meta-review.md', text: '# Meta-review\n\n**Verdict: accept.** All three reviewers agree the claims are supported; two minor fixes were made.' }]
     : [{ title: 'proposal.md', path: `studies/${it.id}/proposal.md`, text: PROPOSAL(it) }], note: 'Demo: a made-up proposal.' };
@@ -97,7 +98,7 @@ const demoCompose = () => {
     variants: n === 'lit-review' ? ['lit-review-quick'] : [], files: [`.claude/skills/${n}/SKILL.md`], origin: 'built in', own: [] }]));
   if (procedures['lit-review']) procedures['lit-review-quick'] = { ...procedures['lit-review'], title: 'Quick literature scan', like: 'lit-review', steps: [], variants: [],
     does: 'A shorter pass for workshop papers: the ten closest papers, read in full.', files: ['.claude/skills/lit-review-quick/SKILL.md'], origin: 'yours', own: ['like', 'title'] };
-  const studies_at = {}; BASE_ITEMS.forEach(i => { studies_at[i.state] = (studies_at[i.state] || 0) + 1; });
+  const studies_at = {}; (NL.getState()?.items || BASE_ITEMS).forEach(i => { studies_at[i.state] = (studies_at[i.state] || 0) + 1; });
   const audit = (n, doc) => ({ file: `checks/audit_${n}.py`, name: n, doc, guard: false, origin: 'built in', usage: [] });
   return { ok: true, version: 1, steps: W.steps || [], rooms: W.rooms || [], workflows: W.workflows || [], procedures,
     roles: (W.roles || []).map(r => ({ name: r, label: (W.role_labels || {})[r] || r, description: 'A specialist subagent procedures call on.', files: [`agent-roles/${r}.yaml`, `agent-roles/${r}.md`], origin: 'built in' })),
@@ -119,9 +120,14 @@ const demoCompose = () => {
     studies_at, designs: [], locked: { never_write: ['lab/approvals.jsonl', 'lab/config.yaml'] } };
 };
 NL.demoGet = path => {
+  const q = Object.fromEntries(new URLSearchParams(path.split('?')[1]));
+  if (path.startsWith('/api/run/files?')) return { ok: true, files: NL.demoRunFiles({ run_id: q.run_id }) };
+  if (path.startsWith('/api/run/file?')) return NL.demoRunFile({ path: q.path, kind: /\.md$/i.test(q.path || '') ? 'md' : 'text' });
+  if (path.startsWith('/api/run/log?')) return { ok: true, text: 'Demo session; no CLI process was started.' };
+  if (path.startsWith('/api/figs?')) return { ok: true, figures: [] };
   if (path.startsWith('/api/checkpoint?')) {
     const q = Object.fromEntries(new URLSearchParams(path.split('?')[1]));
-    const it = BASE_ITEMS.find(i => i.id === q.study) || {};
+    const it = (NL.getState()?.items || BASE_ITEMS).find(i => i.id === q.study) || {};
     const wf = (window.__WORKFLOW_DEFAULT__.workflows || []).find(w => w.id === (it.workflow || 'research')) || {};
     const cp = (wf.checkpoints || []).find(c => c.id === q.id) || { id: q.id, title: q.id };
     const approved = (it.approved || []).includes(q.id);
@@ -132,7 +138,7 @@ NL.demoGet = path => {
     const asking = { 'approve-full-runs': ['improve', 'Trial runs clear the promotion bar on all three seeds (+2.1 ± 0.4 over dense at 125M). I’d run the four full-scale rows at 1.3B next, about 38 GPU-hours.'],
       'approve-proposal': ['propose', 'The proposal is written: a confidence-ordered curriculum, a frozen held-out eval, 3 seeds, and a kill rule at the trial runs.'],
       'finalize-paper': ['review-paper', 'Internal review accepts the paper. Two minor fixes were made; every number links to a run.'] }[q.id];
-    return { ok: true, study: q.study, checkpoint: { ...cp, workflow: wf.id }, state: it.state, waits_at: it.state, here: (it.waiting || []).includes(q.id), approved,
+    return { ok: true, study: q.study, checkpoint: { ...cp, workflow: wf.id }, state: it.state, waits_at: it.state, here: (it.waiting || []).includes(q.id), waiting: (it.waiting || []).includes(q.id), approved,
       record: approved ? { ts: ago(600), decision: 'approved', by: 'pi', via: 'dashboard', note: q.id === 'approve-full-runs' ? 'Stay under 40 GPU-hours; top-2 routing first.' : '' } : null,
       history: [], evidence: ev.map(([name, path, ex]) => ({ name, path, exists: !!ex, dir: name === 'reviews' })),
       checks: (cp.checks || []).map(n => ({ name: n, code: codes[n], out: '' })), checked_at: (cp.checks || []).length ? ago(12) : null,
@@ -145,7 +151,8 @@ NL.demoGet = path => {
     return { ok: true, path: f, text: t, published: t }; }
   if (path.startsWith('/api/panel/data')) {
     const q = Object.fromEntries(new URLSearchParams(path.split('?')[1]));
-    return { ok: true, ts: ago(0.5), data: (NL.demoPanelData || {})[q.id] || {} };
+    const data = (NL.demoPanelData || {})[q.id];
+    return { ok: true, ts: ago(0.5), data: typeof data === 'function' ? data() : data || {} };
   }
   if (path.startsWith('/api/panels')) return { ok: true, panels: NL.demoPanels(), designs: [] };
   if (path.startsWith('/api/campaign/preflight')) return { ok: true, ready: true, checks: [
@@ -160,9 +167,9 @@ NL.demoGet = path => {
     opencode_model: '', opencode_variant: '', tier_strong: 'opus', tier_standard: 'inherit', tier_fast: 'haiku', reviewer_model: 'strong', runner_model: 'standard',
     overseer_model: 'standard', critic_model: 'standard', reviewer_effort: '', runner_effort: '', overseer_effort: '', critic_effort: '' }, setup: { completed: true } };
   if (!path.startsWith('/api/library')) return null;
-  const groups = BASE_ITEMS.filter(i => i.state !== 'parked').map(i => {
-    const order = ['seed', 'triaged', 'lit-review', 'scoping', 'proposal', 'active', 'analysis', 'writing', 'internal-review', 'final'], at = order.indexOf(i.state);
-    const study = ['IDEA.md', ...(at > 2 ? ['lit-review.md'] : []), ...(at > 3 ? ['proposal.md'] : [])].map(rel => ({ scope: 'study', slug: i.id, rel, title: rel }));
+  const groups = (NL.getState()?.items || BASE_ITEMS).filter(i => i.state !== 'parked').map(i => {
+    const order = ['seed', 'lit-review', 'scoping', 'proposal', 'setup', 'active', 'analysis', 'writing', 'internal-review', 'final'], at = order.indexOf(i.state);
+    const study = ['IDEA.md', ...(at >= order.indexOf('scoping') ? ['lit-review.md'] : []), ...(at >= order.indexOf('proposal') ? ['proposal.md'] : [])].map(rel => ({ scope: 'study', slug: i.id, rel, title: rel }));
     const proj = i.has_project ? ['PLAN.md', 'EXPERIMENT_LOG.md'].map(rel => ({ scope: 'project', slug: i.id, rel, title: rel })) : [];
     return { kind: 'study', key: 'study:' + i.id, slug: i.id, title: i.title, state: i.state,
       sections: [{ title: 'Study', icon: '📋', docs: study }, ...(proj.length ? [{ title: 'Project repo', icon: '🛠', docs: proj }] : [])] };
@@ -231,23 +238,23 @@ function demoState(T, items) {
     ['run_finished', 'exp-019 timed out', 95, 'rl', 'failed'], ['agent_waiting', 'the writing agent asked you something', 9, 'paper-1']]
     .map(([kind, detail, min, idea, status]) => ({ ts: ago(min), source: 'hub', kind, detail, idea, ...(status ? { status } : {}) }));
   const rec = id => ({ ts: ago(600), decision: 'approved', by: 'pi', via: 'dashboard' });
-  return { artifacts, workflow: window.__WORKFLOW_DEFAULT__, now: iso(Date.now()), panels: { panels: NL.demoPanels(T) }, holds: {},
+  return { artifacts, workflow: window.__WORKFLOW_DEFAULT__, now: iso(Date.now()), panels: { panels: NL.demoPanels(T, items) }, holds: {},
     items: items.map(it => ({ inflight: [], events: [], directives: [], workflow: 'research', slipped: [], ...it, waiting: it.waiting || [],
       checkpoints: Object.fromEntries((it.approved || []).map(c => [c, rec(c)])) })), runs: runs.concat(done), attention, workers: [], agents: demoAgents(runs),
     directives: [], checkpoints_waiting: attention.filter(a => a.kind === 'checkpoint').length, cold: false, events,
-    executor: { available: true, enabled: true, caps: { total: 10 } },
+    executor: { available: true, enabled: true, caps: { total: 7 }, clis: DEMO_CLIS },
     campaign_states: NL.demoCampaignStates ? NL.demoCampaignStates(T) : [],
     campaigns: [] };
 }
 
 /* the demo's instruments: the shipped panels, with made-up data (their views are the real shipped ones) */
-NL.demoPanels = T => [
+NL.demoPanels = (T, items = NL.getState()?.items || BASE_ITEMS) => [
   { id: 'compute', title: 'Compute', icon: '◔', description: 'GPU-hours, jobs and time', origin: 'shipped', pinned: ['home', 'dock', 'studies'], sources: ['collector'],
     summary: '124 of 200 GPU-hours · 5 running · 12 queued', ts: ago(1), alerts: 1, gauge: { value: 124, max: 200, label: 'GPU-h' } },
   { id: 'agent-spend', title: 'Agent time and spend', icon: '$', description: 'what your agents cost', origin: 'shipped', pinned: ['home', 'dock'], sources: ['collector'],
     summary: '$18.40 this week · 41 runs · 23.5 agent-hours', ts: ago(2), alerts: 0, gauge: { value: 18.4, max: 35, label: '$/wk' } },
   { id: 'studies-by-step', title: 'Studies by step', icon: '▤', description: 'where every study stands', origin: 'shipped', pinned: [], sources: ['registry'],
-    summary: '14 studies · 10 steps in use', ts: ago(1), alerts: 0 },
+    summary: `${items.length} studies · ${new Set(items.map(i=>i.state)).size} steps in use`, ts: ago(1), alerts: 0 },
   { id: 'val-loss', title: 'Validation loss by variant', icon: '∿', description: 'made by the designer from runs/*/metrics.json', origin: 'lab', pinned: ['dock'], sources: ['files'],
     summary: 'top-2 routing leads by 0.09', ts: ago(3), alerts: 0, gauge: { value: 1.31, max: null } },
   { id: 'cluster-queue', title: 'Cluster queue', icon: '▦', description: 'jobs on fir, from squeue', origin: 'lab', pinned: [], sources: ['collector'], needs_approval: true, summary: '' }];
@@ -266,7 +273,7 @@ NL.demoPanelData = {
     series: [1.2, 2.4, 0.8, 3.1, 2.2, 4.0, 4.7].map((v, i) => ({ day: day(6 - i), usd: v })),
     backends: [{ backend: 'claude', usd: 15.1, minutes: 820, runs: 22 }, { backend: 'codex', usd: 0, minutes: 410, runs: 11 }, { backend: 'opencode', usd: 0, minutes: 180, runs: 8 }],
     studies: [{ study: 'moe', usd: 6.2, minutes: 380, runs: 12 }, { study: 'rl', usd: 4.4, minutes: 300, runs: 9 }, { study: 'paper-1', usd: 3.1, minutes: 260, runs: 6 }] },
-  'studies-by-step': { studies: BASE_ITEMS.map(i => ({ id: i.id, title: i.title, state: i.state, updated: day(i.id.length % 5) })) },
+  'studies-by-step': () => ({ studies: (NL.getState()?.items || BASE_ITEMS).map(i => ({ id: i.id, title: i.title, state: i.state, updated: day(i.id.length % 5) })) }),
 };
 
 NL.startDemo = function startDemo() {
@@ -277,7 +284,7 @@ NL.startDemo = function startDemo() {
   function step() {
     // the lab moves on: a study advances now and then, and the new lab finishes building
     if (T === 4) Object.assign(items.find(i => i.id === 'prop-2'), { has_project: true, state: 'active', project_type: 'ml', next: 'experiment' });
-    if (T % 6 === 3) { const it = items.find(i => i.id === 'spark-2'); const order = ['triaged', 'lit-review', 'scoping', 'triaged']; it.state = order[(order.indexOf(it.state) + 1) % order.length]; }
+    if (T % 6 === 3) { const it = items.find(i => i.id === 'spark-2'); const order = ['seed', 'lit-review', 'scoping']; it.state = order[(order.indexOf(it.state) + 1) % order.length]; }
     const s = demoState(T, items);
     s.lab_info = { name: 'Demo lab', path: '(synthetic)', setup: { completed: true } };
     NL.setState(s); T++;

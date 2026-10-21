@@ -26,7 +26,7 @@
     spark: 'M12 3.5l1.8 5.2 5.2 1.8-5.2 1.8L12 17.5l-1.8-5.2L5 10.5l5.2-1.8z',
     chat: 'M5 6h14v9H10l-5 4z',
     plus: 'M12 5v14M5 12h14',
-    gear: 'M12 9a3 3 0 1 0 0 6 3 3 0 0 0 0-6zM12 2.8v2.6M12 18.6v2.6M2.8 12h2.6M18.6 12h2.6M5.5 5.5l1.8 1.8M16.7 16.7l1.8 1.8M5.5 18.5l1.8-1.8M16.7 7.3l1.8-1.8',
+    gear: 'M20.91 10.75 20.91 13.25 18.78 13.75 18.03 15.55 19.19 17.42 17.42 19.19 15.55 18.03 13.75 18.78 13.25 20.91 10.75 20.91 10.25 18.78 8.45 18.03 6.58 19.19 4.81 17.42 5.97 15.55 5.22 13.75 3.09 13.25 3.09 10.75 5.22 10.25 5.97 8.45 4.81 6.58 6.58 4.81 8.45 5.97 10.25 5.22 10.75 3.09 13.25 3.09 13.75 5.22 15.55 5.97 17.42 4.81 19.19 6.58 18.03 8.45 18.78 10.25zM12 9a3 3 0 1 0 0 6 3 3 0 0 0 0-6z',
     world: 'M3.5 15.5 12 20l8.5-4.5L12 11zM3.5 11 12 6.5l8.5 4.5M12 2.5v4',
     studies: 'M4 5h4.5v14H4zM10 5h4.5v14H10zM16 5h4v14h-4',
     agents: 'M8 10.5a2.5 2.5 0 1 0 0-5 2.5 2.5 0 0 0 0 5zM16.5 10.5a2.5 2.5 0 1 0 0-5 2.5 2.5 0 0 0 0 5zM3.5 18.5c.6-2.8 2.3-4.3 4.5-4.3s3.9 1.5 4.5 4.3M12 18.5c.6-2.8 2.3-4.3 4.5-4.3s3.9 1.5 4.5 4.3',
@@ -45,9 +45,6 @@
   NL.GLYPHS = G;
   NL.Glyph = ({ name, size, className, title }) => html`<svg class=${cls('glyph', className)} viewBox="0 0 24 24" width=${size || 20} height=${size || 20} fill="none" stroke="currentColor"
     stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden=${title ? null : 'true'} role=${title ? 'img' : null}>${title ? html`<title>${title}</title>` : null}<path d=${G[name] || G.spark} /></svg>`;
-  // a step's glyph, from its room (rooms are the lab's own; a few have a known face)
-  const ROOM_GLYPH = { incubator: 'seed', study: 'book', lab: 'flask', bench: 'lens', writing: 'pen', archive: 'archive', margins: 'margin' };
-  NL.stepGlyph = st => { const x = NL.STEPS[st]; return ROOM_GLYPH[x && x.room] || 'spark'; };
   // a room's hue, so a study's path is coloured by where it goes
   const ROOM_HUE = { incubator: 145, study: 205, lab: 172, bench: 260, writing: 32, archive: 48, margins: 0 };
   NL.roomHue = room => ROOM_HUE[room] != null ? ROOM_HUE[room] : (String(room || '').split('').reduce((a, c) => (a * 31 + c.charCodeAt(0)) % 360, 7));
@@ -89,15 +86,25 @@
   NL.HoldButton = ({ onHold, children, ms, kind, disabled, sub }) => {
     const dur = ms || 850;
     const [p, setP] = useState(0);
-    const [done, setDone] = useState(false);
+    const [status, setStatus] = useState('idle');
+    const busy = useRef(false), alive = useRef(true), reset = useRef(null);
+    const done = status === 'recorded';
     const t = useRef(null);       // the ring's animation frame
     const timer = useRef(null);   // the hold itself: a timer, so it completes even when frames are throttled
-    const finish = () => {
+    const finish = async () => {
       timer.current = null; if (t.current) { cancelAnimationFrame(t.current); t.current = null; }
-      setP(1); setDone(true); Promise.resolve(onHold()).finally(() => setTimeout(() => { setDone(false); setP(0); }, 900));
+      busy.current = true; setP(1); setStatus('saving');
+      let ok = false;
+      try { ok = !!(await onHold())?.ok; }
+      catch (e) { if (alive.current) NL.toast(e.message || 'Could not record the decision.', 'bad'); }
+      if (!alive.current) return;
+      setStatus(ok ? 'recorded' : 'failed');
+      if (ok) reset.current = setTimeout(() => { busy.current = false; setStatus('idle'); setP(0); }, 900);
+      else { busy.current = false; setP(0); }
     };
     const start = () => {
-      if (disabled || done || timer.current) return;
+      if (disabled || busy.current || timer.current) return;
+      setStatus('idle');
       const t0 = performance.now();
       const step = now => { setP(Math.min(1, (now - t0) / dur)); if (timer.current) t.current = requestAnimationFrame(step); };
       timer.current = setTimeout(finish, dur);
@@ -107,14 +114,14 @@
       if (t.current) { cancelAnimationFrame(t.current); t.current = null; }
       if (timer.current) { clearTimeout(timer.current); timer.current = null; setP(0); }
     };
-    useEffect(() => () => { if (timer.current) clearTimeout(timer.current); if (t.current) cancelAnimationFrame(t.current); }, []);
+    useEffect(() => { alive.current = true; return () => { alive.current = false; clearTimeout(reset.current); if (timer.current) clearTimeout(timer.current); if (t.current) cancelAnimationFrame(t.current); }; }, []);
     const key = e => { if ((e.key === ' ' || e.key === 'Enter') && !e.repeat) { e.preventDefault(); start(); } };
     const C = 2 * Math.PI * 15;
-    return html`<button type="button" class=${cls('hold', kind && 'hold-' + kind, done && 'done', p > 0 && 'holding')} disabled=${disabled}
+    return html`<button type="button" class=${cls('hold', kind && 'hold-' + kind, done && 'done', p > 0 && 'holding')} disabled=${disabled || status === 'saving' || done} aria-busy=${status === 'saving'}
       onPointerDown=${start} onPointerUp=${stop} onPointerLeave=${stop} onKeyDown=${key} onKeyUp=${e => (e.key === ' ' || e.key === 'Enter') && stop()}>
       <svg class="hold-ring" viewBox="0 0 36 36" aria-hidden="true"><circle cx="18" cy="18" r="15" class="hold-track" />
         <circle cx="18" cy="18" r="15" class="hold-fill" style=${{ strokeDasharray: `${C * p} ${C}` }} /></svg>
-      <span class="hold-t"><b>${done ? '✓ ' : ''}${children}</b><small>${done ? 'recorded' : p > 0 ? 'keep holding…' : (sub || 'press and hold')}</small></span></button>`;
+      <span class="hold-t"><b>${done ? '✓ ' : ''}${children}</b><small role="status">${done ? 'recorded' : status === 'saving' ? 'saving…' : status === 'failed' ? 'not recorded · try again' : p > 0 ? 'keep holding…' : (sub || 'press and hold')}</small></span></button>`;
   };
 
   /* ── the seal: a checkpoint's state, stamped ─────────────────────────────────────────────────────── */
@@ -149,15 +156,17 @@
     const waiting = new Set(it.waiting || []);
     const gateState = c => NL.approvedCp(it, c.id) ? 'ok' : slipped.has(c.id) ? 'bad' : waiting.has(c.id) ? 'wait' : 'ahead';
     const Gate = c => html`<button type="button" class=${cls('m-gate', 'g-' + gateState(c))} title=${`${c.title}: ${{ ok: 'approved', bad: 'went past without your approval', wait: 'waiting for you', ahead: 'still ahead' }[gateState(c)]}`}
-      onClick=${e => { e.stopPropagation(); onGate ? onGate(c) : NL.openCheckpoint(it.id, c.id); }}><i></i></button>`;
-    return html`<ol class=${cls('metro', compact && 'compact', off && 'off')}>${steps.map((st, i) => {
+      onClick=${() => onGate ? onGate(c) : NL.openCheckpoint(it.id, c.id)}><i></i></button>`;
+    return html`<div class="metro-scroll" role="region" aria-label="Workflow progress" tabIndex="0"><ol class=${cls('metro', compact && 'compact', off && 'off')}>${steps.map((st, i) => {
       const done = !off && i < idx, cur = !off && i === idx;
       const before = cps.filter(c => c.before === st), during = cps.filter(c => c.during === st);
-      return html`${i ? html`<li class=${cls('m-seg', done || cur ? 'lit' : '')} style=${{ '--h': NL.stepHue(st) }}>${before.map(Gate)}</li>` : null}
-        <li class=${cls('m-st', done && 'done', cur && 'cur')} style=${{ '--h': NL.stepHue(st) }}>
-          <button type="button" class="m-dot" title=${NL.STATE_LABEL[st]} onClick=${() => onStation && onStation(st)}><i></i></button>
+      const label = NL.taskLabel(it, st) + ': ' + (cur ? 'current step' : done ? 'passed' : 'ahead');
+      return html`${i || before.length ? html`<li class=${cls('m-seg', !i && 'm-start', (done || cur) && 'lit')} style=${{ '--h': NL.stepHue(st) }}>${before.map(Gate)}</li>` : null}
+        <li class=${cls('m-st', done && 'done', cur && 'cur')} aria-current=${cur ? 'step' : null} style=${{ '--h': NL.stepHue(st) }}>
+          ${onStation ? html`<button type="button" class="m-dot" title=${label} onClick=${() => onStation(st)}><i></i></button>`
+            : html`<span class="m-dot" role="img" aria-label=${label} title=${label}><i></i></span>`}
           ${during.length ? html`<span class="m-during">${during.map(Gate)}</span>` : null}
-          ${compact ? null : html`<span class="m-l">${NL.STATE_LABEL[st]}</span>`}</li>`;
-    })}${off ? html`<li class="m-off">${NL.STATE_LABEL[it.state]}</li>` : null}</ol>`;
+          ${compact ? null : html`<span class="m-l">${NL.taskLabel(it, st)}</span>`}</li>`;
+    })}${off ? html`<li class="m-off">${NL.STATE_LABEL[it.state]}</li>` : null}</ol></div>`;
   };
 })();

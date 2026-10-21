@@ -161,7 +161,7 @@ def test_desktop_burst_groups_all_remaining_updates_and_opens_inbox():
       function Notice(title,options){this.title=title;this.options=options;notices.push(this)}
       Notice.permission='granted';
       const NL={prefs:{notify:true},toast:title=>toasts.push(title),open:()=>opened.push('inbox'),
-        InboxSheet:{},attOpen:item=>opened.push(item.id)};
+        InboxSheet:{},attOpen:item=>opened.push(item.id),attSubject:()=> 'Lab'};
       const document={hidden:true},window={Notification:Notice,focus(){}};
       vm.runInNewContext(snippet,{NL,document,window,Notification:Notice});
       const state=n=>({attention:Array.from({length:n},(_,i)=>({id:'q'+i,title:'Question '+i,sev:'block'}))});

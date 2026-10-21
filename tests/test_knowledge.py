@@ -34,6 +34,36 @@ def test_identity_conflict_does_not_replace_existing_marker(tmp_path,monkeypatch
     assert (root/'.bus/newts-owner.json').read_bytes()==before
 
 
+@pytest.mark.parametrize('conflict', ['lab', 'owner', 'study', 'project'])
+def test_identity_conflicts_identify_the_selected_project_without_mutation(tmp_path, monkeypatch, conflict):
+    import project_identity as I
+    monkeypatch.setenv('NEWTS_HOME', str(tmp_path/'home'))
+    root = tmp_path/'research with spaces 研究'; root.mkdir()
+    original = I.register(root, 'original-owner', 'original-study', 'original-lab')
+    args = {'owner': 'original-owner', 'study': 'original-study', 'lab_id': 'original-lab'}
+    if conflict == 'project':
+        identity = root/'.newts/project.json'
+        data = json.loads(identity.read_text(encoding='utf-8'))
+        data['project_id'] = 'conflicting-project'
+        identity.write_text(json.dumps(data), encoding='utf-8')
+    else:
+        args[{'lab': 'lab_id', 'owner': 'owner', 'study': 'study'}[conflict]] = 'different'
+    paths = [root/'.bus/newts-owner.json', root/'.newts/project.json', I.home()/'projects.json']
+    before = {path: path.read_bytes() for path in paths}
+    with pytest.raises(ValueError) as error:
+        I.register(root, **args)
+    message = str(error.value)
+    assert str(root.resolve()) in message
+    if conflict == 'lab':
+        assert 'original-lab' in message and 'owning Lab' in message
+    elif conflict == 'project':
+        assert original['project_id'] in message and 'conflicting-project' in message
+        assert '.bus/newts-owner.json' in message and '.newts/project.json' in message
+    else:
+        assert 'original-study' in message and 'original-owner' in message
+    assert {path: path.read_bytes() for path in paths} == before
+
+
 def test_new_lab_does_not_copy_owner_identity_or_personal_records(hub):
     from project_identity import lab_identity
     tool=load('new_lab')
