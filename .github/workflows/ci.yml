@@ -52,7 +52,9 @@ jobs:
         with:
           enable-cache: true
       - name: Hub trust-tools regression suite (hermetic)
-        run: uv run --with pyyaml --with pytest python -m pytest tests/ -q
+        env:
+          NEWTS_HOME: ${{ runner.temp }}/newts-test-home
+        run: uv run --with pyyaml --with pytest python -m pytest tests/ -o faulthandler_timeout=90
 
   template-smoke:
     strategy:
