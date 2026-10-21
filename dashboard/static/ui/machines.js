@@ -114,8 +114,8 @@
     };
     // an interactive connect: poll until it's up, then switch to it
     useEffect(() => {
-      if (lab.state !== 'waiting') return undefined;
       setPollError('');
+      if (lab.state !== 'waiting') return undefined;
       let active = true, timer;
       const token = ++waitingRead.current;
       const current = () => active && token === waitingRead.current;
@@ -129,7 +129,7 @@
           const u = await NL.api('/api/machines/use', { id: m.id, path: lab.path });
           if (!current()) return;
           if (u.ok) { NL.go(''); location.reload(); }
-          else { setPollError(u.error || 'Could not open this lab.'); reload(); }
+          else { NL.toast(u.error || 'Could not open this lab.', 'bad'); reload(); }
         } else if (l2 && l2.state !== 'waiting') reload();
         else timer = setTimeout(poll, 2500);
       };
@@ -140,7 +140,7 @@
       <div class="grow"><b>${lab.lab_name || lab.name || lab.path.split('/').filter(Boolean).pop()}</b> <${NL.Pill} tone=${st[0]}>${st[1]}</${NL.Pill}>
         ${lab.exists === false ? html` <${NL.Pill} tone="warn">no lab there yet</${NL.Pill}>` : null}
         <div class="mono small muted">${lab.path}</div>${lab.error ? html`<div class="small warn">${lab.error}</div>` : null}
-        ${pollError ? html`<div class="small warn" role="alert">${pollError} <button class="link small" onClick=${()=>setPollAttempt(n=>n+1)}>Retry</button></div>` : null}
+        ${pollError ? html`<div class="small warn" role="alert">${pollError} ${lab.state === 'waiting' ? html`<button class="link small" onClick=${()=>setPollAttempt(n=>n+1)}>Retry</button>` : null}</div>` : null}
         <${LabStatus} l=${fleetLab(fl, 'remote', lab.path, m.id)} />
         <div class="small muted keep-why">${lab.keep_connected ? 'Kept connected: activity and requests refresh on this page every 15 s.'
           : 'Keep connected to refresh this lab’s activity here while another lab is open.'}</div></div>
