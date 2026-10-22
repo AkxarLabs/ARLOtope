@@ -278,9 +278,10 @@
   const bump = () => layers.listeners.forEach(f => f());
   NL.open = (Comp, props, opts) => {
     const key = opts && opts.key;
-    if (key) { const hit = layers.list.find(l => l.key === key); if (hit) { hit.props = props || {}; bump(); return hit.id; } }
+    const hit=layers.list.find(l=>key&&l.key===key||opts?.slot&&l.slot===opts.slot);
+    if(hit){hit.Comp=Comp;hit.key=key;hit.props=props||{};bump();return hit.id}
     const id = ++layers.n;
-    layers.list = [...layers.list, { id, Comp, props: props || {}, key, opener: document.activeElement, kind: (opts && opts.kind) || 'sheet' }];
+    layers.list = [...layers.list, { id, Comp, props: props || {}, key, slot:opts?.slot,opener: document.activeElement, kind: (opts && opts.kind) || 'sheet' }];
     bump();
     return id;
   };

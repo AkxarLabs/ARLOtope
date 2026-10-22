@@ -153,6 +153,11 @@ geometry stays beside its room definition. See [Room design](room-design.md).
 identity between the dashboard and isolated renderer. It projects existing records without writing
 workflow or execution state. `world3d/annotations.js` owns pooled dotted links and room clearance aids.
 
+`ui/focus.js` carries viewing IDs in the URL and current tab, scoped to the Lab. It derives labels
+from the snapshot and sends focus to the world; it is not another task store. Readers opt into the
+existing overlay manager's `inspector` slot. Recent form drafts use a bounded, Lab-scoped tab-memory
+cache in `components.js`; no transcript, draft database or browser-storage dependency is added.
+
 `world3d/model.js` maps a run/task to a room, folds furniture `uses`/`stands` into activity spots,
 and supplies coarse within-room paths. `world.js` reserves spots, smooths activity changes and routes
 actors through doors and streets. `newt.js` supplies the shared activity/pose animator; `characters.js`

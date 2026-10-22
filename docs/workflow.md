@@ -17,6 +17,21 @@ A workflow defines the tasks a study can do, the routes between them and the che
 
 A procedure reports an outcome; the workflow decides the destination. A role or preset does not grant checkpoint authority.
 
+### Where the next-task button comes from
+
+The study's title does not choose its instructions. For example, a study named **Evidence review**
+created with **Quick study** starts at `seed` unless placed elsewhere. Quick study's YAML includes
+that step; `workflow/steps.yaml` gives it the label **Idea**, room `incubator` and procedure `triage`.
+The procedure's metadata supplies **Triage the idea**, which becomes the next-task button.
+That is a shipped default, not an Evidence-review-specific rule. Edit the task's skill or own
+instructions, choose another workflow, or record existing/skipped initial work in the starter.
+An evidence-review title alone does not automatically build an evidence-review process.
+
+Cards and map nodes use the saved task definitions. Rooms group these tasks visually across studies;
+they do not create new tasks or separate rooms for each study. Basic UI sections such as Controls
+and History are application navigation. `park` and `kill` are generic kernel shelving outcomes,
+separate from customizable task routes. See [study controls](running-work.md#hold-or-steer-a-study).
+
 ## Files
 
 | File | Defines |

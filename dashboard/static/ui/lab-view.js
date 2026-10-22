@@ -1,6 +1,6 @@
 /* A disposable renderer frame. It receives state; it never reads or writes lab files. */
 (async function () {
-  let world, latest, displayed, following, syncing=false, inspected, anchorFrame, active=true, graphicsLost=false;
+  let world, latest, displayed, following, syncing=false, inspected, anchorFrame, active=true, graphicsLost=false,focusKey='';
   const loaded=new Map();
   let draft;
   const report=error=>{document.documentElement.dataset.ready='false';send({error:error?.message||String(error)})};
@@ -73,6 +73,15 @@
       if(draft)view=Lab3D.model.preview(view,draft.room,message.previewActivity,message.previewGuides);
       displayed=view;await world.sync(view);
       if(draft&&!message.previewWide)world.goRoom(draft.room);
+      if(!draft&&message.focus){
+        const focus=message.focus,key=JSON.stringify(focus);
+        if(key!==focusKey){
+          focusKey=key;
+          const agent=(view.agents||[]).find(a=>focus.run?a.run_id===focus.run&&(focus.sub?a.sub===focus.sub:!a.parent):focus.worker&&a.worker_id===focus.worker);
+          if(agent)focusAgent(agent.id);
+          else{following=null;world.stopFollow();closeInspection();if(focus.study)world.focusTask(focus.study,focus.task);else world.back()}
+        }
+      }
       if(following){if((view.agents||[]).some(a=>a.id===following||a.run_id===following||a.worker_id===following)){if(world.following()!==following)world.followWorker(following)}else{following=null;world.stopFollow()}}
       followControls();
       if(message===latest&&!graphicsLost){document.documentElement.dataset.ready = 'true';send({kind:'ready'})}
@@ -88,7 +97,7 @@
     if (e.source !== parent || e.data?.labView !== 1) return;
     if(typeof e.data.active==='boolean'){
       active=e.data.active;world?.setActive(active);
-      if(!active){inspected=null;world?.selectAgent(null);cancelAnimationFrame(anchorFrame);return}
+      if(!active){focusKey='';inspected=null;world?.selectAgent(null);cancelAnimationFrame(anchorFrame);return}
     }
     if(e.data.command==='dismiss-agent'){inspected=null;world?.selectAgent(null);cancelAnimationFrame(anchorFrame);return}
     if(e.data.command==='clear-hover'){world?.clearHover();return}

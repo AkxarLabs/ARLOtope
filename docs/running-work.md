@@ -74,11 +74,30 @@ session cap. See [what counts as a slot](compute.md#agent-slots-and-experiment-j
 **View hold** or the study's **Controls** to release it. Checkpoint decisions can still be recorded
 while held, but starting the next task waits for release.
 
-**Prioritize**, **Park** and **Kill** send instructions for an agent's next inbox check. They do
-not immediately change the workflow state. **Pending instructions** shows them in the study's
+**Request priority**, **Request park** and **Request kill** save instructions for an agent's next
+inbox check. They do not start an idle agent, reorder the run queue, stop a process or immediately
+change the workflow state. **Pending instructions** shows them in the study's
 Overview and Controls, including before a project folder exists. The study list shows a pending
 count. **Seen; awaiting action** means an agent has read an instruction without completing it yet.
 Use **Withdraw** to cancel a pending request. Inbox and History also keep these records.
+
+| Action | Effect |
+|---|---|
+| Request priority | Asks an agent to give the study attention; does not change scheduler priority |
+| Request park | Asks an agent to defer the study and record a `park` outcome |
+| Request kill | Asks an agent to abandon the direction and record its reason and a `kill` outcome |
+| Hold | Immediately blocks new managed agent launches for the study; existing work continues |
+| Stop, on a run | Stops that managed agent process; does not park or kill its study |
+| Revive | Lets the PI move a parked or killed study to a selected workflow step |
+
+Parked and killed are recorded shelving states. Both retain files and history and can be revived
+by the PI. A move itself does not terminate other running processes. The queue separately admits
+eligible runs using their saved priority, continuation preference and creation time, subject to
+capacity, holds, gates and backoff. A priority request does not alter those saved queue values.
+
+![Study requests and the separate launch hold](assets/current/study-controls.webp)
+
+*Current local test study; these requests were not submitted for the screenshot.*
 
 These instructions are separate from [human notes](knowledge.md#add-a-human-note), which provide
 context and optional read receipts without queuing work.

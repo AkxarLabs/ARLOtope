@@ -52,8 +52,10 @@ their wording is shared with agent cards and follow controls. Continued native s
 character within the open view, while forks create another character. Room previews use sample activity
 and optional clearance guides, without model calls.
 
-Further directions are filename-bearing work objects where exact paths are retained, handoff history
-on selection, and a shared study/task breadcrumb across map, world and records. Reuse activity, lineage,
+The selected-work strip carries study, task and agent focus across map, world and records. Readers
+reuse one inspector, keeping recent unsent forms in tab memory. Neither creates execution state.
+Further directions are filename-bearing work objects where exact paths are retained and handoff history
+on selection. Reuse activity, lineage,
 request and artifact records without another workflow language or LLM call per animation. Unknown
 activity stays unknown; decorative movement must not imply verified progress.
 

@@ -126,8 +126,7 @@
 
   const ElicitationCard = ({r, question}) => {
     const f=question.input.elicitation,fields=f.requestedSchema?.properties||{},required=f.requestedSchema?.required||[];
-    const [values,setValues]=useState(()=>Object.fromEntries(Object.entries(fields).filter(([,v])=>'default' in v).map(([k,v])=>[k,v.default]))),[error,setError]=useState(''),[busy,setBusy]=useState(false);
-    useEffect(()=>{setValues(Object.fromEntries(Object.entries(fields).filter(([,v])=>'default' in v).map(([k,v])=>[k,v.default])));setError('')},[question.tool_use_id]);
+    const [values,setValues]=NL.useDraft('form:'+r.run_id+':'+question.tool_use_id,()=>Object.fromEntries(Object.entries(fields).filter(([,v])=>'default' in v).map(([k,v])=>[k,v.default]))),[error,setError]=useState(''),[busy,setBusy]=useState(false);
     const update=(k,v)=>setValues(old=>({...old,[k]:v}));
     const send=async action=>{
       setBusy(true);setError('');
@@ -162,12 +161,9 @@
     // a question that came as plain text (or didn't come through) still gets a box to answer it in
     const plain = pq.question || pq.text || (pq.input && (pq.input.question || pq.input.text)) || '';
     const qs = ((pq.input || {}).questions) || [];
-    const [free, setFree] = useState('');
-    const [ans, setAns] = useState({});
-    const [other, setOther] = useState({});
-    const [skipped,setSkipped]=useState({});
-    const key = (r.pending_question || {}).tool_use_id;
-    useEffect(() => { setAns({}); setOther({});setSkipped({});setFree(''); }, [key]);
+    const key='question:'+r.run_id+':'+(pq.tool_use_id||plain||r.attempt);
+    const [free,setFree]=NL.useDraft(key+':free',''),[ans,setAns]=NL.useDraft(key+':answers',{}),
+      [other,setOther]=NL.useDraft(key+':other',{}),[skipped,setSkipped]=NL.useDraft(key+':skipped',{});
     const pick = (q, label) => setAns(a => {
       if (!q.multiSelect) return { ...a, [q.question]: label };
       const cur = new Set(a[q.question] || []); cur.has(label) ? cur.delete(label) : cur.add(label);
@@ -178,13 +174,13 @@
     const send = async () => {
       if (!qs.length) {
         if (!free.trim()) return NL.toast('Type your answer first', 'warn');
-        const x = await NL.act('/api/run/answer', { run_id: r.run_id, request_id:key, text: free.trim() }, 'Sent. The agent carries on.');
+        const x = await NL.act('/api/run/answer', { run_id: r.run_id, request_id:pq.tool_use_id, text: free.trim() }, 'Sent. The agent carries on.');
         if (x.ok) setFree('');
         return x;
       }
       const a = answers();
       if (!complete) return NL.toast('Answer or skip each question', 'warn');
-      const x = await NL.act('/api/run/answer', { run_id: r.run_id, request_id:key, answers: a }, 'Sent. The agent carries on.');
+      const x = await NL.act('/api/run/answer', { run_id: r.run_id, request_id:pq.tool_use_id, answers: a }, 'Sent. The agent carries on.');
       return x;
     };
     return html`<div class="ask">
@@ -261,10 +257,11 @@
   NL.RunSheet = ({ id, focusSub, onClose }) => {
     const { run: r, lines, err, skipped, reload } = useRun(id);
     const s = NL.useLab();
+    useEffect(()=>{if(r)NL.focusRun(r,focusSub)},[r?.run_id,focusSub,r?.subject,r?.workflow_node]);
     const blocks = useMemo(() => toBlocks(lines), [lines]);
     const scroller = useRef();
     const [stick, setStick] = useState(true);
-    const [reply, setReply] = useState('');
+    const [reply, setReply] = NL.useDraft('reply:'+id,'');
     useEffect(() => { const el = scroller.current; if (el && stick) el.scrollTop = el.scrollHeight; }, [blocks.length, r && r.status, stick]);
     const onScroll = e => { const el = e.target; setStick(el.scrollHeight - el.scrollTop - el.clientHeight < 80); };
     if (!r) return html`<${NL.Sheet} title="Run" onClose=${onClose} wide>${err ? html`<${NL.Empty}>${err}</${NL.Empty}>` : html`<${NL.Spinner} />`}</${NL.Sheet}>`;
@@ -295,6 +292,7 @@
         <button class="link small" onClick=${() => NL.open(NL.TextSheet, { title: 'Technical log', sub: r.run_id, path: `/api/run/log?${NL.qs({ run_id: r.run_id })}` })}>technical log</button>
       </div></div>`;
     return html`<${NL.Sheet} title=${title} sub=${sub} onClose=${onClose} wide footer=${footer}>
+      <nav class="inspector-links" aria-label="Related work">${it?html`<a href=${NL.focusHref('workflow/map')} onClick=${onClose}>Task</a><a href=${NL.focusHref('library')} onClick=${onClose}>Outputs</a>`:null}${(s.agents||[]).some(a=>a.run_id===r.run_id)?html`<button type="button" class="link" onClick=${()=>{onClose();NL.followAgent(r.run_id)}}>Show in Lab</button>`:null}</nav>
       <div class="runmeta">
         ${r.elapsed_s != null ? html`<span><b>${NL.mins(r.elapsed_s)}</b>${budget ? html` of ${Math.round(r.max_minutes)}m <${NL.Bar} value=${r.elapsed_s} max=${budget} tone=${r.elapsed_s > budget * 0.85 ? 'warn' : ''} />` : null}</span>` : null}
         ${r.n_actions ? html`<span><b>${r.n_actions}</b> ${r.n_actions === 1 ? 'action' : 'actions'}</span>` : null}
@@ -378,7 +376,7 @@
     return html`<details class="subs" open=${live > 0 || !!focus}><summary>${NL.plural(subs.length, 'subagent')}${live ? html` · <b>${live} working</b>` : null}</summary>
       ${kidsOf(null).slice().reverse().map(sa => html`<${Row} key=${sa.id} sa=${sa} depth=${0} />`)}</details>`;
   };
-  NL.openRun = (id, sub) => { if (id) NL.open(NL.RunSheet, { id, focusSub: sub || null }, { key: 'run:' + id }); };
+  NL.openRun = (id, sub) => {if(!id)return;const r=NL.run(NL.getState(),id);if(r)NL.focusRun(r,sub);return NL.open(NL.RunSheet, { id, focusSub: sub || null }, { key: 'run:' + id,slot:'inspector' });};
 
   /* A separate terminal agent explains the recorded evidence without interrupting the source run. */
   NL.explain = async (runId, agent, options={}) => {
@@ -511,5 +509,5 @@
       <${NL.Section} title="What it did">${acts.length ? html`<div class="timeline">${acts.map(a => html`<div class="tl-row"><span class="muted mono small">${NL.hhmm(a.ts)}</span><span class="grow">${a.text || ''}</span><span class="muted small">${a.kind || ''}</span></div>`)}</div>` : html`<div class="muted">No actions logged yet.</div>`}</${NL.Section}>
     </${NL.Sheet}>`;
   };
-  NL.openWorker = id => NL.open(NL.WorkerSheet, { id }, { key: 'worker' });
+  NL.openWorker = id => {NL.focusAgent(id);return NL.open(NL.WorkerSheet, { id }, { key: 'worker:'+id,slot:'inspector' })};
 })();

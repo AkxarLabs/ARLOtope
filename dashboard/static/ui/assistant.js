@@ -39,7 +39,10 @@
       `:null}
       ${data?.warnings?.length?html`<p role="status" class="note note-warn">Answer delivery needs attention. ${data.warnings[0]}</p>`:null}${error?html`<p role="alert" class="note note-warn">${error}</p>`:null}</div></${N.Sheet}>`;
   };
-  N.openAssistant=(options={})=>N.open(N.AssistantPanel,options,{key:'workspace-assistant'});
+  N.openAssistant=(options={})=>{
+    const explicit=['initialStudy','initialRun','initialDocument','initialReference','initialScope'].some(k=>Object.hasOwn(options,k)),f=N.getFocus();
+    return N.open(N.AssistantPanel,{...(!explicit?{initialStudy:f.study||'',initialRun:f.run||'',initialScope:true}:{}),...options},{key:'workspace-assistant'});
+  };
   N.AssistantButton=()=>{
     useEffect(()=>{const timer=setInterval(()=>N.api('/api/assistant/update',{}).catch(()=>{}),30000);return()=>clearInterval(timer)},[]);
     return html`<button type="button" class="assistant-launch" onClick=${()=>N.openAssistant()} aria-label="Workspace assistant"><img class="arlotope-mark" src="static/brand/arlotope-mark.png" alt=""/> Assistant</button>`;

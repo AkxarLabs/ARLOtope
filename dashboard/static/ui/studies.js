@@ -103,14 +103,14 @@
     const isLoop = p => (NL.PROC[p] || {}).kind === 'driver' && (NL.PROC[p] || {}).level === 'project';
     const run = p => isLoop(p) ? NL.openLoop(it.id) : NL.launch({ skill: p, target: it.id });
     return html`<div class="action-orb">
-      ${nx ? html`<button type="button" class=${cls('pill-act', nx.checkpoint && 'warm')} onClick=${nx.run}><${NL.Glyph} name=${nx.glyph || 'play'} size=${18} /><span>${nx.label}</span></button>` : null}
+      ${nx ? html`<button type="button" class=${cls('pill-act', nx.checkpoint && 'warm')} title=${nx.skill?'Skill for '+NL.taskLabel(it)+' in '+(NL.workflowOf(it).title||it.workflow):null} onClick=${nx.run}><${NL.Glyph} name=${nx.glyph || 'play'} size=${18} /><span>${nx.label}</span></button>` : null}
       <${NL.Btn} small disabled=${held} onClick=${() => NL.openAsk('', it.id)}>Ask agent</${NL.Btn}>
       <button type="button" class="btn btn-sm" aria-expanded=${open} aria-controls=${it.id+'-actions'} onClick=${() => setOpen(!open)}>More actions</button>
       ${open ? html`<div class="orb-menu glass" id=${it.id+'-actions'} onKeyDown=${e=>{if(e.key==='Escape'){setOpen(false);e.currentTarget.previousElementSibling?.focus()}}}>${procs.filter(can).map(p=>html`<button type="button" disabled=${held} onClick=${()=>{setOpen(false);run(p)}}>${isLoop(p)?'Run overnight':NL.procTitle(p)}</button>`)}
-        <button type="button" disabled=${held} onClick=${()=>{setOpen(false);NL.launch({skill:'discuss',target:it.id})}}>Talk it through</button>
+        ${s.skills?.discuss?html`<button type="button" disabled=${held} onClick=${()=>{setOpen(false);NL.launch({skill:'discuss',target:it.id})}}>Talk it through</button>`:null}
         <button type="button" disabled=${held} onClick=${() => { setOpen(false); NL.openStart({ intent: 'study', target: it.id }); }}>Run a procedure…</button>
         <button type="button" onClick=${() => { setOpen(false); NL.openNote(it.id); }}>Add note</button>
-        <button type="button" onClick=${() => { setOpen(false); NL.go(`study/${it.id}/fate`); }}>Park, kill or hold it…</button>
+        <button type="button" onClick=${() => { setOpen(false); NL.go(`study/${it.id}/controls`); }}>Study controls…</button>
         </div>` : null}</div>`;
   };
 
@@ -128,7 +128,7 @@
       ...(it.has_paper || it.paper ? [{ id: 'paper', label: 'Paper' }] : []),
       { id: 'panels', label: 'Instruments' },
       { id: 'instructions', label: 'Instructions', count: Object.keys(((((s.workflow || {}).study_custom || {})[it.id]) || {}).procedures || {}).length || null },
-      { id: 'fate', label: 'Controls' }];
+      { id: 'controls', label: 'Controls' }];
     return html`<div class="dossier">
       <header class="dossier-head">
         <div class="crumbs"><a class="link" href="#/studies">Studies</a> ›</div>
@@ -156,7 +156,7 @@
         ${tab === 'paper' ? html`<${PaperPane} key=${it.id} it=${it} />` : null}
         ${tab === 'panels' ? html`<${StudyPanels} key=${it.id} it=${it} />` : null}
         ${tab === 'instructions' ? html`<${NL.StudyInstructions} key=${it.id} it=${it} />` : null}
-        ${tab === 'fate' || tab === 'controls' ? html`<${Controls} key=${it.id} it=${it} />` : null}
+        ${tab === 'controls' ? html`<${Controls} key=${it.id} it=${it} />` : null}
       </div></div>`;
   };
 
@@ -348,14 +348,7 @@
   };
   NL.openClaims = slug => NL.open(NL.ClaimsSheet, { slug }, { key: 'claims' });
 
-  /* ── fate: steering, checkpoints, hold, park/kill/revive ─────────────────── */
-  /* where a study set aside by `action` (park / kill) ends up: the shelf for it, and its room */
-  const shelfRoom = action => {
-    const shelves = Object.values(NL.STEPS).filter(x => x.shelf);
-    const st = shelves.find(x => String(x.id).startsWith(action)) || shelves[0];
-    const room = st && (NL.ROOMS.find(r => r.key === st.room || (r.states || []).includes(st.id)) || {});
-    return (room && (room.title || room.label)) || 'the room for studies set aside';
-  };
+  /* ── study controls: agent requests and immediate launch holds ────────── */
   const MODES = [{ value: 'execute', label: 'Follow the plan' }, { value: 'explore', label: 'Explore' }];   // as in Settings
   const Controls = ({ it }) => {
     const s = NL.useLab(), held = !!s.holds?.[it.id];
@@ -382,17 +375,17 @@
         ${it.loop_active ? html`<${NL.Btn} kind="danger" onClick=${() => cmd('stop_loop', 'Stop the loop', {}, { title: 'Stop the loop?', body: 'Its agent stops the loop at its next safe point. You can start it again from here.' })}>Stop the loop</${NL.Btn}>` : null}
         <${NL.Btn} disabled=${held} onClick=${() => cmd('run_smoke', 'Run a smoke test')}>Run a smoke test</${NL.Btn}>
         <${NL.Btn} disabled=${held} onClick=${() => cmd('request_run', 'Request a run')}>Request a run</${NL.Btn}></div></${NL.Section}>` : null}
-      <${NL.Section} title="Priority and fate"><div class="btn-grid">
-        <${NL.Btn} onClick=${() => cmd('prioritize', 'Prioritize')}>Prioritize it</${NL.Btn}>
+      <${NL.Section} title="Requests"><p class="muted small">Saved for an agent's next inbox check. These requests do not start an agent, stop a process or reorder the run queue.</p><div class="btn-grid">
+        <${NL.Btn} title="Ask an agent to focus on this study; queue order is unchanged." onClick=${() => cmd('prioritize', 'Priority')}>Request priority</${NL.Btn}>
         ${off ? html`<${NL.Btn} kind="primary" onClick=${() => NL.revive(it)}>Revive it</${NL.Btn}>` : html`
-          <${NL.Btn} onClick=${() => cmd('park', 'Park it', {}, { title: 'Set this study aside for now?', ok: 'Park it', body: `The agent pauses it at its next safe point and moves it to ${shelfRoom('park')}. You can revive it from there.` })}>Park it</${NL.Btn}>
-          <${NL.Btn} kind="danger" onClick=${() => cmd('kill', 'Stop it for good', {}, { title: 'Stop this study for good?', ok: 'Stop it for good', body: `The agent winds it down at its next safe point and moves it to ${shelfRoom('kill')}. You can revive it from there.` })}>Kill it</${NL.Btn}>`}</div></${NL.Section}>
+          <${NL.Btn} onClick=${() => cmd('park', 'Park', {}, { title: 'Request parking this study?', ok: 'Send request', body: 'An agent must read the request and record the study as parked. You can revive it later. Running processes are not stopped by this button.' })}>Request park</${NL.Btn}>
+          <${NL.Btn} kind="danger" onClick=${() => cmd('kill', 'Kill', {}, { title: 'Request abandoning this direction?', ok: 'Send request', body: 'An agent must read the request, record why the direction ended, and mark the study killed. Its records remain, and you can revive it. Running processes are not stopped by this button.' })}>Request kill</${NL.Btn}>`}</div></${NL.Section}>
     </div><aside class="col-side">
       <${PendingInstructions} it=${it} />
       <${NL.Section} title="Its checkpoints"><div class="stack">${NL.checkpointsOf(it).map(c => html`<button type="button" class="cp-line" onClick=${() => NL.openCheckpoint(it.id, c.id)}>
           <${NL.Seal} state=${NL.approvedCp(it, c.id) ? 'approved' : 'waiting'} size=${22} /><span class="grow"><b>${c.title}</b><small class="muted">${NL.cpWhere(c)}</small></span></button>`)}
         ${!NL.checkpointsOf(it).length ? html`<span class="muted small">Its workflow has no checkpoints.</span>` : null}</div></${NL.Section}>
-      <${NL.Section} title="Hold"><div class="stack">${(NL.getState().holds || {})[it.id]
+      <${NL.Section} title="Hold"><p class="muted small">Blocks new agent launches now. Existing work continues.</p><div class="stack">${(NL.getState().holds || {})[it.id]
           ? html`<${NL.Btn} onClick=${() => NL.act('/api/study/hold', { study: it.id, hold: false }, 'Released')}>Release it</${NL.Btn}>`
           : html`<${NL.Btn} onClick=${() => NL.act('/api/study/hold', { study: it.id, hold: true }, 'On hold. Nothing new starts for it.')}>Hold it (nothing new starts)</${NL.Btn}>`}</div></${NL.Section}>
       <${NL.Section} title="Elsewhere"><div class="stack">${it.project_dir ? html`<${NL.EditorLink} path=${it.project_dir} machine=${it.remote_project?it.machine:null}>Open the project repo ↗</${NL.EditorLink}>` : null}

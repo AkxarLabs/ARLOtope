@@ -22,6 +22,10 @@ body { font-size:14px; line-height:1.55; }
 button,a,input,textarea,select { -webkit-tap-highlight-color:transparent; }
 button:not(:disabled),summary { cursor:pointer; }
 .stage { background:var(--bg); backdrop-filter:none; -webkit-backdrop-filter:none; outline:none; }
+.inspector-links{display:flex;gap:16px;flex-wrap:wrap;margin-bottom:16px;font-size:12px}
+.work-context{position:sticky;top:0;z-index:7;display:flex;align-items:center;gap:9px;min-height:36px;padding:4px var(--page-gutter);border-bottom:1px solid var(--edge);background:var(--bg);font-size:12px}
+.work-context>a,.work-context>.link{min-width:0;max-width:30vw;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;text-decoration:none}.work-context>span{color:var(--ink-faint)}.work-context>.iconbtn{margin-left:auto;flex:none}
+@media(max-width:640px){.work-context{padding-inline:16px;gap:6px}.work-context>a,.work-context>.link{max-width:25vw}}
 .page { padding:48px var(--page-gutter) 64px; max-width:var(--page-width); min-height:calc(100vh - var(--top) - 85px); }
 .page-narrow { max-width:860px; }
 h1 { font-size:clamp(34px,3.4vw,49px); font-weight:420; line-height:1.07; letter-spacing:-.025em; }

@@ -30,6 +30,23 @@ For segmented choices, use the arrow keys or Home/End; Tab moves to the next con
 For launch steps, multiple studies, session limits and notification behavior, see
 [Start and follow work](running-work.md).
 
+## Keep your place
+
+Selecting a study, workflow task or agent adds a small **Selected work** strip above the page.
+The main navigation carries that selection between Lab, Workflow and Library. Workflow opens the
+study's workflow with the selected task; Library uses the same study scope. Select another study
+to change scope, or use **×** to return to the whole Lab. This is a viewing choice: it starts no
+agent and changes no workflow or approval.
+
+Agent conversations, workers and output previews reuse one inspector. Its **Task**, **Outputs**
+and **Show in Lab** links lead back to the same work. Recent unsent replies and question-form
+answers survive switching inspectors in the current browser tab. They are not submitted until
+you send them, and refreshing or closing the tab clears them.
+
+![One study and task carried into Library](assets/current/study-context.webp)
+
+*Current dashboard with a local test study; selecting work filters the view, not execution.*
+
 ![The Lab workspace in its light theme](assets/current/lab-light.webp)
 
 *Demonstration fixture: the scene and the records below it provide two ways to reach the same work.*

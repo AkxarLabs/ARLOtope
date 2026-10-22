@@ -74,8 +74,8 @@
     return r.delivered_error ? 'not delivered: ' + r.delivered_error : '';
   };
   const Reply = ({ a }) => {
-    const [text, setText] = useState('');
-    const [pick, setPick] = useState(null);
+    const [text,setText]=NL.useDraft('output:'+a.id+':text','');
+    const [pick,setPick]=NL.useDraft('output:'+a.id+':choice',null);
     const [busy, setBusy] = useState(false);
     const [local, setLocal] = useState(null);
     const r = a.reply || local;
@@ -108,6 +108,7 @@
     const [d, setD] = useState(null), [attempt, reload] = NL.useReducer(n => n + 1, 0);
     const s = NL.useLab();
     const recent=NL.artifactsOf(s).find(x=>x.id===id),stamp=recent?recent.answered:s.artifact_revision;
+    useEffect(()=>{const a=d?.artifact;if(!a)return;const run=NL.run(s,a.about?.run||a.run_id);if(run)NL.focusRun(run,a.about?.agent);else if(a.study){const f=NL.getFocus();NL.setFocus({...(f.study===a.study?f:{}),study:a.study})}},[d?.artifact?.id]);
     useEffect(() => { let on = true; setD(null); fetchOne(id).then(x => { if (on) { setD(x); if (x && x.ok) { markSeen([id]); onLoaded && onLoaded(x.artifact); } } }); return () => { on = false; }; }, [id, stamp, attempt]);
     if (!d) return html`<${NL.Spinner} />`;
     if (!d.ok) return html`<${NL.LoadState} error=${d.error || 'Could not open this file.'} reload=${reload} />`;
@@ -132,7 +133,7 @@
       <${Viewer} id=${id} onLoaded=${setA} />
       <div class="row end"><a class="link small" href=${'#/artifacts/' + id} onClick=${onClose}>All results →</a></div></${NL.Sheet}>`;
   };
-  NL.openArtifact = id => { if (id) NL.open(NL.ArtifactSheet, { id }, { key: 'artifact:' + id }); };
+  NL.openArtifact = id => { if (id) NL.open(NL.ArtifactSheet, { id }, { key: 'artifact:' + id,slot:'inspector' }); };
 
   /* ── the page: a list on the left (asking first, then new, then the rest), the artifact on the right ── */
   const FILTERS = [['all', 'All'], ['asking', 'Needs a response'], ['new', 'New'], ['explained', 'Explanations'], ['answered', 'Answered']];
@@ -146,10 +147,11 @@
   };
   NL.ArtifactsPage = ({ args, query }) => {
     const s = NL.useLab();
+    const focus=NL.useFocus(),focusedRun=NL.run(s,focus.run),taskRuns=new Set((s.runs||[]).filter(r=>r.subject===focus.study&&focus.task&&(r.workflow_node||r.assigned_step)===focus.task&&(focusedRun?.workflow_visit==null||r.workflow_visit===focusedRun.workflow_visit)).map(r=>r.run_id));
     const f=query?.f||'all',study=query?.study||'',search=query?.q||'';
     const setF=f=>NL.archiveQuery({f}),setSearch=q=>NL.archiveQuery({q});
     const records=NL.useArtifactList({study,f,q:search}),all=records.rows;
-    const rank = a => (a.question && !a.answered ? 0 : !a.seen ? 1 : 2);
+    const rank = a => (a.question && !a.answered ? 0 : taskRuns.has(a.run_id)||taskRuns.has(a.about?.run)?1:!a.seen?2:3);
     const list = all.filter(a => (!study || (study==='@lab'?!a.study:a.study===study)) && (!search||[a.title,a.note,a.study,NL.item(s,a.study)?.title].join(' ').toLowerCase().includes(search.toLowerCase())) && (f === 'all' || (f === 'asking' && a.question && !a.answered) || (f === 'new' && !a.seen) || (f === 'explained' && a.about) || (f === 'answered' && a.answered)))
       .sort((a, b) => rank(a) - rank(b) || String(b.created).localeCompare(String(a.created)));
     const sel = (args && args[0]) || null;

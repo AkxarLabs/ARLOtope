@@ -312,6 +312,28 @@
       "source": "Current application in an isolated synthetic example Lab; no research agents or SSH sessions launched."
     },
     {
+      "file": "study-context.webp",
+      "size": [
+        1440,
+        1000
+      ],
+      "bytes": 42636,
+      "sha256": "a60fa790693d576d823ca4e69a6859b937bb25847aa6244e13fac10bfc30a6e4",
+      "captured": "2026-10-22",
+      "source": "Current local preview with a disposable study. No model runs or control requests launched for capture."
+    },
+    {
+      "file": "study-controls.webp",
+      "size": [
+        1440,
+        1000
+      ],
+      "bytes": 35070,
+      "sha256": "b5104c539c4262d8d9cc809994fef3edeae7b414989df42ec0a0f4a1d57c0aac",
+      "captured": "2026-10-22",
+      "source": "Current local preview with a disposable study. No model runs or control requests launched for capture."
+    },
+    {
       "file": "study-overview.webp",
       "size": [
         1440,

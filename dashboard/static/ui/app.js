@@ -11,7 +11,7 @@
     settings: () => NL.SettingsPage, labs: () => NL.LabsPage, setup: () => NL.SetupPage,
     start: () => NL.StarterPage, world: () => LabView, 'not-found': () => NotFound };
   const GROUP = { home: '', world: '', overview: '', runs: '', run: '', study: 'studies', artifacts: 'library', history: 'library' };
-  NL.followAgent=id=>{NL.pendingFollow=id;NL.go('');document.querySelector('.stage')?.scrollTo(0,0);window.dispatchEvent(new CustomEvent('lab-follow',{detail:id}))};
+  NL.followAgent=id=>{NL.focusAgent(id);NL.pendingFollow=id;NL.go(NL.focusHref(''));document.querySelector('.stage')?.scrollTo(0,0);window.dispatchEvent(new CustomEvent('lab-follow',{detail:id}))};
 
   const Search = ({ onClose }) => {
     const s = NL.useLab(), [q, setQ] = useState(''), [selected, setSelected] = useState(0), results = useRef();
@@ -71,7 +71,7 @@
       const receive = e => {
         if (e.source !== ref.current?.contentWindow || e.data?.labView !== 1) return;
         const { kind, id, checkpoint, sub, target, anchor } = e.data;
-        if(kind==='inspect-agent'){point.current=anchor;setInspected(target)}
+        if(kind==='inspect-agent'){point.current=anchor;setInspected(target);if(target.kind!=='assistant')NL.focusAgent(target.agent_id,target.agent)}
         else if(kind==='agent-anchor'){point.current=anchor;place()}
         else if(kind==='dismiss-agent')setInspected(null);
         else if(kind==='start')NL.go('start');
@@ -81,7 +81,7 @@
         else if (kind === 'artifact' && id) NL.openArtifact(id);
         else if (kind === 'inbox') NL.open(NL.InboxSheet, {}, {key:'inbox'});
         else if (kind === 'assistant') NL.openAssistant();
-        else if (kind === 'following' && NL.pendingFollow === id) NL.pendingFollow = null;
+        else if (kind === 'following' && id) {NL.focusAgent(id);if(NL.pendingFollow===id)NL.pendingFollow=null;}
         else if (kind === 'checkpoint' && NL.item(NL.getState(), id)) NL.openCheckpoint(id, checkpoint);
       };
       window.addEventListener('message', receive);
@@ -91,12 +91,13 @@
       window.addEventListener('pointermove',clearHover);
       return () => {window.removeEventListener('message', receive);window.removeEventListener('lab-follow',follow);window.removeEventListener('pointermove',clearHover)};
     }, []);
-    const send = () => {const state=NL.getState()||{};ref.current?.contentWindow?.postMessage({ labView: 1, active,
+    const focus=NL.useFocus();
+    const send = () => {const state=NL.getState()||{};ref.current?.contentWindow?.postMessage({ labView: 1, active,focus,
       ...(active ? {state: {...state,world_view:view,agents:NL.displayAgents(state)},
         theme: NL.themeNow(), cast: p.cast, motion: p.motion, labels: p.labels} : {}) }, '*');
       if(active&&NL.pendingFollow)ref.current?.contentWindow?.postMessage({labView:1,command:'follow',id:NL.pendingFollow},'*')};
     const s = NL.useLab();
-    useLayoutEffect(send, [active, s, view, theme, p.motion, p.labels, JSON.stringify(p.cast)]);
+    useLayoutEffect(send, [active, s, view, theme, p.motion, p.labels, JSON.stringify(p.cast),JSON.stringify(focus)]);
     useEffect(()=>{if(!active)dismiss()},[active]);
     return html`<div class="lab-view"><header aria-label="Lab overview"><h1>The lab</h1>
       <div class="row"><${NL.Seg} ariaLabel="Lab layout" value=${view} onChange=${changeView} options=${[{value:'full',label:'By machine'},{value:'unified',label:'Unified'}]}/>
@@ -111,12 +112,13 @@
   const NotFound = ({ error }) => html`<div class="page"><h1>Page not found</h1><p>${error || 'This address does not match a Lab page.'}</p>
     <div class="row"><a class="btn" href="#/">Return to the Lab</a><${NL.Btn} onClick=${NL.openPalette}>Search</${NL.Btn}></div></div>`;
   const App = () => {
-    const route = NL.useRoute(), s = NL.useLab();
+    const route = NL.useRoute(), s = NL.useLab(),focus=NL.useFocus();
     const page = Object.hasOwn(PAGES, route.page) ? route.page : 'not-found';
     const showLab = page === 'home' || page === 'world', labSeen = useRef(showLab);
     if (showLab) labSeen.current = true;
     const previous = useRef(page), Component = PAGES[page]();
     const main = useRef(), path = page + '/' + route.args.join('/'), focusedPath = useRef(path);
+    useEffect(()=>{if(s)NL.syncFocus(NL.parseRoute(),s)},[s,path,JSON.stringify(route.query)]);
     const needs = NL.needsYou(s).length, connection = NL.useConn();
     NL.usePrefs();
     useEffect(() => {
@@ -146,13 +148,14 @@
       <header class="lab-header"><a class="lab-brand" href="#/" aria-label="ARLOtope"><img class="arlotope-mark" src="static/brand/arlotope-mark.png" alt=""/>
         <span>ARLOtope</span></a>
         <button type="button" class="theme-switch" aria-label=${NL.themeNow()==='day'?'Switch to dark mode':'Switch to light mode'} title=${NL.themeNow()==='day'?'Switch to dark mode':'Switch to light mode'} onClick=${()=>NL.setPref('theme',NL.themeNow()==='day'?'night':'day')}>${NL.themeNow()==='day'?'◑ Dark':'◐ Light'}</button>
-        <nav class="lab-nav" aria-label="Main navigation">${NAV.map(([path, title]) => html`<a href=${'#/' + path}
+        <nav class="lab-nav" aria-label="Main navigation">${NAV.map(([path, title]) => html`<a href=${NL.focusHref(path,focus)}
           aria-current=${(GROUP[page] ?? page) === path ? 'page' : null}>${title}</a>`)}</nav>
         <div class="lab-tools"><button type="button" class="iconbtn" onClick=${NL.openPalette} aria-label="Search" title="Search (Ctrl+K)"><${NL.Glyph} name="lens" size=${18} /></button>
           <button type="button" class="needs-button" onClick=${() => NL.open(NL.InboxSheet, {}, { key: 'inbox' })}>Inbox${needs ? html`<span class="count">${needs}</span>` : null}</button>
           <a class="iconbtn" href="#/settings" aria-label="Settings" title="Settings"><${NL.Glyph} name="gear" size=${18} /></a>
           <${NL.Btn} kind="primary" onClick=${() => NL.go('start')}>New study</${NL.Btn}></div></header>
       <main ref=${main} id="main-content" class="stage" tabIndex="-1"><${NL.PausedBar} />
+        ${['home','world','study','workflow','library','artifacts','runs'].includes(page)?html`<${NL.WorkContext}/>`:null}
         ${connection === 'offline' || connection === 'reconnecting' ? html`<div class="connection-note" role="status">Reconnecting. Showing the last known state.</div>` : null}
         ${labSeen.current ? html`<div class="lab-mount" hidden=${!showLab}><${LabView} active=${showLab} /><${NL.LabDesk}/></div>` : null}
         ${!showLab ? html`<${Component} args=${route.args} query=${route.query} error=${route.error} />` : null}

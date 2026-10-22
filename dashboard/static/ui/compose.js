@@ -127,7 +127,7 @@
         <div class="note note-warn">${d.error}</div><p class="muted">Fix the file below (or a workflow's, under workflow/workflows/), or discard the draft.</p>
         <${FileEditor} path="workflow/steps.yaml" /></div></main></div>`;
     let body;
-    if (!where || where === 'map') body = html`<${MapPage} d=${d} />`;
+    if (!where || where === 'map') body = html`<${MapPage} d=${d} query=${query||{}} />`;
     else if (where === 'instruments') body = html`<div class="cmp-page"><header class="cmp-head"><div class="grow"><div class="kicker">Workflow</div><h1>Instruments</h1>
       </div></header><${NL.Cabinet} /></div>`;
     else if (where === 'suggestions') body = html`<${Suggestions} d=${d} />`;
@@ -225,6 +225,7 @@
   const describeWorkflow = text => NL.launch({ prompt: 'Follow .claude/skills/design/SKILL.md to draft a research workflow change. Requirements:\n' + text });
 
   const VisualComposition=({d,w})=>{
+    const focus=NL.useFocus(),study=NL.item(NL.getState(),focus.study),bound=study?.workflow===w.id;
     const make=()=>w.path.map((id,i)=>({id,label:stepOf(d,id).label||id,procedure:doesIn(d,w,id)||'',room:stepOf(d,id).room,
       next:w.path.slice(i+1,i+2),outcomes:{...(w.routes?.[id]||{})},tags:stepOf(d,id).tags||[],instructions:'',outputs:[],agent:{role:'general',...stepOf(d,id).agent},context:{mode:'fresh'},...(w.nodes?.[id]||{})}));
     const [nodes,setNodes]=useState(make),[saved,setSaved]=useState(JSON.stringify(make()));
@@ -233,6 +234,7 @@
     const room=async title=>{let id=title.toLowerCase().replace(/[^a-z0-9]+/g,'-').replace(/^-|-$/g,'')||'room',base=id,i=2;while(d.rooms.some(r=>r.id===id))id=base+'-'+i++;
       const result=await edit({op:'copy',kind:'room',like:d.rooms[0]?.id,name:id,plain:true,title,steps:[]});return result.ok?id:null};
     return html`<${NL.WorkflowCanvas} key=${w.id} nodes=${nodes} rooms=${d.rooms} frameworks=${d.frameworks||[]} roles=${d.roles.map(r=>({value:r.name,label:r.label}))}
+      focusedTask=${bound?focus.task:null} onSelectTask=${id=>{if(bound)NL.setFocus(id===focus.task?focus:{study:study.id,task:id})}}
       tags=${d.tags||[]} checkpoints=${w.checkpoints||[]} skills=${Object.entries(d.procedures).map(([value,p])=>({value,label:p.title||value,task:p.ui?.task}))} onChange=${setNodes}
       onCreateRoom=${room} onDesignRoom=${id=>NL.openRoomDesign(id)} onEditSkill=${name=>NL.go('workflow/procedure/'+name)}
       onExport=${async()=>{const x=await NL.get('/api/compose/export?workflow='+encodeURIComponent(w.id));if(x.error)return NL.toast(x.error,'bad');const a=document.createElement('a'),bytes=Uint8Array.from(atob(x.data),c=>c.charCodeAt(0)),url=URL.createObjectURL(new Blob([bytes],{type:'application/zip'}));a.href=url;a.download=x.filename;a.click();setTimeout(()=>URL.revokeObjectURL(url),1000);NL.toast('Procedure downloaded. Lab tools are required for enforced gates and parallel execution.')}}
@@ -240,10 +242,12 @@
       dirty=${JSON.stringify(nodes)!==saved} onSave=${async()=>{const r=await edit({op:'graph',workflow:w.id,nodes},SAVED);if(r.ok)setSaved(JSON.stringify(nodes))}}/>`;
   };
 
-  const MapPage = ({ d }) => {
-    const s=NL.useLab(), workflows=d.workflows||[];
+  const MapPage = ({ d,query={} }) => {
+    const s=NL.useLab(),focus=NL.useFocus(),workflows=d.workflows||[],study=NL.item(s,focus.study),wanted=query.workflow||study?.workflow;
     const [machine,setMachine]=useState(''),tools=NL.useGet('/api/frameworks?'+NL.qs({machine}));
-    const [selected,setSelected]=useState(()=>workflows.find(w=>w.id===NL.ls.get('workflow-editor-id'))?.id||workflows.find(w=>w.default)?.id||workflows[0]?.id);
+    const [selected,setSelected]=useState(()=>workflows.find(w=>w.id===wanted)?.id||workflows.find(w=>w.id===NL.ls.get('workflow-editor-id'))?.id||workflows.find(w=>w.default)?.id||workflows[0]?.id);
+    useEffect(()=>{if(wanted&&workflows.some(w=>w.id===wanted))setSelected(wanted)},[wanted]);
+    const choose=id=>{setSelected(id);NL.go(NL.focusHref('workflow/map?workflow='+encodeURIComponent(id),study?.workflow===id?focus:{}))};
     useEffect(()=>{if(selected)NL.ls.set('workflow-editor-id',selected)},[selected]);
     const w=workflows.find(w=>w.id===selected)||workflows[0];
     return html`<div class="cmp-page process-page"><header class="cmp-hero"><h1>Workflow</h1></header>
@@ -253,10 +257,10 @@
           <div><span>03</span><h3>Checkpoints</h3><p>Where work waits for a review or a check. You choose what needs approval and what evidence to inspect.</p></div></div>
         <p class="muted small">Edits stay in a draft. Review and publish when ready; the latest publication can be undone.</p>
         <button type="button" class="link small" onClick=${e=>{NL.ls.set('nl-process-introduced',true);e.currentTarget.closest('details').open=false;}}>Got it</button></details>
-      <div class="process-toolbar"><${NL.WorkflowPicker} label="Research workflow" workflows=${workflows} value=${w?.id||''} onChange=${setSelected} blocked=${x=>NL.frameworkBlocked(x,tools.data)}/>
-        <${NL.Btn} onClick=${()=>NL.open(NewWorkflow,{onMade:setSelected}, {kind:'dialog',key:'wf-new'})}>New workflow</${NL.Btn}></div>
-      <${NL.FrameworkTools} read=${tools} machine=${machine} onMachine=${setMachine} onInspect=${id=>setSelected(workflows.find(x=>NL.requiredFrameworks(x).includes(id))?.id||selected)}/>
-      ${w ? html`<${Line} d=${d} w=${w} first=${w.default} n=${(s.items||[]).filter(i=>i.workflow===w.id&&!i.finished&&!NL.isShelved(i.state)).length} onCopy=${setSelected} />` : null}
+      <div class="process-toolbar"><${NL.WorkflowPicker} label="Research workflow" workflows=${workflows} value=${w?.id||''} onChange=${choose} blocked=${x=>NL.frameworkBlocked(x,tools.data)}/>
+        <${NL.Btn} onClick=${()=>NL.open(NewWorkflow,{onMade:choose}, {kind:'dialog',key:'wf-new'})}>New workflow</${NL.Btn}></div>
+      <${NL.FrameworkTools} read=${tools} machine=${machine} onMachine=${setMachine} onInspect=${id=>choose(workflows.find(x=>NL.requiredFrameworks(x).includes(id))?.id||selected)}/>
+      ${w ? html`<${Line} d=${d} w=${w} first=${w.default} n=${(s.items||[]).filter(i=>i.workflow===w.id&&!i.finished&&!NL.isShelved(i.state)).length} onCopy=${choose} />` : null}
       <details class="process-agent"><summary>Draft with an agent</summary><p class="muted">Review the draft before publishing.</p>
         <${NL.DescribeBar} what="workflow" placeholder="For example: add a replication review before writing, approved by me." onSend=${describeWorkflow} /></details>
       ${(d.workflow_designs||[]).length ? html`<section class="cmp-sec"><h2>Agent proposals</h2>${d.workflow_designs.map(x=>html`<button type="button" class="search-result" onClick=${()=>NL.open(WorkflowDesign,{x},{key:'wf-design'})}><b>${NL.clip(x.request||x.id,100)}</b><small>${x.problems.length?'Needs revision':'Ready to review'}</small></button>`)}</section>`:null}

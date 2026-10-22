@@ -4,6 +4,17 @@
   const NL = window.NL;
   const { html, useState, useEffect, useLayoutEffect, useRef, useMemo, cls } = NL;
 
+  // Recent inspector forms survive switching readers; kept only in this browser tab's memory.
+  const drafts=new Map();
+  NL.useDraft=(name,initial)=>{
+    const key=(NL.getState()?.lab_info?.path||location.origin)+':'+name;
+    const read=()=>drafts.has(key)?drafts.get(key):typeof initial==='function'?initial():initial;
+    const [value,set]=useState(read),active=useRef(key);
+    useLayoutEffect(()=>{if(active.current!==key){active.current=key;set(read())}},[key]);
+    const change=next=>set(previous=>{const v=typeof next==='function'?next(previous):next;drafts.delete(key);if(v!==''&&v!==null)drafts.set(key,v);if(drafts.size>128)drafts.delete(drafts.keys().next().value);return v});
+    return [value,change];
+  };
+
   NL.Btn = ({ children, onClick, kind, small, disabled, title, type, busy, icon }) => {
     const [working, setWorking] = useState(false);
     const click = async e => {
@@ -236,11 +247,11 @@
           if (document.activeElement !== opener) requestAnimationFrame(restore);
         }
       };
-    }, [top?.id]);
+    }, [top?.id,top?.key]);
     if (!list.length) return null;
     return html`${list.map((layer, i) => html`<div data-layer-id=${layer.id} key=${layer.id} class=${cls('layer', 'layer-' + layer.kind)} style=${{ zIndex: 100 + i * 2 }}>
       <div class="scrim" onClick=${() => NL.close(layer.id)}></div>
-      <${layer.Comp} ...${layer.props} onClose=${() => NL.close(layer.id)} layerId=${layer.id} /></div>`)}`;
+      <${layer.Comp} key=${layer.key||layer.id} ...${layer.props} onClose=${() => NL.close(layer.id)} layerId=${layer.id} /></div>`)}`;
   };
 
   NL.Toasts = () => {

@@ -36,7 +36,13 @@
     const file = String(d.title || d.rel || '').split('/').pop(), label = NL.docLabel(file);
     return html`<span class="doc-name">${label}${label !== file ? html`<small class="doc-file mono">${file}</small>` : null}</span>`;
   };
-  const docHref = d => `#/library/${encodeURIComponent(d.scope)}/${encodeURIComponent(d.slug || '_')}/${d.rel.split('/').map(encodeURIComponent).join('/')}` + (NL.parseRoute().page==='library'&&location.hash.includes('?')?'?'+location.hash.split('?')[1]:'');
+  const docHref = d => {
+    const f=NL.getFocus(),study=['study','project'].includes(d.scope)?d.slug:null,route=NL.parseRoute();
+    const query=route.page==='library'&&(route.query.view==='documents'||route.args.length>=3)?{...route.query,study:study||'@lab'}:{view:'documents',study:study||'@lab'};
+    if(f.study!==study)for(const key of ['task','agent','child','worker'])delete query[key];
+    return NL.focusHref(`library/${encodeURIComponent(d.scope)}/${encodeURIComponent(d.slug || '_')}/${d.rel.split('/').map(encodeURIComponent).join('/')}?`+NL.qs(query),
+      study?{...(f.study===study?f:{}),study}:{});
+  };
   NL.openDoc = (scope, slug, rel) => { location.hash = docHref({ scope, slug, rel }); };
 
   NL.DocReader = ({ scope, slug, rel, bare, fallback }) => {
@@ -78,11 +84,11 @@
       const saved=NL.ls.get(key+section,'#/library'),[path,search='']=saved.split('?'),filters=Object.fromEntries(new URLSearchParams(search));
       const next=section==='records'?(scope==='@lab'?'':scope):scope;
       const same=(filters.study||'')===next;
-      return (same&&section!==active?path:'#/library')+'?'+NL.qs({...filters,view:section==='outputs'?undefined:section,study:next,record:same&&section!==active?filters.record:undefined});
+      return NL.focusHref((same&&section!==active?path:'#/library')+'?'+NL.qs({...filters,view:section==='outputs'?undefined:section,study:next,record:same&&section!==active?filters.record:undefined}));
     };
     const options=[...(active==='records'?[]:[{value:'',label:'All studies & lab'}]),{value:'@lab',label:'Lab-wide'},
       ...[...new Set([...(lab.items||[]).map(i=>i.id),...studies,scope].filter(id=>id&&id!=='@lab'))].map(id=>({value:id,label:NL.item(lab,id)?.title||id}))];
-    const choose=value=>NL.go('library?'+NL.qs({...query,view:active==='outputs'?undefined:active,study:active==='records'&&value==='@lab'?'':value,record:undefined}));
+    const choose=value=>{NL.setFocus(value&&value!=='@lab'?{study:value}:{});NL.go('library?'+NL.qs({...query,view:active==='outputs'?undefined:active,study:active==='records'&&value==='@lab'?'':value,record:undefined,task:undefined,agent:undefined,child:undefined,worker:undefined}))};
     return html`<header class="library-mast"><div><span class="kicker">Research archive</span><h1>Library</h1></div><div class="library-controls">
       <${NL.Select} ariaLabel="Library study" value=${scope} onChange=${choose} options=${options}/><nav aria-label="Library sections">
       <a href=${target('outputs')} aria-current=${active==='outputs'?'page':null}>Outputs</a>

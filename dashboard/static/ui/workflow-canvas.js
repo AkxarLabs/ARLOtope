@@ -95,9 +95,10 @@
         ${checkpoints.filter(c=>c.before===node.id||c.during===node.id).map(c=>html`<p>◇ ${c.title}</p>`)}</div>`:null}
     </section>`;
   };
-  N.WorkflowCanvas=({nodes,rooms=[],roles=[],skills=[],frameworks=[],onChange:onNodesChange,onCreateRoom,onDesignRoom,onCheckpoint,onEditSkill,onSave,onExport,dirty,tags=[],checkpoints=[]})=>{
+  N.WorkflowCanvas=({nodes,rooms=[],roles=[],skills=[],frameworks=[],onChange:onNodesChange,onCreateRoom,onDesignRoom,onCheckpoint,onEditSkill,onSave,onExport,dirty,tags=[],checkpoints=[],focusedTask,onSelectTask})=>{
     const [selected,setSelected]=useState(null),[view,setView]=useState(()=>matchMedia('(max-width:640px)').matches?'list':'flow'),[picked,setPicked]=useState([]),[room,setRoom]=useState(''),[roomName,setRoomName]=useState(''),[parallelFrom,setParallelFrom]=useState('');
     const node=nodes.find(n=>n.id===selected),{places,width,height}=layout(nodes);
+    useEffect(()=>{if(focusedTask&&nodes.some(n=>n.id===focusedTask))setSelected(focusedTask)},[focusedTask]);
     const branched=nodes.some((n,i)=>list(n.next).length>1||list(n.next).some(t=>nodes.findIndex(x=>x.id===t)<=i)||Object.keys(n.outcomes||{}).length);
     const scroll=useRef(),inspector=useRef(),[available,setAvailable]=useState(800),[zoom,setZoom]=useState(null),[query,setQuery]=useState('');
     const [wire,setWire]=useState(null),[connection,setConnection]=useState(null),[history,setHistory]=useState([]),gesture=useRef(null);
@@ -109,7 +110,7 @@
     useEffect(()=>{if(node&&matchMedia('(max-width:760px)').matches)inspector.current?.scrollIntoView({block:'start',behavior:'instant'})},[selected]);
     useEffect(()=>{setWire(null);gesture.current=null},[view]);
     useEffect(()=>{if(connection)scroll.current?.querySelector(`[data-connection="${connection.source}:${connection.outcome}:${connection.target}"]`)?.focus({preventScroll:true})},[connection]);
-    const inspect=sid=>{setSelected(sid);setConnection(null);if(zoom!==null&&zoom<.85)setZoom(1)};
+    const inspect=sid=>{setSelected(sid);onSelectTask?.(sid);setConnection(null);if(zoom!==null&&zoom<.85)setZoom(1)};
     const closeInspector=()=>{setSelected(null);scroll.current?.querySelector(`[data-task="${selected}"] .wf-node-open`)?.focus()};
 
     const patch=(sid,fields)=>onChange(nodes.map(n=>n.id===sid?{...n,...fields}:n));

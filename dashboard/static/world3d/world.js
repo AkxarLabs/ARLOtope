@@ -847,6 +847,7 @@ L.createWorld = async function createWorld(canvas, opts) {
     setView(m) { if (m === 'WORLD') setViewState('WORLD'); },
     goRoom(k) { if (W && W.rooms[k]) setViewState('ROOM', k); },
     focusProject(id) { if (!W) return; const it = item(snap, id), rid = (it && roomOfItem(snap, it)) || null; if (rid) setViewState('ROOM', rid); },
+    focusTask(study,task) {if(!W)return;const it=item(snap,study),room=it&&task&&M.roomForStep(snap,task,W.rooms,it.machine||'local',it.workflow);if(room)setViewState('ROOM',room);else this.focusProject(study)},
     back() { setViewState('WORLD'); },
     viewInfo() { return { level: view.level === 'ROOM' ? 'REGION' : 'WORLD', label: view.label }; },
     agentAnchor(id) {
