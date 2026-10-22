@@ -26,6 +26,17 @@
       "source": "Current application in an isolated synthetic example Lab; no research agents or SSH sessions launched."
     },
     {
+      "file": "agent-task-preview.webp",
+      "size": [
+        1440,
+        1000
+      ],
+      "bytes": 70068,
+      "sha256": "d6c44344e2af48b9de3ecf5b3b1be8a5a803cd711bf5654d6ae358d385f795b0",
+      "captured": "2026-10-22",
+      "source": "Current renderer and dashboard using synthetic browser-only agent telemetry; no model runs launched."
+    },
+    {
       "file": "agents-recovery.webp",
       "size": [
         1440,
@@ -213,6 +224,17 @@
       "source": "Current application in an isolated synthetic example Lab; no research agents or SSH sessions launched."
     },
     {
+      "file": "room-activity-preview.webp",
+      "size": [
+        1440,
+        1000
+      ],
+      "bytes": 54502,
+      "sha256": "2ab7e2cb4b20e9489ca0faf1cf2a05139924cd69c1ae9c35153de5d3453ede73",
+      "captured": "2026-10-22",
+      "source": "Current renderer and dashboard using synthetic browser-only agent telemetry; no model runs launched."
+    },
+    {
       "file": "settings-limits.webp",
       "size": [
         1440,
@@ -310,6 +332,17 @@
       "sha256": "53d4e59329cf8e5816130304c25b2a573705eb2a31384e9d6ccc0408f0f0caf3",
       "captured": "2026-10-22",
       "source": "Current application in an isolated synthetic example Lab; no research agents or SSH sessions launched."
+    },
+    {
+      "file": "task-peer-links.webp",
+      "size": [
+        1440,
+        1000
+      ],
+      "bytes": 64366,
+      "sha256": "fe36b7c0c08c34dfd261c943f7b98944704032476110327ce9284f16c0325e44",
+      "captured": "2026-10-22",
+      "source": "Current renderer and dashboard using synthetic browser-only agent telemetry; no model runs launched."
     },
     {
       "file": "workflow-editor.png",

@@ -34,7 +34,7 @@ pytestmark = pytest.mark.skipif(not NODE, reason="node is needed to load the wor
 
 def _node(body: str) -> dict:
     """Run `body` under node with the world scripts loaded (window.Lab3D as L, the manifest as WF)."""
-    files = [str(W3 / f) for f in CORE] + [str(W3 / "rooms" / f) for f in ROOM_FILES]
+    files = [str(STATIC / 'agent-view.js')] + [str(W3 / f) for f in CORE] + [str(W3 / "rooms" / f) for f in ROOM_FILES]
     js = f"""
       global.window = global; const fs = require('fs');
       for (const f of {json.dumps(files)}) eval(fs.readFileSync(f, 'utf8'));
@@ -45,6 +45,85 @@ def _node(body: str) -> dict:
     r = subprocess.run([NODE, "-e", js], capture_output=True, text=True, timeout=60)
     assert r.returncode == 0, r.stderr
     return json.loads(r.stdout)
+
+
+def test_agent_identity_scopes_native_sessions_and_keeps_forks_distinct():
+    got=_node("""
+      const runs=[{run_id:'a',session_id:'s',backend:'codex',cwd:'/p'},
+        {run_id:'b',session_id:'s',backend:'codex',cwd:'/p/',context:{mode:'continue',source_run:'a'}},
+        {run_id:'fork',session_id:'t',backend:'codex',cwd:'/p',context:{mode:'native-fork',source_run:'a'}},
+        {run_id:'remote',session_id:'s',backend:'codex',remote:{machine:'gpu',path:'/p'}},
+        {run_id:'other',session_id:'s',backend:'claude',cwd:'/p'}];
+      const agents=runs.map(r=>({id:'run:'+r.run_id,run_id:r.run_id})),s={runs,agents};
+      const ids=agents.map(a=>ArloAgents.identity(s,a));
+      const win={runs:[{run_id:'w1',session_id:'s',backend:'codex',cwd:'C:'+String.fromCharCode(92)+'Work'},
+        {run_id:'w2',session_id:'s',backend:'codex',cwd:'c:/work/'}]};
+      return {same:ids[0]===ids[1],separate:new Set(ids).size,windows:ArloAgents.identity(win,{run_id:'w1'})===ArloAgents.identity(win,{run_id:'w2'})};
+    """)
+    assert got=={'same':True,'separate':4,'windows':True}
+
+
+def test_hover_peers_use_task_visits_and_never_join_unrelated_work():
+    got=_node("""
+      const runs=[{run_id:'a',subject:'study',workflow_node:'task',workflow_visit:1},
+        {run_id:'b',subject:'study',workflow_node:'task',workflow_visit:1},
+        {run_id:'loop',subject:'study',workflow_node:'task',workflow_visit:2},
+        {run_id:'other',subject:'study',workflow_node:'different'},
+        {run_id:'study2',subject:'another',workflow_node:'task'},
+        {run_id:'stopped',subject:'study',workflow_node:'task',status:'failed',needs_followup:true}];
+      const agents=runs.map(r=>({id:r.run_id,run_id:r.run_id,status:'working'}));
+      agents.push({id:'child',run_id:'a',parent:'a',status:'working'},
+        {id:'queued',run_id:'b',status:'queued'},{id:'terminal',status:'working'});
+      const s={runs,agents};return ArloAgents.peers(s,agents[0]).map(a=>a.id);
+    """)
+    assert got==['b','child']
+
+
+def test_attention_uses_recorded_causes_and_outputs_keep_child_ownership():
+    got=_node("""
+      const causes=[{pending_permissions:[{tool:'Bash'}]}, {pending_question:{question:'Choose?'}},
+        {failure_kind:'usage_limit',status:'failed',needs_followup:true}, {status:'completed',needs_followup:true}, {}];
+      const s={runs:causes.map((r,i)=>({run_id:String(i),status:'running',...r})),
+        artifacts:[{id:'main',run_id:'0'},{id:'child',about:{run:'0',agent:'child'}},{id:'unrelated',run_id:'9'}]};
+      return {causes:s.runs.map(r=>ArloAgents.attention(s,{run_id:r.run_id})?.id||null),
+        child:ArloAgents.outputs(s,{run_id:'0',sub:'child'}).map(o=>o.id)};
+    """)
+    assert got=={'causes':['permission','question','limit','unfinished',None],'child':['child']}
+
+
+def test_room_preview_is_synthetic_and_places_team_and_questions_in_the_room():
+    got=_node("""
+      const s={workflow:WF,agents:[{id:'real'}],runs:[{run_id:'real'}]},room=WF.rooms[0].id;
+      const preview=M.preview(s,room,'team',true),rooms=Object.fromEntries(M.roomList(preview).map(r=>[r.id,r]));
+      const asking=M.preview(s,room,'ask',false),p=M.placeAgent(asking,asking.agents[0],rooms);
+      return {agents:preview.agents.length,rooms:preview.agents.map(a=>M.placeAgent(preview,a,rooms).room),
+        question:{room:p.room,desk:p.desk,pose:p.pose},unchanged:s.agents[0].id==='real'&&s.runs.length===1,room};
+    """)
+    assert got['agents']==3 and got['rooms']==[got['room']]*3 and got['unchanged']
+    assert got['question']=={'room':got['room'],'desk':False,'pose':'wait'}
+
+
+def test_scene_links_reuse_buffers_and_release_resources():
+    script=f"""
+      global.window=global;const fs=require('fs');
+      eval(fs.readFileSync({json.dumps(str(W3/'kit.js'))},'utf8'));
+      eval(fs.readFileSync({json.dumps(str(W3/'annotations.js'))},'utf8'));
+      (async()=>{{
+        const T=await import('data:text/javascript;base64,'+fs.readFileSync(
+          {json.dumps(str(STATIC/'vendor/three/three.module.min.js'))}).toString('base64'));
+        const scene=new T.Scene(),notes=Lab3D.annotations(T,scene),from=new T.Vector3(),at=new T.Vector3(5,0,3);
+        notes.links(from,[{{at,lift:1}}],false);const line=scene.children[0].children[0];let disposed=0;
+        line.geometry.addEventListener('dispose',()=>disposed++);line.material.addEventListener('dispose',()=>disposed++);
+        for(let i=0;i<30;i++)notes.links(from,[{{at,lift:1}}],i%2===0);
+        const reused=scene.children[0].children[0]===line;
+        const finite=[...line.geometry.attributes.position.array,...line.geometry.attributes.lineDistance.array].every(Number.isFinite);
+        notes.links(null,[],false);Lab3D.resources.release(scene);
+        console.log(JSON.stringify({{reused,finite,disposed,links:notes.inspect().links}}));
+      }})().catch(e=>{{console.error(e);process.exitCode=1}});
+    """
+    result=subprocess.run([NODE,'-e',script],capture_output=True,text=True,timeout=60)
+    assert result.returncode==0,result.stderr
+    assert json.loads(result.stdout)=={'reused':True,'finite':True,'disposed':2,'links':0}
 
 
 def test_floor_sources_stay_independent_through_theme_round_trips():
@@ -352,7 +431,7 @@ def test_furniture_offers_the_spots_its_hand_placed_stations_already_use():
     assert {"read", "edit", "run", "bash", "spawn", "plan"} <= set(out["kinds"])
 
 
-def test_an_agent_stands_in_its_runs_room_at_your_desk_when_it_asks():
+def test_an_agent_keeps_its_task_room_when_it_asks():
     out = _node("""
       const proc = Object.keys(WF.procedures).find(p => WF.procedures[p].level === 'project');
       const step = WF.steps.find(s=>s.do===proc), rid=step.room;
@@ -368,5 +447,5 @@ def test_an_agent_stands_in_its_runs_room_at_your_desk_when_it_asks():
                lab: rid };
     """)
     assert out["sub"] == [out["lab"], False, "read", "work"]           # a subagent works in its run's room, by its call
-    assert out["asks"][1:] == [True, None, "wait"]                     # asking you: at your desk, hand up
+    assert out["asks"][1:] == [False, None, "wait"]                    # attention stays at its task
     assert out["quiet"][3] == "sleep" and out["mine"] == [out["lab"], False, None, "idle"]

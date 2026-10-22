@@ -116,13 +116,11 @@
   };
 
   /** the activities an agent can be at (the tracer's vocabulary), as the world names them */
-  M.ACTS = { read: ['▤', 'reading'], search: ['⌕', 'searching'], edit: ['✎', 'editing'], run: ['⚗', 'running an experiment'],
-    bash: ['›', 'at the terminal'], git: ['⑂', 'committing'], spawn: ['⇢', 'briefing a subagent'], ask: ['?', 'asking you'],
-    plan: ['☰', 'planning'], skill: ['✦', 'following a procedure'], mcp: ['⚙', 'using a tool'], tool: ['•', 'working'] };
+  M.ACTS = ArloAgents.activities;
 
   /** where an agent works and how it stands, from its row in the snapshot's `agents`: room — its run's room (see
-   *  placeOfRun) or, for a session no run accounts for, its study's; desk — it is at your desk instead (asking you,
-   *  queued, or work with no room); kind — what it is doing now (the activity of the call it is in, else null);
+   *  placeOfRun) or, for a session no run accounts for, its study's; desk — queued or work with no room;
+   *  kind — what it is doing now (the activity of the call it is in, else null);
    *  pose — work · wait (asking you) · idle (queued, or between calls in a session) · sleep (gone quiet) */
   M.placeAgent = function placeAgent(s, a, rooms) {
     const run = a.run_id ? (s.runs || []).find(r => r.run_id === a.run_id) : null;
@@ -131,13 +129,25 @@
     else { const it = a.subject && M.item(s, a.subject),machine=M.machineOf(s,a); room = it ? M.roomOfItem(s, it, rooms,machine) : null; }
     room = room && rooms[room] ? room : 'hub';
     const kind = (a.doing && a.doing.kind) || null;
-    const pose = a.status === 'asking' || kind === 'ask' ? 'wait' : a.status === 'queued' ? 'idle' : a.status === 'stalled' ? 'sleep'
-      : a.status === 'idle' && !kind ? 'idle' : 'work';
-    const machine=M.machineOf(s,a),desk=room==='hub'||pose==='wait'||a.status==='queued',localHub=roomKey(s,'hub',machine);
-    if(s.world_view==='full'&&machine!=='local'&&desk&&rooms[localHub])return {room:localHub,desk:false,kind,pose,run};
-    return { room, desk, kind, pose, run };
+    const signal = ArloAgents.attention(s,a);
+    const pose = signal?.pose || (a.status === 'queued' ? 'idle' : a.status === 'stalled' ? 'sleep'
+      : a.status === 'idle' && !kind ? 'idle' : 'work');
+    const machine=M.machineOf(s,a),desk=room==='hub'||a.status==='queued',localHub=roomKey(s,'hub',machine);
+    if(s.world_view==='full'&&machine!=='local'&&desk&&rooms[localHub])return {room:localHub,desk:false,kind,pose,run,signal};
+    return { room, desk, kind, pose, run, signal };
   };
 
+
+  /** Room-only sample telemetry. Never sent to the server or used as execution state. */
+  M.preview = (s,room,activity,guides) => {
+    const view={...s,room_preview:{room,guides}};if(!activity)return view;
+    const team=activity==='team',run={run_id:'room-preview',subject:'room-preview',workflow_node:'preview',status:activity==='ask'?'waiting_input':'running',backend:'claude'};
+    const agent={id:'preview-main',run_id:run.run_id,status:activity==='ask'?'asking':'working',role:'orchestrator',display_label:'Sample researcher',doing:{kind:team?'edit':activity}};
+    return {...view,world_view:'unified',artifacts:[],items:[{id:'room-preview',state:'preview',workflow:'room-preview'}],runs:[run],
+      agents:[agent,...(team?[{...agent,id:'preview-reviewer',parent:agent.id,sub:'reviewer',role:'reviewer',display_label:'Sample reviewer',doing:{kind:'read'}},
+        {...agent,id:'preview-planner',parent:agent.id,sub:'planner',role:'general-purpose',display_label:'Sample planner',doing:{kind:'plan'}}]:[])],
+      workflow:{...s.workflow,workflows:[{id:'room-preview',nodes:{preview:{room}}}]}};
+  };
 
   /** Coarse local routing around furniture; bounded by room size, independent of backend/workflow. */
   M.pathInRoom = (spec, start, end) => {

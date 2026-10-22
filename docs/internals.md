@@ -149,6 +149,10 @@ engine or style-pack runtime in Lab. `dashboard/room_design.py` and `tools/room_
 private room drafts and reviewed application through that same renderer. Optional `extra.js`
 geometry stays beside its room definition. See [Room design](room-design.md).
 
+`agent-view.js` shares activity labels, task-peer grouping, attention causes and scoped native-session
+identity between the dashboard and isolated renderer. It projects existing records without writing
+workflow or execution state. `world3d/annotations.js` owns pooled dotted links and room clearance aids.
+
 `world3d/model.js` maps a run/task to a room, folds furniture `uses`/`stands` into activity spots,
 and supplies coarse within-room paths. `world.js` reserves spots, smooths activity changes and routes
 actors through doors and streets. `newt.js` supplies the shared activity/pose animator; `characters.js`

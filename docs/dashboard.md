@@ -70,21 +70,40 @@ twenty seconds between calls. Reading, searching, typing, planning and briefing 
 gestures. Idle, waiting and stalled sessions use different poses. Reduced-motion modes place agents
 at their destinations without the walk.
 
-Questions and queued work gather near the researcher's desk; in **By machine**, remote work uses
-that machine's desk. Recorded children appear near their parent and share its family accent.
+Questions stay in the task's room with a raised hand and a question marker. Permission, usage-limit,
+unfinished-task and connection markers explain other waits; hovering or following reveals the label.
+On hover, questions and permissions also have a warm dotted link to the researcher's desk. Queued
+work waits by the appropriate desk. Recorded children appear near their parent and share its family accent.
 When a child disappears from the active records, it returns toward its parent and fades. This is
 a visual transition, not proof that the child's task succeeded.
 
 The room and activity are separate. An analysis task can read, search and edit while staying in
 Analysis. A displayed character whose destination changes follows doors and paths between rooms.
-Managed characters are currently keyed by run ID: continuing the same conversation in a later
-workflow run can create a new visual character, rather than preserve the previous one.
+When the harness supplies a native session ID, a continued conversation keeps its character across
+workflow runs on the same backend and execution location. Fresh sessions and native forks remain
+separate. Without a session ID, the renderer uses the run's identity. Visual continuity is held in
+the open view; it does not create or merge conversation records.
 The renderer uses coarse furniture avoidance within rooms, without a physics engine or guaranteed
 collision-free paths. A courier carrying a study card is a presentation effect, not another agent run.
 
 Activity comes from available harness events and trace hooks. Some commands are classified by their
 names; missing events cannot reveal what an agent is thinking. A working animation does not certify
 progress or a result. Click the character for its recorded activity, conversation and evidence.
+
+Hover, select or follow a character to see dotted links to other active agents on the **same task and visit**,
+including subagents and parallel workers. Another task in the same study or room is separate. Queued
+and ended runs are excluded. Visible published output cards are linked too. Keyboard selection shows
+the same relationships. The character's preview lists its task peers and retained outputs; an output's
+**Show in Lab** action returns to its producing agent while that agent is present.
+
+![Active task peers connected in the Lab](assets/current/task-peer-links.webp)
+
+*Synthetic browser state: three active peers and a published output card. The stopped, quota-limited
+agent keeps an attention marker and is excluded from active-task links.*
+
+![The character's task panel](assets/current/agent-task-preview.webp)
+
+*Task peers stay under one expandable row; outputs open their retained records.*
 
 If the view fails, use **Retry 3D view** or **View work below**. Technical details stay under **Details**. Loading and retrying the view do not restart agent tasks; room previews have their own retry control.
 

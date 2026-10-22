@@ -87,7 +87,9 @@
       window.addEventListener('message', receive);
       const follow=e=>ref.current?.contentWindow?.postMessage({labView:1,command:'follow',id:e.detail},'*');
       window.addEventListener('lab-follow',follow);
-      return () => {window.removeEventListener('message', receive);window.removeEventListener('lab-follow',follow)};
+      const clearHover=()=>ref.current?.contentWindow?.postMessage({labView:1,command:'clear-hover'},'*');
+      window.addEventListener('pointermove',clearHover);
+      return () => {window.removeEventListener('message', receive);window.removeEventListener('lab-follow',follow);window.removeEventListener('pointermove',clearHover)};
     }, []);
     const send = () => {const state=NL.getState()||{};ref.current?.contentWindow?.postMessage({ labView: 1, active,
       ...(active ? {state: {...state,world_view:view,agents:NL.displayAgents(state)},

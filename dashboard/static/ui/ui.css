@@ -212,6 +212,8 @@ body:not([data-page="home"]) .world-labels, body:not([data-page="home"]) .world-
 .wl-bub.ask { color: #231400; background: var(--warm); border-color: transparent; font-weight: 600; }
 .wl-bub.bad { color: #fff; background: var(--bad); border-color: transparent; } .wl-bub.zzz { font-style: italic; } .wl-bub.cost { color: var(--warm); } .wl-bub.icon { padding: 1px 7px; }
 .wl-bub.act { padding: 0 6px; font-size: 12px; opacity: .85; }   /* far off: the sign of what an agent is at */
+.wl-bub.signal{border-radius:4px;padding:2px 6px;font-style:normal}.wl-bub.signal span{margin-left:5px;font:11px var(--sans)}
+.agent-team{margin:8px 0;font-size:12px}.agent-team button{display:block;margin-top:6px}
 .agent-chip.sub { opacity: .92; }
 .world-tip { position: fixed; z-index: 25; pointer-events: none; padding: 8px 12px; max-width: 320px; font-size: 13px; display: none; border-radius: 12px;
   background: var(--paper); border: 1px solid var(--edge-2); box-shadow: var(--shadow-s); }

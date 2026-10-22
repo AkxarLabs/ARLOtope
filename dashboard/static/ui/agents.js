@@ -68,7 +68,8 @@
     const title=assistant?'Workspace assistant':NL.agentTitle({...agent,run_id:run?.run_id||agent.run_id,parent:target.sub||agent.parent,label:agent.label||sub?.description},s);
     const role=agent.role||sub?.type||run?.role||'general',status=agent.status||sub?.status||run?.status||'idle';
     const doing=agent.doing?.summary||sub?.last_message||run?.external_activity?.current?.label||run?.last_action?.summary||agent.last||'';
-    const output=run&&NL.artifactsOf(s).find(a=>a.run_id===run.run_id||a.about?.run===run.run_id);
+    const outputs=ArloAgents.outputs(s,{...agent,run_id:run?.run_id||agent.run_id,sub:target.sub}),peers=assistant?[]:ArloAgents.peers(s,agent);
+    const signal=ArloAgents.attention(s,agent);
     const live=run?.transport==='live'&&run.pid&&(NL.RUN_ACTIVE.has(run.status)||run.status==='waiting_input');
     const canMessage=run?.session_id&&!run.pending_question&&(live||run.status==='waiting_input'||NL.RUN_DONE.has(run.status));
     const details=()=>{onClose();if(assistant)NL.openAssistant();else if(target.kind==='run')NL.openRun(target.id,target.sub);else NL.openWorker(target.id)};
@@ -79,10 +80,11 @@
       finally{setBusy(false)}
     };
     return html`<aside ref=${nodeRef} class="agent-peek" role="dialog" aria-modal="false" aria-label="Agent preview">
-      <header><${NL.AgentAvatar} backend=${agent.backend||run?.backend} size=${26}/><div class="grow"><b>${NL.clip(title,70)}</b><small>${assistant?'Lab overview':NL.roleOf(role).label+' · '+(run && !target.sub ? NL.runStateLabel(run) : NL.RUN_WORD[status]||status.replaceAll('_',' '))}</small></div><button type="button" class="iconbtn sm" aria-label="Close agent preview" onClick=${onClose}>×</button></header>
+      <header><${NL.AgentAvatar} backend=${agent.backend||run?.backend} size=${26}/><div class="grow"><b>${NL.clip(title,70)}</b><small>${assistant?'Lab overview':NL.roleOf(role).label+' · '+(signal?.label||(run && !target.sub ? NL.runStateLabel(run) : NL.RUN_WORD[status]||status.replaceAll('_',' ')))}</small></div><button type="button" class="iconbtn sm" aria-label="Close agent preview" onClick=${onClose}>×</button></header>
       ${assistant?html`<p>Studies: ${(s.items||[]).length} · Inbox: ${(s.attention||[]).length}</p>`:html`${study?html`<a class="link small" href=${'#/study/'+study.id}>${study.title||study.id}</a>`:null}${doing?html`<p>${NL.clip(doing,180)}</p>`:null}`}
       ${study&&run?.workflow_node?html`<small class="muted">${NL.taskLabel(study,run.workflow_node)}${run.workflow_visit>1?' · pass '+run.workflow_visit:''}</small>`:null}
-      ${output?html`<p><a class="link small" href=${'#/artifacts/'+output.id}>${output.title} ↗</a></p>`:null}
+      ${outputs.slice(0,3).map(output=>html`<p><a class="link small" href=${'#/artifacts/'+output.id}>${output.title} ↗</a></p>`)}
+      ${peers.length?html`<details class="agent-team"><summary>${peers.length} other${peers.length===1?'':'s'} on this task</summary>${peers.map(p=>html`<button type="button" class="link small" onClick=${()=>{onClose();NL.followAgent(p.id)}}>${NL.agentTitle(p,s)}</button>`)}</details>`:null}
       ${run?.pending_question?html`<button type="button" class="link small" onClick=${details}>Answer the agent’s question →</button>`:run?.pending_permissions?.length?html`<button type="button" class="link small" onClick=${details}>Review permission request →</button>`:null}
       ${run?.needs_followup?html`<p>The workflow is waiting for this task.</p><button type="button" class="link small" onClick=${details}>Continue task →</button>`:null}
       ${canMessage?html`<label class="agent-peek-message">${target.sub?'Message via parent':'Message'}<textarea class="input" rows="2" aria-label="Message this agent" value=${text} onInput=${e=>setText(e.target.value)} onKeyDown=${e=>{if(e.key==='Enter'&&(e.ctrlKey||e.metaKey)){e.preventDefault();send()}}}/></label><div class="row end"><${NL.Btn} small disabled=${!text.trim()||busy} onClick=${send}>${busy?'Sending…':'Send'}</${NL.Btn}></div>`:target.kind==='worker'?html`<p class="muted small">Messages and questions stay in its terminal.</p>`:null}

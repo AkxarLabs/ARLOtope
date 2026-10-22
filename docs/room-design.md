@@ -22,10 +22,16 @@ tasks to it when you need another space. **By machine** repeats the room set for
 1. In **By room**, choose **Design room** beside a room.
 2. Describe the change and choose **Design with an agent**. This launches or continues the ordinary designer conversation.
 3. Open that conversation for feedback or questions. Return and **Refresh preview** after edits.
-4. Toggle **Show full lab** to inspect the room in context.
+4. Choose a **Preview** activity or **Team** to check sample agents at their furniture. **Show clearances**
+   marks standing spots and furniture bounds. These samples start no model runs. Choose **Live agents**
+   to use actual available activity, and toggle **Show full lab** to inspect the room in context.
 5. Review the preview and choose **Apply this room** when ready. **Close draft** leaves the draft for later.
 
 Drafting does not change the live room. The preview uses the application's renderer. Check any reported preview limitations before applying. For direct data edits, expand **Edit the room definition**, edit the JSON and use **Save & preview**.
+
+![Room activity and clearance preview](assets/current/room-activity-preview.webp)
+
+*Synthetic agents in an unapplied room draft. Bounds are layout aids, not a physics guarantee.*
 
 ## Files for custom geometry
 

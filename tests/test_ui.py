@@ -244,7 +244,8 @@ def test_work_list_keeps_queued_and_unrepresented_waits_without_repeating_inbox_
     states = source[source.index('NL.RUN_WORD ='):source.index('NL.runTitle =')]
     components = _js()['components']
     labels = components[components.index('NL.runStateLabel ='):components.index('NL.RunPill =')]
-    script = f"""const NL={{}}; {states} {accessors} {labels}
+    presentation=(STATIC/'agent-view.js').read_text(encoding='utf-8')
+    script = f"""global.window=global; {presentation} const NL={{}}; {states} {accessors} {labels}
       const s={{runs:[{{run_id:'working',status:'running'}},{{run_id:'later',status:'queued'}},
         {{run_id:'question',status:'waiting_input'}},{{run_id:'orphan',status:'waiting_input'}},
         {{run_id:'permission',status:'running',pending_permissions:[{{tool:'Read'}}]}},

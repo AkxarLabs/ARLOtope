@@ -46,11 +46,16 @@ observed work, and **gesture/status** for the agent's current condition. Room ch
 meaningful transitions; short tool calls need not cause another walk. Family accents identify
 related agents. Output objects should open the records they represent.
 
-Possible refinements are filename-bearing work objects, distinct waiting-reason badges, selected-agent
-handoff trails and activity previews in the room designer. These are design directions, not shipped
-controls. They should reuse existing activity, lineage, request and artifact records, without another
-workflow language or LLM call per animation. Unknown activity stays unknown; decorative movement must
-not imply verified progress.
+Task peers and visible output cards connect with dotted lines on hover, inspector selection or follow.
+Attention markers distinguish questions, permissions, quotas, unfinished tasks and disconnected machines;
+their wording is shared with agent cards and follow controls. Continued native sessions preserve their
+character within the open view, while forks create another character. Room previews use sample activity
+and optional clearance guides, without model calls.
+
+Further directions are filename-bearing work objects where exact paths are retained, handoff history
+on selection, and a shared study/task breadcrumb across map, world and records. Reuse activity, lineage,
+request and artifact records without another workflow language or LLM call per animation. Unknown
+activity stays unknown; decorative movement must not imply verified progress.
 
 - Use recognizable actions: New study, Save note, Send, Review, Connect, Visual summary.
 - Explain a consequential action where it happens: clone, launch, publish, disconnect or approve.

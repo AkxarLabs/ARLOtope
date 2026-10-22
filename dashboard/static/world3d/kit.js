@@ -46,12 +46,12 @@
       if (!refs.has(r)) { cache.set(key, r); refs.set(r, { count: 0, cache, key }); }
       return r;
     },
-    track(root) { root.traverse(o => { if ((o.isMesh || o.isPoints || o.isSprite) && !tracked.has(o)) { tracked.add(o); resourcesOf(o).forEach(retain); } }); return root; },
+    track(root) { root.traverse(o => { if ((o.isMesh || o.isPoints || o.isSprite || o.isLine) && !tracked.has(o)) { tracked.add(o); resourcesOf(o).forEach(retain); } }); return root; },
     material(mesh, next) { const previous=resourcesOf(mesh),owned=tracked.has(mesh);mesh.material=next;if(owned){resourcesOf(mesh).forEach(retain);previous.forEach(release)}else L.resources.track(mesh); },
     release(root) {
       if (!root) return;
       root.traverse(o => {
-        if ((o.isMesh || o.isPoints || o.isSprite) && tracked.has(o)) {
+        if ((o.isMesh || o.isPoints || o.isSprite || o.isLine) && tracked.has(o)) {
           resourcesOf(o).forEach(release); tracked.delete(o);
           o.userData.styleState?.releaseOriginals?.();
           for (const material of o.userData.styleState?.defaults || []) material.dispose();

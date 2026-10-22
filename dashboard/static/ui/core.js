@@ -323,8 +323,7 @@
   };
   NL.runsOf = (s, slug) => NL.runs(s, r => r.target === slug || r.subject === slug || r.explains?.study === slug);
   /** an activity of the tracer's vocabulary → [sign, words] (the world's, so the two read alike) */
-  const ACTIVITY = {read:['▤','reading'],search:['⌕','searching'],edit:['✎','editing'],run:['⚗','running an experiment'],bash:['›','at the terminal'],git:['⑂','committing'],spawn:['⇢','briefing a subagent'],ask:['?','asking you'],plan:['☰','planning'],skill:['✦','following a procedure'],mcp:['⚙','using a tool']};
-  NL.activity = kind => ACTIVITY[kind] || ['•','working'];
+  NL.activity = kind => ArloAgents.activities[kind] || ['•','working'];
   NL.workersOf = (s, slug) => ((s && s.workers) || []).filter(w => w.project === slug || w.idea === slug);
   NL.needsYou = s => ((s && s.attention) || []).filter(a => a.sev !== 'info');
   NL.agentReady = s => NL.backends(s).some(b => b.found && b.logged_in !== false);

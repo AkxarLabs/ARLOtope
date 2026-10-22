@@ -88,6 +88,7 @@
     type(o, tt) { o.lean = 0.12; o.armL = -1.1 + Math.max(0, S(tt * 11)) * 0.28; o.armR = -1.1 + Math.max(0, S(tt * 11 + 2)) * 0.28; o.tilt = 0.14 + S(tt * 1.3) * 0.05; },
     read(o, tt) { o.lean = 0.08; o.tilt = 0.3; o.turn = S(tt * 0.9) * 0.16; o.look = S(tt * 0.9) * 0.6; o.armL = o.armR = -1.25;
       const u = (tt % 4.5) / 0.6; if (u < 1) { o.raiseR = S(PI * u) * 0.7; o.armR = -1.25 + S(PI * u) * 0.3; } },
+    review(o, tt) { WORK.read(o,tt);o.turn=S(tt*.65)*.3;o.look=S(tt*.65)*.8;o.raiseL=Math.max(0,S(tt*.65))*.4;o.raiseR=Math.max(0,-S(tt*.65))*.4; },
     run(o, tt) { if (tt % 6 < 3.4) return WORK.type(o, tt); o.lean = -0.06; o.tilt = -0.1; o.face = 'hopeful'; o.bob += Math.abs(S(tt * 2.5)) * 0.01; },
     search(o, tt) { o.turn = S(tt * 1.4) * 0.5; o.look = S(tt * 3.1); o.armR = -0.9; o.raiseR = 1.75; o.tilt = -0.06; },
     plan(o, tt) { o.armR = -2.2; o.raiseR = -0.6; o.tilt = -0.2 + S(tt * 0.8) * 0.05; o.turn = 0.18; o.look = 0.5; o.face = 'content'; },
@@ -126,7 +127,7 @@
         o.turn = S(tt * 4.5) * 0.06;                                   // the head bobbles along
       }
       if (pose === 'idle') { o.turn = S(tt * 0.45) * 0.35 * Math.max(0, S(tt * 0.21)); o.roll = S(tt * 0.6) * 0.05; }
-      if (pose === 'work') { o.face = 'focus'; WORK[ACT[st.act] || 'type'](o, tt, rest); }
+      if (pose === 'work') { o.face = 'focus'; WORK[st.act==='read'&&/review|critic|overseer/.test(st.role||'')?'review':ACT[st.act] || 'type'](o, tt, rest); }
       if (pose === 'wait') { o.armR = -0.15; o.raiseR = 2.55 + S(tt * 6) * 0.3; o.bob = Math.abs(S(tt * 3)) * 0.035; o.tilt = -0.15; o.turn = 0.12; o.roll = 0.1; o.face = 'hopeful'; }
       if (pose === 'carry') { o.armL = o.armR = -0.3; o.raiseL = o.raiseR = 2.35; o.face = 'happy'; }
       if (pose === 'sleep') { o.tilt = 0.38; o.face = 'asleep'; o.bob = S(tt * 1.1) * 0.014 - 0.01; o.armL = o.armR = -0.15; o.roll = S(tt * 0.5) * 0.04; }

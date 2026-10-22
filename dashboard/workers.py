@@ -37,7 +37,7 @@ RUN_KEYS = ("assignment", "explains", "context", "workflow_node", "workflow_visi
              "parent", "created_by", "created", "max_minutes", "n_actions", "denials", "mode", "label", "in_tool",
              "cli_version", "model_used", "repeat_minutes", "not_before", "answers_given", "schema",
              "kind", "args", "model", "effort", "max_repeats", "repeat_index", "campaign",
-             "repeat_child", "campaign_cycle", "campaign_final", "failure_kind", "limit_reset", "campaign_retries",
+             "repeat_child", "campaign_cycle", "campaign_final", "failure_kind", "limit_reset", "campaign_retries", "cwd", "machine", "remote",
              "brief_sha", "chain_step", "transport", "pending_permissions", "assumed", "limits", "pid", "external_activity")
 
 

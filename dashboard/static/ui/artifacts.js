@@ -116,6 +116,7 @@
       <header class="art-head"><div class="kicker">${a.about ? 'Explanation' : (KIND[a.kind] || ['Artifact'])[0]} · ${NL.ago(a.created)}</div><h2>${a.title}</h2>
         <div class="row-wrap">${it ? html`<a class="chip" href=${'#/study/' + it.id}>${NL.clip(it.title || it.id, 40)}</a>` : a.study ? html`<span class="chip">${a.study}</span>` : html`<span class="chip">the lab</span>`}
           ${a.run_id ? html`<button type="button" class="chip" title=${a.run_id} onClick=${() => NL.openRun(a.run_id)}>from the run “${a.skill ? NL.procTitle(a.skill) : 'an agent'}” ↗</button>` : null}
+          ${a.run_id&&(s.agents||[]).some(agent=>agent.run_id===a.run_id)?html`<button type="button" class="link small" onClick=${()=>{NL.closeTop();NL.followAgent(a.run_id)}}>Show in Lab</button>`:null}
           ${a.source_path ? html`<${NL.EditorLink} path=${a.source_path} machine=${a.source_machine}>Open source ↗</${NL.EditorLink}>` : null}
           ${a.file && !NL.DEMO ? html`<a class="link small" href=${fileUrl(a)} target="_blank" rel="noopener">open in a new tab ↗</a>` : null}</div></header>
       ${a.note ? html`<p class="art-note">${a.note}</p>` : null}

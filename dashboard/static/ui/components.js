@@ -46,7 +46,9 @@
     stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden=${title ? null : 'true'} role=${title ? 'img' : null}>${title ? html`<title>${title}</title>` : null}<path d=${ICONS[name] || ''} /></svg>`;
 
   NL.Pill = ({ tone, children, title }) => html`<span class=${cls('pill', tone && 'pill-' + tone)} title=${title}>${children}</span>`;
-  NL.runStateLabel = r => {
+  NL.runStateLabel = (r,s=NL.getState?.()||{}) => {
+    const signal=ArloAgents.attention({...s,runs:[r]}, {run_id:r.run_id,status:r.status});
+    if(signal)return signal.label;
     if (r.needs_followup) return 'Task unfinished';
     if (NL.runWaiting(r)) return r.pending_permissions?.length ? 'Permission needed' : 'Waiting for you';
     if (r.status === 'completed' && r.kind === 'ask' && !r.workflow_node && !r.assigned_step) return 'Your turn';
