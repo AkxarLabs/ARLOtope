@@ -1,6 +1,6 @@
 # External research frameworks
 
-Optional research tools appear under **Workflow → Optional research tools**. A workflow requiring
+Optional research tools appear under **Workflow → Research tools**. A workflow requiring
 an unavailable tool stays visible but cannot be selected. Choose the execution machine there;
 **New study** checks the machine and project folder selected in the starter. **Check again**
 refreshes detection. Detection only locates the configured executable; it does not run it, install
@@ -13,14 +13,14 @@ anything, or certify credentials, version compatibility or scientific validity.
 The **Agentic Scientist · Sakana** preset uses the normal task graph, rooms, agents and checkpoints.
 Its external phases are followed by an independent ARLOtope review and a Results summary. Copy it,
 insert normal tasks, move checkpoints, change rooms, or remove phases whose downstream inputs you
-already have. In the task inspector, **External research tool** selects a tool and phase. Save,
+already have. In the task inspector, expand **More skills & tools**, then use **Research tool** and **Tool phase**. Save,
 review and publish as usual. A receiving agent reads original outputs; no shared conversation is
 required. Skipping a phase does not synthesize its required evidence.
 
 ![Phase controls in the task inspector; example configured-host state](assets/current/external-phase.png)
 
-The phase screenshot uses a simulated installed host to demonstrate composition; no Sakana campaign
-was executed to capture it.
+The phase screenshot shows the current task inspector in an example Lab. The preset can be inspected
+before installation; no Sakana campaign was executed for this image.
 
 ## Set up Sakana
 
@@ -99,7 +99,7 @@ while its supervising run is working; events do not create extra agents.
 
 ![Actual Sakana investigation history in the supervising run](assets/current/external-activity.png)
 
-*Completed, one-cycle Docker test: the evaluation failed to produce a qualifying winner. This
+*Historical test capture from 20 October 2026, before the ARLOtope branding. Completed, one-cycle Docker test: the evaluation failed to produce a qualifying winner. This
 history is observed evidence; individual events are not launch, pause or branch controls.*
 
 The workflow controls major phases through ordinary tasks. Splitting an internal upstream step

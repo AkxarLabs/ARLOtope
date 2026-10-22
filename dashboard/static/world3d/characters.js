@@ -3,11 +3,8 @@
  *
  *   Lab3D.CHARACTERS                       — [{ id, label, blurb, line }] in display order (line: a personality, never a job)
  *   const c = Lab3D.makeCharacter(K, 'human', { color: '#5ccfbc', hue: 40, scale: 1 });
- *     color: the role badge on its chest · hue: turns its FAMILY colour round the wheel (a main agent and its
- *     subagents share it: the scientist's scarf, the frog's spots and toes, the owl's tufts and wing tips, the
- *     fox's scarf, the robot's antenna and chest light; the penguin's bow tie, the hedgehog's cardigan, the bee's
- *     satchel and antenna tips, the capybara's towel, the snail's antenna tips and bookmark, the dragon's wings and
- *     spikes) · scale: its size. An unknown id gives the newt. world3d/cast.html shows them all, in every pose.
+ *     color: role badge · hue: family accent (the main agent and its recorded children share it) · scale: size.
+ *     Lab offers the newt, scientist and robot. An unknown id falls back to the newt.
  *   c.group                       — add it to the scene (stands on y = 0, faces +z)
  *   c.update(t, { pose, moving, act, poke }) — as the newt's: one shared animator (Lab3D.animator, newt.js), and
  *     each character's own fidgets while it stands idle

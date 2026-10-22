@@ -29,7 +29,7 @@ your agent accounts, existing repositories and research tools remain yours.
 | [Lab](dashboard.md) | Follow agents in the visual workspace, inspect their work and respond to decisions. |
 | [Studies](projects.md) | Keep the question, project, workflow position, instructions and history together. |
 | [Library](knowledge.md) | Read documents, sources, human notes, saved answers and published outputs. |
-| [Workflow](agent-workflows.md) | Compose tasks, choose agent roles and context, group rooms and configure checkpoints. |
+| [Workflow](agent-workflows.md) | Connect tasks, choose agent roles and context, assign shared rooms and configure checkpoints. |
 
 ## A process you can change
 

@@ -24,15 +24,20 @@ outcomes, including instructions-only tasks; it does not need an ideation, exper
 
 1. Select the workflow. Use **Make a copy** for a separate version or **New workflow** for a new starting point. Enter **Workflow name**; **Workflow ID** is generated and can be changed in its disclosure. The new copy opens automatically.
 2. Select a task in **Flow**. Edit its skill, instructions, role, agent, context and expected files.
-3. Under **Connections & loops**, set destinations, named outcomes, joins and a pass limit if needed.
+3. Drag a task's **+** handle onto another task to connect them. Select a task or arrow and use **Delete/Backspace** to remove it; **Undo** or **Ctrl/Cmd+Z** restores edits. **+ Task** adds an unconnected task. Under **Connections & loops**, set named outcomes, joins and pass limits.
 4. Open a checkpoint diamond or **Add checkpoint** to edit when work waits, its reviewer, evidence and checks.
 5. **Save workflow draft**. Then use **Review & publish** to inspect validation problems, changed files and affected studies before publication.
 
-![Selecting and editing a task in the workflow](assets/current/workflow-task-grouped.png)
+![Direct workflow editing with connection handles and Undo](assets/current/workflow-editor.png)
 
 *Demonstration fixture: task edits belong to the shared draft until publication.*
 
 Shared changes are not installed by an agent's recommendation. Review the publication summary, especially changes that loosen a checkpoint. **Change history** can undo the latest publication when it does not conflict with later edits.
+
+Removing a connection resets conversation sources that are no longer upstream. Deleting a task
+also removes routes and checkpoint placements or destinations that refer to it. Undo restores the
+local task edit; the publication review shows the resulting definition changes before applying them.
+Text fields keep their normal Delete and Undo behavior. Escape cancels a pending connection.
 
 If a changed file's comparison cannot load, its row shows **Retry** rather than an empty diff.
 Reloading a comparison does not edit or publish the draft.

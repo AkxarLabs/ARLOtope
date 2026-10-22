@@ -1,10 +1,11 @@
 # Skills reference
 
-Procedures are instructions in `.claude/skills/<name>/SKILL.md`. Claude Code exposes slash commands;
-other harnesses read and execute the same files. Dashboard launches supply the selected procedure,
-study and evidence brief. ACP is a transport, not a separate skill language.
+Skills are ordinary folders containing `SKILL.md`, with optional references, scripts and assets.
+The Lab's shared library lives in `.claude/skills/`; selected project copies live in `.agents/skills/`.
+Claude Code exposes its native slash commands; managed runs on all supported harnesses receive the
+exact selected skill paths and the study/evidence brief. ACP is a transport, not a separate skill language.
 
-The file is the full procedure; this page helps choose one. Workflow definitions determine which
+The main file supplies the method and can point to optional supporting files; this page helps choose one. Workflow definitions determine which
 procedures advance a study and which checkpoints wait for the researcher. A chat statement, note,
 question answer or artifact reply does not approve a checkpoint.
 

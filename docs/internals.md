@@ -149,6 +149,11 @@ engine or style-pack runtime in Lab. `dashboard/room_design.py` and `tools/room_
 private room drafts and reviewed application through that same renderer. Optional `extra.js`
 geometry stays beside its room definition. See [Room design](room-design.md).
 
+`world3d/model.js` maps a run/task to a room, folds furniture `uses`/`stands` into activity spots,
+and supplies coarse within-room paths. `world.js` reserves spots, smooths activity changes and routes
+actors through doors and streets. `newt.js` supplies the shared activity/pose animator; `characters.js`
+uses it for the three available rigs. These are projections of records, not another workflow engine.
+
 `dashboard/assistant.py` assembles current workspace facts and routes one ordinary executor
 conversation. Users choose its study, run or document focus and can start a fresh session. It has no
 separate model runtime. Visual summaries are separate scoped explanation runs, saved as artifacts.

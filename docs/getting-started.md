@@ -10,6 +10,10 @@ From the repository folder, with Git and uv installed, run:
 uv run --with pyyaml python arlo.py
 ```
 
+The short form is `./arlo` on macOS/Linux or `.\arlo.cmd` on Windows. With this repository on
+PATH, use `arlo`, `arlo status` or `arlo --stop` from another folder. The one-click launchers
+remain **Start ARLOtope.cmd** and **start-arlotope.command**.
+
 The platform launcher opens the same application. The browser connects to a local server, normally on `http://127.0.0.1:8787`. Agent requests use the accounts configured in their own tools.
 
 If you want dashboard-managed tasks, open **Settings → Agents & models**, then install or sign in to a harness. A **Connect an agent** link also appears when the Lab cannot find a usable harness. Enable agent runs in **Settings → Limits & permissions** when you are ready to launch work. You can create a study and browse its files before doing this.

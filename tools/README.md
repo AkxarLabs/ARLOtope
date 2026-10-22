@@ -7,7 +7,7 @@ dashboard to coding agents. Everything a lab *defines* lives elsewhere: procedur
 pyyaml; run with uv's ephemeral env:
 
 ```bash
-uv run --with pyyaml python arlo.py <verb> …                          # `arlotope`: the whole lab from a terminal (status, move, approve, brief, check, docs, …)
+uv run --with pyyaml python arlo.py <verb> …                          # `arlo`: the whole lab from a terminal (status, move, approve, brief, check, docs, …)
 uv run --with pyyaml python tools/guard.py <check> <slug> …           # run one of the lab's checks/ (--list)
 uv run --with pyyaml python tools/new.py skill|step|workflow|room|role|check|type|rule <name> --like <existing>   # add by copying
 uv run --with pyyaml python tools/check_lab.py                        # lab lint (registry, wiring, workflow)

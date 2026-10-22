@@ -24,7 +24,7 @@ A procedure reports an outcome; the workflow decides the destination. A role or 
 | `workflow/steps.yaml` | Shared steps, default procedures and optional role/tag metadata |
 | `workflow/workflows/<id>.yaml` | Ordered path, procedure substitutions, routes, checkpoints and optional composed nodes |
 | `workflow/rooms.yaml` | Room/stage labels and presentation |
-| `.claude/skills/<name>/SKILL.md` | Procedure instructions and `arlotope` metadata |
+| `.claude/skills/<name>/SKILL.md` | Skill instructions and optional `arlotope` contract metadata |
 | `lab/workflow/` | Lab-added instructions |
 | `studies/<slug>/workflow/` | Study-specific instruction and assignment overrides |
 | `lab/journal.jsonl` | Kernel-owned study history |

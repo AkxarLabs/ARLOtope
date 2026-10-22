@@ -28,6 +28,8 @@ focus **Connect from**, press Enter, then activate the destination's **Connect t
 Select a task or arrow and press Delete (or Backspace) to remove it. **Undo** or Ctrl/Cmd+Z
 restores edits; typing in a field keeps the usual text shortcuts. Use **+ Task** for an
 unconnected task, or the small **+** in a card's footer to insert a task after it.
+Keep at least one task in a workflow. Undo keeps the last thirty local edits; publication history
+is separate and remains available after saving.
 
 1. Select a task card in **Flow**. Its inspector opens beside the map, or below it on narrow screens.
 2. Give the task a useful name. Choose a **Skill** or **Instructions only**, write **Task instructions**, and choose its **Room**.
@@ -63,7 +65,8 @@ Open **Settings → Agents & models → Agent choices** to save named presets. A
 
 ![Compact role-to-agent choices with harness names](assets/current/agent-role-rows.png)
 
-*Interface fixture with Codex, Claude, OpenCode and ACP presets. These are choices, not live provider checks or permanently running agents; the fixture was not saved.*
+*Role choices in an example Lab. A role can inherit the Lab default or use a saved agent choice;
+opening these controls starts no agent.*
 
 Choose a Lab default and role-specific choices under **Agents by role**. **New study → Study settings** saves study preferences; existing studies expose **Agents**. A general study default preserves inherited specialist choices. **Use study default** on a role deliberately removes that inherited specialization.
 

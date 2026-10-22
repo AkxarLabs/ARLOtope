@@ -8,9 +8,9 @@ Dashboard edits stay in a draft. Use **Review & publish** to inspect changes and
 publishing applies them. **Change history** can undo the latest publication. An agent designer
 proposes a draft; it cannot publish or approve its own changes.
 
-![Workflow map and draft controls](assets/current/workflow-map.webp)
+![Workflow map and draft controls](assets/current/workflow-editor.png)
 
-For terminal edits, `arlotope` below means `uv run --with pyyaml python arlo.py`.
+For terminal edits, `arlo` below uses the short launcher on PATH; `uv run --with pyyaml python arlo.py` is the portable form.
 Run `arlo check` after editing definitions. Researcher-owned files and signature guards still apply.
 
 ## Add a step
@@ -161,9 +161,9 @@ Review its steps/tasks, routes, checkpoints and evidence requirements, then vali
 a workflow at creation or through `arlo workflow set <study> <workflow>`. Changing that choice is
 separate from approving a checkpoint.
 
-## Add a stage group
+## Add a shared room
 
-A stage group uses a stable `room` ID for related steps or tasks. It affects visual grouping,
+A room uses a stable `room` ID for related steps or tasks. It affects visual placement,
 not dependency order:
 
 ```bash

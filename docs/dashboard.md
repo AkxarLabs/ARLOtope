@@ -1,6 +1,8 @@
 # The dashboard
 
-Run `uv run --with pyyaml python arlo.py` or use the platform launcher. The local browser interface normally opens on port 8787; it can choose another free port.
+Run `./arlo` on macOS/Linux, `.\arlo.cmd` on Windows, or use the platform launcher.
+`uv run --with pyyaml python arlo.py` works on all three. Add the repository folder to PATH
+to use `arlo` elsewhere. The local browser interface normally opens on port 8787; it can choose another free port.
 
 ## Find the right place
 
@@ -54,6 +56,35 @@ and exposes pending questions or permissions. It stays still while you hover or 
 
 Studies share these rooms. Agents move to the room assigned to their task; adding a study or project
 does not add a room. Add rooms explicitly in **Workflow → By room**.
+
+### Inside a room
+
+The task chooses the room; observed activity chooses a working spot inside it. A character reading
+can use a bookshelf, editing can use a desk, and planning or spawning a child can use a whiteboard.
+Furniture advertises the activities it serves and places where characters can stand. If no suitable
+spot is available, the renderer uses the task/procedure station, a role station or a spare spot.
+
+Characters keep a suitable current spot instead of moving for every short call. Activity changes
+are smoothed: the current display waits at least eight seconds before switching and can linger for
+twenty seconds between calls. Reading, searching, typing, planning and briefing have different
+gestures. Idle, waiting and stalled sessions use different poses. Reduced-motion modes place agents
+at their destinations without the walk.
+
+Questions and queued work gather near the researcher's desk; in **By machine**, remote work uses
+that machine's desk. Recorded children appear near their parent and share its family accent.
+When a child disappears from the active records, it returns toward its parent and fades. This is
+a visual transition, not proof that the child's task succeeded.
+
+The room and activity are separate. An analysis task can read, search and edit while staying in
+Analysis. A displayed character whose destination changes follows doors and paths between rooms.
+Managed characters are currently keyed by run ID: continuing the same conversation in a later
+workflow run can create a new visual character, rather than preserve the previous one.
+The renderer uses coarse furniture avoidance within rooms, without a physics engine or guaranteed
+collision-free paths. A courier carrying a study card is a presentation effect, not another agent run.
+
+Activity comes from available harness events and trace hooks. Some commands are classified by their
+names; missing events cannot reveal what an agent is thinking. A working animation does not certify
+progress or a result. Click the character for its recorded activity, conversation and evidence.
 
 If the view fails, use **Retry 3D view** or **View work below**. Technical details stay under **Details**. Loading and retrying the view do not restart agent tasks; room previews have their own retry control.
 
@@ -117,7 +148,7 @@ opens one study or the Lab, so entering it from All studies opens Lab-wide recor
 
 ![One study scope above the Library tabs](assets/current/library-study-scope.png)
 
-*Isolated test Lab: existing Sakana outputs filtered to one study; no new research run was launched.*
+*Isolated example Lab: records and outputs are scoped to one study; no research agent was launched.*
 
 A run's **Visual summary** starts an independent explainer. It does not message the working source agent. Automatic assistant briefings are optional and use your agent account.
 

@@ -56,7 +56,7 @@ FLOOR = [
 ]
 DEFINITION = "the lab's procedures, rules, roles, templates and the PI's instructions are the PI's — suggest a change with `arlo propose`"
 CONFIG = r"^lab/config\.yaml$"
-VERBS = re.compile(r"\barlotope(?:\.py[\"']?|\b)(?:\s+--?[\w-]+(?:[ =][^\s|;&]+)?)*\s+(?:approve|revoke|changes|approve-collector|ack|hold|release|pause)(?=\s|$|[|;&])"
+VERBS = re.compile(r"\barlo(?:\.(?:py|cmd)[\"']?|\b)(?:\s+--?[\w-]+(?:[ =][^\s|;&]+)?)*\s+(?:approve|revoke|changes|approve-collector|ack|hold|release|pause)(?=\s|$|[|;&])"
                    r"|(?:^|[\s/\\\"'])new\.py\b|--skip-guard\b")
 WRITE_HINT = re.compile(r"(?<![0-9&])>(?!&)|\btee\b|sed\s+-i|perl\s+-\w*i|Set-Content|Add-Content|Out-File|"
                         r"\.write\(|write_text|write_bytes|open\([^)]*['\"][wa+]|\bcp\s|\bmv\s|\brm\s|\bln\s|"

@@ -11,7 +11,7 @@ A **workflow** orders tasks or shared steps and defines checkpoints. A task’s 
 instructions, its **agent preset** chooses the harness/model, and its **context** chooses a fresh,
 continued or forked conversation. **Rooms** group tasks visually; they do not change execution order.
 
-![Workflow task map](assets/current/workflow-map.webp)
+![Workflow task map](assets/current/workflow-editor.png)
 
 A run records one task visit or requested piece of work; successive runs may share a backend session.
 A successful agent turn does not establish a scientific finding. The interface keeps its evidence,
@@ -40,6 +40,17 @@ and retained records from their existing locations. No second artifact applicati
 database or general collaboration service is implied.
 
 ## Interface principles
+
+The scene has three readable scales: **room** for the task's place, **furniture/activity spot** for
+observed work, and **gesture/status** for the agent's current condition. Room changes should mark
+meaningful transitions; short tool calls need not cause another walk. Family accents identify
+related agents. Output objects should open the records they represent.
+
+Possible refinements are filename-bearing work objects, distinct waiting-reason badges, selected-agent
+handoff trails and activity previews in the room designer. These are design directions, not shipped
+controls. They should reuse existing activity, lineage, request and artifact records, without another
+workflow language or LLM call per animation. Unknown activity stays unknown; decorative movement must
+not imply verified progress.
 
 - Use recognizable actions: New study, Save note, Send, Review, Connect, Visual summary.
 - Explain a consequential action where it happens: clone, launch, publish, disconnect or approve.

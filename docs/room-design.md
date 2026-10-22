@@ -5,7 +5,7 @@ Rooms group work in the visual Lab. Moving a task to a room does not change depe
 Studies share the defined rooms. Starting or attaching a study does not create a room. Each agent
 uses its own workflow task's room, including parallel tasks. Create a room explicitly and assign
 tasks to it when you need another space. **By machine** repeats the room set for each machine;
-**Unified** shows one shared set. Older `per_project` room settings are ignored and dropped on save.
+**Unified** shows one shared set.
 
 ## Group tasks first
 
@@ -36,6 +36,28 @@ The definition supports `base`, `size`, `floor`, `wall`, `accent`, `walls`, `she
 ```json
 {"c":"bookshelf","at":[-3,-2.8],"rot":0,"props":{"w":1.8}}
 ```
+
+## Give furniture a purpose
+
+Characters can move between activity spots within the same room. The component's `uses` list names
+activities such as `read`, `search`, `edit`, `run`, `bash`, `git`, `plan` or `spawn`. Its `stands`
+provides local `[x, z, facing]` positions (facing in radians), or a function of the component's props. The renderer rotates
+and translates these with the placed object; room designers do not need to calculate world positions.
+
+Built-in bookshelves serve `read`; workstations serve editing and terminal/tool work; lab benches
+serve `run`; whiteboards serve `plan` and `spawn`. The actual furniture present determines the choices.
+A custom component can advertise the same activities through `Lab3D.defineComponent` in its `extra.js`.
+This changes presentation, not the agent's tools or workflow.
+
+`stations` maps a procedure or `task:<task-id>` to a preferred `[x, z, facing]` position.
+`roleStation` does the same for a role, such as `reviewer`. Activity furniture takes priority in
+the candidate list; an available, still-suitable current spot is kept to reduce unnecessary walking.
+Leave usable standing and walking space around each prop. The coarse route planner uses component
+bounds and may fall back to a direct route when no route is found; it is not a collision simulation.
+
+For example, a review task in Analysis can use a bookshelf while reading, then a workstation while
+editing its report. It does not need a different workflow task or room for each tool call. See
+[Inside a room](dashboard.md#inside-a-room) for gestures, attention states and activity limits.
 
 Components are in `dashboard/static/world3d/components.js`; builders and materials are in `kit.js`. Existing room definitions are under `world3d/rooms/`.
 

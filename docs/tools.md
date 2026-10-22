@@ -166,7 +166,7 @@ an approval.
 
 ### `kernel/` — the lab's definition, its studies and the journal
 
-A library, not a command (`arlotope` is its command line). stdlib + pyyaml, import-safe.
+A library, not a command (`arlo` is its command line). stdlib + pyyaml, import-safe.
 
 | Module | What it does |
 |---|---|

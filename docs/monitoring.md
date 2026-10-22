@@ -43,7 +43,7 @@ is present there.
 
 ### The kernel refuses the PI's actions inside a run
 
-Every headless run has `ARLOTOPE_RUN_ID` set. With it set, the kernel and `arlotope` refuse approving, revoking
+Every headless run has `ARLOTOPE_RUN_ID` set. With it set, the kernel and `arlo` refuse approving, revoking
 or asking for changes, `arlo move --to`, `arlo workflow set|use|rename-step`, `arlo ack`,
 `arlo hold|release|pause|resume`, `arlo config set` (outside `/setup-lab` and `/configure`) and
 `arlo extension install`. A run can file a study, but not past a checkpoint. A campaign's approvals go
