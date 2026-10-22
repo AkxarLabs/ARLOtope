@@ -44,7 +44,7 @@ def test_starter_and_cli_accept_user_labels(hub,monkeypatch,capsys):
     starter=load('research_start');tags=load('tagging')
     result=starter.create(hub.root,title='Tagged study',question='Replication?',tags='Replication, Own label')
     assert tags.study_tags(hub.root,result['study'])==['replication','own-label']
-    cli=load('arlotope_cli')
+    cli=load('arlo_cli')
     assert cli.main(['--hub',str(hub.root),'tags',result['study'],'--set','changed'])==0
     assert json.loads(capsys.readouterr().out)==['changed']
 

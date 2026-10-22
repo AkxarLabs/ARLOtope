@@ -62,7 +62,7 @@ separate model loop, renderer SDK, browser installation or special tool protocol
    reuse existing labels. Tags organize definitions and their instructions, never grant approvals.
    For necessary room resources, use a separate private room draft and preview it; publication and
    room application remain separate reviewed operations. No new engine code unless separately requested.
-4. Validate with `uv run --with pyyaml python arlotope.py check --design <folder>`.
+4. Validate with `uv run --with pyyaml python arlo.py check --design <folder>`.
    Resolve errors; explain any intentionally added, moved or removed checkpoint.
 5. Finish with the folder path and a concise explanation. The proposal appears in **Workflow →
    Agent proposals**. Only the PI takes it into the draft, reviews it and publishes it.

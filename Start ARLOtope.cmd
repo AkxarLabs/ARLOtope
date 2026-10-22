@@ -8,5 +8,5 @@ if errorlevel 1 (
   pause
   exit /b 1
 )
-uv run --with pyyaml python arlotope.py %*
+uv run --with pyyaml python arlo.py %*
 if errorlevel 1 pause

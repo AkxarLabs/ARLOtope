@@ -11,7 +11,7 @@
     diff          what a change to the definition does; a designer's draft checked against the live one
     watch         monitoring: each run's computed digest, watches, flags
 
-Import-safe (pyyaml + stdlib, no I/O at import). `arlotope <verb>` (tools/arlotope_cli.py) is its command line.
+Import-safe (pyyaml + stdlib, no I/O at import). `arlo <verb>` (tools/arlo_cli.py) is its command line.
 """
 
 from . import brief, checkpoints, define, diff, instructions, journal, model, rules, studies, watch  # noqa: F401

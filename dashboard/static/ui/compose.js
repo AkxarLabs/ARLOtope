@@ -232,7 +232,7 @@
     useEffect(()=>{const v=make();setNodes(v);setSaved(JSON.stringify(v))},[w.id,JSON.stringify(w.nodes),JSON.stringify(w.path)]);
     const room=async title=>{let id=title.toLowerCase().replace(/[^a-z0-9]+/g,'-').replace(/^-|-$/g,'')||'room',base=id,i=2;while(d.rooms.some(r=>r.id===id))id=base+'-'+i++;
       const result=await edit({op:'copy',kind:'room',like:d.rooms[0]?.id,name:id,plain:true,title,steps:[]});return result.ok?id:null};
-    return html`<${NL.WorkflowCanvas} nodes=${nodes} rooms=${d.rooms} frameworks=${d.frameworks||[]} roles=${d.roles.map(r=>({value:r.name,label:r.label}))}
+    return html`<${NL.WorkflowCanvas} key=${w.id} nodes=${nodes} rooms=${d.rooms} frameworks=${d.frameworks||[]} roles=${d.roles.map(r=>({value:r.name,label:r.label}))}
       tags=${d.tags||[]} checkpoints=${w.checkpoints||[]} skills=${Object.entries(d.procedures).map(([value,p])=>({value,label:p.title||value,task:p.ui?.task}))} onChange=${setNodes}
       onCreateRoom=${room} onDesignRoom=${id=>NL.openRoomDesign(id)} onEditSkill=${name=>NL.go('workflow/procedure/'+name)}
       onExport=${async()=>{const x=await NL.get('/api/compose/export?workflow='+encodeURIComponent(w.id));if(x.error)return NL.toast(x.error,'bad');const a=document.createElement('a'),bytes=Uint8Array.from(atob(x.data),c=>c.charCodeAt(0)),url=URL.createObjectURL(new Blob([bytes],{type:'application/zip'}));a.href=url;a.download=x.filename;a.click();setTimeout(()=>URL.revokeObjectURL(url),1000);NL.toast('Procedure downloaded. Lab tools are required for enforced gates and parallel execution.')}}
@@ -243,12 +243,13 @@
   const MapPage = ({ d }) => {
     const s=NL.useLab(), workflows=d.workflows||[];
     const [machine,setMachine]=useState(''),tools=NL.useGet('/api/frameworks?'+NL.qs({machine}));
-    const [selected,setSelected]=useState(workflows.find(w=>w.default)?.id || workflows[0]?.id);
+    const [selected,setSelected]=useState(()=>workflows.find(w=>w.id===NL.ls.get('workflow-editor-id'))?.id||workflows.find(w=>w.default)?.id||workflows[0]?.id);
+    useEffect(()=>{if(selected)NL.ls.set('workflow-editor-id',selected)},[selected]);
     const w=workflows.find(w=>w.id===selected)||workflows[0];
     return html`<div class="cmp-page process-page"><header class="cmp-hero"><h1>Workflow</h1></header>
       <details class="process-guide"><summary>How workflows work</summary>
         <div class="process-concepts"><div><span>01</span><h3>Tasks & agents</h3><p>Give each task a skill or instructions. Connect tasks in order or in parallel; change agents when needed.</p></div>
-          <div><span>02</span><h3>Skills & rooms</h3><p>Reuse instructions as skills. Group composed tasks into rooms whenever useful. Rooms organize the view.</p></div>
+          <div><span>02</span><h3>Shared rooms</h3><p>A task's room is where its agent appears. Tasks and studies share rooms; arrows control what runs next.</p></div>
           <div><span>03</span><h3>Checkpoints</h3><p>Where work waits for a review or a check. You choose what needs approval and what evidence to inspect.</p></div></div>
         <p class="muted small">Edits stay in a draft. Review and publish when ready; the latest publication can be undone.</p>
         <button type="button" class="link small" onClick=${e=>{NL.ls.set('nl-process-introduced',true);e.currentTarget.closest('details').open=false;}}>Got it</button></details>

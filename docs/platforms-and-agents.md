@@ -49,7 +49,7 @@ On a Mac, run the same checks from a clean checkout:
 
 ```bash
 uv run --with pyyaml --with pytest python -m pytest tests/ -q
-uv run --with pyyaml python arlotope.py
+uv run --with pyyaml python arlo.py
 ```
 
 Then verify a new study, workflow launch, conversation, HTML output and recovery in Safari and Chrome.

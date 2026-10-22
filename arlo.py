@@ -1,10 +1,10 @@
 """Start ARLOtope: the dashboard server for this lab, then your browser.
 
-    uv run --with pyyaml python arlotope.py                 # this lab, http://127.0.0.1:8787 (or the next free port)
-    uv run --with pyyaml python arlotope.py --hub ../my-lab # another lab
-    uv run --with pyyaml python arlotope.py --no-browser
-    uv run --with pyyaml python arlotope.py --background    # detach: keeps running after you log out (remote boxes)
-    uv run --with pyyaml python arlotope.py --status | --stop
+    uv run --with pyyaml python arlo.py                 # this lab, http://127.0.0.1:8787 (or the next free port)
+    uv run --with pyyaml python arlo.py --hub ../my-lab # another lab
+    uv run --with pyyaml python arlo.py --no-browser
+    uv run --with pyyaml python arlo.py --background    # detach: keeps running after you log out (remote boxes)
+    uv run --with pyyaml python arlo.py --status | --stop
 
 Or double-click `Start ARLOtope.cmd` (Windows) / `start-arlotope.command` (macOS) / run `./start-arlotope.sh`.
 If the dashboard is already running for this lab, it just opens the browser. Everything else — creating
@@ -184,14 +184,14 @@ def background(hub: Path, port: int | None, demo: bool) -> dict:
 
 
 def main() -> int:
-    if len(sys.argv) > 1 and not sys.argv[1].startswith("-"):   # `arlotope <verb> …` — the lab from a terminal
+    if len(sys.argv) > 1 and not sys.argv[1].startswith("-"):   # `arlo <verb> …` — the lab from a terminal
         sys.path.insert(0, str(HERE / "tools"))
-        import arlotope_cli  # noqa: PLC0415
-        if sys.argv[1] in arlotope_cli.VERBS:
-            return arlotope_cli.main(sys.argv[1:])
+        import arlo_cli  # noqa: PLC0415
+        if sys.argv[1] in arlo_cli.VERBS:
+            return arlo_cli.main(sys.argv[1:])
     ap = argparse.ArgumentParser(description="Start ARLOtope (the dashboard) and open it in your browser. "
-                                             "`arlotope.py <verb>` controls the lab from a terminal: arlotope.py status, "
-                                             "approve, start, runs, panels … (`arlotope.py status --help`).")
+                                             "`arlo.py <verb>` controls the lab from a terminal: arlo.py status, "
+                                             "approve, start, runs, panels … (`arlo.py status --help`).")
     ap.add_argument("--hub", default=str(HERE), help="the lab to open (default: this folder)")
     ap.add_argument("--port", type=int, default=None, help="default: 8787, or the next free port")
     ap.add_argument("--no-browser", action="store_true")
@@ -212,7 +212,7 @@ def main() -> int:
     hub = Path(a.hub).expanduser().resolve()
     say = (lambda d: print(json.dumps(d))) if a.json else None
     if not (hub / "lab" / "config.yaml").exists():
-        msg = (f"{hub} is not a ARLOtope (no lab/config.yaml). Open the dashboard from a lab folder, "
+        msg = (f"{hub} is not an ARLOtope lab (no lab/config.yaml). Open the dashboard from a lab folder, "
                "or create one from the dashboard's Labs page.")
         (say or print)({"error": msg} if say else msg)
         return 2
@@ -260,7 +260,7 @@ def main() -> int:
         url = f"http://127.0.0.1:{res['port']}/"
         print(f"ARLOtope is running for {res.get('name')} — {url}\n"
               "It keeps working when you close this window; stop it from Settings → About & server "
-              "(or: arlotope.py --stop).")
+              "(or: arlo.py --stop).")
         if headless():
             print(tunnel_hint(res["port"]))
         elif not a.no_browser:

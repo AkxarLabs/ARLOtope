@@ -17,9 +17,19 @@
 .wf-edge.fork>path{stroke-dasharray:2 4}
 .wf-edge text{font:10px var(--sans,sans-serif);fill:var(--ink-soft);paint-order:stroke;stroke:var(--bg);stroke-width:5px;stroke-linejoin:round}
 .wf-edge:focus>path,.wf-edge:hover>path{stroke:var(--accent);stroke-width:3}
-.wf-node{position:absolute;width:212px;height:116px;border:1px solid var(--edge);border-radius:6px;background:var(--paper);box-shadow:0 2px 5px #00000008;overflow:hidden}
+.wf-node{position:absolute;width:212px;height:116px;border:1px solid var(--edge);border-radius:6px;background:var(--paper);box-shadow:0 2px 5px #00000008}
 .wf-node.selected{border-color:var(--accent);outline:1px solid var(--accent)}
 .wf-node.dimmed{opacity:.3}
+.wf-edit-bar{display:flex;align-items:center;gap:14px;padding:9px 16px;border-bottom:1px solid var(--edge);font-size:11px;color:var(--ink-soft)}
+.wf-edit-bar>span{flex:1}
+.wf-edit-bar>button{flex:none}
+.wf-port{position:absolute;z-index:2;top:38px;width:24px;height:24px;border:1px solid var(--edge);border-radius:50%;background:var(--paper);color:var(--ink);font-size:17px;line-height:1;display:grid;place-items:center;cursor:crosshair;touch-action:none}
+.wf-port-in{left:-13px}.wf-port-out{right:-13px}
+.wf-port:hover,.wf-port:focus-visible,.wf-node.drop-target{border-color:var(--accent);outline:2px solid var(--accent)}
+.wf-node.drop-target{background:var(--paper-2)}
+.wf-connectors .wf-edge>path.wf-edge-hit{stroke:transparent;stroke-width:16;stroke-dasharray:none;pointer-events:stroke}
+.wf-edge.selected>path:not(.wf-edge-hit){stroke:var(--accent);stroke-width:3}
+.wf-connectors>.wf-wire{fill:none;stroke:var(--accent);stroke-width:2;stroke-dasharray:5 4;pointer-events:none}
 .wf-node-open{display:flex;flex-direction:column;gap:4px;align-items:flex-start;height:84px;background:none;border:0;padding:11px 28px 8px 12px;color:var(--ink);text-align:left;width:100%;cursor:pointer}
 .wf-node-title{font-size:14px;font-weight:600;width:100%;white-space:nowrap;text-overflow:ellipsis;overflow:hidden}
 .wf-node-open>small{font-size:11px;color:var(--ink-soft);max-width:100%;overflow:hidden;white-space:nowrap;text-overflow:ellipsis}
@@ -45,7 +55,7 @@
 .wf-check{display:flex;align-items:center;gap:7px;padding-block:5px;font-size:12px}
 .wf-add{display:flex;gap:7px;flex-wrap:wrap;margin-top:20px}
 .wf-remove{margin-top:20px;color:var(--bad)}
-.wf-editor-foot{display:flex;gap:16px;justify-content:space-between;align-items:center;padding:12px 16px;border-top:1px solid var(--edge);flex-wrap:wrap}
+.wf-editor-foot{display:flex;gap:16px;align-items:center;padding:12px 16px;border-top:1px solid var(--edge);flex-wrap:wrap}
 .wf-edge.native-fork path{stroke-dasharray:8 3 2 3}
 .wf-edge.handoff path{stroke-dasharray:2 4}
 .wf-edge.outcome path,.wf-edge.gate path{stroke-dasharray:6 4}

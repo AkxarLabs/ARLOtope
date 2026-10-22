@@ -13,7 +13,7 @@
 What each one does:
   skill     copies the skill's folder; the copy says `like: <skill>`, so it inherits the definition (level,
             mode, args, outcomes, …) and overrides what you change. It is a VARIANT: use it in a workflow
-            (`use:`), for one study (`arlotope workflow use`), or as a step's work (`--step` offers it there).
+            (`use:`), for one study (`arlo workflow use`), or as a step's work (`--step` offers it there).
   step      copies a step (its label, work and room) under a new id; `--in W --after S` puts it on workflow W's
             path right after S.
   workflow  copies a workflow file under a new id (checkpoint ids get `-<id>` so they stay unique).
@@ -22,7 +22,7 @@ What each one does:
   check     copies checks/<check>.py under the new name (the guard finds it by itself).
   type      copies templates/project-types/<type>/ into lab/templates/project-types/<name>/.
   rule      appends a rule to workflow/rules.yaml.
-Then the generated docs are refreshed (`arlotope docs`). A lab's own components are the PI's: a headless run
+Then the generated docs are refreshed (`arlo docs`). A lab's own components are the PI's: a headless run
 can't write them, and the signature guard refuses this tool from a run.
 """
 

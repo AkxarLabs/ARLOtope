@@ -10,7 +10,7 @@ Claude-shaped hook payload on stdin and DENIES (exit 2, the reason on stderr) a 
     the extensions always; plus every path in rules.yaml `protected_paths` (the manuals, templates, the PI's instructions,
     rooms, panels)
   * the lab's settings (lab/config.yaml), except in the procedures whose job is changing them with the PI
-  * or runs the PI's verbs (`arlotope approve|revoke|changes|approve-collector`, tools/new.py)
+  * or runs the PI's verbs (`arlo approve|revoke|changes|approve-collector`, tools/new.py)
   * and, in a run of a procedure that declares `writes:` (globs, e.g. the designers' lab/.bus/designs/**),
     anything outside those globs (and the system's temp folder) — through its edit tools or a shell redirect
 
@@ -39,22 +39,22 @@ sys.path.insert(0, str(HERE))
 # the floor no rules.yaml can lower: the kernel's records, and the core of the definition (workflow/ holds
 # rules.yaml itself; skills, roles and checks are what every agent runs under)
 FLOOR = [
-    (r"^lab/journal\.jsonl$", "the journal is the kernel's — studies move with `arlotope move`, approvals are the PI's"),
-    (r"^lab/REGISTRY\.md$", "the registry is written from the journal — `arlotope move` moves a study"),
+    (r"^lab/journal\.jsonl$", "the journal is the kernel's — studies move with `arlo move`, approvals are the PI's"),
+    (r"^lab/REGISTRY\.md$", "the registry is written from the journal — `arlo move` moves a study"),
     (r"^lab/approvals\.jsonl", "approvals are the PI's"),
     (r"^lab/\.bus/(checks|campaigns|compose)/", "the dashboard's and the keeper's records are not a run's to change"),
     (r"^lab/\.bus/(limits\.json|pi-actions\.jsonl)$", "the executor's and the PI's records are not a run's to change"),
     (r"^lab/\.bus/panels/approved\.json$", "which panel collectors may run is the PI's decision"),
     (r"^lab/\.bus/artifacts/[^/]+/(reply\.json|seen)$", "the PI's replies are the PI's"),
-    (r"^workflow/", "the lab's definition is the PI's — suggest a change (`arlotope propose`) or ask a designer"),
-    (r"^\.claude/(skills|agents)/", "the lab's procedures and roles are the PI's — suggest a change with `arlotope propose`"),
-    (r"^\.(codex|opencode)/agents/", "the lab's roles are the PI's — suggest a change with `arlotope propose`"),
-    (r"^agent-roles/", "the lab's roles are the PI's — suggest a change with `arlotope propose`"),
+    (r"^workflow/", "the lab's definition is the PI's — suggest a change (`arlo propose`) or ask a designer"),
+    (r"^\.claude/(skills|agents)/", "the lab's procedures and roles are the PI's — suggest a change with `arlo propose`"),
+    (r"^\.(codex|opencode)/agents/", "the lab's roles are the PI's — suggest a change with `arlo propose`"),
+    (r"^agent-roles/", "the lab's roles are the PI's — suggest a change with `arlo propose`"),
     (r"^checks/", "the lab's checks are the PI's — a run can't add or change what checks it"),
-    (r"^extensions/", "the lab's extensions are the PI's to add — suggest a change with `arlotope propose` instead"),
+    (r"^extensions/", "the lab's extensions are the PI's to add — suggest a change with `arlo propose` instead"),
     (r"^tools/(signature_guard\.py|executor/opencode_guard\.js)$", "the guard is the PI's — a run can't switch it off"),
 ]
-DEFINITION = "the lab's procedures, rules, roles, templates and the PI's instructions are the PI's — suggest a change with `arlotope propose`"
+DEFINITION = "the lab's procedures, rules, roles, templates and the PI's instructions are the PI's — suggest a change with `arlo propose`"
 CONFIG = r"^lab/config\.yaml$"
 VERBS = re.compile(r"\barlotope(?:\.py[\"']?|\b)(?:\s+--?[\w-]+(?:[ =][^\s|;&]+)?)*\s+(?:approve|revoke|changes|approve-collector|ack|hold|release|pause)(?=\s|$|[|;&])"
                    r"|(?:^|[\s/\\\"'])new\.py\b|--skip-guard\b")

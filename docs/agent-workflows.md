@@ -12,7 +12,7 @@ another scheduler.
 
 An agent designer can propose tasks, skill sequences, roles, conversation sources, parallel
 branches, joins, outcome routes, loops, rooms and checkpoints. **Draft with an agent** gives it the
-existing definitions and a private proposal folder. It validates with `arlotope check --design`,
+existing definitions and a private proposal folder. It validates with `arlo check --design`,
 then the researcher reviews and publishes the proposal in Workflow.
 
 During execution, agents report declared outcomes and the engine follows their routes. An LLM
@@ -23,6 +23,12 @@ validation and publication path; a task is not automatically allowed to publish 
 
 ## Edit a task
 
+Drag the **+** handle on a task to another task to draw a connection. For keyboard use,
+focus **Connect from**, press Enter, then activate the destination's **Connect to** button.
+Select a task or arrow and press Delete (or Backspace) to remove it. **Undo** or Ctrl/Cmd+Z
+restores edits; typing in a field keeps the usual text shortcuts. Use **+ Task** for an
+unconnected task, or the small **+** in a card's footer to insert a task after it.
+
 1. Select a task card in **Flow**. Its inspector opens beside the map, or below it on narrow screens.
 2. Give the task a useful name. Choose a **Skill** or **Instructions only**, write **Task instructions**, and choose its **Room**.
 3. **Output files** names specific files you want produced; blank uses the skill and task instructions. Paths are relative to the working area. **More skills & tools** contains skill sequences and external research phases.
@@ -30,9 +36,9 @@ validation and publication path; a task is not automatically allowed to publish 
 5. Open **Connections & loops** for destinations, named outcomes, joins, tags and **Maximum passes**.
 6. **Save workflow draft**, then **Review & publish** the shared change. Use **Change history** to inspect previous publications. A copy opens automatically so edits apply to the version you just created.
 
-![A workflow map with tasks and branches](assets/current/workflow-map.webp)
+![The workflow editor with connection handles, Undo and shared room assignments](assets/current/workflow-editor.png)
 
-*Demonstration fixture: connections describe task readiness and routes.*
+*Disposable preview with agent launches off: handles draw connections; arrows describe task readiness and routes.*
 
 ![A selected task with grouped settings](assets/current/workflow-task-grouped.png)
 
@@ -90,9 +96,30 @@ Only one task can own a continued session at a time. Native fork support depends
 
 ## Connect tasks and outcomes
 
+An arrow drawn on the map is an ordinary `done` route. It does not change the destination's
+agent or conversation. Select an arrow to **Disconnect**, or open **Connections & loops**
+to set named outcomes and joins. Several outgoing arrows create parallel branches; a return
+arrow creates a loop. Review the conversation choices and visit limits before running.
+Removing a dependency resets a conversation source to fresh if it is no longer upstream;
+Undo restores both. Deleting a task also removes its checkpoint placements and routes to it.
+The publication review shows these changes before they reach the Lab.
+
 Connections control when tasks become ready. Several ordinary destinations launch parallel branches, subject to execution limits. **Wait for all incoming branches** joins work that must all finish. Leave it off for mutually exclusive outcomes; an all-input join cannot wait for a branch that never ran.
 
 A named outcome replaces the ordinary `done` route. For example, a review can report `revise` to return to writing or `more-experiments` to return to experiments. Set **Maximum task visits** to bound a loop. Rooms only group the display; they do not change these connections.
+
+## What rooms mean
+
+A **task** defines work: instructions, skills, an agent and its conversation. A **room** is
+the shared place where that agent appears in the 3D lab while doing the task. **Arrows**
+define the order of work. These are separate choices.
+
+For example, Collect evidence → Check evidence → Write report can place the first two
+tasks in the Study room and the last in Writing. Another study can use those same rooms
+at the same time. Changing a task's room moves its agent's location; it does not change
+the task's skill, dependencies, approvals or conversation. **By room** groups the same
+tasks by location. You can design a new shared room when the existing places don't fit;
+starting a study does not create a room.
 
 ## Start with existing work
 

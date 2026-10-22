@@ -8,8 +8,8 @@ proceed) · 2 = WARNING. Checkpoints run them (`checks:`), watches run them, rul
 them where a procedure says so. They get this module as `guard`: HUB, LAB, labfiles, study(slug),
 _row(slug), _project_dir(slug), _verdict(code, msg), _today().
 
-Where a study stands and whether a checkpoint is approved is the kernel's (tools/kernel/, `arlotope status`,
-`arlotope approved <study> <checkpoint>`), not a check.
+Where a study stands and whether a checkpoint is approved is the kernel's (tools/kernel/, `arlo status`,
+`arlo approved <study> <checkpoint>`), not a check.
 """
 
 from __future__ import annotations

@@ -7,7 +7,7 @@ Create a study, give an agent one useful task, and inspect its answer. You can a
 From the repository folder, with Git and uv installed, run:
 
 ```bash
-uv run --with pyyaml python arlotope.py
+uv run --with pyyaml python arlo.py
 ```
 
 The platform launcher opens the same application. The browser connects to a local server, normally on `http://127.0.0.1:8787`. Agent requests use the accounts configured in their own tools.

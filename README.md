@@ -19,8 +19,12 @@ Install [uv](https://docs.astral.sh/uv/) and Git, then clone this repository or 
 Double-click **Start ARLOtope.cmd** on Windows or **start-arlotope.command** on macOS, or run:
 
 ```bash
-uv run --with pyyaml python arlotope.py
+uv run --with pyyaml python arlo.py
 ```
+
+For a short terminal command, use `./arlo` on macOS/Linux or `.\arlo.cmd` on Windows.
+Add this folder to your PATH to use `arlo` from elsewhere. For example, `arlo status`
+shows your studies and `arlo --stop` stops the dashboard.
 
 The local dashboard opens in your browser. **New study** guides you through:
 
@@ -76,7 +80,7 @@ uv run --with pyyaml python tools/research_start.py --title "My study" \
   --question "What would I like to understand?" --local /absolute/path/to/project
 
 # Inspect the lab from a terminal
-uv run --with pyyaml python arlotope.py status
+uv run --with pyyaml python arlo.py status
 ```
 
 For an agent session, start your installed harness in the lab and use `/discuss`, `/ideate`, `/adopt`

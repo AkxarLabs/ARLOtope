@@ -18,7 +18,7 @@ usage limits and resuming a conversation.
 
 ## Step by step: `/advance`
 
-`arlotope next <study>` identifies the next procedure. `/advance <study>` runs one step and stops with
+`arlo next <study>` identifies the next procedure. `/advance <study>` runs one step and stops with
 what changed, evidence to inspect and what would happen next. An outcome such as `more-experiments`
 can route back to an earlier step; that work is the next invocation.
 
@@ -95,7 +95,7 @@ review process. A checkpoint's approver determines who can decide it:
 
 | Approver | How a decision is recorded |
 |---|---|
-| `me` | The PI decides in the dashboard or with `arlotope approve` |
+| `me` | The PI decides in the dashboard or with `arlo approve` |
 | `me-or-campaign` | The PI, or a keeper acting within an approved campaign's delegated bounds |
 | `auto` | The engine applies the checkpoint's configured checks |
 | `agent` | An independent gate reviewer returns a validated decision; configured checks still apply |

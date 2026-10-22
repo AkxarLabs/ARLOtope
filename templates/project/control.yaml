@@ -89,7 +89,7 @@ figures:
 #   page_limit: 9               #   set to the venue's limit (neurips/iclr 9 · icml/aclarr 8 · aaai 7)
 
 # Full-scale runs wait for the study's "Approve full runs" checkpoint (an approval the PI records in the
-# dashboard or with `arlotope approve`; the stage brief says whether it is approved, with the PI's note).
+# dashboard or with `arlo approve`; the stage brief says whether it is approved, with the PI's note).
 
 eval_frozen: true               # the eval protocol in PLAN.md/base.yaml is frozen.
                                 # The agent may NEVER set this false.

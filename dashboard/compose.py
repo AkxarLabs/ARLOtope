@@ -268,12 +268,12 @@ def _set_skill_meta(name: str, fields: dict) -> None:
             block.pop(k, None)
         else:
             block[k] = v
-    arlotope = ("arlotope:\n" + textwrap.indent(yaml.safe_dump(block, sort_keys=False, allow_unicode=True, width=110), "  ")).rstrip("\n").split("\n") if block else None
+    metadata = ("arlotope:\n" + textwrap.indent(yaml.safe_dump(block, sort_keys=False, allow_unicode=True, width=110), "  ")).rstrip("\n").split("\n") if block else None
     hit = next((c for c in chunks if c[0] == "arlotope"), None)
-    if hit and arlotope:
-        hit[1] = arlotope
-    elif arlotope:
-        chunks.append(["arlotope", arlotope])
+    if hit and metadata:
+        hit[1] = metadata
+    elif metadata:
+        chunks.append(["arlotope", metadata])
     elif hit:
         chunks.remove(hit)
     fm = "\n".join(ln for c in chunks for ln in c[1])
@@ -482,10 +482,18 @@ def _op_graph(b: dict) -> str:
         if n.get('procedure') and n['procedure'] not in procs:
             raise ComposeError(f'{sid}: choose an existing skill or own instructions.')
         d['steps'].setdefault(sid, {'label': n.get('label') or sid, 'room': n['room'], 'do': n.get('procedure') or None, 'also': []})
+    removed = set(w['path']) - {n['id'] for n in nodes}
     w['path'] = [n['id'] for n in nodes]
     w['nodes'] = {n['id']: {k: v for k, v in n.items() if k != 'id'} for n in nodes}
     w['checkpoints'] = [c for c in w['checkpoints'] if (c.get('before') or c.get('during')) in w['path']]
-    w['routes'] = {k: v for k, v in w['routes'].items() if k in w['path']}
+    w['routes'] = {k: {name: to for name, to in routes.items() if to not in removed}
+                   for k, routes in w['routes'].items() if k in w['path']}
+    for checkpoint in w['checkpoints']:
+        if checkpoint.get('decisions'):
+            checkpoint['decisions'] = {name: to for name, to in checkpoint['decisions'].items() if to not in removed}
+    if w.get('start'):
+        from workflow_graph import targets
+        w['start'] = [sid for sid in targets(w['start']) if sid not in removed]
     _save(d)
     return 'composition saved to your draft'
 

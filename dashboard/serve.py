@@ -1,7 +1,7 @@
 """ARLOtope dashboard: the HTTP server. Optional, local-only.
 
     uv run --with pyyaml python dashboard/serve.py [--port 8787] [--hub <another lab's hub root>]
-    (or just: uv run --with pyyaml python arlotope.py — starts this and opens the browser)
+    (or just: uv run --with pyyaml python arlo.py — starts this and opens the browser)
 
 A stdlib HTTP server for the no-build single-page app in static/. This module is the server and its
 wiring only: every JSON endpoint is one line in GET_ROUTES / POST_ROUTES (below), pointing at the
@@ -707,7 +707,7 @@ def main() -> int:
     try:
         server = LabServer(("127.0.0.1", args.port), Handler)
     except OSError as e:
-        print(f"port {args.port} is busy ({e}) — start with --port <another>, or use arlotope.py (it picks one)")
+        print(f"port {args.port} is busy ({e}) — start with --port <another>, or use arlo.py (it picks one)")
         return 3
     ctx.SERVER = server
     labs.remember_lab(ctx.HUB)

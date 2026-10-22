@@ -75,7 +75,7 @@ def check_launch(lab, skill: str, subject: str | None) -> None:
     s = studies.study(lab.hub, subject)
     if not s:
         if any(st.get("do") == skill for st in model.steps(lab.hub).values()):
-            raise ValueError(f"no study {subject} — /{skill} is a step's work, and runs for a filed study (arlotope new)")
+            raise ValueError(f"no study {subject} — /{skill} is a step's work, and runs for a filed study (arlo new)")
         return
     held = watch.holding(lab.hub, subject)
     if held:
@@ -179,7 +179,7 @@ def campaign_block(lab, spec, v: dict, run_id: str) -> str:
     return "\n".join([
         f"CAMPAIGN RUN for {spec.campaign}: dispatched by its keeper. The PI is away.",
         _AWAY,
-        "- Finish the step by reporting its outcome (`arlotope move`, as the brief says): a checkpoint on the way "
+        "- Finish the step by reporting its outcome (`arlo move`, as the brief says): a checkpoint on the way "
         "makes only this study wait. A decision outside the brief's bounds: stop and report it in the run footer "
         "(`needs_pi=other`) with `--data study=<slug>` — only this study waits.",
         "- Everything else is exactly the procedure as usual; its checkpoints and hard rules bind.",
@@ -252,7 +252,7 @@ def preamble(lab, run_id: str, v: dict, ask_tool: str | None) -> str:
         f"{v['target']}, cwd {Path(v['workdir']).as_posix()}). There is no terminal: the PI watches and "
         "answers from the Lab dashboard.",
         "- Follow the lab protocol (AGENTS.md) exactly. Every checkpoint and hard rule still binds you.",
-        "- A study moves only when you report its outcome (`arlotope move`, as the brief below says); a checkpoint "
+        "- A study moves only when you report its outcome (`arlo move`, as the brief below says); a checkpoint "
         "on the way makes it wait for its configured decision. The PI or the engine's explicitly configured "
         "campaign, check or independent reviewer supplies it. Nothing you write grants approval; never approve your own task.",
         f"- When the procedure needs a PI decision, {ask}",
@@ -668,10 +668,10 @@ def agent_commands(hub: Path, bus: Path) -> list[tuple[tuple[str, ...], tuple[st
     """The lab's record commands a run may always use, as (the script's spellings, its sub-commands): the bus
     (the run footer, a campaign's dispatch) and the kernel's agent verbs (report an outcome, read where a study
     stands, suggest a change). A backend that asks before each command pre-approves exactly these."""
-    b, n = Path(bus).as_posix(), (Path(hub) / "arlotope.py").as_posix()
-    commands = [((b, f'"{b}"'), ("emit", "escalate")), (("arlotope.py", n, f'"{n}"'), AGENT_VERBS)]
-    if not (Path(hub) / 'arlotope.py').is_file():
-        cli = (TOOLS / 'arlotope_cli.py').as_posix()
+    b, n = Path(bus).as_posix(), (Path(hub) / "arlo.py").as_posix()
+    commands = [((b, f'"{b}"'), ("emit", "escalate")), (("arlo.py", n, f'"{n}"'), AGENT_VERBS)]
+    if not (Path(hub) / 'arlo.py').is_file():
+        cli = (TOOLS / 'arlo_cli.py').as_posix()
         commands.append(((cli, f'"{cli}"'), tuple(f'--hub "{Path(hub).as_posix()}" {v}' for v in AGENT_VERBS)))
     return commands
 

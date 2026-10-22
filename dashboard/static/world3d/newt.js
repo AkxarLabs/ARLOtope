@@ -6,7 +6,7 @@
  *
  *   const n = Lab3D.makeNewt(K, { color: '#5ccfbc', hue: 40, scale: 1 });
  *     color: the role badge on its chest · hue: turns its gills and tail round the colour wheel (a main agent's
- *     family colour — its subagents are smaller arlotope in the same colours) · scale: its size
+ *     family colour — its subagents are smaller arlo in the same colours) · scale: its size
  *   n.group                       — add it to the scene
  *   n.update(t, { pose, moving, act, poke }) — pose: idle | work | walk | wait | sleep | fail | carry · act: the
  *     activity it works at (model.ACTS: read, edit, run, search, plan, spawn, …) · poke: seconds since you

@@ -1,6 +1,6 @@
 # The lab's rules — ONE definition, PI-owned (agents never edit it; the signature guard refuses).
 #
-# `arlotope docs` writes these lists into the agent manuals: hard_rules and subagent_rules
+# `arlo docs` writes these lists into the agent manuals: hard_rules and subagent_rules
 # into AGENTS.md, project_rules into the project template's AGENTS.md (every project session also reads
 # the hub's hard rules). Add a rule by adding an entry, then run render-docs; append rather than insert,
 # because skills cite hard rules by number. `checks:` names the mechanical checks that enforce a rule
@@ -95,7 +95,7 @@ hard_rules:          # every agent, every session (AGENTS.md "Hard rules", numbe
     text: >-
       **Sharing compute (cross-project).** Keep to `compute.max_concurrent_runs` PILOT/FULL training campaigns
       (one run or one sweep each) at once across all projects — nothing stops you, so it is on you. Before launching
-      one, check what is running (the dashboard's Compute panel, or `arlotope panel compute`); if the lab is full, wait or do CPU-light
+      one, check what is running (the dashboard's Compute panel, or `arlo panel compute`); if the lab is full, wait or do CPU-light
       work. Never stop another project's run. SMOKE runs are exempt. The Compute panel tracks time and GPU use
       and tells the PI when the lab goes over.
 
@@ -111,7 +111,7 @@ subagent_rules:      # every subagent, and every parent that spawns one (AGENTS.
   - id: parent-only-ledgers
     text: >-
       **Shared ledgers are parent-only:** `EXPERIMENT_LOG.md`, the main `runs/registry.jsonl`,
-      the notebook, and a study's moves (`arlotope move`) are written ONLY by the parent session. Subagents return result
+      the notebook, and a study's moves (`arlo move`) are written ONLY by the parent session. Subagents return result
       packets; the parent merges through the journal, not git merges.
   - id: parallel-cap
     text: >-
@@ -254,7 +254,7 @@ rigor_floors:
 # paths (hub-relative regexes) a headless run may never write, on top of what is always protected (the journal,
 # the registry, workflow/, the skills, the agent roles and the checks — tools/signature_guard.py FLOOR): the
 # manuals, the templates, the PI's instructions, the rooms and the panels. An agent that wants them different
-# files a proposal instead (`arlotope propose`).
+# files a proposal instead (`arlo propose`).
 protected_paths:
   - '^AGENTS\.md$'
   - '^AGENT-GUIDE\.md$'

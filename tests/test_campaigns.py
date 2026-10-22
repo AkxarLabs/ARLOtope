@@ -403,7 +403,7 @@ def test_agents_never_touch_approvals_or_the_keepers_state(camp, hub, monkeypatc
     assert sg.decide({"hook_event_name": "PreToolUse", "tool_name": "Bash", "cwd": str(hub.root),
                       "tool_input": {"command": "echo '{}' > lab/.bus/campaigns/2026-09-27-test.json"}})
     assert sg.decide({"hook_event_name": "PreToolUse", "tool_name": "Bash", "cwd": str(hub.root),
-                      "tool_input": {"command": "python arlotope.py approve idea-a finalize-paper --yes"}})
+                      "tool_input": {"command": "python arlo.py approve idea-a finalize-paper --yes"}})
     monkeypatch.setenv("ARLOTOPE_RUN_ID", "r-123")              # and the record itself refuses an agent run
     with pytest.raises(K.checkpoints.CheckpointError):
         K.checkpoints.decide(hub.root, "idea-a", "finalize-paper", by="pi", via="cli")

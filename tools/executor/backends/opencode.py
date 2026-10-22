@@ -209,7 +209,7 @@ class OpencodeSession(live.Session):
                 if not self.session_id or self.session_id == self.ctx['fork_from']:
                     raise ValueError('The agent did not create an independent fork.')
             if not self.session_id:
-                self.session_id = (self._http("POST", "/session", {"title": self.ctx.get("title") or "arlotope run"}) or {})["id"]
+                self.session_id = (self._http("POST", "/session", {"title": self.ctx.get("title") or "arlo run"}) or {})["id"]
             yield json.dumps({"type": "_session", "sessionID": self.session_id})
             self.send(self.prompt)
             for raw in events:

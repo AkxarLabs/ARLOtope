@@ -155,7 +155,7 @@ separate model runtime. Visual summaries are separate scoped explanation runs, s
 
 ## Demo mode and dependencies
 
-`arlotope.py --demo`, opened with `/?demo`, provides synthetic studies, agents and outputs for interface
+`arlo.py --demo`, opened with `/?demo`, provides synthetic studies, agents and outputs for interface
 inspection. Demo browser actions are intercepted rather than launching real work.
 
 Vendored browser libraries and their licences live in `static/vendor/`: Three.js, Preact, htm,

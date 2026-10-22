@@ -1,7 +1,7 @@
 """Remote machines, from one local dashboard.
 
 The local dashboard can open a lab that lives on another machine you reach over SSH. It starts (or finds)
-that lab's own dashboard server there (`arlotope.py --background`), holds an SSH tunnel to it, and the local
+that lab's own dashboard server there (`arlo.py --background`), holds an SSH tunnel to it, and the local
 server proxies the page's API calls through the tunnel (serve.py). Everything a lab does — file reads, agent
 runs, the terminal — happens on the machine the lab lives on; this module only manages the connection.
 
@@ -228,7 +228,7 @@ class Conn:
 
     # the remote side: make sure the lab's dashboard runs on exactly rport
     def _start_cmd(self) -> str:
-        launcher = self.machine.get("launcher") or "arlotope.py"
+        launcher = self.machine.get("launcher") or "arlo.py"
         py = self.machine.get("python") or "uv run --with pyyaml python"
         return (f"{PATH_PREFIX}; cd {_rpath(self.lab)} && {py} {launcher} --hub . --background --json --port {self.rport}")
 
@@ -440,7 +440,7 @@ class Conn:
         self.state = "idle"
         self._stop_window()
         if stop_remote and not self.window:
-            launcher = self.machine.get("launcher") or "arlotope.py"
+            launcher = self.machine.get("launcher") or "arlo.py"
             py = self.machine.get("python") or "uv run --with pyyaml python"
             try:
                 _run(self.machine["host"], f"{PATH_PREFIX}; cd {_rpath(self.lab)} && {py} {launcher} --hub . --stop", timeout=60)

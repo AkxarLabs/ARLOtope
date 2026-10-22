@@ -25,8 +25,8 @@ tags: [replication, dataset-a]
 Read or replace a study's tags without moving it:
 
 ```bash
-uv run --with pyyaml python arlotope.py tags my-study
-uv run --with pyyaml python arlotope.py tags my-study --set "replication, dataset-a"
+uv run --with pyyaml python arlo.py tags my-study
+uv run --with pyyaml python arlo.py tags my-study --set "replication, dataset-a"
 ```
 
 Steps, workflows and composed tasks accept an optional `tags` list. Task tags override shared step tags for that workflow. Procedure tags belong in the skill's `arlotope` metadata; knowledge-record tags belong in their YAML frontmatter.

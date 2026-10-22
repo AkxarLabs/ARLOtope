@@ -60,7 +60,7 @@ def main() -> int:
         if not (HUB / "studies" / slug / "IDEA.md").exists():
             problems.append(f"studies/{slug}/ has no IDEA.md")
         elif slug not in rows:
-            problems.append(f"studies/{slug}/ is not a study in the journal (arlotope new {slug} --title …)")
+            problems.append(f"studies/{slug}/ is not a study in the journal (arlo new {slug} --title …)")
 
     # 2. Orphans. Worktree dirs (<slug>-wt-*) in the projects root are transient — skip them.
     #    A paper at studies/<slug>/paper/ needs no separate check — it's nested under the study,
@@ -89,7 +89,7 @@ def main() -> int:
     known = set(model.steps(HUB))
     for slug, row in rows.items():
         if row["state"] not in known:
-            problems.append(f"{slug}: it stands at '{row['state']}', which is not a step (arlotope move {slug} --to <step>)")
+            problems.append(f"{slug}: it stands at '{row['state']}', which is not a step (arlo move {slug} --to <step>)")
 
     # 5. Executor hygiene (review-level: configuration and orphans, never a hard inconsistency).
     stale.extend(executor_checks(config, rows, projects_root))

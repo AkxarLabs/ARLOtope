@@ -66,7 +66,7 @@ If an instruction sheet cannot load, choose **Retry**; it does not open an empty
 The UI uses readable files: `workflow/steps.yaml`, `workflow/workflows/*.yaml`, procedure `SKILL.md` files and `lab/workflow/` overlays. After direct edits, run:
 
 ```bash
-uv run --with pyyaml python arlotope.py check
+uv run --with pyyaml python arlo.py check
 ```
 
 Use the dashboard draft path when you want a reviewable publication. **Skills** and **Rooms** are in the Workflow navigation. **More settings** contains shared steps, roles, rules, checks, project types and research instruments. See [workflow file reference](workflow.md) for formats and [extending the Lab](extending.md) for larger additions.

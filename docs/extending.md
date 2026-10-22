@@ -10,8 +10,8 @@ proposes a draft; it cannot publish or approve its own changes.
 
 ![Workflow map and draft controls](assets/current/workflow-map.webp)
 
-For terminal edits, `arlotope` below means `uv run --with pyyaml python arlotope.py`.
-Run `arlotope check` after editing definitions. Researcher-owned files and signature guards still apply.
+For terminal edits, `arlotope` below means `uv run --with pyyaml python arlo.py`.
+Run `arlo check` after editing definitions. Researcher-owned files and signature guards still apply.
 
 ## Add a step
 
@@ -46,7 +46,7 @@ Use a variant through a workflow’s `use` mapping, a study’s **Instructions �
 `do`. The CLI study swap is:
 
 ```bash
-arlotope workflow use <study> lit-review=lit-review-quick
+arlo workflow use <study> lit-review=lit-review-quick
 ```
 
 `lit-review=` removes the swap. Additive shared instructions live in
@@ -115,7 +115,7 @@ it is not an OS filesystem sandbox. See [monitoring](monitoring.md).
 ## Rename a step
 
 ```bash
-arlotope workflow rename-step active running --yes
+arlo workflow rename-step active running --yes
 ```
 
 This updates the shared identifier, workflow references and study positions through recorded remap
@@ -158,7 +158,7 @@ uv run --with pyyaml python tools/new.py workflow fast --like research --title "
 ```
 
 Review its steps/tasks, routes, checkpoints and evidence requirements, then validate. A study chooses
-a workflow at creation or through `arlotope workflow set <study> <workflow>`. Changing that choice is
+a workflow at creation or through `arlo workflow set <study> <workflow>`. Changing that choice is
 separate from approving a checkpoint.
 
 ## Add a stage group
@@ -180,8 +180,8 @@ The [room designer](room-design.md) refines appearance through a private preview
 The terminal extension interface remains available for researcher-supplied bundles:
 
 ```bash
-arlotope extension list
-arlotope extension install <name>
+arlo extension list
+arlo extension install <name>
 ```
 
 Installation previews the overlay and validates it before applying. No general software-product
@@ -213,7 +213,7 @@ Use **Workflow → Draft with an agent** or `/design` for a concrete process cha
 writes an overlay under `lab/.bus/designs/workflow/<timestamp>/` and checks it:
 
 ```bash
-arlotope check --design lab/.bus/designs/workflow/<timestamp>
+arlo check --design lab/.bus/designs/workflow/<timestamp>
 ```
 
 The proposal remains separate until the researcher takes it into the shared draft, reviews and

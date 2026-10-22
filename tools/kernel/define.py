@@ -59,9 +59,9 @@ STEPS_HEAD = """\
 # variant of one) and the others a study there can run (`also:`). `room:` is where it stands in the
 # dashboard's world (workflow/rooms.yaml).
 #
-# A procedure never names a step: it ends by reporting an outcome (`arlotope move <study> <outcome>`) and the
+# A procedure never names a step: it ends by reporting an outcome (`arlo move <study> <outcome>`) and the
 # study's workflow says where that leads. `parked` and `killed` are the two shelves every lab has — `park`
-# and `kill` lead there from anywhere. The PI shapes this file (agents never edit it); `arlotope check`
+# and `kill` lead there from anywhere. The PI shapes this file (agents never edit it); `arlo check`
 # validates it.
 
 """

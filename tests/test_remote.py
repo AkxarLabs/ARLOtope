@@ -25,7 +25,7 @@ needs_bash = pytest.mark.skipif(os.name != "posix" or not BASH,
 
 @pytest.mark.skipif(os.name != "posix", reason="POSIX HTTP servers reuse closed TCP connections")
 def test_dashboard_port_probe_matches_http_server_reuse():
-    launcher = load("arlotope.py")
+    launcher = load("arlo.py")
     with socket.socket() as server:
         server.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
         server.bind(("127.0.0.1", 0))
@@ -62,7 +62,7 @@ def env(hub, tmp_path, monkeypatch):
     m.ctx.set_remote(None)
     for c in list(m.machines.CONNS.values()):
         c.disconnect()
-    subprocess.run([sys.executable, str(REPO / "arlotope.py"), "--hub", str(hub.root), "--stop"], capture_output=True, timeout=60)
+    subprocess.run([sys.executable, str(REPO / "arlo.py"), "--hub", str(hub.root), "--stop"], capture_output=True, timeout=60)
 
 
 def test_ssh_config_hosts_and_probe_parsing(env, tmp_path, monkeypatch):
@@ -121,7 +121,7 @@ def test_connect_proxy_and_lose_the_tunnel(env):
     m, hub, tmp_path = env
     m.machines.add_machine({"host": "box", "name": "Box"})
     mach = m.machines._get("box")
-    mach["launcher"] = (REPO / "arlotope.py").as_posix()          # the remote lab would ship its own arlotope.py
+    mach["launcher"] = (REPO / "arlo.py").as_posix()          # the remote lab would ship its own arlo.py
     m.machines._put(mach)
     m.machines.add_lab({"id": "box", "path": hub.root.as_posix()})
     srv, port, cookie = _serve(m)
@@ -182,14 +182,14 @@ def test_create_a_lab_on_a_remote_machine(env):
 
 
 def test_foreground_custom_port_has_status_and_can_be_stopped(hub, tmp_path, monkeypatch):
-    launcher = load('arlotope.py')
+    launcher = load('arlo.py')
     with socket.socket() as available:
         available.bind(('127.0.0.1', 0))
         port = available.getsockname()[1]
     monkeypatch.setenv('ARLOTOPE_HOME', str(tmp_path/'home'))
     monkeypatch.setenv('ARLOTOPE_KEEP_PYTHON', '1')
     with (tmp_path/'launcher.log').open('w') as log:
-        process = subprocess.Popen([sys.executable, str(REPO/'arlotope.py'), '--hub', str(hub.root),
+        process = subprocess.Popen([sys.executable, str(REPO/'arlo.py'), '--hub', str(hub.root),
                                     '--foreground', '--no-browser', '--port', str(port)],
                                    env=os.environ.copy(), stdout=log, stderr=log)
         try:
@@ -197,6 +197,7 @@ def test_foreground_custom_port_has_status_and_can_be_stopped(hub, tmp_path, mon
             while time.monotonic()<deadline and not launcher.ping(port):
                 assert process.poll() is None
                 time.sleep(.1)
+            assert launcher.ping(port), (tmp_path/'launcher.log').read_text(errors='replace')
             hit = launcher.running_for(hub.root)
             assert hit and hit[0] == port and hit[1]['app'] == 'arlotope'
             assert launcher.stop(hub.root)['ok']
@@ -211,7 +212,7 @@ def test_detached_processes_never_run_on_uvs_throwaway_python():
     """`uv run --with …` runs in builds-v0/.tmpXXXX, deleted when uv exits — a detached server (and the agent
     supervisors it spawns) must re-exec on a stable interpreter first. The venv's python is a symlink out of
     that directory, so detection must not resolve it."""
-    arlotope, procs = load("arlotope.py"), load("tools/executor/procs.py")
+    arlotope, procs = load("arlo.py"), load("tools/executor/procs.py")
     if os.name == "nt":
         assert procs._ephemeral(r"C:\Users\u\AppData\Local\uv\cache\builds-v0\.tmpAb12\Scripts\python.exe")
         assert not procs._ephemeral(r"C:\Users\u\lab\.venv\Scripts\python.exe")
@@ -232,7 +233,7 @@ def test_one_overview_across_this_computer_and_a_remote_lab(env):
     kernel().studies.move(hub.root, "idea-g", "done", by="cli")      # its proposal is done: it waits for you
     m.machines.add_machine({"host": "box", "name": "Box"})
     mach = m.machines._get("box")
-    mach["launcher"] = (REPO / "arlotope.py").as_posix()
+    mach["launcher"] = (REPO / "arlo.py").as_posix()
     m.machines._put(mach)
     m.machines.add_lab({"id": "box", "path": hub.root.as_posix()})
     res, code = m.machines.open_lab({"id": "box", "path": hub.root.as_posix()})
@@ -276,14 +277,14 @@ def test_a_stopped_remote_dashboard_comes_back_and_forgetting_its_machine_comes_
     m, hub, tmp_path = env
     m.machines.add_machine({"host": "box", "name": "Box"})
     mach = m.machines._get("box")
-    mach["launcher"] = (REPO / "arlotope.py").as_posix()
+    mach["launcher"] = (REPO / "arlo.py").as_posix()
     m.machines._put(mach)
     m.machines.add_lab({"id": "box", "path": hub.root.as_posix()})
     res, code = m.machines.open_lab({"id": "box", "path": hub.root.as_posix()})
     assert code == 200 and res["state"] == "connected", res
     conn = m.ctx.REMOTE
     first = conn.tunnel
-    subprocess.run([sys.executable, str(REPO / "arlotope.py"), "--hub", str(hub.root), "--stop"], capture_output=True, timeout=60)
+    subprocess.run([sys.executable, str(REPO / "arlo.py"), "--hub", str(hub.root), "--stop"], capture_output=True, timeout=60)
     t0 = time.time()
     while time.time() - t0 < 90 and not conn.alive():
         time.sleep(1)

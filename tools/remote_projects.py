@@ -184,7 +184,7 @@ def rewrite(lab, m, text):
     # Inherited resources can live in the installed runtime, outside this Lab's directory.
     from kernel import model
     if model.CODE.resolve() != lab.hub.resolve():
-        for relative in ('tools', 'arlotope.py', '.claude/skills', 'agent-roles', 'templates', 'workflow/frameworks', 'docs/external-frameworks.md', 'AGENTS.md', 'AGENT-GUIDE.md'):
+        for relative in ('tools', 'arlo.py', '.claude/skills', 'agent-roles', 'templates', 'workflow/frameworks', 'docs/external-frameworks.md', 'AGENTS.md', 'AGENT-GUIDE.md'):
             source = model.CODE / relative
             for spelling in sorted({str(source), source.as_posix()}, key=len, reverse=True):
                 text = text.replace(spelling, remote_rd + '/instructions/' + relative)
@@ -207,9 +207,9 @@ def dispatch(lab, path, m):
     snapshot = remote_rd + '/instructions'
     runtime = facts['runtime']
     instructions = json.loads((rd / 'instructions.json').read_text(encoding='utf-8'))
-    instructions['arlotope.py'] = ('import os,sys\nos.execv(sys.executable, [sys.executable, ' + repr(runtime) + ', "control", *sys.argv[1:]])\n')
-    instructions['tools/arlotope_cli.py'] = instructions['arlotope.py']
-    instructions['tools/lab_bus.py'] = instructions['arlotope.py']
+    instructions['arlo.py'] = ('import os,sys\nos.execv(sys.executable, [sys.executable, ' + repr(runtime) + ', "control", *sys.argv[1:]])\n')
+    instructions['tools/arlo_cli.py'] = instructions['arlo.py']
+    instructions['tools/lab_bus.py'] = instructions['arlo.py']
     instructions['tools/artifact.py'] = ('import os,sys\nos.execv(sys.executable, [sys.executable, ' + repr(runtime) + ', "artifact", *sys.argv[1:]])\n')
     instructions['tools/knowledge.py'] = ('import os,sys\nos.execv(sys.executable, [sys.executable, ' + repr(runtime) + ', "knowledge", *sys.argv[1:]])\n')
     instructions['tools/frameworks.py'] = ('import os,sys\nos.execv(sys.executable, [sys.executable, ' + repr(runtime) + ', "framework", *sys.argv[1:]])\n')

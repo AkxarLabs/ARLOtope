@@ -226,7 +226,7 @@ _STABLE: dict = {}
 def python_exe() -> str:
     """The interpreter to run helper scripts (supervisor, hooks, MCP host) with — the one running now
     (known to have pyyaml), unless it is uv's throwaway environment: then a durable one, ~/.arlotope/py (a
-    small venv with pyyaml, made once by uv — the same one arlotope.py uses). Absolute, so no PATH lookup can
+    small venv with pyyaml, made once by uv — the same one arlo.py uses). Absolute, so no PATH lookup can
     pick a different python."""
     exe = sys.executable or "python"
     if not _ephemeral(exe) or os.environ.get("ARLOTOPE_KEEP_PYTHON"):

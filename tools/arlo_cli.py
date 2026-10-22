@@ -1,37 +1,37 @@
 #!/usr/bin/env python3
-"""`arlotope <verb>` — the whole lab from a terminal. Everything the dashboard does has a verb here, and both call
+"""`arlo <verb>` — the whole lab from a terminal. Everything the dashboard does has a verb here, and both call
 the same code (the kernel in tools/kernel/, tools/panels.py, the executor).
 
-    arlotope status                              what needs you, what is running, every study and where it stands
-    arlotope studies                             the studies, their workflow and step
-    arlotope new <study> --title "…" [--workflow W] [--at STEP]      file a study
-    arlotope move <study> <outcome> [--note "…"]                      report an outcome: the workflow moves it
-    arlotope move <study> --to <step> [--note "…"]                    (the PI) move it anywhere: revive, jump, skip
-    arlotope next <study>                        where it stands and what runs next
-    arlotope brief <procedure> [--study S]       what an agent is told for that work
-    arlotope checkpoint <study> <checkpoint>     what a checkpoint shows: where, evidence, checks, history
-    arlotope approve <study> <checkpoint> [--note "…"] [--start] [--yes]
-    arlotope changes <study> <checkpoint> --note "…"      ask for changes (goes to the agent)
-    arlotope revoke <study> <checkpoint> [--yes]
-    arlotope approved <study> <checkpoint>       exit 0 if it is approved (for agents and scripts)
-    arlotope checks <study> <checkpoint>         run the checkpoint's checks now
-    arlotope approvals [<study>]                 the record of every decision
-    arlotope flags [<study>] | ack <flag> [--note "…"]    what the lab's watches flagged; acknowledge one (releases a hold)
-    arlotope start <procedure> [study] [--args "…"] [--backend B]    (or: arlotope ask "…" [--study S])
-    arlotope runs | run <id> | answer <id> … | reply <id> --text "…" | stop <id> | resume [<id>] | pause
-    arlotope hold <study> [--reason "…"] | release <study>
-    arlotope workflow [show [<study>] | set <study> <workflow> | use <study> <procedure>=<variant>
+    arlo status                              what needs you, what is running, every study and where it stands
+    arlo studies                             the studies, their workflow and step
+    arlo new <study> --title "…" [--workflow W] [--at STEP]      file a study
+    arlo move <study> <outcome> [--note "…"]                      report an outcome: the workflow moves it
+    arlo move <study> --to <step> [--note "…"]                    (the PI) move it anywhere: revive, jump, skip
+    arlo next <study>                        where it stands and what runs next
+    arlo brief <procedure> [--study S]       what an agent is told for that work
+    arlo checkpoint <study> <checkpoint>     what a checkpoint shows: where, evidence, checks, history
+    arlo approve <study> <checkpoint> [--note "…"] [--start] [--yes]
+    arlo changes <study> <checkpoint> --note "…"      ask for changes (goes to the agent)
+    arlo revoke <study> <checkpoint> [--yes]
+    arlo approved <study> <checkpoint>       exit 0 if it is approved (for agents and scripts)
+    arlo checks <study> <checkpoint>         run the checkpoint's checks now
+    arlo approvals [<study>]                 the record of every decision
+    arlo flags [<study>] | ack <flag> [--note "…"]    what the lab's watches flagged; acknowledge one (releases a hold)
+    arlo start <procedure> [study] [--args "…"] [--backend B]    (or: arlo ask "…" [--study S])
+    arlo runs | run <id> | answer <id> … | reply <id> --text "…" | stop <id> | resume [<id>] | pause
+    arlo hold <study> [--reason "…"] | release <study>
+    arlo workflow [show [<study>] | set <study> <workflow> | use <study> <procedure>=<variant>
                     | rename-step <old> <new> [--yes]]
-    arlotope project <study> <path>              where a study's project repository is
-    arlotope propose <procedure|step:S|role:R> --file F [--study S] [--why "…"]   (agents) suggest added instructions
-    arlotope extension [list | install <name> [--yes]]   a ready-made addition (extensions/<name>/): its workflows,
+    arlo project <study> <path>              where a study's project repository is
+    arlo propose <procedure|step:S|role:R> --file F [--study S] [--why "…"]   (agents) suggest added instructions
+    arlo extension [list | install <name> [--yes]]   a ready-made addition (extensions/<name>/): its workflows,
                                               steps, skills and checks, laid over the lab after you see what changes
-    arlotope check [--design <folder>]           validate the lab's definition, rules and generated docs — or a
+    arlo check [--design <folder>]           validate the lab's definition, rules and generated docs — or a
                                               designer's draft laid over it (and say what it would change)
-    arlotope docs [--check]                      rewrite the generated parts of the manuals
-    arlotope room <room>                         what a stage group contains
-    arlotope panels [list] | panel <id> [--study S] | approve-collector <panel> [--yes]
-    arlotope config [view | set key=value]
+    arlo docs [--check]                      rewrite the generated parts of the manuals
+    arlo room <room>                         what a stage group contains
+    arlo panels [list] | panel <id> [--study S] | approve-collector <panel> [--yes]
+    arlo config [view | set key=value]
 
 The PI's verbs (approve, revoke, changes, move --to, workflow set/use/rename-step, approve-collector) refuse inside an agent
 run, and ask you to confirm on a terminal (or pass --yes). Output is plain text; most verbs take --json.
@@ -84,7 +84,7 @@ ROUTE_VERBS = {
     "/api/doc/save": "dashboard-only", "/api/workflow/save": "dashboard-only", "/api/workflow/proposal": "dashboard-only",
     "/api/compose": "dashboard-only", "/api/lab/config": "config set", "/api/keys": "dashboard-only",
     "/api/notify": "dashboard-only", "/api/notify/test": "dashboard-only", "/api/setup/complete": "dashboard-only",
-    "/api/server/stop": "arlotope.py --stop", "/api/system/scheduler": "config set",
+    "/api/server/stop": "arlo.py --stop", "/api/system/scheduler": "config set",
     "/api/directive": "reply", "/api/artifact/reply": "reply", "/api/artifact/seen": "dashboard-only",
     "/api/withdraw": "dashboard-only", "/api/command": "start", "/api/tool": "dashboard-only", "/api/read": "checkpoint",
     "/api/libdoc": "dashboard-only", "/api/claims": "dashboard-only",
@@ -106,7 +106,7 @@ def _out(a, data, text: str) -> None:
 
 
 def _err(msg: str, code: int = 2) -> int:
-    print(f"[arlotope] {msg}", file=sys.stderr)
+    print(f"[arlo] {msg}", file=sys.stderr)
     return code
 
 
@@ -151,20 +151,20 @@ def cmd_status(a) -> int:
             "paused": paused, "holds": holds}
     lines = []
     if paused:
-        lines.append(f"❚❚ The lab is paused (since {paused.get('since')}). `arlotope resume` to go on.")
+        lines.append(f"❚❚ The lab is paused (since {paused.get('since')}). `arlo resume` to go on.")
     n = len(waiting) + len(asking) + len(alerts)
     lines.append(f"{n} thing(s) need you." if n else "Nothing needs you.")
     for r in waiting:
         w = r["waiting"]
         if w.get("checkpoint"):
             cp = model.checkpoint(w["checkpoint"], r["workflow"], hub) or {"title": w["checkpoint"]}
-            lines.append(f"  ◆ {cp['title']} — {r['title']}   →  arlotope checkpoint {r['id']} {w['checkpoint']}")
+            lines.append(f"  ◆ {cp['title']} — {r['title']}   →  arlo checkpoint {r['id']} {w['checkpoint']}")
         else:
-            lines.append(f"  ? {r['title']} reported `{w.get('outcome')}` — where should it go?   →  arlotope move {r['id']} --to <step>")
+            lines.append(f"  ? {r['title']} reported `{w.get('outcome')}` — where should it go?   →  arlo move {r['id']} --to <step>")
     for m in asking:
-        lines.append(f"  ? {m.get('command') or m.get('skill')} asks you   →  arlotope run {m['run_id']}")
+        lines.append(f"  ? {m.get('command') or m.get('skill')} asks you   →  arlo run {m['run_id']}")
     for al in alerts:
-        lines.append(f"  ▲ {al['say']} ({al['title']})   →  arlotope panel {al['panel']}")
+        lines.append(f"  ▲ {al['say']} ({al['title']})   →  arlo panel {al['panel']}")
     lines.append(f"{len(live)} agent run(s) working or queued." + (f" On hold: {', '.join(holds)}." if holds else ""))
     for m in live[:12]:
         lines.append(f"  · {m.get('run_id')}  {m.get('status'):<14} {m.get('command') or m.get('skill')}")
@@ -214,7 +214,7 @@ def cmd_move(a) -> int:
         elif a.outcome:
             res = studies.move(hub, a.study, a.outcome, note=a.note or "")
         else:
-            return _err("which outcome? (arlotope move <study> <outcome>, or --to <step> for the PI)")
+            return _err("which outcome? (arlo move <study> <outcome>, or --to <step> for the PI)")
     except (studies.StudyError, model.ModelError) as e:
         return _err(str(e), 1)
     if res.get("finished"):
@@ -284,7 +284,7 @@ def cmd_checkpoint(a) -> int:
         lines.append(f"  check {c['name']}: " + ("not run" if c["code"] is None else "passed" if c["code"] == 0 else f"exit {c['code']}"))
     if rec.get("note"):
         lines.append(f"  your note: {rec['note']}")
-    lines.append(f"  → arlotope approve {a.study} {cp['id']}   ·   arlotope changes {a.study} {cp['id']} --note \"…\"")
+    lines.append(f"  → arlo approve {a.study} {cp['id']}   ·   arlo changes {a.study} {cp['id']} --note \"…\"")
     _out(a, r, "\n".join(lines))
     return 0
 
@@ -318,7 +318,7 @@ def _decide(a, decision: str) -> int:
         if nxt["procedure"]:
             if getattr(a, "start", False):
                 return _start(hub, nxt["procedure"], a.study, "", None)
-            print(f"  next: arlotope start {nxt['procedure']} {a.study}")
+            print(f"  next: arlo start {nxt['procedure']} {a.study}")
     return 0
 
 
@@ -371,7 +371,7 @@ def cmd_approvals(a) -> int:
 def cmd_flags(a) -> int:
     fl = watch.flags(_hub(a), a.study or None, open_only=not a.all)
     _out(a, fl, "\n".join(f"{f['ts']}  {f['level']:<5} {f['study']:<22} {f['say']}" + (" (held)" if f.get("hold") else "")
-                           + (f" — {f['detail']}" if f.get("detail") else "") + f"   → arlotope ack {f['id']}"
+                           + (f" — {f['detail']}" if f.get("detail") else "") + f"   → arlo ack {f['id']}"
                            + ("  [acknowledged]" if f.get("acked") else "") for f in fl) or "No flags.")
     return 0
 
@@ -395,7 +395,7 @@ def _start(hub: Path, skill: str, study: str | None, args: str, backend: str | N
                                        prompt=prompt, created_by="cli"))
     except ex.SpecError as e:
         return _err(str(e), 1)
-    print(f"queued {m['run_id']}: {m.get('command') or skill}  (the scheduler starts it; `arlotope run {m['run_id']}`)")
+    print(f"queued {m['run_id']}: {m.get('command') or skill}  (the scheduler starts it; `arlo run {m['run_id']}`)")
     return 0
 
 
@@ -464,7 +464,7 @@ def cmd_hold(a) -> int:
         return 1
     ex, lab = _executor(_hub(a))
     ex.pause.hold(lab, a.study, by="PI", reason=a.reason)
-    print(f"{a.study} is on hold — nothing new starts for it (`arlotope release {a.study}`)")
+    print(f"{a.study} is on hold — nothing new starts for it (`arlo release {a.study}`)")
     return 0
 
 
@@ -481,7 +481,7 @@ def cmd_workflow(a) -> int:
     hub = _hub(a)
     if a.action == "rename-step":
         if len(a.rest) != 2:
-            return _err("usage: arlotope workflow rename-step <old-id> <new-id>")
+            return _err("usage: arlo workflow rename-step <old-id> <new-id>")
         if not _confirm(a, f"Rename the step {a.rest[0]} to {a.rest[1]} (the studies there move with it)"):
             return 1
         try:
@@ -493,7 +493,7 @@ def cmd_workflow(a) -> int:
         return 0
     if a.action in ("set", "use"):
         if len(a.rest) != 2:
-            return _err(f"usage: arlotope workflow {a.action} <study> " + ("<workflow>" if a.action == "set" else "<procedure>=<variant>"))
+            return _err(f"usage: arlo workflow {a.action} <study> " + ("<workflow>" if a.action == "set" else "<procedure>=<variant>"))
         study, val = a.rest
         try:
             if a.action == "set":
@@ -511,7 +511,7 @@ def cmd_workflow(a) -> int:
         except studies.StudyError as e:
             return _err(str(e), 1)
         return 0
-    if a.rest:                                   # arlotope workflow show <study>: the workflow that study follows
+    if a.rest:                                   # arlo workflow show <study>: the workflow that study follows
         try:
             w = model.workflow(studies.workflow_of(hub, a.rest[0]), hub)
         except (studies.StudyError, model.ModelError) as e:
@@ -567,30 +567,30 @@ def cmd_check(a) -> int:
     if a.design:
         probs, said = diff.check_overlay(hub, Path(a.design))
         for x in probs:
-            print(f"[arlotope] problem: {x}")
+            print(f"[arlo] problem: {x}")
         for x in said:
-            print(f"[arlotope] it {x}")
+            print(f"[arlo] it {x}")
         if not probs:
-            print("[arlotope] ok — the design can be taken" + ("" if said else " (it changes nothing)"))
+            print("[arlo] ok — the design can be taken" + ("" if said else " (it changes nothing)"))
         return 1 if probs else 0
     probs, stale = check_all(hub)
     for x in probs:
-        print(f"[arlotope] {x}")
+        print(f"[arlo] {x}")
     for x in stale:
-        print(f"[arlotope] {x.as_posix()} is stale — run `arlotope docs`")
+        print(f"[arlo] {x.as_posix()} is stale — run `arlo docs`")
     for r in model.rooms(hub):      # not a problem: the dashboard draws a room with no look plain
         if not ((model.CODE / "dashboard" / "static" / "world3d" / "rooms" / f"{r['id']}.js").is_file()
                 or (hub / "lab" / "rooms3d" / f"{r['id']}.json").is_file()):
-            print(f"[arlotope] note: room {r['id']} has no look — it is drawn plain")
+            print(f"[arlo] note: room {r['id']} has no look — it is drawn plain")
     if not probs and not stale:
-        print("[arlotope] ok")
+        print("[arlo] ok")
     return 1 if probs or stale else 0
 
 
 def cmd_docs(a) -> int:
     stale = lab_docs.render(_hub(a), check_only=a.check)
     for x in stale:
-        print(f"[arlotope] {'stale' if a.check else 'updated'}: {x.as_posix()}")
+        print(f"[arlo] {'stale' if a.check else 'updated'}: {x.as_posix()}")
     return 1 if (a.check and stale) else 0
 
 
@@ -615,7 +615,7 @@ def cmd_extension(a) -> int:
         return 1
     diff.lay(x["path"], hub, merge=True)
     lab_docs.render(hub)
-    print(f"added {x['title']} — `arlotope workflow` shows it; `arlotope new <study> --workflow …` files a study on it")
+    print(f"added {x['title']} — `arlo workflow` shows it; `arlo new <study> --workflow …` files a study on it")
     return 0
 
 
@@ -664,7 +664,7 @@ def cmd_config(a) -> int:
 
 
 def build() -> argparse.ArgumentParser:
-    ap = argparse.ArgumentParser(prog="arlotope", description="ARLOtope from a terminal",
+    ap = argparse.ArgumentParser(prog="arlo", description="ARLOtope from a terminal",
                                  formatter_class=argparse.RawDescriptionHelpFormatter, epilog=__doc__.split("\n\n", 1)[1])
     ap.add_argument("--hub", default=None)
     ap.add_argument("--json", action="store_true")

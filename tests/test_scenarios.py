@@ -1,7 +1,7 @@
 """Proof by scenario: what a lab can make of the kernel without touching its code.
 
     1  a step of its own        a replication step between analysis and writing, with its own skill — on the
-                                map, in the brief, `arlotope next`, the launcher; done at analysis can't skip it
+                                map, in the brief, `arlo next`, the launcher; done at analysis can't skip it
     2  a lab with no papers     its own steps, skills and checks, and none of the research ones
     3  a renamed step           the studies standing there move with it; the journal says so
     4  a variant, where wanted  a quick literature pass in one workflow, and for one study only

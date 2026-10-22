@@ -1,0 +1,3 @@
+#!/usr/bin/env sh
+# Run ARLOtope from any working directory.
+exec uv run --with pyyaml python "$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)/arlo.py" "$@"

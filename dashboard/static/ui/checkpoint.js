@@ -1,7 +1,7 @@
 /* ARLOtope — checkpoints: the Permit (one sheet for every checkpoint of every workflow: what it covers,
    the exhibits, its checks, the agent's case, a note to agents, and hold-to-approve), the research loop's
    approval, and moving a study back onto its workflow. Every decision is a record (POST /api/checkpoint/decide →
-   lab/journal.jsonl); `arlotope approve <study> <checkpoint>` does the same from a terminal. Approving a `before`
+   lab/journal.jsonl); `arlo approve <study> <checkpoint>` does the same from a terminal. Approving a `before`
    checkpoint the study waits at carries its move; "approve and start" also starts the new step's procedure. */
 (function () {
   'use strict';
@@ -93,7 +93,7 @@
             <${NL.HoldButton} disabled=${needType && typed.trim() !== study} onHold=${() => decide('approved', true)} sub="hold to approve">Approve and ${thenTitle.toLowerCase()}</${NL.HoldButton}>`
           : html`<${NL.HoldButton} disabled=${needType && typed.trim() !== study} onHold=${() => decide('approved')} sub="hold to approve">Approve</${NL.HoldButton}>`}`}
       </footer>
-      <div class="permit-cli mono">or in a terminal: arlotope approve ${study} ${id}${nextProc ? ' --start' : ''}</div>
+      <div class="permit-cli mono">or in a terminal: arlo approve ${study} ${id}${nextProc ? ' --start' : ''}</div>
     </aside>`;
   };
   NL.openCheckpoint = (study, id) => { if (study && id) NL.open(NL.CheckpointSheet, { study, id }, { key: 'cp' }); };

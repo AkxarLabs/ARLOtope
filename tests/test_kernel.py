@@ -65,7 +65,7 @@ def test_the_shipped_definition_is_consistent_and_its_docs_current():
     assert K.rules.check(None) == []
     sys.path.insert(0, str(REPO / "tools"))
     import lab_docs
-    assert lab_docs.render(REPO, check_only=True) == [], "run `arlotope docs`"
+    assert lab_docs.render(REPO, check_only=True) == [], "run `arlo docs`"
 
 
 def test_steps_workflows_and_where_outcomes_lead():
@@ -461,7 +461,7 @@ def test_a_runs_digest_flags_what_it_did(lab):
     assert any(f.endswith("configs/base.yaml") for f in dg["files"]["written"]) and dg["cost_usd"] == 0.12
     rules_hit = {f["rule"] for f in dg["flags"]}
     assert {"eval-protocol-edited", "refused", "pushed"} <= rules_hit and dg["notable"] == ["git push origin main"]
-    said = "\n".join(K.watch.render(dg))                                          # `arlotope run <id>` shows it
+    said = "\n".join(K.watch.render(dg))                                          # `arlo run <id>` shows it
     assert "configs/base.yaml" in said and "$ git push origin main" in said and "3 denied" in said
     seen = load("dashboard/sources").workers.compact_run({**m, "digest": dg})["digest"]   # …and the run sheet
     assert seen["written"] == len(dg["files"]["written"]) and seen["denials"] == 3 and seen["flags"]
@@ -545,7 +545,7 @@ def test_a_procedure_offered_at_a_step_is_told_to_leave_the_outcome_to_its_own(l
 
 
 def test_skills_report_outcomes_and_never_name_steps_or_checkpoints():
-    """A skill is portable across workflows: it reports what happened (`arlotope move <study> <outcome>`) and reads
+    """A skill is portable across workflows: it reports what happened (`arlo move <study> <outcome>`) and reads
     its checkpoints from the brief. So no skill names a step or a checkpoint of the shipped definition, moves a
     study by hand, or calls the old lifecycle tools — and only the procedures that do a step's work are told, in
     their generated contract, to report an outcome."""

@@ -4,7 +4,7 @@ An approval is a journal record, so the guard is one list of paths and commands,
 writes alike: the journal and the registry written from it, the check results, the campaigns' state, the usage
 limits, the PI-action log, the panel collector approvals, the Compose draft, workflow/, the skills, the roles and
 the checks (the floor no rules.yaml lowers), the lab's settings (except in /setup-lab and /configure), the
-protected paths of workflow/rules.yaml — and `arlotope approve`/`revoke`, --skip-guard and new.py on the shell.
+protected paths of workflow/rules.yaml — and `arlo approve`/`revoke`, --skip-guard and new.py on the shell.
 Prose in a document approves nothing, so writing it is fine. Covered across tool shapes (claude
 Edit/Write/MultiEdit/Bash, codex apply_patch, opencode edit) and the hook contract (exit 2 + reason on stderr,
 the denial logged to the run's permissions.jsonl; a guard that fails allows the call and says so).
@@ -76,10 +76,10 @@ def test_writing_an_approval_phrase_in_a_document_is_harmless_and_allowed(g, hub
 
 def test_a_campaign_brief_is_a_work_file_the_registry_is_not(g, hub):
     """A campaign brief is written by procedures (approving it is a record); the registry is the kernel's view
-    of the journal — a study moves with `arlotope move`, never by an edit."""
+    of the journal — a study moves with `arlo move`, never by an edit."""
     hub.add_registry_row("idea-a", state="internal-review")
     reg = hub.lab / "REGISTRY.md"
-    assert "arlotope move" in g.decide(edit(reg, "| idea-a | T | internal-review |", "| idea-a | T | final |"))
+    assert "arlo move" in g.decide(edit(reg, "| idea-a | T | internal-review |", "| idea-a | T | final |"))
     assert g.decide(bash("sed -i 's/internal-review/final/' lab/REGISTRY.md", hub.root))
     d = hub.lab / "campaigns"
     d.mkdir(parents=True)
@@ -112,12 +112,12 @@ def test_lab_config_is_the_pis_except_in_the_config_procedures(g, hub, monkeypat
 # ── shell ─────────────────────────────────────────────────────────────────────
 
 @pytest.mark.parametrize("cmd", [
-    "arlotope approve idea-a approve-proposal --yes",
-    "python arlotope.py revoke idea-a finalize-paper --yes",
-    "uv run --with pyyaml python arlotope.py approve idea-a approve-proposal --yes",
-    "arlotope hold idea-b --reason 'stop it'",
-    "uv run --with pyyaml python arlotope.py pause",
-    "python \"C:/hub/arlotope.py\" approve-collector gpu --yes",
+    "arlo approve idea-a approve-proposal --yes",
+    "python arlo.py revoke idea-a finalize-paper --yes",
+    "uv run --with pyyaml python arlo.py approve idea-a approve-proposal --yes",
+    "arlo hold idea-b --reason 'stop it'",
+    "uv run --with pyyaml python arlo.py pause",
+    "python \"C:/hub/arlo.py\" approve-collector gpu --yes",
     "python tools/spawn_project.py idea-a --skip-guard",
     "python tools/new.py procedure survey",
     f"echo '{REC}' >> lab/approvals.jsonl",
@@ -141,9 +141,9 @@ def test_shell_denials(g, cmd):
     "grep -n 'PI Gate 1' studies/idea-a/proposal.md",
     "cat lab/approvals.jsonl",
     "uv run python tools/guard.py frozen idea-a 2>&1",
-    "uv run --with pyyaml python arlotope.py move idea-a done --note 'proposal written'",
-    "arlotope approved idea-a approve-full-runs",
-    "arlotope status",
+    "uv run --with pyyaml python arlo.py move idea-a done --note 'proposal written'",
+    "arlo approved idea-a approve-full-runs",
+    "arlo status",
     "cat lab/journal.jsonl",
     "echo x > ../projects/idea-a/templates/page.html",
     "cat ../projects/idea-a/control.yaml | grep eval_frozen",
@@ -155,7 +155,7 @@ def test_shell_reads_and_work_are_fine(g, cmd):
     assert g.decide(bash(cmd)) is None
 
 
-@pytest.mark.parametrize("cmd", ["arlotope checkpoint idea-a approve-proposal", "arlotope checks idea-a approve-full-runs"])
+@pytest.mark.parametrize("cmd", ["arlo checkpoint idea-a approve-proposal", "arlo checks idea-a approve-full-runs"])
 def test_reading_a_checkpoint_from_the_cli_is_fine(g, cmd):
     assert g.decide(bash(cmd)) is None
 
@@ -244,13 +244,13 @@ def test_agents_cannot_edit_procedures_or_their_own_instructions(g, hub, rel):
     p = hub.root / rel
     p.parent.mkdir(parents=True, exist_ok=True)
     why = g.decide(write(p, "be sloppier"))
-    assert why and "arlotope propose" in why
+    assert why and "arlo propose" in why
     assert g.decide(bash(f"echo x > {rel}", hub.root))
     assert g.decide(write(hub.lab / ".bus" / "compose" / "draft" / "workflow" / "steps.yaml", "x"))   # nor the PI's draft
 
 
 def test_proposing_an_instruction_change_is_allowed(g, hub):
-    assert g.decide(bash("uv run --with pyyaml python arlotope.py propose experiment --file /tmp/draft.md", hub.root)) is None
+    assert g.decide(bash("uv run --with pyyaml python arlo.py propose experiment --file /tmp/draft.md", hub.root)) is None
     assert g.decide(write(hub.root / "studies" / "idea-a" / "notes.md", "fine")) is None
     assert g.decide(write(hub.lab / ".bus" / "designs" / "panels" / "gpu" / "view.html", "<p>")) is None
 

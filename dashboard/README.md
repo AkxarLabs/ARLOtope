@@ -1,6 +1,6 @@
 # Research dashboard
 
-A local, no-build interface for ARLOtope. Start it with `uv run --with pyyaml python arlotope.py`.
+A local, no-build interface for ARLOtope. Start it with `uv run --with pyyaml python arlo.py`.
 The CLI, native procedures and executor also work without this interface.
 
 The shell is `static/ui/app.js`; Lab is the primary page and `home.js` provides the overview. `starter.js` and `starter.py`

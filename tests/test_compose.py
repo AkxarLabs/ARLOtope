@@ -144,6 +144,33 @@ def test_steps_are_added_routed_and_removed_without_yaml(m, hub):
     assert text.startswith("# The places a study can be")                         # the header is the file's own
 
 
+def test_map_deletion_cleans_routes_checkpoints_and_start_without_changing_other_workflows(m, hub):
+    _op(m, op='copy', kind='workflow', like='quick', name='editable')
+    definition = K.define.read(m.compose._draft())
+    workflow = next(w for w in definition['workflows'] if w['id'] == 'editable')
+    workflow.update(path=['seed', 'proposal', 'analysis'], start=['proposal'],
+                    routes={'seed': {'revise': 'proposal'}}, checkpoints=[
+                        {'id': 'at-proposal', 'before': 'proposal', 'approver': 'me'},
+                        {'id': 'choose-next', 'before': 'analysis', 'approver': 'me',
+                         'decisions': {'revise': 'proposal', 'accept': 'continue'}}])
+    K.define.write(m.compose._draft(), definition)
+    nodes = [{'id': 'seed', 'room': 'incubator', 'procedure': None, 'next': ['analysis']},
+             {'id': 'analysis', 'room': 'bench', 'procedure': None, 'next': [], 'outcomes': {}}]
+    _op(m, op='graph', workflow='editable', nodes=nodes)
+    saved = _wf(m, 'editable')
+    assert saved['path'] == ['seed', 'analysis'] and not saved.get('start')
+    assert not saved['routes'].get('seed')
+    assert len(saved['checkpoints']) == 1
+    assert saved['checkpoints'][0]['id'] == 'choose-next'
+    assert saved['checkpoints'][0]['decisions'] == {'accept': 'continue'}
+    assert 'proposal' in _wf(m, 'quick')['path']
+    assert not m.compose.problems()
+    _op(m, op='publish', note='Connect evidence directly to analysis')
+    K.studies.new(hub.root, 'map-study', 'Map study', workflow='editable')
+    K.studies.move(hub.root, 'map-study', 'done')
+    assert K.studies.study(hub.root, 'map-study')['waiting']['checkpoint'] == 'choose-next'
+
+
 def test_workflows_and_checkpoints_are_composed_without_yaml(m, hub):
     """A workflow is copied (its checkpoints get ids of their own — approvals are per id), a checkpoint is added,
     moved and removed, a workflow made default and removed; the view shows the audits checkpoints may run."""

@@ -132,7 +132,7 @@ def rows(hub) -> list[dict]:
 REGISTRY_HEAD = """# Lab Registry
 
 Where every study stands. **Generated** from `lab/journal.jsonl` after every change — never edit it by hand:
-studies move with `arlotope move <study> <outcome>` (or in the dashboard), and `arlotope status` shows the same.
+studies move with `arlo move <study> <outcome>` (or in the dashboard), and `arlo status` shows the same.
 
 | ID | Title | Step | Workflow | Project | Updated | Next |
 |----|-------|------|----------|---------|---------|------|
@@ -310,13 +310,13 @@ def move(hub, slug: str, outcome: str, note: str = "", by: str | None = None) ->
     by = by or actor()
     s = study(hub, slug)
     if not s:
-        raise StudyError(f"no study {slug!r} (file it first: arlotope new {slug} --title …)")
+        raise StudyError(f"no study {slug!r} (file it first: arlo new {slug} --title …)")
     if s.get('active_steps') is not None:
         from . import branches
         return branches.move(hub, s, outcome, note, by)
     here = model.step(s["step"], hub)
     if not here:
-        raise StudyError(f"{slug} is at {s['step']!r}, which is no longer a step — the PI moves it (arlotope move {slug} --to <step>)")
+        raise StudyError(f"{slug} is at {s['step']!r}, which is no longer a step — the PI moves it (arlo move {slug} --to <step>)")
     if here["shelf"]:
         raise StudyError(f"{slug} is {here['label'].lower()} — only the PI brings it back")
     if s["finished"]:

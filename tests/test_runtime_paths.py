@@ -22,7 +22,7 @@ def test_commands_use_installed_runtime_and_keep_the_selected_lab(hub):
     events = [json.loads(line) for line in (hub.lab / '.bus/events.jsonl').read_text(encoding='utf-8').splitlines()]
     assert events[-1]['run_id'] == 'runtime-test'
     command = k.brief.arlotope_cmd(hub.root)
-    assert (REPO / 'tools/arlotope_cli.py').as_posix() in command and f'--hub "{hub.root.as_posix()}"' in command
+    assert (REPO / 'tools/arlo_cli.py').as_posix() in command and f'--hub "{hub.root.as_posix()}"' in command
     v = {'level': 'hub', 'workdir': str(hub.root), 'cfg': {'kind': 'ask'}, 'target': 'hub', 'skill': 'ask'}
     text = lab_profile.preamble(__import__('executor').Lab(hub.root), 'runtime-test', v, '')
     for name in ('artifact.py', 'knowledge.py', 'lab_bus.py'):
@@ -67,7 +67,7 @@ def test_inherited_skills_use_explicit_prompts_and_remote_snapshot_paths(hub, tm
         text += '\n' + (REPO / 'tools' / name).as_posix()
     rewritten = remote_projects.rewrite(lab, m, text)
     assert REPO.as_posix() not in rewritten and str(hub.root) not in rewritten
-    assert '/instructions/tools/arlotope_cli.py' in rewritten and '/instructions/.claude/skills/triage/SKILL.md' in rewritten
+    assert '/instructions/tools/arlo_cli.py' in rewritten and '/instructions/.claude/skills/triage/SKILL.md' in rewritten
     assert all('/instructions/tools/' + name in rewritten for name in ('artifact.py', 'knowledge.py', 'lab_bus.py'))
 
 

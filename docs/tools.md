@@ -159,9 +159,9 @@ non-baseline PLAN.md row traces to a `D-NNN`/`(expand Rn)` origin; a `Headline-c
 **0 = proceed · 1 = blocked · 2 = warn**. Checkpoints run them (`checks:`), watches run them, and agents
 run them where a procedure says so.
 
-Where a study stands and whether a checkpoint is approved are the kernel's, not a check's: `arlotope move`
+Where a study stands and whether a checkpoint is approved are the kernel's, not a check's: `arlo move`
 refuses an illegal move and holds a study at an unapproved `before` checkpoint, and
-`arlotope approved <slug> <checkpoint>` exits 0 only when that checkpoint is approved. A check never grants
+`arlo approved <slug> <checkpoint>` exits 0 only when that checkpoint is approved. A check never grants
 an approval.
 
 ### `kernel/` — the lab's definition, its studies and the journal
@@ -188,18 +188,18 @@ collector, `panel:<id>`). `by` is `pi`, `cli`, `run:<id>`, `campaign:<name>`, `a
 Only the kernel writes it; the PI's verbs refuse inside an agent run, and the signature guard refuses
 the file and the commands.
 
-### `arlotope_cli.py` — the lab from a terminal (`arlotope <verb>`)
+### `arlo_cli.py` — the lab from a terminal (`arlo <verb>`)
 
 ```bash
-uv run --with pyyaml python arlotope.py status                        # what needs you, what is running, every study
-uv run --with pyyaml python arlotope.py next <study>                  # where it stands and what runs next
-uv run --with pyyaml python arlotope.py move <study> <outcome> [--note "…"]
-uv run --with pyyaml python arlotope.py checkpoint <study> <checkpoint>
-uv run --with pyyaml python arlotope.py approve <study> <checkpoint> [--note "…"] [--start] [--yes]
-uv run --with pyyaml python arlotope.py changes <study> <checkpoint> --note "…"
-uv run --with pyyaml python arlotope.py revoke <study> <checkpoint> [--yes]
-uv run --with pyyaml python arlotope.py hold <study> [--reason "…"] | release <study> | pause | resume
-uv run --with pyyaml python arlotope.py panel compute
+uv run --with pyyaml python arlo.py status                        # what needs you, what is running, every study
+uv run --with pyyaml python arlo.py next <study>                  # where it stands and what runs next
+uv run --with pyyaml python arlo.py move <study> <outcome> [--note "…"]
+uv run --with pyyaml python arlo.py checkpoint <study> <checkpoint>
+uv run --with pyyaml python arlo.py approve <study> <checkpoint> [--note "…"] [--start] [--yes]
+uv run --with pyyaml python arlo.py changes <study> <checkpoint> --note "…"
+uv run --with pyyaml python arlo.py revoke <study> <checkpoint> [--yes]
+uv run --with pyyaml python arlo.py hold <study> [--reason "…"] | release <study> | pause | resume
+uv run --with pyyaml python arlo.py panel compute
 ```
 
 Core study and process actions have verbs here and share the dashboard's kernel. Browser-specific
@@ -214,7 +214,7 @@ features also use their focused tools and server routes:
   `docs [--check]`, `extension [list|install]`, `room`;
 - `panels`, `panel`, `approve-collector` and `config`.
 
-`arlotope.py <verb>` dispatches to it (`arlotope.py <verb> --help` for one verb's arguments). The PI's verbs
+`arlo.py <verb>` dispatches to it (`arlo.py <verb> --help` for one verb's arguments). The PI's verbs
 (`approve`, `revoke`, `changes`, `move --to`, `workflow set|use|rename-step`, `approve-collector`) refuse
 inside an agent run, and ask you to confirm on a terminal (or pass `--yes`). Most verbs take `--json`.
 
@@ -228,15 +228,15 @@ uv run --with pyyaml python tools/new.py rule     <id>   --text "**Title.** What
 ```
 
 Copies the closest thing the lab already has under a new name, so nobody hand-edits YAML. A copied skill
-says `like: <skill>`: it is a variant, used in a workflow (`use:`), for one study (`arlotope workflow use`),
+says `like: <skill>`: it is a variant, used in a workflow (`use:`), for one study (`arlo workflow use`),
 or as a step's work. Then the generated docs are refreshed. The signature guard refuses it from a run.
 
 ### `lab_docs.py` — the generated parts of the manuals
 
 Writes the spans between `<!-- arlotope:<name> … -->` markers from the lab's definition: the rules and
 workflows in `AGENTS.md`, the head of every SKILL.md (how it finishes, what it must produce), the steps
-table in [The workflow](workflow.md), and the dashboard's built-in copy of the definition. `arlotope docs`
-writes them; `arlotope check` reports stale ones. It also writes the room brief (`arlotope room <room>`).
+table in [The workflow](workflow.md), and the dashboard's built-in copy of the definition. `arlo docs`
+writes them; `arlo check` reports stale ones. It also writes the room brief (`arlo room <room>`).
 
 ### `labfiles.py` — the lab's files, read one way
 
@@ -254,7 +254,7 @@ A panel is a folder with `panel.yaml`, a `view.html` and, optionally, a collecto
 `dashboard/static/panels/shipped/` (the lab's own, e.g. Compute), `~/.arlotope/panels/` (yours, across
 labs) and `lab/panels/` (this lab's); a later one overrides an earlier one. A view runs in a sandboxed
 frame with no network. A collector is code, so it runs only once the PI approved that exact version
-(`arlotope approve-collector <panel>`, a record `panel:<id>`); shipped collectors need no approval. A
+(`arlo approve-collector <panel>`, a record `panel:<id>`); shipped collectors need no approval. A
 panel's data may carry alerts; each becomes a Inbox item, and an alert holds a study only if the PI
 let that panel hold (`may_hold`).
 
@@ -331,8 +331,8 @@ change:
 - `lab/config.yaml` (except in `/setup-lab` and `/configure`);
 - the lab's definition: `workflow/`, the skills, the roles, `checks/` and `extensions/` always, plus
   the manuals, templates, the PI's instructions, rooms and panels (`protected_paths` in
-  `workflow/rules.yaml`); an agent proposes a change with `arlotope propose` instead;
-- shell commands that do any of the above, or run `arlotope approve|revoke|changes|approve-collector|ack`,
+  `workflow/rules.yaml`); an agent proposes a change with `arlo propose` instead;
+- shell commands that do any of the above, or run `arlo approve|revoke|changes|approve-collector|ack`,
   `tools/new.py` or `--skip-guard`.
 
 One list drives both the file check and the shell check. It is a speed bump, not a vault: an agent can
@@ -356,7 +356,7 @@ uv run --with pyyaml python tools/process_writebacks.py [--apply]
 
 `hub_writeback.py` is hard rule 11 as one call from a project session: a dated `lab/notebook/` entry,
 durable insights promoted to `lab/knowledge/`, and, with `--outcome`, the study's outcome reported to the
-kernel (as `arlotope move`). When the hub is unreachable a project appends a `HUB-WRITEBACK-PENDING:` block
+kernel (as `arlo move`). When the hub is unreachable a project appends a `HUB-WRITEBACK-PENDING:` block
 to its `EXPERIMENT_LOG.md` instead; `process_writebacks.py --apply` applies those later, once each.
 
 ### `lab_bus.py` · `trace_hook.py` — the event bus and the activity tracer
@@ -417,10 +417,10 @@ instead use a browser terminal on a remote or headless controller; that terminal
 pass through the server. SSH connection prompts use their native SSH window. See
 [machines and sign-in](compute.md#connect-a-project-machine).
 
-### `arlotope.py` (repo root) — start the dashboard
+### `arlo.py` (repo root) — start the dashboard
 
 ```bash
-uv run --with pyyaml python arlotope.py [--hub <lab>] [--port N] [--no-browser]
+uv run --with pyyaml python arlo.py [--hub <lab>] [--port N] [--no-browser]
 ```
 
 It starts `dashboard/serve.py` for the lab and opens the browser. On a machine you reached over SSH

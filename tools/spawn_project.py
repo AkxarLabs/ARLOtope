@@ -228,7 +228,7 @@ def run(a) -> int:
         subprocess.run(["git", "commit", "-m", "scaffold: spawn from ARLOtope template, smoke green"],
                        cwd=str(dest), capture_output=True)
         print("[spawn] committed green scaffold. Next: fill PLAN.md from the proposal, then report the outcome "
-              "(`arlotope move <slug> done`).")
+              "(`arlo move <slug> done`).")
         return 0
     print("[spawn] LEFT UNCOMMITTED — a smoke/test/check step failed (see output above). Fix, then re-run "
           "(a red scaffold is never committed).")

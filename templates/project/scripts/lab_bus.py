@@ -64,7 +64,7 @@ KINDS = {
     # headless runs under the executor (tools/executor): a run paused on a PI question, resumed
     # after the answer, and the run's machine-readable footer {next, needs_pi, summary}
     "agent_waiting", "agent_resumed", "run_report",
-    # the workflow's PI-owned instructions: an agent's suggested change (`arlotope propose`) and
+    # the workflow's PI-owned instructions: an agent's suggested change (`arlo propose`) and
     # the PI's decision; a campaign cycle asking the keeper to start a procedure (never finalize)
     "instruction_proposal", "instruction_resolved", "campaign_dispatch",
     # something an agent made for the PI to look at (tools/artifact.py), and the PI's reply to it

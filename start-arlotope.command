@@ -5,4 +5,4 @@ if ! command -v uv >/dev/null 2>&1; then
   echo "ARLOtope needs uv (a small Python tool runner): https://docs.astral.sh/uv/getting-started/installation/"
   exit 1
 fi
-exec uv run --with pyyaml python arlotope.py "$@"
+exec uv run --with pyyaml python arlo.py "$@"

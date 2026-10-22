@@ -7,7 +7,7 @@ dashboard to coding agents. Everything a lab *defines* lives elsewhere: procedur
 pyyaml; run with uv's ephemeral env:
 
 ```bash
-uv run --with pyyaml python arlotope.py <verb> …                          # `arlotope`: the whole lab from a terminal (status, move, approve, brief, check, docs, …)
+uv run --with pyyaml python arlo.py <verb> …                          # `arlotope`: the whole lab from a terminal (status, move, approve, brief, check, docs, …)
 uv run --with pyyaml python tools/guard.py <check> <slug> …           # run one of the lab's checks/ (--list)
 uv run --with pyyaml python tools/new.py skill|step|workflow|room|role|check|type|rule <name> --like <existing>   # add by copying
 uv run --with pyyaml python tools/check_lab.py                        # lab lint (registry, wiring, workflow)
@@ -24,7 +24,7 @@ uv run --with pyyaml python tools/upgrade_project.py --all [--check]  # bring ol
 | **The kernel** | `kernel/` | the lab's definition (`workflow/steps.yaml`, `workflow/workflows/`, `workflow/rooms.yaml`, the skills' frontmatter), where every study stands (`lab/journal.jsonl`, REGISTRY.md generated from it), moving a study by an outcome, checkpoints and approvals, the brief, the PI's instructions, a draft's or an extension's overlay, run digests and flags, migrating an older lab — see `docs/workflow.md` |
 | **Checks and protections** | `guard.py`, `signature_guard.py` | run the lab's `checks/`; refuse a headless run that writes the PI's records or the lab's definition, or runs the PI's verbs (it fails open with a flag — `docs/monitoring.md`) |
 | **The lab's files** | `labfiles.py`, `new.py`, `lab_docs.py` | the lab's files read one way; adding a component by copying one; the generated parts of the manuals and skills |
-| **The PI's terminal** | `arlotope_cli.py` | `arlotope <verb>`: everything the dashboard does, from a terminal (status, approve, revoke, hold, pause, panels, …) |
+| **The PI's terminal** | `arlo_cli.py` | `arlo <verb>`: everything the dashboard does, from a terminal (status, approve, revoke, hold, pause, panels, …) |
 | **Instruments** | `panels.py`, `artifact.py` | the dashboard's panels (the shipped Compute panel tracks GPU-hours and raises alerts); a collector runs only once the PI approved that version; show the PI an artifact |
 | **Observability** | `lab_bus.py`, `trace_hook.py` | the append-only event bus and directive inbox; the per-agent action tracer (both ship into every project too) |
 | **Coordination** | `hub_writeback.py`, `process_writebacks.py` | the project→hub write-back boundary |
