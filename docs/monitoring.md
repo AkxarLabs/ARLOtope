@@ -5,7 +5,7 @@ can. File rules and pattern matches slow such an agent down; they don't stop it.
 cheap protections around what matters most, relies on each backend's own approval mode for everyday
 safety, and puts most of its effort into showing the PI what every run did.
 
-`newts <verb>` is short for `uv run --with pyyaml python newts.py <verb>`.
+`arlotope <verb>` is short for `uv run --with pyyaml python arlotope.py <verb>`.
 
 ## The protections
 
@@ -33,7 +33,7 @@ workflow designer (`/design`) declares `lab/.bus/designs/workflow/**`; the room 
 the system's temp folder, and nothing else, through an edit tool or a shell redirect (`>`, `tee`,
 `Out-File`). Whatever such a run changes elsewhere anyway (a script it ran) raises a `writes-outside` flag.
 
-It also denies the PI's verbs in a shell command: `newts approve`, `revoke`, `changes`,
+It also denies the PI's verbs in a shell command: `arlotope approve`, `revoke`, `changes`,
 `approve-collector`, `ack`, `hold`, `release` and `pause`, and `tools/new.py`. Each denial is logged to the run's `permissions.jsonl`
 and counted in its digest.
 
@@ -43,17 +43,17 @@ is present there.
 
 ### The kernel refuses the PI's actions inside a run
 
-Every headless run has `NEWTS_RUN_ID` set. With it set, the kernel and `newts` refuse approving, revoking
-or asking for changes, `newts move --to`, `newts workflow set|use|rename-step`, `newts ack`,
-`newts hold|release|pause|resume`, `newts config set` (outside `/setup-lab` and `/configure`) and
-`newts extension install`. A run can file a study, but not past a checkpoint. A campaign's approvals go
+Every headless run has `ARLOTOPE_RUN_ID` set. With it set, the kernel and `arlotope` refuse approving, revoking
+or asking for changes, `arlotope move --to`, `arlotope workflow set|use|rename-step`, `arlotope ack`,
+`arlotope hold|release|pause|resume`, `arlotope config set` (outside `/setup-lab` and `/configure`) and
+`arlotope extension install`. A run can file a study, but not past a checkpoint. A campaign's approvals go
 through the executor's keeper, not the agent: only `me-or-campaign` checkpoints the PI delegated to it,
 with every check passing. An `agent` checkpoint instead uses a separate gate-review run and validates
 its recorded decision and evidence. Neither lets a working agent approve its own task.
 
 ### Moves and launches
 
-`newts move` refuses outcomes the step can't report, waits at unapproved `before:` checkpoints, and refuses
+`arlotope move` refuses outcomes the step can't report, waits at unapproved `before:` checkpoints, and refuses
 `done` while its declared outputs are missing ([The workflow](workflow.md#how-a-study-moves)).
 Graph tasks additionally track the owning run, node visit, incoming lineage and output freshness.
 Before the executor starts anything for a study, `check_launch` (`tools/lab_profile.py`) refuses it when:
@@ -64,7 +64,7 @@ Before the executor starts anything for a study, `check_launch` (`tools/lab_prof
 - the procedure is a step's work and no such study has been filed.
 
 What a step only offers (`also:`), drivers and utilities run anywhere. The executor also refuses a study
-the PI put on hold (`newts hold <study>`), and a campaign whose brief the PI hasn't approved.
+the PI put on hold (`arlotope hold <study>`), and a campaign whose brief the PI hasn't approved.
 
 ### The backends' own approval modes
 
@@ -72,7 +72,7 @@ The lab doesn't build its own classifier or sandbox. It uses the backend's:
 
 - **Claude** runs with `--permission-mode auto` (`agents.programmatic.permission_mode`): a classifier
   approves routine actions and blocks risky ones. Each run's settings add one allow list, the lab's
-  record commands: `lab_bus.py emit|escalate` and `newts.py move|next|brief|approved|status|flags|propose`.
+  record commands: `lab_bus.py emit|escalate` and `arlotope.py move|next|brief|approved|status|flags|propose`.
 - **Codex** runs with `--sandbox workspace-write` (`agents.programmatic.backends.codex.sandbox`), which
   confines writes to the run's workspace, with network off unless `network_access: true`. Its `approval`
   key sets the approval policy: a live session sends each approval request to the Inbox; a one-shot
@@ -151,7 +151,7 @@ and the end, so files changed by a script the agent ran are counted too. It hold
 - denials: calls refused by the backend or by the signature guard;
 - the flags the run's watches raised.
 
-See it with `newts run <id>` ("What it did"), or on the run's sheet in the dashboard (counts, a details
+See it with `arlotope run <id>` ("What it did"), or on the run's sheet in the dashboard (counts, a details
 list, and each flag with an acknowledge button).
 
 ## Watches
@@ -192,15 +192,15 @@ flag.
 | `block` | The same, marked as blocking. |
 
 A flag with `hold: true` stops anything new from starting for that study until it is acknowledged.
-Acknowledging is the PI's: `newts flags [<study>] [--all]` lists them, `newts ack <flag> --note "…"`
+Acknowledging is the PI's: `arlotope flags [<study>] [--all]` lists them, `arlotope ack <flag> --note "…"`
 acknowledges one, and the dashboard has an acknowledge action on the Inbox item and on the run sheet.
 The acknowledgement is a journal event, and it releases the hold. Flags not tied to a study (such as a
-guard failure) are listed by `newts flags`.
+guard failure) are listed by `arlotope flags`.
 
 ## The journal as the timeline
 
 `lab/journal.jsonl` is the record: every filing, move, wait, approval (with your note), workflow change,
 step rename, flag and acknowledgement, with who did it (`pi`, `run:<id>`, `campaign:<name>`, `auto`). The
-study page shows it as the study's timeline; `newts approvals [<study>]` and `newts flags` read it from a
-terminal; `newts status` shows what waits for you. Changes published from **Workflow** are kept in
+study page shows it as the study's timeline; `arlotope approvals [<study>]` and `arlotope flags` read it from a
+terminal; `arlotope status` shows what waits for you. Changes published from **Workflow** are kept in
 **Change history**.

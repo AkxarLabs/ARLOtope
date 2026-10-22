@@ -14,7 +14,7 @@ A panel is a folder holding `panel.yaml`, a `view.html` and, optionally, a colle
 
 Where panels live — every panel ever made stays (unpinning never deletes; archive hides; delete is explicit):
     dashboard/static/panels/shipped/<id>/   the shipped ones (code-owned)
-    ~/.newts/panels/<id>/      yours across every lab ("Save to all my labs")
+    ~/.arlotope/panels/<id>/      yours across every lab ("Save to all my labs")
     lab/panels/<id>/           this lab's — designed or written for it (old versions in versions/)
 
 The constraints, enforced by code rather than prose:
@@ -61,7 +61,7 @@ SOURCES = ("collector", "files", "events", "runs", "registry")
 
 
 def user_dir() -> Path:
-    return Path(os.environ.get("NEWTS_HOME") or (Path.home() / ".newts")) / "panels"
+    return Path(os.environ.get("ARLOTOPE_HOME") or (Path.home() / ".arlotope")) / "panels"
 
 
 def lab_dir(hub) -> Path:
@@ -215,11 +215,11 @@ def _run_collector(hub, p: dict, study: str | None = None, timeout: float = 60) 
     f = _collector(p)
     if not f:
         return {"error": f"the collector {p.get('collector')!r} is missing"}
-    env = dict(os.environ, NEWTS_HUB=str(hub), NEWTS_PANEL=p["id"], NEWTS_STUDY=study or "",
-               NEWTS_COLLECTOR=str(f.resolve()),
-               NEWTS_PROJECTS=str(labfiles.projects_root(Path(hub))),
-               NEWTS_CONFIG=json.dumps(labfiles.config(Path(hub)) or {}, default=str))
-    env.pop("NEWTS_RUN_ID", None)
+    env = dict(os.environ, ARLOTOPE_HUB=str(hub), ARLOTOPE_PANEL=p["id"], ARLOTOPE_STUDY=study or "",
+               ARLOTOPE_COLLECTOR=str(f.resolve()),
+               ARLOTOPE_PROJECTS=str(labfiles.projects_root(Path(hub))),
+               ARLOTOPE_CONFIG=json.dumps(labfiles.config(Path(hub)) or {}, default=str))
+    env.pop("ARLOTOPE_RUN_ID", None)
     snapshot = None
     try:
         code = f.read_bytes()
@@ -227,7 +227,7 @@ def _run_collector(hub, p: dict, study: str | None = None, timeout: float = 60) 
             return {"error": "its collector is waiting for your approval"}
         if p["origin"] != "shipped":
             # A sibling keeps __dirname / script-parent resources and the original cwd intact.
-            with tempfile.NamedTemporaryFile(dir=f.parent, prefix=".newts-collector-", suffix=f.suffix, delete=False) as copy:
+            with tempfile.NamedTemporaryFile(dir=f.parent, prefix=".arlotope-collector-", suffix=f.suffix, delete=False) as copy:
                 snapshot = Path(copy.name)
                 copy.write(code)
             snapshot.chmod(0o700)

@@ -10,8 +10,8 @@ proposes a draft; it cannot publish or approve its own changes.
 
 ![Workflow map and draft controls](assets/current/workflow-map.webp)
 
-For terminal edits, `newts` below means `uv run --with pyyaml python newts.py`.
-Run `newts check` after editing definitions. Researcher-owned files and signature guards still apply.
+For terminal edits, `arlotope` below means `uv run --with pyyaml python arlotope.py`.
+Run `arlotope check` after editing definitions. Researcher-owned files and signature guards still apply.
 
 ## Add a step
 
@@ -39,14 +39,14 @@ implicitly change conversation inheritance.
 uv run --with pyyaml python tools/new.py skill lit-review-quick --like lit-review --title "A quick scan"
 ```
 
-The copied skill’s `newts.like` identifies its family. Edit its Markdown instructions while keeping
+The copied skill’s `arlotope.like` identifies its family. Edit its Markdown instructions while keeping
 the intended outcome/evidence contract clear. It is a copy, not a live link to the original.
 
 Use a variant through a workflow’s `use` mapping, a study’s **Instructions → Variant**, or a step’s
 `do`. The CLI study swap is:
 
 ```bash
-newts workflow use <study> lit-review=lit-review-quick
+arlotope workflow use <study> lit-review=lit-review-quick
 ```
 
 `lit-review=` removes the swap. Additive shared instructions live in
@@ -58,7 +58,7 @@ The dashboard’s procedure editor exposes the same files and variants.
 A procedure declares nonstandard outcomes in its frontmatter:
 
 ```yaml
-newts:
+arlotope:
   outcomes:
     regressed: something that passed before now fails
 ```
@@ -101,7 +101,7 @@ on failures. A working agent cannot approve its own task.
 Skill frontmatter can declare:
 
 ```yaml
-newts:
+arlotope:
   reads: ["studies/<slug>/SPEC.md"]
   outputs: ["studies/<slug>/BUILD.md: implementation and reproduction instructions"]
   writes: ["studies/<slug>/**"]
@@ -115,7 +115,7 @@ it is not an OS filesystem sandbox. See [monitoring](monitoring.md).
 ## Rename a step
 
 ```bash
-newts workflow rename-step active running --yes
+arlotope workflow rename-step active running --yes
 ```
 
 This updates the shared identifier, workflow references and study positions through recorded remap
@@ -158,7 +158,7 @@ uv run --with pyyaml python tools/new.py workflow fast --like research --title "
 ```
 
 Review its steps/tasks, routes, checkpoints and evidence requirements, then validate. A study chooses
-a workflow at creation or through `newts workflow set <study> <workflow>`. Changing that choice is
+a workflow at creation or through `arlotope workflow set <study> <workflow>`. Changing that choice is
 separate from approving a checkpoint.
 
 ## Add a stage group
@@ -180,8 +180,8 @@ The [room designer](room-design.md) refines appearance through a private preview
 The terminal extension interface remains available for researcher-supplied bundles:
 
 ```bash
-newts extension list
-newts extension install <name>
+arlotope extension list
+arlotope extension install <name>
 ```
 
 Installation previews the overlay and validates it before applying. No general software-product
@@ -213,7 +213,7 @@ Use **Workflow → Draft with an agent** or `/design` for a concrete process cha
 writes an overlay under `lab/.bus/designs/workflow/<timestamp>/` and checks it:
 
 ```bash
-newts check --design lab/.bus/designs/workflow/<timestamp>
+arlotope check --design lab/.bus/designs/workflow/<timestamp>
 ```
 
 The proposal remains separate until the researcher takes it into the shared draft, reviews and
@@ -229,7 +229,7 @@ See [project types](project-types.md) and [skills](skills.md).
 
 Custom collectors execute the checked bytes from a temporary sibling file. Their working directory
 stays the Lab root, and sibling resources remain available. The temporary filename differs;
-`NEWTS_COLLECTOR` gives the original absolute script path. The collector folder must permit temporary
+`ARLOTOPE_COLLECTOR` gives the original absolute script path. The collector folder must permit temporary
 files. Copies are removed after execution when the OS releases them. Trusted shipped collectors
 keep their installed paths and need no write access to the installation. This preserves the existing
 interpreter choices; it does not create a sandbox or freeze a collector's other dependencies.

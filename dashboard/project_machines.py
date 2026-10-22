@@ -36,7 +36,7 @@ class ProjectConn(machines.Conn):
         archive = machines._home() / 'workers' / ('worker-' + digest + '.pyz')
         archive.parent.mkdir(parents=True, exist_ok=True)
         archive.write_bytes(blob)
-        target = '~/.newts/workers/' + digest + '.pyz'
+        target = '~/.arlotope/workers/' + digest + '.pyz'
         return archive, target
 
     def _start_cmd(self):
@@ -47,7 +47,7 @@ class ProjectConn(machines.Conn):
     def bootstrap(self):
         archive, target = self.package()
         digest = target.rsplit('/', 1)[1].removesuffix('.pyz')
-        code = ('import sys,pathlib,hashlib,secrets; p=pathlib.Path.home()/".newts/workers"/' + repr(digest + '.pyz')
+        code = ('import sys,pathlib,hashlib,secrets; p=pathlib.Path.home()/".arlotope/workers"/' + repr(digest + '.pyz')
                 + '; b=sys.stdin.buffer.read(); '
                 + 'assert hashlib.sha256(b).hexdigest().startswith(' + repr(digest) + '); '
                 + 'p.parent.mkdir(parents=True,exist_ok=True); t=p.with_name(p.name+"."+secrets.token_hex(6)+".tmp"); t.write_bytes(b); t.replace(p)')
@@ -95,7 +95,7 @@ class ProjectConn(machines.Conn):
                 value = json.loads(line)
             except ValueError:
                 continue
-            if (isinstance(value, dict) and value.get('newts_worker_session') and value.get('build') == self.build
+            if (isinstance(value, dict) and value.get('arlotope_worker_session') and value.get('build') == self.build
                     and value.get('port') == self.rport and isinstance(value.get('cookie'), str)
                     and isinstance(value.get('pid'), int) and value['pid'] > 0 and value.get('uid') is not None):
                 self.cookie, self.remote_uid, self.remote_pid = value['cookie'], value['uid'], value['pid']
@@ -162,7 +162,7 @@ class ProjectConn(machines.Conn):
             c.close()
             if refresh or not self.cookie:
                 self.refresh_cookie()
-            if (info.get('app') != 'newts-worker' or info.get('protocol') != 1 or info.get('build') != self.build
+            if (info.get('app') != 'arlotope-worker' or info.get('protocol') != 1 or info.get('build') != self.build
                     or info.get('uid') != self.remote_uid or info.get('pid') != self.remote_pid):
                 return False
             if self.cookie:

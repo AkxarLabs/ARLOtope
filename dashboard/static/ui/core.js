@@ -144,7 +144,7 @@
   NL.useConn = () => { useSub(store.listeners); return store.conn; };
 
   const flags = new URLSearchParams(location.search);
-  NL.DEMO = flags.has('demo') && (window.__VIV_DEMO__ === true || location.protocol === 'file:');
+  NL.DEMO = flags.has('demo') && (window.__ARLOTOPE_DEMO__ === true || location.protocol === 'file:');
   NL.STATIC = flags.has('static');
 
   let es = null, pollT = null, backoff = 15000;
@@ -223,8 +223,6 @@
     let parts;
     try { parts = path.split('/').filter(Boolean).map(decodeURIComponent); }
     catch (_) { return { page: 'not-found', args: [], query: {}, error: 'This address has an invalid character escape. Check the link or return to the Lab.' }; }
-    const legacy = { terrarium: '', shelf: 'studies', gates: '', night: '', agents: 'runs', ledger: 'history' };
-    if (parts.length === 1 && Object.hasOwn(legacy, parts[0])) return { page: legacy[parts[0]] || 'home', args: [], query: Object.fromEntries(new URLSearchParams(q || '')) };
     const query = Object.fromEntries(new URLSearchParams(q || ''));
     return { page: parts[0] || 'home', args: parts.slice(1), query };
   };

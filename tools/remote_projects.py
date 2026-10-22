@@ -13,7 +13,7 @@ from pathlib import Path, PureWindowsPath
 from urllib.parse import quote, unquote, urlsplit
 
 ROOT = Path(__file__).resolve().parents[1]
-SCHEME = 'newts+ssh'
+SCHEME = 'arlotope+ssh'
 
 
 class RemoteError(ValueError):
@@ -59,7 +59,7 @@ def spool(hub, slug):
 
 
 def machines():
-    path = Path(os.environ.get('NEWTS_HOME') or Path.home() / '.newts') / 'machines.json'
+    path = Path(os.environ.get('ARLOTOPE_HOME') or Path.home() / '.arlotope') / 'machines.json'
     try:
         return json.loads(path.read_text(encoding='utf-8')).get('machines', [])
     except (ValueError, OSError):
@@ -177,14 +177,14 @@ def rewrite(lab, m, text):
     loc = m['remote']
     local = lab.project_workdir(m['target'])
     local_rd = run_dir(lab.agents_dir(local), m['run_id'])
-    remote_rd = loc['path'].rstrip('/') + '/.bus/newts/' + owner(lab.hub) + '/agents/' + m['run_id'] + '.d'
+    remote_rd = loc['path'].rstrip('/') + '/.bus/arlotope/' + owner(lab.hub) + '/agents/' + m['run_id'] + '.d'
     for source, destination in ((local_rd, remote_rd), (local, loc['path']), (lab.hub, remote_rd + '/instructions')):
         for spelling in sorted({str(source), source.as_posix()}, key=len, reverse=True):
             text = text.replace(spelling, destination)
     # Inherited resources can live in the installed runtime, outside this Lab's directory.
     from kernel import model
     if model.CODE.resolve() != lab.hub.resolve():
-        for relative in ('tools', 'newts.py', '.claude/skills', 'agent-roles', 'templates', 'workflow/frameworks', 'docs/external-frameworks.md', 'AGENTS.md', 'AGENT-GUIDE.md'):
+        for relative in ('tools', 'arlotope.py', '.claude/skills', 'agent-roles', 'templates', 'workflow/frameworks', 'docs/external-frameworks.md', 'AGENTS.md', 'AGENT-GUIDE.md'):
             source = model.CODE / relative
             for spelling in sorted({str(source), source.as_posix()}, key=len, reverse=True):
                 text = text.replace(spelling, remote_rd + '/instructions/' + relative)
@@ -203,13 +203,13 @@ def dispatch(lab, path, m):
         assert_available(lab, m['session_id'], rid, expected=m)
     facts = rpc(loc['machine'], 'info', {'backends': (machine(loc['machine']).get('agent_config') or {})})
     rd = run_dir(path.parent, rid)
-    remote_rd = loc['path'].rstrip('/') + '/.bus/newts/' + owner(lab.hub) + '/agents/' + rid + '.d'
+    remote_rd = loc['path'].rstrip('/') + '/.bus/arlotope/' + owner(lab.hub) + '/agents/' + rid + '.d'
     snapshot = remote_rd + '/instructions'
     runtime = facts['runtime']
     instructions = json.loads((rd / 'instructions.json').read_text(encoding='utf-8'))
-    instructions['newts.py'] = ('import os,sys\nos.execv(sys.executable, [sys.executable, ' + repr(runtime) + ', "control", *sys.argv[1:]])\n')
-    instructions['tools/newts_cli.py'] = instructions['newts.py']
-    instructions['tools/lab_bus.py'] = instructions['newts.py']
+    instructions['arlotope.py'] = ('import os,sys\nos.execv(sys.executable, [sys.executable, ' + repr(runtime) + ', "control", *sys.argv[1:]])\n')
+    instructions['tools/arlotope_cli.py'] = instructions['arlotope.py']
+    instructions['tools/lab_bus.py'] = instructions['arlotope.py']
     instructions['tools/artifact.py'] = ('import os,sys\nos.execv(sys.executable, [sys.executable, ' + repr(runtime) + ', "artifact", *sys.argv[1:]])\n')
     instructions['tools/knowledge.py'] = ('import os,sys\nos.execv(sys.executable, [sys.executable, ' + repr(runtime) + ', "knowledge", *sys.argv[1:]])\n')
     instructions['tools/frameworks.py'] = ('import os,sys\nos.execv(sys.executable, [sys.executable, ' + repr(runtime) + ', "framework", *sys.argv[1:]])\n')

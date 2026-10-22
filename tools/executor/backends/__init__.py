@@ -141,8 +141,8 @@ class Dummy(Backend):
     name = "_dummy"
 
     def prepare(self, a: Attempt) -> None:
-        a.env["NEWTS_RESUME_SID"] = a.resume_sid or a.m.get("session_id") or ""
-        a.env["NEWTS_RESUME_MODE"] = (a.m.get("resume") or {}).get("mode") or ""
+        a.env["ARLOTOPE_RESUME_SID"] = a.resume_sid or a.m.get("session_id") or ""
+        a.env["ARLOTOPE_RESUME_MODE"] = (a.m.get("resume") or {}).get("mode") or ""
 
     def command(self, a: Attempt) -> RunCommand:
         return RunCommand(list(a.cli), with_preamble(a) or None, False)

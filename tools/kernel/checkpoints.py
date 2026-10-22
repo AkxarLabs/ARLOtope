@@ -40,7 +40,7 @@ def find(hub, slug: str, cid: str) -> dict:
 def project_dir(hub, slug: str) -> Path | None:
     """The study's project repository: where the journal says, else <projects_root>/<slug> when it exists."""
     s = studies.study(hub, slug) or {}
-    if str(s.get('project') or '').startswith('newts+ssh://'):
+    if str(s.get('project') or '').startswith('arlotope+ssh://'):
         return None
     if s.get("project"):
         p = Path(s["project"])
@@ -130,7 +130,7 @@ def run_checks(hub, slug: str, cp: dict, timeout: float = 600, names: list | Non
             continue
         try:
             r = subprocess.run(cmd, cwd=str(hub), capture_output=True, text=True, timeout=timeout,
-                               encoding="utf-8", errors="replace", env=dict(os.environ, NEWTS_HUB=str(hub.resolve())))
+                               encoding="utf-8", errors="replace", env=dict(os.environ, ARLOTOPE_HUB=str(hub.resolve())))
             res[name] = {"code": r.returncode, "out": ((r.stdout or "") + (r.stderr or "")).strip()[-1200:]}
         except (OSError, subprocess.TimeoutExpired) as e:
             res[name] = {"code": 124, "out": str(e)[:300]}
@@ -169,7 +169,7 @@ def readiness(hub, slug: str, cid: str) -> dict:
             "evidence": evidence(hub, slug, cp), "checks": checks, "checked_at": cached.get("ts")}
 
 
-VIAS = ("dashboard", "cli", "keeper", "kernel", "migration")
+VIAS = ("dashboard", "cli", "keeper", "kernel")
 
 
 def decide(hub, slug: str, cid: str, decision: str = "approved", by: str = "pi", via: str = "dashboard",

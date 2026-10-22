@@ -8,8 +8,8 @@ proceed) · 2 = WARNING. Checkpoints run them (`checks:`), watches run them, rul
 them where a procedure says so. They get this module as `guard`: HUB, LAB, labfiles, study(slug),
 _row(slug), _project_dir(slug), _verdict(code, msg), _today().
 
-Where a study stands and whether a checkpoint is approved is the kernel's (tools/kernel/, `newts status`,
-`newts approved <study> <checkpoint>`), not a check.
+Where a study stands and whether a checkpoint is approved is the kernel's (tools/kernel/, `arlotope status`,
+`arlotope approved <study> <checkpoint>`), not a check.
 """
 
 from __future__ import annotations
@@ -22,8 +22,8 @@ from pathlib import Path
 if hasattr(sys.stdout, "reconfigure"):
     sys.stdout.reconfigure(encoding="utf-8", errors="replace")
 
-# the lab being checked: $NEWTS_HUB when a caller names it (a run, the checkpoint sheet), else this checkout
-HUB = Path(os.environ.get("NEWTS_HUB") or Path(__file__).resolve().parents[1]).resolve()
+# the lab being checked: $ARLOTOPE_HUB when a caller names it (a run, the checkpoint sheet), else this checkout
+HUB = Path(os.environ.get("ARLOTOPE_HUB") or Path(__file__).resolve().parents[1]).resolve()
 LAB = HUB / "lab"
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 import labfiles  # noqa: E402 — the lab's files, read one way
@@ -59,7 +59,7 @@ def _load_checks() -> dict:
         for f in sorted(root.glob("*.py")) if root.is_dir() else []:
             if f.name.startswith("_"):
                 continue
-            spec = importlib.util.spec_from_file_location(f"newts_check_{f.stem}", f)
+            spec = importlib.util.spec_from_file_location(f"arlotope_check_{f.stem}", f)
             mod = importlib.util.module_from_spec(spec)
             try:
                 spec.loader.exec_module(mod)

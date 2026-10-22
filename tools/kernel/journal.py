@@ -13,7 +13,7 @@ Every line is an event {ts, study, kind, by, …}; `study` is a study's slug, or
     project    {path}                              where its project repository is
     remap      {map}  (study "lab")                steps were renamed: {old id: new id}
 
-`by` says who: pi · run:<id> · campaign:<name> · auto · cli · migration. Only the kernel writes here (the
+`by` says who: pi · run:<id> · campaign:<name> · auto · cli. Only the kernel writes here (the
 signature guard refuses everything else); the state of every study is a fold over these lines, and
 lab/REGISTRY.md is a view of that fold, written after every event. Extensions add kinds of their own, named
 `<extension>:<kind>`; the fold ignores what it doesn't know.

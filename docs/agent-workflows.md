@@ -12,7 +12,7 @@ another scheduler.
 
 An agent designer can propose tasks, skill sequences, roles, conversation sources, parallel
 branches, joins, outcome routes, loops, rooms and checkpoints. **Draft with an agent** gives it the
-existing definitions and a private proposal folder. It validates with `newts check --design`,
+existing definitions and a private proposal folder. It validates with `arlotope check --design`,
 then the researcher reviews and publishes the proposal in Workflow.
 
 During execution, agents report declared outcomes and the engine follows their routes. An LLM
@@ -41,7 +41,7 @@ validation and publication path; a task is not automatically allowed to publish 
 **Task starting points** offers Literature, Experiment, Analyze, Independent review and Write. These fill ordinary editable task fields; they do not create a new kind of runner. **Duplicate task** copies an existing task. Changing a role preserves your instructions; choosing Reviewer starts fresh with no author-summary handoff. You can explicitly change that context afterward, but inherited context is not an independent review.
 
 These starting points come from skill metadata, not a fixed list in the editor. A custom skill can
-add `ui: {task: {label: "Collect evidence", role: analyst}}` under its `newts:` frontmatter.
+add `ui: {task: {label: "Collect evidence", role: analyst}}` under its `arlotope:` frontmatter.
 Remove that entry to hide the shortcut; the skill remains available in the ordinary selector.
 Omitting `role` uses General. New workflows can use any skills or instructions-only tasks; the
 research stages are supplied defaults, not required stages.
@@ -86,7 +86,7 @@ Continue/fork chooses one **Context from** source. It may be an earlier causal t
 
 An exception is work explicitly supplied through a study's starting plan: it has evidence references, but no native conversation to continue or fork. A task selecting that source starts fresh with those references. Actual run sources still undergo the normal context checks.
 
-Only one task can own a continued session at a time. Native fork support depends on the harness/version; ACP requires advertised capabilities. A native fork creates another conversation, not an isolated repository or worktree. Legacy `context.mode: fork` means a portable handoff; native forks use `native-fork`.
+Only one task can own a continued session at a time. Native fork support depends on the harness/version; ACP requires advertised capabilities. A native fork creates another conversation, not an isolated repository or worktree. Use `context.mode: native-fork` for a fork, or `mode: fresh` with `handoff: true` for a summary in a new conversation.
 
 ## Connect tasks and outcomes
 

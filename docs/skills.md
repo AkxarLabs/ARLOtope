@@ -44,7 +44,7 @@ or before its first managed workflow run:
 ```text
 project/
   .agents/skills/evidence-check/...
-  .newts/
+  .arlotope/
     project.json
     skills.json
     workflows/my-study.json
@@ -66,8 +66,8 @@ after updating ARLOtope to update its runner.
 **Export as skill** bundles a workflow's Markdown procedure, selected skills and resources. Mechanical
 gates, independent agents and native parallel forks still require an execution environment supporting them.
 
-The visible product is **ARLOtope**. Existing `newts` commands, `.newts/` records and `NEWTS_*`
-variables retain their names so existing projects and scripts keep working.
+The command is `arlotope.py`; project records live under `.arlotope/` and environment variables use
+the `ARLOTOPE_*` prefix. These are the canonical interfaces, with no old-name aliases.
 
 ## Setup & autonomy
 

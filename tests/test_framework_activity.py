@@ -13,7 +13,7 @@ import frameworks as F
 
 def fixture(tmp_path):
     definition = dict(F.read(REPO/'workflow/frameworks/sakana.yaml'),id='sakana')
-    root = tmp_path/'.newts/framework-runs/demo/sakana/run'
+    root = tmp_path/'.arlotope/framework-runs/demo/sakana/run'
     (root/'investigation').mkdir(parents=True)
     return definition,root
 

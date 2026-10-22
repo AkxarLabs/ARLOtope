@@ -1,7 +1,7 @@
 """ARLOtope dashboard: the HTTP server. Optional, local-only.
 
     uv run --with pyyaml python dashboard/serve.py [--port 8787] [--hub <another lab's hub root>]
-    (or just: uv run --with pyyaml python newts.py — starts this and opens the browser)
+    (or just: uv run --with pyyaml python arlotope.py — starts this and opens the browser)
 
 A stdlib HTTP server for the no-build single-page app in static/. This module is the server and its
 wiring only: every JSON endpoint is one line in GET_ROUTES / POST_ROUTES (below), pointing at the
@@ -148,7 +148,7 @@ def _snapshot_cached(with_sig: bool = False):
 
 class Handler(BaseHTTPRequestHandler):
     # Demo mode is a debugging/showcase world, NOT a user-facing dashboard feature. It is OFF unless
-    # the server is started with `--demo` (or VIVARIUM_DEMO=1); only then is window.__VIV_DEMO__ injected
+    # the server is started with `--demo` (or ARLOTOPE_DEMO=1); only then is window.__ARLOTOPE_DEMO__ injected
     # so a `?demo` URL activates the synthetic lab. There is no in-dashboard control to enable it.
     demo = False
 
@@ -172,7 +172,7 @@ class Handler(BaseHTTPRequestHandler):
         self._send(code, json.dumps(obj, default=str).encode("utf-8"), "application/json; charset=utf-8")
 
     def _cookie_name(self) -> str:
-        return f"newts_{self.server.server_address[1]}" if getattr(self, "server", None) else "newts"
+        return f"arlotope_{self.server.server_address[1]}" if getattr(self, "server", None) else "arlotope"
 
     def _has_session(self) -> bool:
         """The SameSite=Strict cookie set with the page: a cross-site request never carries it."""
@@ -245,7 +245,7 @@ class Handler(BaseHTTPRequestHandler):
         if self.path == "/" or self.path.startswith("/index.html") or self.path.startswith("/?"):
             return self._serve_index()
         if self.path.startswith("/api/ping"):   # the launcher's "is it up, and which lab?" (no session)
-            return self._json({"ok": True, "app": "newts-lab", "version": VERSION, "lab": str(ctx.HUB),
+            return self._json({"ok": True, "app": "arlotope", "version": VERSION, "lab": str(ctx.HUB),
                                "name": labs.lab_name(ctx.HUB), "pid": os.getpid()})
         if self.path.startswith("/api/") and not self._has_session():
             return self._json({"error": "no dashboard session; reload the page"}, 403)
@@ -378,7 +378,7 @@ class Handler(BaseHTTPRequestHandler):
             seed = "null"
         demo = "true" if self.demo else "false"
         html = html.replace(
-            "</head>", f"<script>window.__STATE__={seed};window.__VIV_DEMO__={demo};</script></head>", 1)
+            "</head>", f"<script>window.__STATE__={seed};window.__ARLOTOPE_DEMO__={demo};</script></head>", 1)
         body = html.encode("utf-8")
         self.send_response(200)
         self.send_header("Content-Type", "text/html; charset=utf-8")
@@ -549,7 +549,7 @@ FILE_ROUTES = {
 }
 
 
-ROOMS3D_MARK = "<!-- newts:rooms3d"
+ROOMS3D_MARK = "<!-- arlotope:rooms3d"
 
 
 def _with_rooms3d(html: str, prefix: str) -> str:
@@ -557,8 +557,8 @@ def _with_rooms3d(html: str, prefix: str) -> str:
     i = html.find(ROOMS3D_MARK)
     if i < 0:
         return html
-    j = html.find("<!-- /newts:rooms3d -->", i)
-    end = j + len("<!-- /newts:rooms3d -->") if j >= 0 else html.index("-->", i) + 3
+    j = html.find("<!-- /arlotope:rooms3d -->", i)
+    end = j + len("<!-- /arlotope:rooms3d -->") if j >= 0 else html.index("-->", i) + 3
     tags = [f'<script src="{prefix}{f.name}"></script>' for f in sorted((STATIC / "world3d" / "rooms").glob("*.js"))]
     return html[:i] + "\n".join(tags) + html[end:]
 
@@ -689,18 +689,6 @@ class LabServer(ThreadingHTTPServer):
         super().server_bind()
 
 
-def _migrate() -> None:
-    """A lab made before the kernel is brought onto it the first time this dashboard opens it (tools/kernel/migrate.py)."""
-    try:
-        done = ctx.tool("kernel").migrate.run(ctx.HUB)
-        for line in done:
-            print(f"  migrated: {line}")
-        if done:                                  # the skills' generated heads follow the new definition
-            ctx.tool("lab_docs").render(ctx.HUB)
-    except Exception as e:  # noqa: BLE001 — never block the dashboard on it; `newts migrate` says why
-        print(f"  could not migrate this lab ({type(e).__name__}: {e}) — run `newts migrate`")
-
-
 def main() -> int:
     pre = argparse.ArgumentParser(add_help=False)
     pre.add_argument("--hub", default=None)
@@ -713,19 +701,17 @@ def main() -> int:
     parser.add_argument("--port", type=int, default=int(cfg.get("port", 8787)))
     parser.add_argument("--demo", action="store_true",
                         help="enable the synthetic demo world (debugging/showcase; visit /?demo). "
-                             "Off by default; also enabled by VIVARIUM_DEMO=1.")
+                             "Off by default; also enabled by ARLOTOPE_DEMO=1.")
     args = parser.parse_args()
-    Handler.demo = bool(args.demo) or os.environ.get("VIVARIUM_DEMO", "").lower() in ("1", "true", "yes")
+    Handler.demo = bool(args.demo) or os.environ.get("ARLOTOPE_DEMO", "").lower() in ("1", "true", "yes")
     try:
         server = LabServer(("127.0.0.1", args.port), Handler)
     except OSError as e:
-        print(f"port {args.port} is busy ({e}) — start with --port <another>, or use newts.py (it picks one)")
+        print(f"port {args.port} is busy ({e}) — start with --port <another>, or use arlotope.py (it picks one)")
         return 3
     ctx.SERVER = server
     labs.remember_lab(ctx.HUB)
     ticker._SCHED_HUBS.add(ctx.HUB)
-    _migrate()
-    ctx.on_change(lambda _old, _new: _migrate())
     if not Handler.demo:
         panels_api.start_keeper()
         fleet.start_keeper()          # remote labs stay connected whether or not this dashboard runs agents

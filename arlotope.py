@@ -1,12 +1,12 @@
 """Start ARLOtope: the dashboard server for this lab, then your browser.
 
-    uv run --with pyyaml python newts.py                 # this lab, http://127.0.0.1:8787 (or the next free port)
-    uv run --with pyyaml python newts.py --hub ../my-lab # another lab
-    uv run --with pyyaml python newts.py --no-browser
-    uv run --with pyyaml python newts.py --background    # detach: keeps running after you log out (remote boxes)
-    uv run --with pyyaml python newts.py --status | --stop
+    uv run --with pyyaml python arlotope.py                 # this lab, http://127.0.0.1:8787 (or the next free port)
+    uv run --with pyyaml python arlotope.py --hub ../my-lab # another lab
+    uv run --with pyyaml python arlotope.py --no-browser
+    uv run --with pyyaml python arlotope.py --background    # detach: keeps running after you log out (remote boxes)
+    uv run --with pyyaml python arlotope.py --status | --stop
 
-Or double-click `Start Newts Lab.cmd` (Windows) / `start-newts.command` (macOS) / run `./start-newts.sh`.
+Or double-click `Start ARLOtope.cmd` (Windows) / `start-arlotope.command` (macOS) / run `./start-arlotope.sh`.
 If the dashboard is already running for this lab, it just opens the browser. Everything else — creating
 or switching labs, connecting other machines, signing in to an agent CLI, setup, launching work — happens
 in the dashboard. Ctrl-C (or Settings → About → Stop server) stops the server; agent runs keep going.
@@ -39,7 +39,7 @@ PORTS = range(8787, 8800)
 
 
 def home() -> Path:
-    return Path(os.environ.get("NEWTS_HOME") or (Path.home() / ".newts"))
+    return Path(os.environ.get("ARLOTOPE_HOME") or (Path.home() / ".arlotope"))
 
 
 def lab_key(hub: Path) -> str:
@@ -52,10 +52,10 @@ def state_file(hub: Path) -> Path:
 
 def stable_python() -> str:
     """A Python that outlives this launcher (see tools/executor/procs.py python_exe): this one, unless it
-    is uv's throwaway environment — then ~/.newts/py. The dashboard, its detached supervisors and hooks
+    is uv's throwaway environment — then ~/.arlotope/py. The dashboard, its detached supervisors and hooks
     all run on it."""
     import importlib.util  # noqa: PLC0415 — procs.py is stdlib-only; loaded by path (no package import)
-    spec = importlib.util.spec_from_file_location("newts_procs", HERE / "tools" / "executor" / "procs.py")
+    spec = importlib.util.spec_from_file_location("arlotope_procs", HERE / "tools" / "executor" / "procs.py")
     procs = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(procs)
     return procs.python_exe()
@@ -65,7 +65,7 @@ def ping(port: int, timeout: float = 0.6) -> dict | None:
     try:
         with urllib.request.urlopen(f"http://127.0.0.1:{port}/api/ping", timeout=timeout) as r:
             data = json.loads(r.read().decode("utf-8"))
-            return data if data.get("app") == "newts-lab" else None
+            return data if data.get("app") == "arlotope" else None
     except (OSError, ValueError):
         return None
 
@@ -171,7 +171,7 @@ def background(hub: Path, port: int | None, demo: bool) -> dict:
             "--foreground", *(["--demo"] if demo else [])]
     procs = _procs()
     child = subprocess.Popen(argv, cwd=str(hub), stdin=subprocess.DEVNULL, stdout=log, stderr=subprocess.STDOUT,
-                             env={**os.environ, "NEWTS_BACKGROUND": "1"}, close_fds=True, **procs.DETACHED)
+                             env={**os.environ, "ARLOTOPE_BACKGROUND": "1"}, close_fds=True, **procs.DETACHED)
     for _ in range(150):
         info = ping(port, 0.3)
         if info:
@@ -186,14 +186,14 @@ def background(hub: Path, port: int | None, demo: bool) -> dict:
 
 
 def main() -> int:
-    if len(sys.argv) > 1 and not sys.argv[1].startswith("-"):   # `newts <verb> …` — the lab from a terminal
+    if len(sys.argv) > 1 and not sys.argv[1].startswith("-"):   # `arlotope <verb> …` — the lab from a terminal
         sys.path.insert(0, str(HERE / "tools"))
-        import newts_cli  # noqa: PLC0415
-        if sys.argv[1] in newts_cli.VERBS:
-            return newts_cli.main(sys.argv[1:])
+        import arlotope_cli  # noqa: PLC0415
+        if sys.argv[1] in arlotope_cli.VERBS:
+            return arlotope_cli.main(sys.argv[1:])
     ap = argparse.ArgumentParser(description="Start ARLOtope (the dashboard) and open it in your browser. "
-                                             "`newts.py <verb>` controls the lab from a terminal: newts.py status, "
-                                             "approve, start, runs, panels … (`newts.py status --help`).")
+                                             "`arlotope.py <verb>` controls the lab from a terminal: arlotope.py status, "
+                                             "approve, start, runs, panels … (`arlotope.py status --help`).")
     ap.add_argument("--hub", default=str(HERE), help="the lab to open (default: this folder)")
     ap.add_argument("--port", type=int, default=None, help="default: 8787, or the next free port")
     ap.add_argument("--no-browser", action="store_true")
@@ -207,10 +207,10 @@ def main() -> int:
     ap.add_argument("--demo", action="store_true", help=argparse.SUPPRESS)
     a = ap.parse_args()
     py = stable_python()
-    if py != sys.executable and not os.environ.get("NEWTS_REEXEC"):
+    if py != sys.executable and not os.environ.get("ARLOTOPE_REEXEC"):
         # move onto the stable interpreter first (see stable_python), same arguments
         return subprocess.run([py, str(Path(__file__).resolve()), *sys.argv[1:]],
-                              env={**os.environ, "NEWTS_REEXEC": "1"}).returncode
+                              env={**os.environ, "ARLOTOPE_REEXEC": "1"}).returncode
     hub = Path(a.hub).expanduser().resolve()
     say = (lambda d: print(json.dumps(d))) if a.json else None
     if not (hub / "lab" / "config.yaml").exists():
@@ -253,7 +253,7 @@ def main() -> int:
             webbrowser.open(url)
         return 0
 
-    if not a.foreground and not os.environ.get("NEWTS_BACKGROUND"):
+    if not a.foreground and not os.environ.get("ARLOTOPE_BACKGROUND"):
         # the default: a detached server, so closing this window doesn't stop queued runs, retries and campaigns
         res = background(hub, a.port, a.demo)
         if not res.get("ok"):
@@ -262,7 +262,7 @@ def main() -> int:
         url = f"http://127.0.0.1:{res['port']}/"
         print(f"ARLOtope is running for {res.get('name')} — {url}\n"
               "It keeps working when you close this window; stop it from Settings → About & server "
-              "(or: newts.py --stop).")
+              "(or: arlotope.py --stop).")
         if headless():
             print(tunnel_hint(res["port"]))
         elif not a.no_browser:
@@ -275,7 +275,7 @@ def main() -> int:
         return 3
     url = f"http://127.0.0.1:{port}/"
 
-    if headless() and not os.environ.get("NEWTS_BACKGROUND"):
+    if headless() and not os.environ.get("ARLOTOPE_BACKGROUND"):
         print(tunnel_hint(port))
     elif not a.no_browser:
         def opener():

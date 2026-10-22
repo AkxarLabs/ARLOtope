@@ -12,43 +12,43 @@ import knowledge as K
 
 def test_durable_project_identity_survives_index_loss(tmp_path,monkeypatch):
     import project_identity as I
-    monkeypatch.setenv('NEWTS_HOME',str(tmp_path/'home'))
+    monkeypatch.setenv('ARLOTOPE_HOME',str(tmp_path/'home'))
     root=tmp_path/'project';root.mkdir()
     first=I.register(root,'owner','study','lab-id','Readable name')
-    durable=json.loads((root/'.newts/project.json').read_text())
+    durable=json.loads((root/'.arlotope/project.json').read_text())
     assert durable['project_id']==first['project_id'] and durable['lab_id']=='lab-id'
-    assert durable['knowledge_dir']=='.newts/knowledge'
+    assert durable['knowledge_dir']=='.arlotope/knowledge'
     assert I.register(root,'owner','study','lab-id')['project_id']==first['project_id']
-    (tmp_path/'home/projects.json').unlink();(root/'.bus/newts-owner.json').unlink()
+    (tmp_path/'home/projects.json').unlink()
     found=I.discover(tmp_path)
     assert found[0]['title']=='Readable name' and found[0]['project_id']==first['project_id']
 
 
 def test_identity_conflict_does_not_replace_existing_marker(tmp_path,monkeypatch):
     import project_identity as I
-    monkeypatch.setenv('NEWTS_HOME',str(tmp_path/'home'))
+    monkeypatch.setenv('ARLOTOPE_HOME',str(tmp_path/'home'))
     root=tmp_path/'project';root.mkdir()
     I.register(root,'owner','study','lab-id')
-    before=(root/'.bus/newts-owner.json').read_bytes()
+    before=(root/'.arlotope/project.json').read_bytes()
     with pytest.raises(ValueError):I.register(root,'other','study','other-lab')
-    assert (root/'.bus/newts-owner.json').read_bytes()==before
+    assert (root/'.arlotope/project.json').read_bytes()==before
 
 
 @pytest.mark.parametrize('conflict', ['lab', 'owner', 'study', 'project'])
 def test_identity_conflicts_identify_the_selected_project_without_mutation(tmp_path, monkeypatch, conflict):
     import project_identity as I
-    monkeypatch.setenv('NEWTS_HOME', str(tmp_path/'home'))
+    monkeypatch.setenv('ARLOTOPE_HOME', str(tmp_path/'home'))
     root = tmp_path/'research with spaces 研究'; root.mkdir()
     original = I.register(root, 'original-owner', 'original-study', 'original-lab')
     args = {'owner': 'original-owner', 'study': 'original-study', 'lab_id': 'original-lab'}
     if conflict == 'project':
-        identity = root/'.newts/project.json'
+        identity = root/'.arlotope/project.json'
         data = json.loads(identity.read_text(encoding='utf-8'))
         data['project_id'] = 'conflicting-project'
         identity.write_text(json.dumps(data), encoding='utf-8')
     else:
         args[{'lab': 'lab_id', 'owner': 'owner', 'study': 'study'}[conflict]] = 'different'
-    paths = [root/'.bus/newts-owner.json', root/'.newts/project.json', I.home()/'projects.json']
+    paths = [root/'.arlotope/project.json', I.home()/'projects.json']
     before = {path: path.read_bytes() for path in paths}
     with pytest.raises(ValueError) as error:
         I.register(root, **args)
@@ -58,7 +58,7 @@ def test_identity_conflicts_identify_the_selected_project_without_mutation(tmp_p
         assert 'original-lab' in message and 'owning Lab' in message
     elif conflict == 'project':
         assert original['project_id'] in message and 'conflicting-project' in message
-        assert '.bus/newts-owner.json' in message and '.newts/project.json' in message
+        assert 'projects.json' in message and '.arlotope/project.json' in message
     else:
         assert 'original-study' in message and 'original-owner' in message
     assert {path: path.read_bytes() for path in paths} == before

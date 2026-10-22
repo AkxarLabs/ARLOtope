@@ -32,7 +32,7 @@ def start_scheduler() -> bool:
     if executor is None or (_SCHED["thread"] and _SCHED["thread"].is_alive()):
         return False
     stop = threading.Event()
-    os.environ["NEWTS_TICKER"] = "dashboard"
+    os.environ["ARLOTOPE_TICKER"] = "dashboard"
     from executor import awake  # noqa: PLC0415
 
     def loop():

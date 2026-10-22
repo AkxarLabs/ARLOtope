@@ -13,16 +13,16 @@ def test_commands_use_installed_runtime_and_keep_the_selected_lab(hub):
     import lab_profile
     assert not (hub.root / 'tools/lab_bus.py').exists()
     assert lab_profile.bus_script(hub.root, 'hub', hub.root) == REPO / 'tools/lab_bus.py'
-    env = {**os.environ, 'NEWTS_HUB': str(hub.root), 'NEWTS_RUN_ID': 'runtime-test',
-           'NEWTS_RUN_BUS': str(hub.lab / '.bus'), 'NEWTS_RUN_SOURCE': 'hub'}
+    env = {**os.environ, 'ARLOTOPE_HUB': str(hub.root), 'ARLOTOPE_RUN_ID': 'runtime-test',
+           'ARLOTOPE_RUN_BUS': str(hub.lab / '.bus'), 'ARLOTOPE_RUN_SOURCE': 'hub'}
     result = subprocess.run([sys.executable, str(lab_profile.bus_script(hub.root, 'hub', hub.root)),
         'emit', 'run_report', '--data', 'summary=Installed runtime works.'], env=env,
         capture_output=True, text=True, timeout=15)
     assert result.returncode == 0, result.stderr
     events = [json.loads(line) for line in (hub.lab / '.bus/events.jsonl').read_text(encoding='utf-8').splitlines()]
     assert events[-1]['run_id'] == 'runtime-test'
-    command = k.brief.newts_cmd(hub.root)
-    assert (REPO / 'tools/newts_cli.py').as_posix() in command and f'--hub "{hub.root.as_posix()}"' in command
+    command = k.brief.arlotope_cmd(hub.root)
+    assert (REPO / 'tools/arlotope_cli.py').as_posix() in command and f'--hub "{hub.root.as_posix()}"' in command
     v = {'level': 'hub', 'workdir': str(hub.root), 'cfg': {'kind': 'ask'}, 'target': 'hub', 'skill': 'ask'}
     text = lab_profile.preamble(__import__('executor').Lab(hub.root), 'runtime-test', v, '')
     for name in ('artifact.py', 'knowledge.py', 'lab_bus.py'):
@@ -62,19 +62,19 @@ def test_inherited_skills_use_explicit_prompts_and_remote_snapshot_paths(hub, tm
     monkeypatch.setattr(lab, 'project_workdir', lambda _: local)
     m = {'target': 'sample', 'run_id': 'remote-test', 'remote': {'path': '/scratch/project'}}
     rd = run_dir(lab.agents_dir(local), m['run_id'])
-    text = prompt + '\n' + k.brief.newts_cmd(hub.root) + '\n' + str(rd)
+    text = prompt + '\n' + k.brief.arlotope_cmd(hub.root) + '\n' + str(rd)
     for name in ('artifact.py', 'knowledge.py', 'lab_bus.py'):
         text += '\n' + (REPO / 'tools' / name).as_posix()
     rewritten = remote_projects.rewrite(lab, m, text)
     assert REPO.as_posix() not in rewritten and str(hub.root) not in rewritten
-    assert '/instructions/tools/newts_cli.py' in rewritten and '/instructions/.claude/skills/triage/SKILL.md' in rewritten
+    assert '/instructions/tools/arlotope_cli.py' in rewritten and '/instructions/.claude/skills/triage/SKILL.md' in rewritten
     assert all('/instructions/tools/' + name in rewritten for name in ('artifact.py', 'knowledge.py', 'lab_bus.py'))
 
 
 def test_remote_footer_wrapper_accepts_only_its_own_run_id(monkeypatch):
     kernel()
     import project_control
-    monkeypatch.setenv('NEWTS_RUN_ID', 'owned-run')
+    monkeypatch.setenv('ARLOTOPE_RUN_ID', 'owned-run')
     requests = []
     monkeypatch.setattr(project_control, 'request', lambda payload: requests.append(payload) or {'code': 0})
     assert project_control.control(['emit', 'run_report', '--run-id', 'owned-run', '--data', 'summary=Done']) == 0

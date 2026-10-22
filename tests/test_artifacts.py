@@ -21,8 +21,8 @@ FAKE = REPO / "tests" / "fake_claude.py"
 @pytest.fixture
 def art(hub, monkeypatch):
     t = load("artifact")
-    monkeypatch.setenv("NEWTS_HUB", str(hub.root))
-    for k in ("NEWTS_RUN_ID", "NEWTS_RUN_SKILL", "NEWTS_RUN_SUBJECT"):
+    monkeypatch.setenv("ARLOTOPE_HUB", str(hub.root))
+    for k in ("ARLOTOPE_RUN_ID", "ARLOTOPE_RUN_SKILL", "ARLOTOPE_RUN_SUBJECT"):
         monkeypatch.delenv(k, raising=False)
     return t
 
@@ -40,9 +40,9 @@ def _serve(hub, monkeypatch):
 
 
 def test_publish_takes_its_kind_from_the_file_and_its_run_from_the_environment(art, hub, tmp_path, monkeypatch):
-    monkeypatch.setenv("NEWTS_RUN_ID", "r-1")
-    monkeypatch.setenv("NEWTS_RUN_SKILL", "analyze")
-    monkeypatch.setenv("NEWTS_RUN_SUBJECT", "idea-a")
+    monkeypatch.setenv("ARLOTOPE_RUN_ID", "r-1")
+    monkeypatch.setenv("ARLOTOPE_RUN_SKILL", "analyze")
+    monkeypatch.setenv("ARLOTOPE_RUN_SUBJECT", "idea-a")
     f = tmp_path / "pilot.md"
     f.write_text("# Pilot\n\nIt worked.\n", encoding="utf-8")
     m = art.publish("Pilot results", str(f), note="2 of 3 seeds")
@@ -175,7 +175,7 @@ def test_a_question_waits_in_needs_you_and_the_reply_reaches_the_run(art, hub, m
     lab = m.executor.Lab(hub.root)
     _t, _w, path, man = m.executor.find_run(lab, rid)
     m.executor.manifest.transition(lab, path, man, "completed", by="test", session_id="S1")
-    monkeypatch.setenv("NEWTS_RUN_ID", rid)
+    monkeypatch.setenv("ARLOTOPE_RUN_ID", rid)
     a = art.publish("Which eval set?", question="A or B?", choices=["A", "B"], study="idea-q")
     items = [x for x in m.runops.attention.collect([], [], [], []) if x["kind"] == "artifact"]
     assert [x["detail"]["artifact"] for x in items] == [a["id"]]
@@ -192,7 +192,7 @@ def test_a_question_waits_in_needs_you_and_the_reply_reaches_the_run(art, hub, m
 
 def test_a_reply_to_a_run_that_is_gone_becomes_a_note_to_its_study(art, hub, monkeypatch):
     m = _serve(hub, monkeypatch)
-    monkeypatch.setenv("NEWTS_RUN_ID", "r-gone")
+    monkeypatch.setenv("ARLOTOPE_RUN_ID", "r-gone")
     a = art.publish("Plan", question="Go?", choices=["Yes"], study="idea-a")
     res, code = m.artifacts.reply({"id": a["id"], "choice": "Yes"})
     assert code == 200 and res["reply"]["delivered"] == "a note to idea-a" and res["reply"]["delivered_error"]

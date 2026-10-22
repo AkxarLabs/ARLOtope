@@ -25,7 +25,7 @@ needs_bash = pytest.mark.skipif(os.name != "posix" or not BASH,
 
 @pytest.mark.skipif(os.name != "posix", reason="POSIX HTTP servers reuse closed TCP connections")
 def test_dashboard_port_probe_matches_http_server_reuse():
-    launcher = load("newts.py")
+    launcher = load("arlotope.py")
     with socket.socket() as server:
         server.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
         server.bind(("127.0.0.1", 0))
@@ -42,9 +42,9 @@ def test_dashboard_port_probe_matches_http_server_reuse():
 
 @pytest.fixture
 def env(hub, tmp_path, monkeypatch):
-    home = tmp_path / "newts-home"
-    monkeypatch.setenv("NEWTS_HOME", str(home))
-    monkeypatch.setenv("NEWTS_SSH", json.dumps([sys.executable, str(REPO / "tests" / "fake_ssh.py")]))
+    home = tmp_path / "arlotope-home"
+    monkeypatch.setenv("ARLOTOPE_HOME", str(home))
+    monkeypatch.setenv("ARLOTOPE_SSH", json.dumps([sys.executable, str(REPO / "tests" / "fake_ssh.py")]))
     monkeypatch.setenv("FAKE_SSH_HOME", str(tmp_path / "remote-home"))
     monkeypatch.setenv("FAKE_SSH_LOG", str(tmp_path / "ssh.jsonl"))
     (tmp_path / "remote-home").mkdir()
@@ -62,7 +62,7 @@ def env(hub, tmp_path, monkeypatch):
     m.ctx.set_remote(None)
     for c in list(m.machines.CONNS.values()):
         c.disconnect()
-    subprocess.run([sys.executable, str(REPO / "newts.py"), "--hub", str(hub.root), "--stop"], capture_output=True, timeout=60)
+    subprocess.run([sys.executable, str(REPO / "arlotope.py"), "--hub", str(hub.root), "--stop"], capture_output=True, timeout=60)
 
 
 def test_ssh_config_hosts_and_probe_parsing(env, tmp_path, monkeypatch):
@@ -121,7 +121,7 @@ def test_connect_proxy_and_lose_the_tunnel(env):
     m, hub, tmp_path = env
     m.machines.add_machine({"host": "box", "name": "Box"})
     mach = m.machines._get("box")
-    mach["launcher"] = (REPO / "newts.py").as_posix()          # the remote lab would ship its own newts.py
+    mach["launcher"] = (REPO / "arlotope.py").as_posix()          # the remote lab would ship its own arlotope.py
     m.machines._put(mach)
     m.machines.add_lab({"id": "box", "path": hub.root.as_posix()})
     srv, port, cookie = _serve(m)
@@ -185,7 +185,7 @@ def test_detached_processes_never_run_on_uvs_throwaway_python():
     """`uv run --with …` runs in builds-v0/.tmpXXXX, deleted when uv exits — a detached server (and the agent
     supervisors it spawns) must re-exec on a stable interpreter first. The venv's python is a symlink out of
     that directory, so detection must not resolve it."""
-    newts, procs = load("newts.py"), load("tools/executor/procs.py")
+    arlotope, procs = load("arlotope.py"), load("tools/executor/procs.py")
     if os.name == "nt":
         assert procs._ephemeral(r"C:\Users\u\AppData\Local\uv\cache\builds-v0\.tmpAb12\Scripts\python.exe")
         assert not procs._ephemeral(r"C:\Users\u\lab\.venv\Scripts\python.exe")
@@ -194,7 +194,7 @@ def test_detached_processes_never_run_on_uvs_throwaway_python():
         assert not procs._ephemeral("/usr/bin/python3")
         assert not procs._ephemeral("/home/u/lab/.venv/bin/python")
     if not procs._ephemeral(sys.executable):
-        assert newts.stable_python() == sys.executable   # the launcher uses the executor's one finder
+        assert arlotope.stable_python() == sys.executable   # the launcher uses the executor's one finder
 
 
 @needs_bash
@@ -206,7 +206,7 @@ def test_one_overview_across_this_computer_and_a_remote_lab(env):
     kernel().studies.move(hub.root, "idea-g", "done", by="cli")      # its proposal is done: it waits for you
     m.machines.add_machine({"host": "box", "name": "Box"})
     mach = m.machines._get("box")
-    mach["launcher"] = (REPO / "newts.py").as_posix()
+    mach["launcher"] = (REPO / "arlotope.py").as_posix()
     m.machines._put(mach)
     m.machines.add_lab({"id": "box", "path": hub.root.as_posix()})
     res, code = m.machines.open_lab({"id": "box", "path": hub.root.as_posix()})
@@ -250,14 +250,14 @@ def test_a_stopped_remote_dashboard_comes_back_and_forgetting_its_machine_comes_
     m, hub, tmp_path = env
     m.machines.add_machine({"host": "box", "name": "Box"})
     mach = m.machines._get("box")
-    mach["launcher"] = (REPO / "newts.py").as_posix()
+    mach["launcher"] = (REPO / "arlotope.py").as_posix()
     m.machines._put(mach)
     m.machines.add_lab({"id": "box", "path": hub.root.as_posix()})
     res, code = m.machines.open_lab({"id": "box", "path": hub.root.as_posix()})
     assert code == 200 and res["state"] == "connected", res
     conn = m.ctx.REMOTE
     first = conn.tunnel
-    subprocess.run([sys.executable, str(REPO / "newts.py"), "--hub", str(hub.root), "--stop"], capture_output=True, timeout=60)
+    subprocess.run([sys.executable, str(REPO / "arlotope.py"), "--hub", str(hub.root), "--stop"], capture_output=True, timeout=60)
     t0 = time.time()
     while time.time() - t0 < 90 and not conn.alive():
         time.sleep(1)

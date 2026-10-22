@@ -29,7 +29,7 @@ if hasattr(sys.stdout, "reconfigure"):
     sys.stdout.reconfigure(encoding="utf-8", errors="replace")
 
 HUB = Path(__file__).resolve().parents[1]
-_SPLIT_ANALOGUE = "newts: split=analogue"   # in a type's TYPE.md: it has no literal held-out test split
+_SPLIT_ANALOGUE = "arlotope: split=analogue"   # in a type's TYPE.md: it has no literal held-out test split
 
 
 def _projects_root() -> Path:

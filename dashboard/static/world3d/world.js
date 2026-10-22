@@ -397,7 +397,7 @@ L.createWorld = async function createWorld(canvas, opts) {
     return a.worker_id || a.id;
   }
 
-  // ── actors: newts (or the cast you chose) walking to where they should be ────────────────────────
+  // ── actors: arlotope (or the cast you chose) walking to where they should be ────────────────────────
   // the cast: one character for every agent, or one per tool (Claude, Codex, opencode) so you can tell them apart
   let cast = Object.assign({ mode: 'backend', one: 'newt', claude: 'newt', codex: 'human', opencode: 'robot' }, opts.cast || {});
   const characterOf = spec => {

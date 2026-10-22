@@ -146,7 +146,7 @@ NL.demoGet = path => {
   }
   if (path === '/api/compose' || path.startsWith('/api/compose?')) return demoCompose();
   if (path.startsWith('/api/compose/file')) { const f = decodeURIComponent((path.split('path=')[1] || '').split('&')[0]);
-    const t = /lit-review-quick\/SKILL\.md$/.test(f) ? '---\nname: lit-review-quick\nnewts:\n  like: lit-review\n  title: Quick literature scan\n---\n\n# Quick literature scan\n\n1. Search the three main venues and arXiv for the last two years.\n2. Read the ten closest papers in full.\n3. Write the verdict: novel, incremental or done-before.\n'
+    const t = /lit-review-quick\/SKILL\.md$/.test(f) ? '---\nname: lit-review-quick\narlotope:\n  like: lit-review\n  title: Quick literature scan\n---\n\n# Quick literature scan\n\n1. Search the three main venues and arXiv for the last two years.\n2. Read the ten closest papers in full.\n3. Write the verdict: novel, incremental or done-before.\n'
       : /\.add\.md$/.test(f) ? (f.includes('lit-review') ? 'Always include workshop papers from the last year.' : '') : `# ${f}\n\n(demo: the real lab shows this file here)\n`;
     return { ok: true, path: f, text: t, published: t }; }
   if (path.startsWith('/api/panel/data')) {

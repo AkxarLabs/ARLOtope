@@ -130,7 +130,7 @@
       <button type="button" title="Add next task" aria-label=${'Add task after '+n.label} onClick=${()=>add(false,n)}>+</button></div></article>`;
     const edge=(a,b,index,outcome,checkpoint)=>{
       if(!places[b])return null;const p=places[a],q=places[b],mode=nodes.find(n=>n.id===b)?.context?.mode||'fresh',same=list(nodes.find(n=>n.id===b)?.context?.from).includes(a);
-      const kind=same&&mode==='continue'?'Continue':same&&mode==='native-fork'?'Fork':same&&(mode==='fork'||nodes.find(n=>n.id===b)?.context?.handoff)?'Handoff':mode!=='fresh'?'Wait':'New';
+      const kind=same&&mode==='continue'?'Continue':same&&mode==='native-fork'?'Fork':same&&nodes.find(n=>n.id===b)?.context?.handoff?'Handoff':mode!=='fresh'?'Wait':'New';
       const label=outcome?outcome.replaceAll('-',' ')+(checkpoint?'':' · '+kind):kind;
       const vertical=Math.abs(q.x-p.x)<30&&q.y>p.y,reverse=q.x<p.x;
       const x=vertical?p.x+106:reverse?p.x:p.x+212,y=vertical?p.y+116:p.y+50;

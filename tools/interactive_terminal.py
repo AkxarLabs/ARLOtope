@@ -38,7 +38,7 @@ class Session:
         self.lock = threading.Lock()
         self.exited, self.code, self.ended = False, None, None
         self.master = None
-        env = {**os.environ, "TERM": "xterm-256color", "COLORTERM": "truecolor", "NEWTS_TERMINAL": "1"}
+        env = {**os.environ, "TERM": "xterm-256color", "COLORTERM": "truecolor", "ARLOTOPE_TERMINAL": "1"}
         if has_pty():
             import pty
             master, slave = pty.openpty()

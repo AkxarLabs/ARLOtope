@@ -33,7 +33,7 @@ if 'missing' not in sys.argv:
                   'phases': {'investigate': {'outputs': ['result.json'],
                                              'accept': {'result.json': {'status': ['completed']}}}}}
     config = {'other-tool': {'inputs': {'task': str(project)}, 'timeout_seconds': 10}}
-    config_path = project / '.newts/frameworks.yaml'
+    config_path = project / '.arlotope/frameworks.yaml'
     config_path.parent.mkdir()
     config_path.write_text(yaml.safe_dump(config))
     return project, definition, config, config_path
@@ -51,7 +51,7 @@ def test_plan_is_read_only_and_arguments_are_literal(tool):
     value = planned(tool)
     assert value['commands'][1][-3:] == config['other-tool']['args']
     assert not Path(value['receipt']).exists()
-    assert not (project / '.newts/framework-runs').exists()
+    assert not (project / '.arlotope/framework-runs').exists()
 
 
 def test_generic_tool_execution_idempotency_and_evidence(tool):
@@ -112,7 +112,7 @@ def test_detection_never_executes_a_command(tool, monkeypatch):
     monkeypatch.setattr(F.subprocess, 'Popen', lambda *a, **kw: pytest.fail('GET executed software'))
     project, definition, *_ = tool
     assert F.installed({'other-tool': definition}, project)[0]['available']
-    assert not F.installed({'missing': {'command': ['newts-nonexistent-123']}})[0]['available']
+    assert not F.installed({'missing': {'command': ['arlotope-nonexistent-123']}})[0]['available']
 
 
 @pytest.mark.parametrize('value', [None, [], {'framework': []}, {'framework': '../x', 'phase': 'x'},
@@ -142,7 +142,7 @@ def graph(hub, definition):
     folder.mkdir(parents=True, exist_ok=True)
     (folder / 'other-tool.yaml').write_text(yaml.safe_dump(definition))
     d = k.define.read(hub.root)
-    d['workflows'] = [{'id': 'external-test', 'title': 'External + Newts', 'default': True,
+    d['workflows'] = [{'id': 'external-test', 'title': 'External + ARLOtope', 'default': True,
                        'path': ['seed', 'analysis'], 'nodes': {
                            'seed': {'procedure': None, 'external': {'framework': 'other-tool', 'phase': 'investigate'}},
                            'analysis': {'procedure': None, 'instructions': 'Review the original result.'}},
@@ -180,7 +180,7 @@ def test_external_task_prompt_uses_same_native_graph_dispatch(hub, tool):
     command = json.loads(next(line.split(': ', 1)[1] for line in prompt.splitlines() if line.startswith('Framework argv')))
     assert command[-2:] == ['--phase', 'investigate'] and command[0].endswith('/tools/frameworks.py')
     assert captured[0].skill == 'workflow-task' and captured[0].extra['workflow_node'] == 'seed'
-    assert 'docs/external-frameworks.md' in prompt and '.newts/framework-runs/study-one/other-tool' in prompt
+    assert 'docs/external-frameworks.md' in prompt and '.arlotope/framework-runs/study-one/other-tool' in prompt
 
 
 def test_remote_detection_uses_selected_machine_and_project(hub, monkeypatch):
@@ -227,7 +227,7 @@ def test_export_keeps_external_execution_requirements():
 
 
 def test_missing_installation_blocks_before_agent_dispatch(hub, tool):
-    definition = {**tool[1], 'command': ['newts-nonexistent-123']}
+    definition = {**tool[1], 'command': ['arlotope-nonexistent-123']}
     graph(hub, definition)
     hub.add_registry_row('study-one', project=str(tool[0]))
     from executor import Lab, RunSpec

@@ -108,8 +108,8 @@ def fold(hub, s, events):
         if not any(x['at'] == token['id'] for x in waits) and not (limit and token['visit'] > limit):
             runnable.append(token['id'])
     focus = runnable[0] if runnable else next(iter(active), resolved[-1] if resolved and s['step'] not in model.SHELF_LABEL else s['step'])
-    if os.environ.get('NEWTS_RUN_SUBJECT') == s['id'] and os.environ.get('NEWTS_RUN_NODE') in active:
-        focus = os.environ['NEWTS_RUN_NODE']
+    if os.environ.get('ARLOTOPE_RUN_SUBJECT') == s['id'] and os.environ.get('ARLOTOPE_RUN_NODE') in active:
+        focus = os.environ['ARLOTOPE_RUN_NODE']
     return dict(s, step=focus, active_steps=list(active.values()), runnable=runnable, task_bindings=bindings,
                 completed_steps=completed, joins={k: sorted(v) for k, v in arrivals.items()},
                 waiting=next((x for x in waits if x['at'] == focus), None), task_waits=waits,
@@ -119,7 +119,7 @@ def fold(hub, s, events):
 
 def selected(hub, s, node=None):
     from .studies import StudyError
-    sid = node or (os.environ.get('NEWTS_RUN_NODE') if os.environ.get('NEWTS_RUN_SUBJECT') == s['id'] else None)
+    sid = node or (os.environ.get('ARLOTOPE_RUN_NODE') if os.environ.get('ARLOTOPE_RUN_SUBJECT') == s['id'] else None)
     if not sid:
         if len(s['active_steps']) != 1:
             raise StudyError('Several tasks are active. Select a task rather than completing the whole study.')
@@ -165,7 +165,7 @@ def move(hub, s, outcome, note, by, node_id=None, run_id=None):
 
 def _move(hub, s, outcome, note, by, node_id=None, run_id=None):
     from . import studies
-    rid = run_id or os.environ.get('NEWTS_RUN_ID')
+    rid = run_id or os.environ.get('ARLOTOPE_RUN_ID')
     if rid and any(e.get('run_id') == rid for e in journal.events(hub, s['id'], ('task-completed',))):
         return {'moved': False, 'step': s['step'], 'runnable': s['runnable'], 'finished': s['finished']}
     token = selected(hub, s, node_id)

@@ -76,7 +76,7 @@
         ${tab === 'brief' ? html`
           <p class="muted">Exactly what an agent running <span class="mono">/${name}</span> on ${study} reads first (sha <span class="mono">${d.brief_sha}</span>; each run records the version it used).</p>
           <pre class="wf-brief">${d.brief}</pre>` : null}
-        <div class="row end"><a class="link small" href=${'#/compose/procedure/' + name} onClick=${onClose}>Change it lab-wide in Workflow →</a></div>`}
+        <div class="row end"><a class="link small" href=${'#/workflow/procedure/' + name} onClick=${onClose}>Change it lab-wide in Workflow →</a></div>`}
     </${NL.Sheet}>`;
   };
 
@@ -137,7 +137,7 @@
     const mine = studyCustom(s, it.id);
     return html`<div>
       <p class="lede">Instructions for this study only, added on top of the lab's.</p>
-      <p class="muted">Useful for “use dataset Y”, “the baseline is Z”, “this study runs on CPU”. To change the whole lab, use <a class="link" href="#/compose">Workflow</a>.</p>
+      <p class="muted">Useful for “use dataset Y”, “the baseline is Z”, “this study runs on CPU”. To change the whole lab, use <a class="link" href="#/workflow">Workflow</a>.</p>
       ${NL.stepsOf(it).map(st => { const here = it.state === st; const procs = [NL.doesFor(it, st), ...((NL.STEPS[st] || {}).also || [])].filter(Boolean);
         return html`<div class=${cls('wf-srow', here && 'cur')} key=${st}>
         <b>${NL.STATE_LABEL[st] || st}</b>${here ? html` <${NL.Pill} tone="live">now</${NL.Pill}>` : null}

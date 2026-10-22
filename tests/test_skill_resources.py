@@ -48,7 +48,7 @@ def test_project_versions_win_and_snapshot_remains_unchanged(hub, tmp_path):
     assert (target/'references/example.txt').read_text() == 'Project edit'
     assert (tmp_path/'run-one/custom-method/references/example.txt').read_text() == 'Original reference'
     assert (tmp_path/'run-two/custom-method/asset.bin').read_bytes() == bytes(range(256))
-    assert json.loads((project/'.newts/workflows/sample.json').read_text()) == workflow
+    assert json.loads((project/'.arlotope/workflows/sample.json').read_text()) == workflow
     rewritten = S.rewrite(str(source/'SKILL.md'), hub.root, project, tmp_path/'run-two', second)
     assert rewritten == (tmp_path/'run-two/custom-method/SKILL.md').as_posix()
 

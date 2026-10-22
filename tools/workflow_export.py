@@ -64,7 +64,7 @@ def export(hub, workflow):
             external = n['external']
             lines += [f'External tool: `{external["framework"]}`, phase `{external["phase"]}`.',
                       f'Recipe: `resources/frameworks/{external["framework"]}.yaml`. Requires the installed '
-                      'Newts framework runner, upstream executable and project `.newts/frameworks.yaml`. '
+                      'ARLOtope framework runner, upstream executable and project `.arlotope/frameworks.yaml`. '
                       'Inspect the phase receipt and original evidence before reporting completion. '
                       'If the tool is unavailable, stop; do not substitute a prose-only result.']
         for p in ([n.get('procedure')] if n.get('procedure') else []) + n.get('skills', []):

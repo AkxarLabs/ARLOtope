@@ -12,7 +12,7 @@ A move is refused when it isn't legal, and waits when a checkpoint on the way is
 where it is, the journal says what it waits for, and the PI's approval moves it on. Everything here goes
 through the journal (kernel/journal.py); lab/REGISTRY.md is rewritten from it after every change.
 
-Who acts: `by` is pi | cli | run:<id> | campaign:<name> | auto | migration. Inside an agent run ($NEWTS_RUN_ID)
+Who acts: `by` is pi | cli | run:<id> | campaign:<name> | auto. Inside an agent run ($ARLOTOPE_RUN_ID)
 the PI's actions — approving, moving a study anywhere, changing its workflow — are refused.
 """
 
@@ -31,11 +31,11 @@ class StudyError(ValueError):
 
 
 def in_agent_run() -> bool:
-    return bool(os.environ.get("NEWTS_RUN_ID"))
+    return bool(os.environ.get("ARLOTOPE_RUN_ID"))
 
 
 def actor(default: str = "cli") -> str:
-    rid = os.environ.get("NEWTS_RUN_ID")
+    rid = os.environ.get("ARLOTOPE_RUN_ID")
     return f"run:{rid}" if rid else default
 
 
@@ -47,15 +47,7 @@ def _pi(by: str, via: str = "") -> None:
 
 
 # ── reading ──────────────────────────────────────────────────────────────────────────────────────
-def ensure(hub) -> None:
-    """A lab with a registry but no journal yet (made before the journal existed) gets one, once."""
-    if not journal.path(hub).exists() and (Path(hub) / "lab" / "REGISTRY.md").is_file():
-        from . import migrate  # noqa: PLC0415
-        migrate.journal_from_registry(hub)
-
-
 def all_studies(hub) -> dict[str, dict]:
-    ensure(hub)
     st = journal.fold(journal.events(hub), tuple(model.SHELF_LABEL))
     wids = {w["id"] for w in model.workflows(hub)}
     default = model.default_workflow(hub)
@@ -140,7 +132,7 @@ def rows(hub) -> list[dict]:
 REGISTRY_HEAD = """# Lab Registry
 
 Where every study stands. **Generated** from `lab/journal.jsonl` after every change — never edit it by hand:
-studies move with `newts move <study> <outcome>` (or in the dashboard), and `newts status` shows the same.
+studies move with `arlotope move <study> <outcome>` (or in the dashboard), and `arlotope status` shows the same.
 
 | ID | Title | Step | Workflow | Project | Updated | Next |
 |----|-------|------|----------|---------|---------|------|
@@ -164,7 +156,7 @@ def _bus(hub, kind: str, slug: str, detail: str, **data) -> None:
         bus = Path(hub) / "lab" / ".bus"
         bus.mkdir(parents=True, exist_ok=True)
         line = json.dumps({"ts": journal.now(), "source": "hub", "kind": kind, "idea": slug, "run_id":
-                           os.environ.get("NEWTS_RUN_ID"), "detail": detail, "data": data}) + "\n"
+                           os.environ.get("ARLOTOPE_RUN_ID"), "detail": detail, "data": data}) + "\n"
         with (bus / "events.jsonl").open("a", encoding="utf-8") as f:
             f.write(line)
     except OSError:
@@ -182,7 +174,7 @@ def new(hub, slug: str, title: str = "", workflow: str | None = None, at: str | 
         by: str | None = None, entry=None) -> dict:
     """File a study. Slugs are never reused — a killed or parked one keeps its record."""
     by = by or actor()
-    if os.environ.get('NEWTS_GATE_JUDGE'):
+    if os.environ.get('ARLOTOPE_GATE_JUDGE'):
         raise StudyError('Return the gate verdict. Only the engine applies its decision.')
     if not model.SLUG.match(slug or ""):
         raise StudyError(f"bad study slug {slug!r} (lowercase letters, digits, - . _)")
@@ -313,18 +305,18 @@ def outcomes_at(hub, s: dict) -> list[str]:
 def move(hub, slug: str, outcome: str, note: str = "", by: str | None = None) -> dict:
     """Report an outcome for a study. → {moved, step} | {moved: False, waiting: <checkpoint>|"pi"} | {finished}.
     Raises StudyError when the outcome isn't one this study can report here."""
-    if os.environ.get('NEWTS_GATE_JUDGE'):
+    if os.environ.get('ARLOTOPE_GATE_JUDGE'):
         raise StudyError('Return the gate verdict. Only the engine applies its decision.')
     by = by or actor()
     s = study(hub, slug)
     if not s:
-        raise StudyError(f"no study {slug!r} (file it first: newts new {slug} --title …)")
+        raise StudyError(f"no study {slug!r} (file it first: arlotope new {slug} --title …)")
     if s.get('active_steps') is not None:
         from . import branches
         return branches.move(hub, s, outcome, note, by)
     here = model.step(s["step"], hub)
     if not here:
-        raise StudyError(f"{slug} is at {s['step']!r}, which is no longer a step — the PI moves it (newts move {slug} --to <step>)")
+        raise StudyError(f"{slug} is at {s['step']!r}, which is no longer a step — the PI moves it (arlotope move {slug} --to <step>)")
     if here["shelf"]:
         raise StudyError(f"{slug} is {here['label'].lower()} — only the PI brings it back")
     if s["finished"]:

@@ -100,7 +100,7 @@ def test_project_enumeration_resolves_rows_without_registry_relookup(hub, monkey
     monkeypatch.setattr(lab, 'registry_rows', lambda: [
         {'id': 'local', 'project': str(local)},
         {'id': 'duplicate', 'project': str(local)},
-        {'id': 'remote', 'project': 'newts+ssh://machine/home/project'},
+        {'id': 'remote', 'project': 'arlotope+ssh://machine/home/project'},
     ])
     def relookup(*args):
         raise AssertionError('already have the registry row')

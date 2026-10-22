@@ -1,7 +1,7 @@
 ---
 name: design
 description: Draft a research workflow or procedure change for the researcher to review and publish.
-newts:
+arlotope:
   kind: utility
   level: hub
   mode: headless
@@ -43,26 +43,26 @@ separate model loop, renderer SDK, browser installation or special tool protocol
    No research stage is mandatory: keep the supplied workflows as defaults, but design the requested
    tasks and outcomes. A task may use a custom skill or instructions alone. Put reusable method
    guidance in the skill and optional references; the generated contract and run brief supply the
-   Lab protocol and study state. To offer a skill as a task starting point, set its `newts.ui.task`
+   Lab protocol and study state. To offer a skill as a task starting point, set its `arlotope.ui.task`
    to `{label: "Collect evidence", role: analyst}`; omit it when no shortcut is useful.
-   Ordinary imported skills need no `newts` block. Preserve their body, supporting files and license.
+   Ordinary imported skills need no `arlotope` block. Preserve their body, supporting files and license.
    Read `docs/skills.md`: the Lab library supplies project copies; existing project methods win;
    managed runs save exact snapshots. Put task-specific context in node instructions rather than
    duplicating the method in every node. Workflow YAML remains the same for humans and agents.
    For an external research engine, read `docs/external-frameworks.md`. Prefer a declarative
    `workflow/frameworks/<id>.yaml` and node `external: {framework: <id>, phase: <phase>}` over
-   another backend or scheduler. Keep inputs/budgets in project `.newts/frameworks.yaml`.
+   another backend or scheduler. Keep inputs/budgets in project `.arlotope/frameworks.yaml`.
    Preserve phase contracts and checkpoints; a CLI's successful exit alone proves no result.
    Leave `agent.preset` unset to inherit role defaults, or reference an existing saved preset.
    Do not invent model IDs, install agents or modify Lab/study agent settings in a workflow proposal.
    Context sources may be earlier causal tasks: a revision can continue its writer after an independent
    review. A fresh handoff may select several sources with `from: [task-a, task-b]`; continuation and
    native fork select one. A self-source needs `initial: fresh` for its first loop visit.
-   Add optional `tags` to workflows, steps, nodes or procedure `newts` metadata where useful;
+   Add optional `tags` to workflows, steps, nodes or procedure `arlotope` metadata where useful;
    reuse existing labels. Tags organize definitions and their instructions, never grant approvals.
    For necessary room resources, use a separate private room draft and preview it; publication and
    room application remain separate reviewed operations. No new engine code unless separately requested.
-4. Validate with `uv run --with pyyaml python newts.py check --design <folder>`.
+4. Validate with `uv run --with pyyaml python arlotope.py check --design <folder>`.
    Resolve errors; explain any intentionally added, moved or removed checkpoint.
 5. Finish with the folder path and a concise explanation. The proposal appears in **Workflow →
    Agent proposals**. Only the PI takes it into the draft, reviews it and publishes it.

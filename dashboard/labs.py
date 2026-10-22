@@ -1,4 +1,4 @@
-"""Labs on this computer (list / open / create / forget — ~/.newts/labs.json, NEWTS_HOME overrides), the
+"""Labs on this computer (list / open / create / forget — ~/.arlotope/labs.json, ARLOTOPE_HOME overrides), the
 consoles for a CLI's own sign-in or install, and stopping the server.
 """
 
@@ -17,7 +17,7 @@ executor = sources.executor   # tools/executor, or None
 
 
 def _labs_file() -> Path:
-    home = Path(os.environ.get("NEWTS_HOME") or (Path.home() / ".newts"))
+    home = Path(os.environ.get("ARLOTOPE_HOME") or (Path.home() / ".arlotope"))
     return home / "labs.json"
 
 

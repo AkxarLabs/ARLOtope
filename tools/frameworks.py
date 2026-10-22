@@ -49,7 +49,7 @@ def requirements(workflow):
 
 
 def settings(project, fid):
-    path = Path(project) / '.newts/frameworks.yaml' if project else None
+    path = Path(project) / '.arlotope/frameworks.yaml' if project else None
     value = (read(path).get(fid) or {}) if path and path.is_file() else {}
     if not isinstance(value, dict) or not isinstance(value.get('inputs') or {}, dict):
         raise ValueError('Framework settings and inputs must be mappings.')
@@ -154,13 +154,13 @@ def plan(definition, project, study, phase):
         raise ValueError('This framework needs a supported execution machine; see its setup guide.')
     missing = [key for key in definition.get('inputs', []) if not (config.get('inputs') or {}).get(key)]
     if missing:
-        raise ValueError('Set .newts/frameworks.yaml inputs: ' + ', '.join(missing))
+        raise ValueError('Set .arlotope/frameworks.yaml inputs: ' + ', '.join(missing))
     extra = config.get('args') or []
     if extra:
         argv(extra)
     if any(arg.lstrip('+').split('=', 1)[0] in definition.get('reserved_args', []) or arg.startswith('--') for arg in extra):
         raise ValueError('Extra arguments cannot replace the phase, run directory or execution mode.')
-    root = project / '.newts/framework-runs' / study / definition['id']
+    root = project / '.arlotope/framework-runs' / study / definition['id']
     if not root.resolve().is_relative_to(project):
         raise ValueError('Framework records must remain inside the project.')
     evidence = selected.get('outputs')
@@ -189,7 +189,7 @@ def plan(definition, project, study, phase):
               'timeout_seconds': config.get('timeout_seconds')}
     timeout = result['timeout_seconds']
     if not isinstance(timeout, (int, float)) or isinstance(timeout, bool) or not 0 < timeout < float('inf'):
-        raise ValueError('Set a positive timeout_seconds in .newts/frameworks.yaml; no budget is assumed.')
+        raise ValueError('Set a positive timeout_seconds in .arlotope/frameworks.yaml; no budget is assumed.')
     return result
 
 

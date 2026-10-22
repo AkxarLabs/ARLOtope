@@ -11,7 +11,7 @@ anything, or certify credentials, version compatibility or scientific validity.
 **Inspect workflow** opens the preset for reading or editing even before the tool is installed.
 
 The **Agentic Scientist · Sakana** preset uses the normal task graph, rooms, agents and checkpoints.
-Its external phases are followed by an independent Newts review and a Results summary. Copy it,
+Its external phases are followed by an independent ARLOtope review and a Results summary. Copy it,
 insert normal tasks, move checkpoints, change rooms, or remove phases whose downstream inputs you
 already have. In the task inspector, **External research tool** selects a tool and phase. Save,
 review and publish as usual. A receiving agent reads original outputs; no shared conversation is
@@ -26,10 +26,10 @@ was executed to capture it.
 
 Install [The Agentic Scientist](https://github.com/SakanaAI/AI-Scientist-v3/blob/main/docs/install.md)
 separately, preferably at a pinned revision on a connected Linux machine. Its documented Docker,
-agent authentication, data and task-runtime requirements still apply. Newts adds no Sakana,
+agent authentication, data and task-runtime requirements still apply. ARLOtope adds no Sakana,
 Docker, Hydra or frontend dependency. The definition was source-reviewed against upstream
 `df8313889a004f8a44a472e19a833cd547bb828a`. Local checks covered a native one-cycle investigation
-and a shortened Docker workflow: task drafting, one investigation cycle, fresh Newts review
+and a shortened Docker workflow: task drafting, one investigation cycle, fresh ARLOtope review
 and an HTML summary. The Docker investigation completed without a qualifying winner. Live
 ablations, final evaluation, post-hoc and paper generation were not tested; the full preset
 and other execution hosts are not certified.
@@ -49,16 +49,16 @@ Docker-controlling agents need explicitly configured access to the host Docker r
 
 Use a coding CLI version compatible with the chosen model and account. Verify its model list and
 a small turn on that host, then set upstream `agent.model` explicitly when its default is unsuitable.
-The Newts supervising agent's model choice does not automatically configure Sakana's internal agent.
+The ARLOtope supervising agent's model choice does not automatically configure Sakana's internal agent.
 The pinned Headless runtime also needs a working npm Git-dependency install. These are external
-runtime requirements, not dependencies added to the Newts package.
+runtime requirements, not dependencies added to the ARLOtope package.
 
 At the reviewed revision, `agsci doctor` reports missing Docker as a failure even for a native
 investigation configuration. A successful standalone native phase therefore does not establish
-readiness for the complete preset. The Newts preflight preserves that failure; install and verify
+readiness for the complete preset. The ARLOtope preflight preserves that failure; install and verify
 the documented Docker runtime before using the full preset.
 
-In the attached project, create `.newts/frameworks.yaml`:
+In the attached project, create `.arlotope/frameworks.yaml`:
 
 ```yaml
 sakana:
@@ -86,7 +86,7 @@ selects a Sakana-supported coding harness. ACP is not an upstream transport sele
 
 The initial definition uses one internal investigation worker, represented by one task slot.
 Parallel internal workers are intentionally not advertised: they need capacity and recovery
-integration before claiming support. The moving character represents the current Newts phase
+integration before claiming support. The moving character represents the current ARLOtope phase
 task; internal sessions are not separately controllable characters in this first integration.
 
 ## See internal activity
@@ -137,7 +137,7 @@ interpolation. A single timeout covers both commands. For Sakana the preflight i
 State lives under the project, outside the installation:
 
 ```text
-.newts/framework-runs/<study>/<framework>/
+.arlotope/framework-runs/<study>/<framework>/
 ├── run/                 # authoritative upstream run directory, shared between phases
 ├── <phase>.json         # command, configuration fingerprint, status and evidence hashes
 └── <phase>.log          # captured preflight and phase output
@@ -158,7 +158,7 @@ the task even when an upstream command exits zero. The preset requires retained 
 remove that task explicitly when it is not needed rather than treating missing evidence as success.
 
 Timeouts and handled termination request native process-tree cleanup. A hard-killed controller,
-detached service or Docker container can require upstream/manual cleanup. Newts does not certify
+detached service or Docker container can require upstream/manual cleanup. ARLOtope does not certify
 container cleanup or general resumability. Inspect external activity before retrying. Upstream
 parallel investigation recovery has restrictions; never delete its state to force a restart.
 
@@ -202,7 +202,7 @@ next: [my-normal-review-task]
 ```
 
 Agent instructions, roles, skill sequences, rooms, named outcomes and checkpoints remain ordinary
-workflow fields. Project `.newts/frameworks.yaml` supplies `<id>` configuration with `command`,
+workflow fields. Project `.arlotope/frameworks.yaml` supplies `<id>` configuration with `command`,
 `cwd`, `inputs`, `args` and a required `timeout_seconds`. No Python plugin is needed for this
 command-and-artifact contract. JSONL activity can use the optional mapping above. Interactive
 authentication/questions, internal-worker controls, other stream formats and remote-service cleanup require a deliberately implemented adapter;

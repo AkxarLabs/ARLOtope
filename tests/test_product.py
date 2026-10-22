@@ -37,7 +37,7 @@ def m(hub, monkeypatch, tmp_path):
         f"        command: {json.dumps([sys.executable, str(FAKE)])}\n", encoding="utf-8")
     (hub.root / "templates" / "loop").mkdir(parents=True)
     shutil.copy(REPO / "templates" / "loop" / "CAMPAIGN.md", hub.root / "templates" / "loop")
-    monkeypatch.setenv("NEWTS_HOME", str(tmp_path / "home"))
+    monkeypatch.setenv("ARLOTOPE_HOME", str(tmp_path / "home"))
     monkeypatch.syspath_prepend(str(REPO / "dashboard"))
     mod = load("dashboard/serve")
     monkeypatch.setattr(mod.ctx, "HUB", hub.root)
@@ -313,7 +313,7 @@ def test_keys_are_stored_but_never_read_back(m, hub):
     assert "secret-123" not in json.dumps(st) and next(k for k in st["keys"] if k["key"] == "S2_API_KEY")["set"]
     assert "lab/.env.local" in (hub.root / ".gitignore").read_text(encoding="utf-8")
     assert "secret-123" not in json.dumps(_pi(hub))
-    assert m.keys.keys_set({"key": "NEWTS_RUN_ID", "value": "x"})[1] == 400
+    assert m.keys.keys_set({"key": "ARLOTOPE_RUN_ID", "value": "x"})[1] == 400
     sup = load("tools/executor/supervise.py") if False else None   # noqa: F841 — _env_local is tested below
     from executor.supervise import _env_local
     assert _env_local(m.executor.Lab(hub.root))["S2_API_KEY"] == "secret-123"
@@ -344,7 +344,7 @@ def test_programmatic_switch_inserts_a_missing_key(m, hub):
 
 def test_create_open_and_switch_labs(m, hub, tmp_path):
     # The suite may keep tmp_path inside the checkout; real Labs must live outside their template.
-    with TemporaryDirectory(prefix="newts-lab-test-") as directory:
+    with TemporaryDirectory(prefix="arlotope-test-") as directory:
         dest = Path(directory) / "second"
         out, code = m.labs.labs_create({"confirm": True, "name": "Second lab", "path": str(dest), "open": False})
         assert code == 200, out
@@ -383,7 +383,7 @@ def test_session_cookie_and_json_only(server):
     st, hd, _ = _req(port, "GET", "/")
     assert st == 200
     cookie = hd.get("Set-Cookie", "").split(";", 1)[0]
-    assert cookie.startswith(f"newts_{port}=") and "SameSite=Strict" in hd["Set-Cookie"] and "HttpOnly" in hd["Set-Cookie"]
+    assert cookie.startswith(f"arlotope_{port}=") and "SameSite=Strict" in hd["Set-Cookie"] and "HttpOnly" in hd["Set-Cookie"]
     assert _req(port, "GET", "/api/state", headers={"Cookie": cookie})[0] == 200
     assert _req(port, "GET", "/api/ping")[0] == 200                                        # the launcher's probe
     body = json.dumps({"target": "hub", "text": "hi"})
@@ -513,7 +513,7 @@ def test_notifications_are_stored_outside_config_and_masked(m, hub, inbox):
     st, _ = keys.notify_status()
     assert "secret-topic" not in st["ntfy"] and st["link"] == "http://pc:8787" and not st["webhook"]
     assert "secret-topic" not in (hub.lab / "config.yaml").read_text(encoding="utf-8")
-    assert [k["key"] for k in keys.keys_status()[0]["keys"] if k["key"].startswith("NEWTS_")] == []
+    assert [k["key"] for k in keys.keys_status()[0]["keys"] if k["key"].startswith("ARLOTOPE_")] == []
     out, code = keys.notify_test({})
     assert code == 200 and got and got[0]["path"] == "/secret-topic-123"
 

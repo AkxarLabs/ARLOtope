@@ -124,7 +124,7 @@
         <label class="check"><input type="checkbox" checked=${!!p.may_hold} onChange=${e => NL.act('/api/panel/pin', { id, may_hold: e.target.checked }, e.target.checked ? 'Its alerts may hold a study' : 'Its alerts only tell you')} /><span><b>Its alerts may hold a study</b> <small class="muted">nothing new starts for that study until you release it</small></span></label>
           <${NL.Btn} small onClick=${() => NL.act('/api/panel/collect', { id, study }, 'Gathered')}>Gather now</${NL.Btn}>
           <${NL.Btn} small kind="ghost" onClick=${async () => { await NL.act('/api/panel/archive', { id, archived: !p.archived }); onClose(); }}>${p.archived ? 'Back to the cabinet' : 'Archive'}</${NL.Btn}></div>
-        <div class="muted small mono">newts panel ${id}${study ? ' --study ' + study : ''}</div></div>` : null}
+        <div class="muted small mono">arlotope panel ${id}${study ? ' --study ' + study : ''}</div></div>` : null}
       <div class="sheet-body inst-body">
         ${p.needs_approval ? (detail ? html`<${CollectorApproval} p=${p} detail=${detail} reload=${g.reload} />` : html`<${NL.LoadState} ...${g} />`) : html`<${NL.PanelFrame} id=${id} study=${study} onSummary=${setSum} />`}
         ${detail && detail.collector && !p.needs_approval ? html`<details class="inst-code"><summary>Its collector · ${detail.collector.name}${detail.panel && detail.panel.origin === 'shipped' ? ' (shipped with the lab)' : ' (approved)'}</summary><pre class="plain">${detail.collector.code}</pre></details>` : null}

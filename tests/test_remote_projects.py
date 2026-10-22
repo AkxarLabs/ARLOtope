@@ -18,8 +18,8 @@ import remote_projects as R
 
 @pytest.fixture
 def worker(tmp_path, monkeypatch):
-    monkeypatch.setenv('NEWTS_HOME', str(tmp_path/'home'))
-    monkeypatch.setenv('NEWTS_KEEP_PYTHON', '1')
+    monkeypatch.setenv('ARLOTOPE_HOME', str(tmp_path/'home'))
+    monkeypatch.setenv('ARLOTOPE_KEEP_PYTHON', '1')
     digest, blob = R.bundle()
     package = tmp_path/(digest + '.pyz'); package.write_bytes(blob)
     with socket.socket() as s:
@@ -71,7 +71,7 @@ def test_remote_skill_package_retains_binary_resources_and_project_edits(hub, wo
     second = R.call(hub.root, name, 'skills', sources=sources, workflow=workflow)
     assert second['records']['evidence-check']['source'] == 'project'
     assert base64.b64decode(second['files']['evidence-check']['SKILL.md']) == b'# Project-specific method'
-    assert json.loads((root/'.newts/workflows'/f'{name}.json').read_text()) == workflow
+    assert json.loads((root/'.arlotope/workflows'/f'{name}.json').read_text()) == workflow
 
 
 def wait(lab, run_id, predicate, seconds=25):
@@ -98,7 +98,7 @@ def test_worker_bundle_is_execution_only(worker):
 
 def test_worker_reads_framework_activity_without_launching(worker):
     root=worker['root']/'observed-project'
-    path=root/'.newts/framework-runs/demo/tool/run/events.jsonl'
+    path=root/'.arlotope/framework-runs/demo/tool/run/events.jsonl'
     path.parent.mkdir(parents=True)
     path.write_text(json.dumps({'event':'work','timestamp':'now','fields':{'label':'Reading evidence'}}))
     definition={'id':'tool','activity':{'files':['events.jsonl'],'events':{'work':{'state':'running','kind':'read'}}}}
@@ -113,12 +113,12 @@ def test_worker_knowledge_records_and_project_cli(hub,worker):
     record=knowledge.dispatch(hub.root,'remote-knowledge','add',kind='note',text='Read this note.',acknowledge=True)
     assert knowledge.dispatch(hub.root,'remote-knowledge','get',id=record['id'])['scope']=='project'
     rows=knowledge.dispatch(hub.root,'remote-knowledge','list')['rows']
-    assert rows[0]['rel'].startswith('.newts/knowledge/')
+    assert rows[0]['rel'].startswith('.arlotope/knowledge/')
     done=subprocess.run([sys.executable,str(worker['package']),'knowledge','--project',str(root),'ack',record['id']],
                         capture_output=True,text=True,timeout=15)
     assert done.returncode==0,done.stderr
     assert json.loads(done.stdout)['acknowledgements']
-    assert (root/'.newts/project.json').is_file()
+    assert (root/'.arlotope/project.json').is_file()
 
 
 def test_checkpoint_evidence_reads_remote_files_together_and_stays_fresh(hub, worker, monkeypatch):
@@ -186,7 +186,7 @@ def test_uploaded_binary_materials_reach_remote_agent_snapshot(hub,worker):
     executor.tick(lab)
     done=wait(lab,m['run_id'],lambda m:m['status'] in ('completed','failed'))
     assert done['status']=='completed',done
-    copies=list((root/'.bus/newts').glob('*/agents/*.d/instructions/studies/remote-brief/materials/*'))
+    copies=list((root/'.bus/arlotope').glob('*/agents/*.d/instructions/studies/remote-brief/materials/*'))
     assert len(copies)==1 and copies[0].read_bytes()==content
     index=copies[0].parent.parent/'MATERIALS.md'
     assert 'project brief.pdf' in index.read_text()
@@ -268,7 +268,7 @@ def test_remote_visual_summary_is_published_once_to_the_owning_lab(hub, worker):
     assert rows[0]['study'] == 'remote-study' and rows[0]['source_machine'] == 'box'
     assert not (root / 'lab').exists()
     request = next(json.loads(path.read_text(encoding='utf-8')) for path in
-        (root / '.bus/newts' / R.owner(hub.root) / 'agents' / (m['run_id'] + '.d') / 'controller').glob('*.request.json')
+        (root / '.bus/arlotope' / R.owner(hub.root) / 'agents' / (m['run_id'] + '.d') / 'controller').glob('*.request.json')
         if json.loads(path.read_text(encoding='utf-8')).get('verb') == 'artifact')
     assert R._request(lab, done, request)['result']['id'] == rows[0]['id']
     assert len(artifact.all_artifacts(hub.root)) == 1
@@ -319,23 +319,22 @@ def test_ownership_and_remote_files(worker):
 
 
 def test_remote_attach_checks_durable_identity_before_writing_local_owner(worker):
-    root = worker['root']/'portable project'; (root/'.newts').mkdir(parents=True)
-    identity = root/'.newts/project.json'
+    root = worker['root']/'portable project'; (root/'.arlotope').mkdir(parents=True)
+    identity = root/'.arlotope/project.json'
     original = json.dumps({'schema': 1, 'project_id': 'portable-id', 'lab_id': 'owning-lab',
-                           'name': 'Portable project', 'knowledge_dir': '.newts/knowledge'})
+                           'name': 'Portable project', 'knowledge_dir': '.arlotope/knowledge'})
     identity.write_text(original, encoding='utf-8')
     data = {'path': str(root), 'owner': 'execution-owner', 'study': 'portable-study', 'lab_id': 'wrong-lab'}
     with pytest.raises(R.RemoteError) as error:
         R.rpc('box', 'attach', data)
     assert 'owning-lab' in str(error.value) and str(root) in str(error.value)
     assert identity.read_text(encoding='utf-8') == original
-    assert not (root/'.bus/newts-owner.json').exists()
     assert not (worker['root']/'home/projects.json').exists()
     # A failed claim must not poison a later legitimate attachment.
     result = R.rpc('box', 'attach', {**data, 'lab_id': 'owning-lab'})
     assert Path(result['path']) == root.resolve()
     assert json.loads(identity.read_text(encoding='utf-8'))['project_id'] == 'portable-id'
-    assert json.loads((root/'.bus/newts-owner.json').read_text(encoding='utf-8'))['owner'] == data['owner']
+    assert json.loads(identity.read_text(encoding='utf-8'))['owner'] == data['owner']
 
 
 def test_worker_refuses_cross_origin(worker):
@@ -374,7 +373,7 @@ def test_worker_detects_crash_from_its_own_supervisor_lock(tmp_path):
     worker = Worker('fixture.pyz')
     data = {'path': str(root), 'owner': 'lab-a', 'study': 'study', 'run_id': 'run-a'}
     worker.call('attach', data)
-    agents = root / '.bus/newts/lab-a/agents'
+    agents = root / '.bus/arlotope/lab-a/agents'
     rd = agents / 'run-a.d'
     atomic(agents / 'run-a.json', {'status': 'running', 'attempt': 1})
     atomic(rd / 'dispatch-0.json', {'accepted': True})

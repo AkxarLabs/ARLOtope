@@ -49,7 +49,7 @@ WT_RE = re.compile(r"([A-Za-z0-9][A-Za-z0-9._]*(?:-[A-Za-z0-9._]+)*?)-wt-([A-Za-
 
 
 # The same tracer serves three harnesses. Codex hooks (Bash / apply_patch / spawn_agent / mcp__*)
-# and the opencode plugin (.opencode/plugins/newts-trace.js: bash, read, edit, task, … with camelCase
+# and the opencode plugin (.opencode/plugins/arlotope-trace.js: bash, read, edit, task, … with camelCase
 # inputs) send Claude-shaped payloads under their own tool names — fold them onto Claude's names so
 # summaries, kinds and the dashboard read one vocabulary.
 TOOL_ALIASES = {"bash": "Bash", "shell": "Bash", "exec_command": "Bash", "local_shell": "Bash",
@@ -255,7 +255,7 @@ def _worktree_of(ti, cwd: str) -> tuple:
 def main() -> None:
     # a trusted repo's .codex/hooks.json (--from-repo) stands down when the executor already passed
     # the same hooks as codex -c session flags — one line per event, not two
-    if "--from-repo" in sys.argv[1:] and os.environ.get("NEWTS_TRACE_FLAGS") == "1":
+    if "--from-repo" in sys.argv[1:] and os.environ.get("ARLOTOPE_TRACE_FLAGS") == "1":
         return
     raw = sys.stdin.read()
     data = json.loads(raw) if raw.strip() else {}
@@ -281,12 +281,12 @@ def main() -> None:
         rec["tool_use_id"] = tuid
     # which executor run this session belongs to (headless runs export these), so the dashboard joins
     # the trace to its run even before the CLI reports a session id — and nests by study
-    if os.environ.get("NEWTS_RUN_ID"):
-        rec["run_id"] = os.environ["NEWTS_RUN_ID"]
-        if os.environ.get("NEWTS_RUN_SUBJECT"):
-            rec["subject"] = os.environ["NEWTS_RUN_SUBJECT"]
-    if os.environ.get("AUTOSCIENTIST_AGENT_DEPTH"):
-        rec["depth"] = os.environ["AUTOSCIENTIST_AGENT_DEPTH"]
+    if os.environ.get("ARLOTOPE_RUN_ID"):
+        rec["run_id"] = os.environ["ARLOTOPE_RUN_ID"]
+        if os.environ.get("ARLOTOPE_RUN_SUBJECT"):
+            rec["subject"] = os.environ["ARLOTOPE_RUN_SUBJECT"]
+    if os.environ.get("ARLOTOPE_AGENT_DEPTH"):
+        rec["depth"] = os.environ["ARLOTOPE_AGENT_DEPTH"]
     background = isinstance(ti, dict) and bool(ti.get("run_in_background"))
 
     if event == "SessionStart":

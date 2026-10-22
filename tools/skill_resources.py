@@ -173,7 +173,7 @@ def record_project(project, workflow, study, chosen):
     if not study or '/' in study or '\\' in study or study in ('.', '..'):
         raise ValueError('Invalid study name.')
     project = Path(project)
-    record = project / '.newts'
+    record = project / '.arlotope'
     record.mkdir(parents=True, exist_ok=True)
     manifest = record / 'skills.json'
     previous = json.loads(manifest.read_text(encoding='utf-8')) if manifest.is_file() else {}

@@ -80,8 +80,8 @@ uv run --with pyyaml python tools/knowledge.py --study <study> ack <id>
 ```
 
 Omit `--study` for Lab records; use `--project /absolute/project` for project-local access without
-the hub. Markdown records and attachments live in the location from `.newts/project.json`, normally
-`.newts/knowledge/`. Notes do not enqueue tasks. `ack` records that a requested note was read;
+the hub. Markdown records and attachments live in the location from `.arlotope/project.json`, normally
+`.arlotope/knowledge/`. Notes do not enqueue tasks. `ack` records that a requested note was read;
 it does not accept an instruction, approve work or start an agent. Workspace Q&A saves a full separate
 answer record. `--kind source` supports URL, DOI, version and coverage metadata so a reference link
 is not confused with a captured full text. See [Shared knowledge](knowledge.md).
@@ -159,18 +159,18 @@ non-baseline PLAN.md row traces to a `D-NNN`/`(expand Rn)` origin; a `Headline-c
 **0 = proceed · 1 = blocked · 2 = warn**. Checkpoints run them (`checks:`), watches run them, and agents
 run them where a procedure says so.
 
-Where a study stands and whether a checkpoint is approved are the kernel's, not a check's: `newts move`
+Where a study stands and whether a checkpoint is approved are the kernel's, not a check's: `arlotope move`
 refuses an illegal move and holds a study at an unapproved `before` checkpoint, and
-`newts approved <slug> <checkpoint>` exits 0 only when that checkpoint is approved. A check never grants
+`arlotope approved <slug> <checkpoint>` exits 0 only when that checkpoint is approved. A check never grants
 an approval.
 
 ### `kernel/` — the lab's definition, its studies and the journal
 
-A library, not a command (`newts` is its command line). stdlib + pyyaml, import-safe.
+A library, not a command (`arlotope` is its command line). stdlib + pyyaml, import-safe.
 
 | Module | What it does |
 |---|---|
-| `model.py` | reads the definition: `workflow/steps.yaml`, `workflow/workflows/<id>.yaml`, `workflow/rooms.yaml` and each skill's `newts:` frontmatter; resolves variants (`like:`, `use:`); `check()` validates it |
+| `model.py` | reads the definition: `workflow/steps.yaml`, `workflow/workflows/<id>.yaml`, `workflow/rooms.yaml` and each skill's `arlotope:` frontmatter; resolves variants (`like:`, `use:`); `check()` validates it |
 | `journal.py` | `lab/journal.jsonl`, the one append-only record: every move, wait, approval and finish; a study's place is a fold over it, and `lab/REGISTRY.md` is a view written from it |
 | `studies.py` | file a study, report an outcome (`move`), the PI's moves anywhere (`move_to`), its workflow, swaps and project |
 | `checkpoints.py` | what a checkpoint shows (evidence, checks, history) and deciding it, enforcing who may approve (`approver: me \| me-or-campaign \| auto \| agent`); approving a `before` checkpoint a study waits at moves it on |
@@ -180,27 +180,26 @@ A library, not a command (`newts` is its command line). stdlib + pyyaml, import-
 | `rules.py` | `workflow/rules.yaml`: the rules, the named audits, PI-owned config, rigor floors and protected paths |
 | `define.py` · `diff.py` | writing the definition back (Compose, designers, `tools/new.py`); what a change does, and a designer's draft checked against the live lab |
 | `watch.py` | each run's computed digest, the watches, and flags (`info` · `warn` · `block`, `hold`) |
-| `migrate.py` | brings an older lab (`workflow/stages.yaml`, `lab/approvals.jsonl`) onto the kernel, once; the old files are kept with a `.pre-kernel` suffix |
 
 A journal line is `{ts, study, kind, by, …}`. `kind` is `new`, `move`, `wait`, `finish`, `approval`
 (`decision`: `approved`, `changes-requested` or `revoked`), `workflow`, `use`, `project` or `remap`.
 `study` is a slug, or `lab` for the lab as a whole (a campaign's brief, `campaign:<name>`; a panel's
-collector, `panel:<id>`). `by` is `pi`, `cli`, `run:<id>`, `campaign:<name>`, `auto` or `migration`.
+collector, `panel:<id>`). `by` is `pi`, `cli`, `run:<id>`, `campaign:<name>`, `auto`.
 Only the kernel writes it; the PI's verbs refuse inside an agent run, and the signature guard refuses
 the file and the commands.
 
-### `newts_cli.py` — the lab from a terminal (`newts <verb>`)
+### `arlotope_cli.py` — the lab from a terminal (`arlotope <verb>`)
 
 ```bash
-uv run --with pyyaml python newts.py status                        # what needs you, what is running, every study
-uv run --with pyyaml python newts.py next <study>                  # where it stands and what runs next
-uv run --with pyyaml python newts.py move <study> <outcome> [--note "…"]
-uv run --with pyyaml python newts.py checkpoint <study> <checkpoint>
-uv run --with pyyaml python newts.py approve <study> <checkpoint> [--note "…"] [--start] [--yes]
-uv run --with pyyaml python newts.py changes <study> <checkpoint> --note "…"
-uv run --with pyyaml python newts.py revoke <study> <checkpoint> [--yes]
-uv run --with pyyaml python newts.py hold <study> [--reason "…"] | release <study> | pause | resume
-uv run --with pyyaml python newts.py panel compute
+uv run --with pyyaml python arlotope.py status                        # what needs you, what is running, every study
+uv run --with pyyaml python arlotope.py next <study>                  # where it stands and what runs next
+uv run --with pyyaml python arlotope.py move <study> <outcome> [--note "…"]
+uv run --with pyyaml python arlotope.py checkpoint <study> <checkpoint>
+uv run --with pyyaml python arlotope.py approve <study> <checkpoint> [--note "…"] [--start] [--yes]
+uv run --with pyyaml python arlotope.py changes <study> <checkpoint> --note "…"
+uv run --with pyyaml python arlotope.py revoke <study> <checkpoint> [--yes]
+uv run --with pyyaml python arlotope.py hold <study> [--reason "…"] | release <study> | pause | resume
+uv run --with pyyaml python arlotope.py panel compute
 ```
 
 Core study and process actions have verbs here and share the dashboard's kernel. Browser-specific
@@ -212,10 +211,10 @@ features also use their focused tools and server routes:
 - monitoring: `flags`, `ack`;
 - runs: `start`, `ask`, `runs`, `run`, `answer`, `reply`, `stop`, `resume`, `pause`, `hold`, `release`;
 - the definition: `workflow [show|set|use|rename-step]`, `brief`, `propose`, `check [--design <folder>]`,
-  `docs [--check]`, `extension [list|install]`, `migrate`, `room`;
+  `docs [--check]`, `extension [list|install]`, `room`;
 - `panels`, `panel`, `approve-collector` and `config`.
 
-`newts.py <verb>` dispatches to it (`newts.py <verb> --help` for one verb's arguments). The PI's verbs
+`arlotope.py <verb>` dispatches to it (`arlotope.py <verb> --help` for one verb's arguments). The PI's verbs
 (`approve`, `revoke`, `changes`, `move --to`, `workflow set|use|rename-step`, `approve-collector`) refuse
 inside an agent run, and ask you to confirm on a terminal (or pass `--yes`). Most verbs take `--json`.
 
@@ -229,15 +228,15 @@ uv run --with pyyaml python tools/new.py rule     <id>   --text "**Title.** What
 ```
 
 Copies the closest thing the lab already has under a new name, so nobody hand-edits YAML. A copied skill
-says `like: <skill>`: it is a variant, used in a workflow (`use:`), for one study (`newts workflow use`),
+says `like: <skill>`: it is a variant, used in a workflow (`use:`), for one study (`arlotope workflow use`),
 or as a step's work. Then the generated docs are refreshed. The signature guard refuses it from a run.
 
 ### `lab_docs.py` — the generated parts of the manuals
 
-Writes the spans between `<!-- newts:<name> … -->` markers from the lab's definition: the rules and
+Writes the spans between `<!-- arlotope:<name> … -->` markers from the lab's definition: the rules and
 workflows in `AGENTS.md`, the head of every SKILL.md (how it finishes, what it must produce), the steps
-table in [The workflow](workflow.md), and the dashboard's built-in copy of the definition. `newts docs`
-writes them; `newts check` reports stale ones. It also writes the room brief (`newts room <room>`).
+table in [The workflow](workflow.md), and the dashboard's built-in copy of the definition. `arlotope docs`
+writes them; `arlotope check` reports stale ones. It also writes the room brief (`arlotope room <room>`).
 
 ### `labfiles.py` — the lab's files, read one way
 
@@ -252,10 +251,10 @@ uv run --with pyyaml python tools/panels.py show <id>       # its summary and da
 ```
 
 A panel is a folder with `panel.yaml`, a `view.html` and, optionally, a collector script. Panels come from
-`dashboard/static/panels/shipped/` (the lab's own, e.g. Compute), `~/.newts/panels/` (yours, across
+`dashboard/static/panels/shipped/` (the lab's own, e.g. Compute), `~/.arlotope/panels/` (yours, across
 labs) and `lab/panels/` (this lab's); a later one overrides an earlier one. A view runs in a sandboxed
 frame with no network. A collector is code, so it runs only once the PI approved that exact version
-(`newts approve-collector <panel>`, a record `panel:<id>`); shipped collectors need no approval. A
+(`arlotope approve-collector <panel>`, a record `panel:<id>`); shipped collectors need no approval. A
 panel's data may carry alerts; each becomes a Inbox item, and an alert holds a study only if the PI
 let that panel hold (`may_hold`).
 
@@ -332,8 +331,8 @@ change:
 - `lab/config.yaml` (except in `/setup-lab` and `/configure`);
 - the lab's definition: `workflow/`, the skills, the roles, `checks/` and `extensions/` always, plus
   the manuals, templates, the PI's instructions, rooms and panels (`protected_paths` in
-  `workflow/rules.yaml`); an agent proposes a change with `newts propose` instead;
-- shell commands that do any of the above, or run `newts approve|revoke|changes|approve-collector|ack`,
+  `workflow/rules.yaml`); an agent proposes a change with `arlotope propose` instead;
+- shell commands that do any of the above, or run `arlotope approve|revoke|changes|approve-collector|ack`,
   `tools/new.py` or `--skip-guard`.
 
 One list drives both the file check and the shell check. It is a speed bump, not a vault: an agent can
@@ -357,7 +356,7 @@ uv run --with pyyaml python tools/process_writebacks.py [--apply]
 
 `hub_writeback.py` is hard rule 11 as one call from a project session: a dated `lab/notebook/` entry,
 durable insights promoted to `lab/knowledge/`, and, with `--outcome`, the study's outcome reported to the
-kernel (as `newts move`). When the hub is unreachable a project appends a `HUB-WRITEBACK-PENDING:` block
+kernel (as `arlotope move`). When the hub is unreachable a project appends a `HUB-WRITEBACK-PENDING:` block
 to its `EXPERIMENT_LOG.md` instead; `process_writebacks.py --apply` applies those later, once each.
 
 ### `lab_bus.py` · `trace_hook.py` — the event bus and the activity tracer
@@ -387,7 +386,7 @@ question alone. A `--question` (with `--choices`, `;`-separated) waits in the **
 goes to the publishing run as its next message, or, if that run cannot accept it, becomes a directive
 for the study's next agent (or the Lab inbox for a Lab-wide output);
 `replies` prints what the PI answered (JSON lines). Stored in `lab/.bus/artifacts/<id>/`; the run, its
-procedure and its study come from `$NEWTS_RUN_ID` / `$NEWTS_RUN_SKILL` / `$NEWTS_RUN_SUBJECT`.
+procedure and its study come from `$ARLOTOPE_RUN_ID` / `$ARLOTOPE_RUN_SKILL` / `$ARLOTOPE_RUN_SUBJECT`.
 Publishing asks for a look; it never approves anything. `--about <run>[:<subagent>]` associates a
 visual explanation with the run it describes. The list API filters by study/run before paging; remote
 publication and replies are forwarded through the owning Lab. See [The dashboard](dashboard.md).
@@ -418,10 +417,10 @@ instead use a browser terminal on a remote or headless controller; that terminal
 pass through the server. SSH connection prompts use their native SSH window. See
 [machines and sign-in](compute.md#connect-a-project-machine).
 
-### `newts.py` (repo root) — start the dashboard
+### `arlotope.py` (repo root) — start the dashboard
 
 ```bash
-uv run --with pyyaml python newts.py [--hub <lab>] [--port N] [--no-browser]
+uv run --with pyyaml python arlotope.py [--hub <lab>] [--port N] [--no-browser]
 ```
 
 It starts `dashboard/serve.py` for the lab and opens the browser. On a machine you reached over SSH
@@ -429,7 +428,7 @@ It starts `dashboard/serve.py` for the lab and opens the browser. On a machine y
 `--background` detaches it, so it outlives your SSH session; `--status` and `--stop` manage it, and
 `--json` makes the output machine-readable. If the dashboard is already running
 for that lab it just opens the browser, and if 8787 is busy it picks the next free port. The
-double-click launchers (`Start Newts Lab.cmd`, `start-newts.command`, `start-newts.sh`) run it.
+double-click launchers (`Start ARLOtope.cmd`, `start-arlotope.command`, `start-arlotope.sh`) run it.
 
 ### `system_probe.py` — what this machine offers
 

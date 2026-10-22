@@ -172,7 +172,7 @@ def _deliver(record, text, facts, revision, options):
         'read_project_file': cli + ['evidence', '<run-id>', '--file', '<project-relative-path>'],
         'explain_run': cli + ['explain', '<run-id>'],
         'message_run': cli + ['reply', '<run-id>', '--text', '<requested-message>'],
-        'study_status': [sys.executable, str(ctx.TOOLS / 'newts_cli.py'), '--hub', str(ctx.HUB), '--json', 'status'],
+        'study_status': [sys.executable, str(ctx.TOOLS / 'arlotope_cli.py'), '--hub', str(ctx.HUB), '--json', 'status'],
         'published_results': [sys.executable, str(ctx.TOOLS / 'artifact.py'), 'list']},
         'routing': [
             'Selected document coverage is explicit. Clipped text is incomplete; inspect the original file before claiming a full read. A file reference alone does not mean you read its contents.',

@@ -23,7 +23,7 @@ def m(hub, monkeypatch, tmp_path):
     (hub.root / "tools").mkdir(exist_ok=True)
     shutil.copy(REPO / "tools" / "role_sync.py", hub.root / "tools")
     shutil.copy(REPO / "tools" / "labfiles.py", hub.root / "tools")
-    monkeypatch.setenv("NEWTS_HOME", str(tmp_path / "home"))
+    monkeypatch.setenv("ARLOTOPE_HOME", str(tmp_path / "home"))
     monkeypatch.syspath_prepend(str(REPO / "dashboard"))
     mod = load("dashboard/serve")
     monkeypatch.setattr(mod.ctx, "HUB", hub.root)
@@ -114,7 +114,7 @@ def test_edits_go_to_a_draft_until_published_and_can_be_undone(m, hub):
     out, code = m.compose.op({"op": "publish", "note": "rename scope"})
     assert code == 200, out
     skill = (hub.root / ".claude/skills/scope/SKILL.md").read_text(encoding="utf-8")
-    assert "title: Scope it" in skill and "<!-- newts:contract" in skill and "`not-worth-it`" in skill
+    assert "title: Scope it" in skill and "<!-- arlotope:contract" in skill and "`not-worth-it`" in skill
     assert "scope" in K.model.step("proposal", hub.root)["also"]
     v = m.compose.view()[0]
     assert not v["draft"]["active"] and v["history"][0]["note"] == "rename scope"
@@ -263,7 +263,7 @@ def _design(hub, did, wf_edit=None, steps_edit=None, variant=None):
     if variant:
         (d / ".claude" / "skills" / variant).mkdir(parents=True)
         (d / ".claude" / "skills" / variant / "SKILL.md").write_text(
-            f"---\nname: {variant}\ndescription: A variant.\nnewts:\n  like: lit-review\n---\n# {variant}\n", encoding="utf-8")
+            f"---\nname: {variant}\ndescription: A variant.\narlotope:\n  like: lit-review\n---\n# {variant}\n", encoding="utf-8")
     (d / "request.md").write_text("make it leaner", encoding="utf-8")
     (d / "notes.md").write_text("drops a checkpoint", encoding="utf-8")
     return d

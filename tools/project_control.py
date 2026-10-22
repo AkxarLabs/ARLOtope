@@ -19,7 +19,7 @@ def control(argv):
     parser.add_argument('--json', action='store_true', help=argparse.SUPPRESS)
     parser.add_argument('--run-id', help=argparse.SUPPRESS)
     args = vars(parser.parse_args(argv))
-    if args.pop('run_id') not in (None, os.environ.get('NEWTS_RUN_ID')):
+    if args.pop('run_id') not in (None, os.environ.get('ARLOTOPE_RUN_ID')):
         parser.error('This event belongs to another run.')
     args.pop('hub')
     args.pop('json')
@@ -34,13 +34,13 @@ def control(argv):
 
 def request(payload):
     """One durable request; callers keep the same record pending across a connection outage."""
-    if os.environ.get('NEWTS_GATE_JUDGE') and payload.get('verb') == 'move':
+    if os.environ.get('ARLOTOPE_GATE_JUDGE') and payload.get('verb') == 'move':
         return {'code': 1, 'text': 'Return the gate verdict. Only the engine applies its decision.'}
-    folder = Path(os.environ['NEWTS_RUN_DIR'])
+    folder = Path(os.environ['ARLOTOPE_RUN_DIR'])
     request_id = uuid.uuid4().hex
     queue = folder / 'controller'
     queue.mkdir(exist_ok=True)
-    record = {'id': request_id, 'run_id': os.environ['NEWTS_RUN_ID'], **payload}
+    record = {'id': request_id, 'run_id': os.environ['ARLOTOPE_RUN_ID'], **payload}
     temp = queue / (request_id + '.tmp')
     temp.write_text(json.dumps(record), encoding='utf-8')
     temp.replace(queue / (request_id + '.request.json'))

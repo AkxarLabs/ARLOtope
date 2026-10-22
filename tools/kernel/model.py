@@ -3,7 +3,7 @@
     workflow/steps.yaml            the places a study can be, shared by every workflow
     workflow/workflows/<id>.yaml   a workflow: its path of steps, where each outcome leads, its checkpoints
     workflow/rooms.yaml            where the steps stand in the dashboard's world
-    .claude/skills/<name>/SKILL.md a procedure: its frontmatter's `newts:` block defines it
+    .claude/skills/<name>/SKILL.md a procedure: its frontmatter's `arlotope:` block defines it
 
 A study walks its workflow's `path`. Each step names the procedure that does its work (`do:`); a procedure
 never names a step — it ends by reporting an OUTCOME, and the workflow says where that leads: `done` goes to
@@ -12,8 +12,7 @@ the workflow's `routes:` send it (or to the PI, who decides). A checkpoint is th
 step (a study can't enter it unapproved) or `during:` one (the agent stops at that point inside it).
 
 Pure and import-safe: no I/O at import; everything is read from a hub (the lab's own files, else this code's)
-and cached until a file changes. A lab made before steps existed (workflow/stages.yaml) is read through
-`convert()`, the same conversion `newts migrate` writes out.
+and cached until a file changes.
 """
 
 from __future__ import annotations
@@ -31,7 +30,6 @@ WORKFLOW = Path("workflow")
 STEPS = WORKFLOW / "steps.yaml"
 WORKFLOWS = WORKFLOW / "workflows"
 ROOMS = WORKFLOW / "rooms.yaml"
-LEGACY = WORKFLOW / "stages.yaml"
 SKILLS = Path(".claude") / "skills"
 
 DONE, PARK, KILL, ASK = "done", "park", "kill", "ask"
@@ -40,7 +38,7 @@ SHELF_LABEL = {"parked": "Parked", "killed": "Killed"}
 RESERVED = {DONE, PARK, KILL}
 APPROVERS = ("me", "me-or-campaign", "auto", 'agent')
 
-# what a skill's `newts:` block may leave out (a skill with no block at all is a launchable utility)
+# what a skill's `arlotope:` block may leave out (a skill with no block at all is a launchable utility)
 PROC_DEFAULTS = {"kind": "utility", "level": "hub", "mode": "headless", "args": "text?", "launchable": True}
 KINDS = ("stage", "driver", "entry", "utility")
 _NOT_INHERITED = {"title", "does", "start", "brief_note", "like", "_own"}   # what a `like:` copy says for itself
@@ -72,7 +70,7 @@ def _yaml(p: Path):
 def root_of(hub=None) -> Path:
     """Where the lab's definition lives: the lab's own workflow/ folder, else this code's."""
     h = hub_of(hub)
-    return h if (h / STEPS).is_file() or (h / LEGACY).is_file() else CODE
+    return h if (h / STEPS).is_file() else CODE
 
 
 def skills_root(hub=None) -> Path:
@@ -81,7 +79,7 @@ def skills_root(hub=None) -> Path:
 
 
 def _files(root: Path, skills: Path) -> list[Path]:
-    out = [root / STEPS, root / ROOMS, root / LEGACY]
+    out = [root / STEPS, root / ROOMS]
     out += sorted((root / WORKFLOWS).glob("*.yaml")) if (root / WORKFLOWS).is_dir() else []
     out += sorted(f for f in skills.glob("*/SKILL.md") if f.is_file()) if skills.is_dir() else []
     return out
@@ -120,12 +118,9 @@ def _load(hub=None) -> dict:
     hit = _cache.get(key)
     if hit and hit[0] == sig:
         return hit[1]
-    if (root / STEPS).is_file():
-        raw = {"steps": _yaml(root / STEPS) or {}, "rooms": _yaml(root / ROOMS) or [],
-               "workflows": [dict(_yaml(f) or {}, id=f.stem) for f in sorted((root / WORKFLOWS).glob("*.yaml"))]
-               if (root / WORKFLOWS).is_dir() else []}
-    else:
-        raw = convert(_yaml(root / LEGACY) or {})
+    raw = {"steps": _yaml(root / STEPS) or {}, "rooms": _yaml(root / ROOMS) or [],
+           "workflows": [dict(_yaml(f) or {}, id=f.stem) for f in sorted((root / WORKFLOWS).glob("*.yaml"))]
+           if (root / WORKFLOWS).is_dir() else []}
     m = normalise(raw)
     m["procedures"] = procedures(skills, m, files=methods)
     _cache[key] = (sig, m)
@@ -182,7 +177,7 @@ def normalise(raw: dict) -> dict:
 # ── procedures: a skill folder each ──────────────────────────────────────────────────────────────
 def skill_meta(text: str) -> dict:
     """A SKILL.md's frontmatter, read the way agent CLIs read it: top-level `key: value` lines taken as text
-    (descriptions need not be strict YAML), and the `newts:` block — the procedure definition — as YAML."""
+    (descriptions need not be strict YAML), and the `arlotope:` block — the procedure definition — as YAML."""
     m = _FM.match((text or "").replace("\r\n", "\n"))
     out: dict = {}
     if not m:
@@ -190,12 +185,12 @@ def skill_meta(text: str) -> dict:
     key, buf = None, []
 
     def flush():
-        if key == "newts":
+        if key == "arlotope":
             try:
                 block = yaml.safe_load(textwrap.dedent("\n".join(buf[1:])))
             except yaml.YAMLError:
                 block = None
-            out["newts"] = block if isinstance(block, dict) else {}
+            out["arlotope"] = block if isinstance(block, dict) else {}
         elif key:
             out[key] = " ".join(x.strip() for x in buf).strip().strip("'\"")
 
@@ -217,12 +212,12 @@ def procedures(skills: Path, m: dict | None = None, files=None) -> dict[str, dic
     files = files if files is not None else (sorted(f for f in skills.glob("*/SKILL.md") if f.is_file()) if skills.is_dir() else [])
     for f in files:
         fm = skill_meta(_read(f))
-        block = fm.get("newts")
+        block = fm.get("arlotope")
         p = dict(PROC_DEFAULTS)
         if not isinstance(block, dict):          # an older lab's skill with no block: this code's definition of it
             ours = CODE / SKILLS / f.parent.name / "SKILL.md"
             if ours.is_file() and ours.resolve() != f.resolve():
-                p.update(skill_meta(_read(ours)).get("newts") or {})
+                p.update(skill_meta(_read(ours)).get("arlotope") or {})
         p.update(block if isinstance(block, dict) else {})
         if 'tags' in p:
             p['tags'] = tagging.normalize(p['tags'])
@@ -661,74 +656,3 @@ def view(hub=None) -> dict:
     }
 
 
-# ── an older lab: workflow/stages.yaml → steps + workflows + rooms ───────────────────────────────
-def convert(doc: dict) -> dict:
-    """An older manifest (states, stages, rooms with state lists, next/offer_for_state, back_edges, workflows
-    or numbered gates) as the new definition. Each state becomes a step that does what next_for_state said
-    came next there; each back-edge a route; a checkpoint's `then:` becomes the work of the step it guards
-    (or a step of its own when that step already does something else)."""
-    states = [s for s in doc.get("states") or [] if isinstance(s, dict) and s.get("id")]
-    side = [s for s in doc.get("side_states") or [] if isinstance(s, dict) and s.get("id")]
-    nxt = doc.get("next_for_state") or {}
-    offer = doc.get("offer_for_state") or {}
-    room_of = {x: r["id"] for r in doc.get("rooms") or [] for x in r.get("states") or []}
-    steps: dict[str, dict] = {}
-    for s in states + side:
-        sid = s["id"]
-        do = nxt.get(sid)
-        do = do.get("unsigned") if isinstance(do, dict) else do
-        d = {"label": s.get("label") or sid}
-        if do and sid not in SHELF_LABEL:
-            d["do"] = do
-        also = [p for p in offer.get(sid) or [] if p != do]
-        if also:
-            d["also"] = also
-        if s.get("room") or room_of.get(sid):
-            d["room"] = s.get("room") or room_of.get(sid)
-        steps[sid] = d
-    order = [s["id"] for s in states]
-    wfs = [w for w in doc.get("workflows") or [] if isinstance(w, dict) and w.get("id")]
-    if not wfs:
-        names = {1: "approve-proposal", 2: "approve-full-runs", 3: "finalize-paper"}
-        cps = []
-        for g in doc.get("gates") or []:
-            n = g.get("n")
-            cp = {"id": names.get(n, f"gate-{n}"), "title": g.get("title") or f"Gate {n}", "means": g.get("means", "")}
-            if g.get("before"):
-                cp["before"] = g["before"]
-            else:
-                cp.update({"during": g.get("at"), "at": "full-scale runs"})
-            cps.append(cp)
-        wfs = [{"id": "research", "title": "Research paper", "steps": order, "checkpoints": cps}]
-    edges = [tuple(e) for e in doc.get("back_edges") or [] if isinstance(e, (list, tuple)) and len(e) == 2]
-    out_wfs = []
-    for i, w in enumerate(wfs):
-        path = list(w.get("steps") or order)
-        cps = []
-        for c in w.get("checkpoints") or []:
-            c = dict(c)
-            then = c.pop("then", None)
-            if c.get("detect"):
-                c["watch"] = [c.pop("detect")]
-            b = c.get("before")
-            if then and b in path:
-                if not steps.get(b, {}).get("do"):
-                    steps.setdefault(b, {"label": b})["do"] = then
-                elif steps[b]["do"] != then:
-                    if then not in steps:
-                        steps[then] = {"label": then.replace("-", " ").capitalize(), "do": then}
-                        if steps[b].get("room"):
-                            steps[then]["room"] = steps[b]["room"]
-                    if then not in path:
-                        path.insert(path.index(b), then)
-                    c["before"] = then
-            cps.append(c)
-        routes: dict[str, dict] = {}
-        for a, b in edges:
-            if a in path and b in path:
-                routes.setdefault(a, {})[f"to-{b}"] = b
-        out_wfs.append({"id": w["id"], "title": w.get("title") or w["id"], "blurb": w.get("blurb", ""),
-                        "default": i == 0, "path": path, "routes": routes, "checkpoints": cps})
-    rooms = [{k: v for k, v in r.items() if k not in ('states', 'per_project')}
-             for r in doc.get("rooms") or [] if isinstance(r, dict)]
-    return {"steps": steps, "workflows": out_wfs, "rooms": rooms}

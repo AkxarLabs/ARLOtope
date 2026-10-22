@@ -4,7 +4,7 @@
    cabinet, the steps, the procedures (each a skill, with any variants of it), rooms, roles, rules, checks and
    project types — as forms where a form helps, as their files for everything else. Every edit goes into a DRAFT (dashboard/compose.py): nothing reaches the lab or a run
    until the PI reviews it and publishes, and a publish can be undone. Adding anything starts from a copy
-   of the closest thing the lab already has. Routes: #/workflow · #/workflow/<list> · #/workflow/<kind>/<name> (#/compose/… too). */
+   of the closest thing the lab already has. Routes: #/workflow · #/workflow/<list> · #/workflow/<kind>/<name>. */
 (function () {
   'use strict';
   const NL = window.NL;
@@ -29,8 +29,7 @@
   };
   const stripFm = t => String(t || '').replace(/\r\n/g, '\n').replace(/^---\n[\s\S]*?\n---\n?/, '').trim();
   const slugify = t => String(t || '').toLowerCase().normalize('NFKD').replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '').slice(0, 40);
-  const base = () => (location.hash.startsWith('#/compose') ? 'compose' : 'workflow');
-  const href = (...p) => `#/${base()}/` + p.filter(Boolean).map(encodeURIComponent).join('/');
+  const href = (...p) => '#/workflow/' + p.filter(Boolean).map(encodeURIComponent).join('/');
   const go = (...p) => NL.go(href(...p).slice(2));
   const stateLabel = (d, id) => ((d.steps || []).find(s => s.id === id) || {}).label || id;
   const changes = d => (d && d.draft && d.draft.changes) || [];
@@ -227,7 +226,7 @@
 
   const VisualComposition=({d,w})=>{
     const make=()=>w.path.map((id,i)=>({id,label:stepOf(d,id).label||id,procedure:doesIn(d,w,id)||'',room:stepOf(d,id).room,
-      next:w.path.slice(i+1,i+2),outcomes:{...(w.routes?.[id]||{})},tags:stepOf(d,id).tags||[],instructions:'',outputs:[],agent:{role:'general',...stepOf(d,id).agent},context:{mode:'fresh'},...(w.nodes?.[id]||{})})).map(n=>({...n,context:n.context?.mode==='fork'?{...n.context,mode:'fresh',handoff:true}:n.context}));
+      next:w.path.slice(i+1,i+2),outcomes:{...(w.routes?.[id]||{})},tags:stepOf(d,id).tags||[],instructions:'',outputs:[],agent:{role:'general',...stepOf(d,id).agent},context:{mode:'fresh'},...(w.nodes?.[id]||{})}));
     const [nodes,setNodes]=useState(make),[saved,setSaved]=useState(JSON.stringify(make()));
     useDirty(JSON.stringify(nodes)!==saved);
     useEffect(()=>{const v=make();setNodes(v);setSaved(JSON.stringify(v))},[w.id,JSON.stringify(w.nodes),JSON.stringify(w.path)]);
@@ -235,7 +234,7 @@
       const result=await edit({op:'copy',kind:'room',like:d.rooms[0]?.id,name:id,plain:true,title,steps:[]});return result.ok?id:null};
     return html`<${NL.WorkflowCanvas} nodes=${nodes} rooms=${d.rooms} frameworks=${d.frameworks||[]} roles=${d.roles.map(r=>({value:r.name,label:r.label}))}
       tags=${d.tags||[]} checkpoints=${w.checkpoints||[]} skills=${Object.entries(d.procedures).map(([value,p])=>({value,label:p.title||value,task:p.ui?.task}))} onChange=${setNodes}
-      onCreateRoom=${room} onDesignRoom=${id=>NL.openRoomDesign(id)} onEditSkill=${name=>NL.go('compose/procedure/'+name)}
+      onCreateRoom=${room} onDesignRoom=${id=>NL.openRoomDesign(id)} onEditSkill=${name=>NL.go('workflow/procedure/'+name)}
       onExport=${async()=>{const x=await NL.get('/api/compose/export?workflow='+encodeURIComponent(w.id));if(x.error)return NL.toast(x.error,'bad');const a=document.createElement('a'),bytes=Uint8Array.from(atob(x.data),c=>c.charCodeAt(0)),url=URL.createObjectURL(new Blob([bytes],{type:'application/zip'}));a.href=url;a.download=x.filename;a.click();setTimeout(()=>URL.revokeObjectURL(url),1000);NL.toast('Procedure downloaded. Lab tools are required for enforced gates and parallel execution.')}}
       onCheckpoint=${(id,checkpoint)=>openCp(d,w,checkpoint||null,w.path[0]===id&&!w.nodes?{during:id}:{before:id})}
       dirty=${JSON.stringify(nodes)!==saved} onSave=${async()=>{const r=await edit({op:'graph',workflow:w.id,nodes},SAVED);if(r.ok)setSaved(JSON.stringify(nodes))}}/>`;
@@ -561,7 +560,7 @@
         if (r.error) setError(r.error); else setInfo({...r.skill, exists:r.exists});
       } finally { setBusy(false); }
     };
-    const add = async () => { setBusy(true); try { const r = await edit({op:'skill-import', path}); if (r.ok) {onClose(); NL.go(`${base()}/procedure/${info.name}?tab=files`);} } finally {setBusy(false);} };
+    const add = async () => { setBusy(true); try { const r = await edit({op:'skill-import', path}); if (r.ok) {onClose(); NL.go(`workflow/procedure/${info.name}?tab=files`);} } finally {setBusy(false);} };
     return html`<div class="dialog"><h3>Import a skill</h3><p class="muted">Choose a folder containing SKILL.md. Its references, scripts and assets come with it.</p>
       <div class="row"><${NL.Input} ariaLabel="Skill folder" disabled=${busy} value=${path} onInput=${v=>{setPath(v);setInfo(null);}} placeholder="Folder on this machine"/>
         <${NL.Btn} disabled=${busy} onClick=${()=>NL.pickFolder({initial:path,onPick:preview,title:'Choose a skill folder'})}>Browse</${NL.Btn}>

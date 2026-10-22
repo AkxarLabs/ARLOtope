@@ -27,7 +27,7 @@ nodes:
     label: Prepare the task
     procedure: null
     instructions: Read the research brief and existing project. Help the researcher
-      prepare the task and .newts/frameworks.yaml using docs/external-frameworks.md.
+      prepare the task and .arlotope/frameworks.yaml using docs/external-frameworks.md.
       Agree on the task, baseline, held-out evaluation, selected phases, harness/model,
       compute budget and timeout before launching anything. Do not install software
       or infer budgets. Use an existing task scaffold when possible; drafting a new
@@ -35,7 +35,7 @@ nodes:
       expected evidence and limitations. No external execution here.
     outputs:
     - FRAMEWORK_PLAN.md
-    - .newts/frameworks.yaml
+    - .arlotope/frameworks.yaml
   external-setup:
     external:
       framework: sakana
@@ -67,7 +67,7 @@ nodes:
     agent:
       role: writer
   internal-review:
-    label: Independent Newts review
+    label: Independent ARLOtope review
     procedure: null
     agent:
       role: reviewer
@@ -94,11 +94,11 @@ checkpoints:
     title: Review the task and budget
     before: external-setup
     approver: me
-    evidence: ['{project}/FRAMEWORK_PLAN.md', '{project}/.newts/frameworks.yaml']
+    evidence: ['{project}/FRAMEWORK_PLAN.md', '{project}/.arlotope/frameworks.yaml']
     means: The task, evaluation protocol and bounded external execution are approved.
   - id: sakana-final-evidence
     title: Review the frozen selection
     before: external-eval
     approver: me
-    evidence: ['{project}/.newts/framework-runs/{study}/sakana/run/.investigation_completion.json']
+    evidence: ['{project}/.arlotope/framework-runs/{study}/sakana/run/.investigation_completion.json']
     means: Evaluate this selected program under the agreed final protocol.

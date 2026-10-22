@@ -74,7 +74,7 @@ Use `--about RUN_ID` or `--about RUN_ID:CHILD_ID` to associate an explanation wi
 Use the publisher path in the remote run's brief, or its worker runtime:
 
 ```bash
-python "$NEWTS_WORKER_RUNTIME" artifact publish --title "Remote review" --file artifacts/review.html
+python "$ARLOTOPE_WORKER_RUNTIME" artifact publish --title "Remote review" --file artifacts/review.html
 ```
 
 Publication transfers the output to the owning Lab and waits for its acknowledgement. Retried controller requests reuse the recorded publication. The project stays remote. The runtime's `artifact list` and `artifact replies` commands access its study's publications and feedback.

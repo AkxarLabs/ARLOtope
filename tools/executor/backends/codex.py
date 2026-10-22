@@ -35,7 +35,7 @@ class Codex(Backend):
         a.hooks = hook_overrides(a.workdir, a.bcfg, a.python, guard=a.guard)
         a.traced = any(profile.TRACER.name in str(x) for x in (a.hooks or []))   # the guard alone logs nothing
         if a.traced:
-            a.env["NEWTS_TRACE_FLAGS"] = "1"   # a trusted repo's own .codex/hooks.json then stands down
+            a.env["ARLOTOPE_TRACE_FLAGS"] = "1"   # a trusted repo's own .codex/hooks.json then stands down
 
     def command(self, a: Attempt) -> RunCommand:
         if a.live:   # per-run settings (cwd, model, sandbox, approvals, instructions) ride thread/start
@@ -246,7 +246,7 @@ class CodexSession(live.Session):
 
     def open(self, proc) -> None:
         self.proc = proc
-        self._rpc("initialize", {"clientInfo": {"name": "newts-lab", "title": "ARLOtope", "version": "1"},
+        self._rpc("initialize", {"clientInfo": {"name": "arlotope", "title": "ARLOtope", "version": "1"},
                                  "capabilities": {"experimentalApi": True}})
 
     def send(self, text: str) -> bool:

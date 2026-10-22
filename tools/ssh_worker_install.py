@@ -19,7 +19,7 @@ def main():
                     if b'"cookie"' not in line:
                         sys.stdout.buffer.write(line);sys.stdout.buffer.flush()
                     continue
-                if isinstance(value, dict) and value.get('newts_worker_session'):
+                if isinstance(value, dict) and value.get('arlotope_worker_session'):
                     from project_worker import private_json
                     private_json(Path(spec['sessionfile']), value)
                 elif b'"cookie"' not in line:

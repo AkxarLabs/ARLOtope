@@ -1,4 +1,4 @@
-/* ARLOtope — starting work. Procedures are buttons where they belong (a procedure's SKILL.md `newts.ui`
+/* ARLOtope — starting work. Procedures are buttons where they belong (a procedure's SKILL.md `arlotope.ui`
    says where: `home` → the Start orb, `step` → a study's action orb, `study` → every study); this file holds
    what they share: the intents (each with its glyph and one line of what it does), the "Start something"
    sheet, a free-form instruction, the options every launch shares, and the campaign form (it records your

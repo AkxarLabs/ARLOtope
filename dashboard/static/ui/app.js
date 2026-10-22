@@ -7,10 +7,10 @@
   const PAGES = { home: () => LabView, overview: () => NL.Home, studies: () => NL.StudiesPage, study: () => NL.StudyPage,
     runs: () => NL.RunsPage, run: () => NL.RunsPage, library: () => NL.LibraryPage,
     artifacts: () => NL.LibraryPage, history: () => NL.HistoryPage,
-    workflow: () => NL.ComposePage, compose: () => NL.ComposePage,
+    workflow: () => NL.ComposePage,
     settings: () => NL.SettingsPage, labs: () => NL.LabsPage, setup: () => NL.SetupPage,
     start: () => NL.StarterPage, world: () => LabView, 'not-found': () => NotFound };
-  const GROUP = { home: '', world: '', overview: '', runs: '', run: '', study: 'studies', compose: 'workflow', artifacts: 'library', history: 'library' };
+  const GROUP = { home: '', world: '', overview: '', runs: '', run: '', study: 'studies', artifacts: 'library', history: 'library' };
   NL.followAgent=id=>{NL.pendingFollow=id;NL.go('');document.querySelector('.stage')?.scrollTo(0,0);window.dispatchEvent(new CustomEvent('lab-follow',{detail:id}))};
 
   const Search = ({ onClose }) => {

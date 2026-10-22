@@ -6,7 +6,6 @@
     the journal      one append-only record — moves, waits, approvals, flags — that every view is a fold of
     approvals        the PI approves anything; a campaign only `me-or-campaign`, `auto` only an automatic
                      checkpoint, both only with every check passing; nothing inside an agent run approves
-    migration        an older lab (stages.yaml, a hand-kept registry, approvals.jsonl, prose marks) comes over once
     the brief        where the study stands, how to finish, what the PI added, the checkpoints
     designs          a designer's draft is an overlay, checked like any draft, its loosened checkpoints listed first
     watch            each run's digest is computed from git and the trace; watches raise flags; a hold stops launches
@@ -30,7 +29,7 @@ model, studies, checkpoints, journal = K.model, K.studies, K.checkpoints, K.jour
 
 @pytest.fixture(autouse=True)
 def _not_in_a_run(monkeypatch):
-    monkeypatch.delenv("NEWTS_RUN_ID", raising=False)
+    monkeypatch.delenv("ARLOTOPE_RUN_ID", raising=False)
 
 
 @pytest.fixture
@@ -66,7 +65,7 @@ def test_the_shipped_definition_is_consistent_and_its_docs_current():
     assert K.rules.check(None) == []
     sys.path.insert(0, str(REPO / "tools"))
     import lab_docs
-    assert lab_docs.render(REPO, check_only=True) == [], "run `newts docs`"
+    assert lab_docs.render(REPO, check_only=True) == [], "run `arlotope docs`"
 
 
 def test_steps_workflows_and_where_outcomes_lead():
@@ -110,7 +109,7 @@ def test_custom_task_starting_points_are_skill_metadata(lab):
     folder = lab.root / '.claude/skills/collect-evidence'
     folder.mkdir()
     path = folder / 'SKILL.md'
-    text = ('---\nname: collect-evidence\ndescription: Collect supplied evidence.\nnewts:\n'
+    text = ('---\nname: collect-evidence\ndescription: Collect supplied evidence.\narlotope:\n'
             '  ui: {task: {label: Collect evidence, role: analyst}}\n---\n# Collect evidence\n')
     path.write_text(text, encoding='utf-8')
     assert model.view(lab.root)['procedures']['collect-evidence']['ui']['task']['label'] == 'Collect evidence'
@@ -146,7 +145,7 @@ def test_a_new_skill_folder_is_a_procedure_with_no_other_edit(lab):
                                 "# Survey\n", encoding="utf-8")
     p = model.procedure("survey", lab.root)
     assert p["kind"] == "utility" and p["launchable"] and p["does"].startswith("Survey the field")
-    (d / "SKILL.md").write_text("---\nname: survey\ndescription: Survey.\nnewts:\n  kind: stage\n  args: slug\n"
+    (d / "SKILL.md").write_text("---\nname: survey\ndescription: Survey.\narlotope:\n  kind: stage\n  args: slug\n"
                                 "  outcomes: {done: settled, nothing-there: 'the field is empty'}\n---\n# Survey\n", encoding="utf-8")
     p = model.procedure("survey", lab.root)
     assert p["outcomes"] == ["done", "nothing-there"] and p["outcome_notes"]["nothing-there"] == "the field is empty"
@@ -154,8 +153,8 @@ def test_a_new_skill_folder_is_a_procedure_with_no_other_edit(lab):
 
 
 def test_a_skills_frontmatter_need_not_be_strict_yaml():
-    meta = model.skill_meta("---\nname: x\ndescription: With `--flag <v>`: does y: z.\nnewts:\n  kind: entry\n---\nbody")
-    assert meta["description"].startswith("With `--flag") and meta["newts"] == {"kind": "entry"}
+    meta = model.skill_meta("---\nname: x\ndescription: With `--flag <v>`: does y: z.\narlotope:\n  kind: entry\n---\nbody")
+    assert meta["description"].startswith("With `--flag") and meta["arlotope"] == {"kind": "entry"}
 
 
 def test_the_definition_writes_back_whole_and_reads_the_same(lab, tmp_path):
@@ -241,7 +240,7 @@ def test_moves_that_are_not_legal_are_refused(lab):
 def test_inside_an_agent_run_only_the_agents_own_moves_are_allowed(lab, monkeypatch):
     studies.new(lab.root, "c", "C", at="proposal")
     lab.produce("c")
-    monkeypatch.setenv("NEWTS_RUN_ID", "hub-1")
+    monkeypatch.setenv("ARLOTOPE_RUN_ID", "hub-1")
     assert studies.move(lab.root, "c", "done")["waiting"] == "approve-proposal"
     assert journal.events(lab.root, "c")[-1]["by"] == "run:hub-1"
     for act in (lambda: checkpoints.decide(lab.root, "c", "approve-proposal", via="cli"),
@@ -348,69 +347,6 @@ def test_the_journal_is_append_only_and_tolerant(lab):
     assert [e["kind"] for e in journal.events(lab.root, "h")] == ["new", "move"]
 
 
-# ── migration ────────────────────────────────────────────────────────────────────────────────────
-def _old_lab(hub):
-    """An older lab: the former manifest, a hand-kept registry, approvals.jsonl, marks in documents."""
-    (hub.root / "workflow").mkdir(exist_ok=True)
-    old = (REPO / "tests/fixtures/legacy-stages.yaml").read_text(encoding="utf-8")
-    (hub.root / "workflow" / "stages.yaml").write_text(old, encoding="utf-8")
-    shutil.copytree(REPO / ".claude" / "skills", hub.root / ".claude" / "skills")
-    rows = [("a", "lit-review", "-"), ("b", "active", "../projects/b"), ("c", "proposal", "-"), ("d", "final", "-"),
-            ("e", "killed", "-"), ("t", "active", "../projects/t")]
-    head = ("# Lab Registry\n\n| ID | Title | State | Idea | Project | Paper | Updated | Next action |\n"
-            "|----|-------|-------|------|---------|-------|---------|-------------|\n")
-    (hub.lab / "REGISTRY.md").write_text(head + "".join(f"| {i} | Title {i} | {s} | x | {p} | - | 2026-09-01 | n |\n"
-                                                         for i, s, p in rows), encoding="utf-8")
-    hub.make_project("b")
-    pt = hub.make_project("t")
-    ctl = yaml.safe_load((pt / "control.yaml").read_text(encoding="utf-8"))
-    ctl["target"] = {"active": True, "final_run_id": "exp-9"}
-    (pt / "control.yaml").write_text(yaml.safe_dump(ctl), encoding="utf-8")
-    (hub.root / "studies" / "c").mkdir(parents=True)
-    (hub.root / "studies" / "c" / "proposal.md").write_text("<!-- PI Gate 1 approved via dashboard -->\n", encoding="utf-8")
-    (hub.lab / "approvals.jsonl").write_text(json.dumps({"ts": "2026-09-02T10:00:00", "study": "b", "checkpoint": "loop",
-                                                         "decision": "approved", "by": "pi", "via": "dashboard",
-                                                         "note": "mode: explore"}) + "\n", encoding="utf-8")
-
-
-def test_an_older_lab_comes_over_once(hub):
-    _old_lab(hub)
-    shutil.rmtree(hub.root / ".claude" / "skills" / "triage")         # a step that is new since the lab was made
-    assert K.migrate.needed(hub.root)
-    done = K.migrate.run(hub.root)
-    assert any("steps.yaml" in x for x in done) and any("journal.jsonl" in x for x in done)
-    assert any("/triage" in x for x in done) and (hub.root / ".claude" / "skills" / "triage" / "SKILL.md").is_file()
-    assert (hub.root / "workflow" / "stages.yaml.pre-kernel").exists() and not (hub.lab / "approvals.jsonl").exists()
-    assert model.check(hub.root) == []
-    st = {s["id"]: s for s in studies.all_studies(hub.root).values()}
-    assert st["a"]["step"] == "scoping"                       # its literature review was done: scope comes next
-    assert st["b"]["step"] == "active" and st["b"]["project"] == "../projects/b"
-    assert st["c"]["step"] == "setup"                         # its proposal was approved: the project comes next
-    assert st["d"]["finished"] and st["e"]["step"] == "killed"
-    assert st["t"]["workflow"] == "target"
-    assert journal.latest(hub.root, "b", "approve-loop")["note"] == "mode: explore"
-    assert journal.latest(hub.root, "c", "approve-proposal")["via"] == "migration"
-    assert journal.approved(hub.root, "t", "approve-final-output")
-    assert K.migrate.run(hub.root) == [] and not K.migrate.needed(hub.root)
-
-
-def test_a_lab_that_changed_its_manifest_is_converted_as_it_is(hub):
-    (hub.root / "workflow").mkdir()
-    doc = {"states": [{"id": "idea", "label": "Idea", "room": "r"}, {"id": "build", "label": "Build", "room": "r"},
-                      {"id": "done", "label": "Done", "room": "r"}],
-           "side_states": [{"id": "parked"}, {"id": "killed"}], "back_edges": [["done", "build"]],
-           "rooms": [{"id": "r", "label": "R", "states": ["idea", "build", "done"]}],
-           "next_for_state": {"idea": "discuss", "build": "experiment"},
-           "workflows": [{"id": "mine", "steps": ["idea", "build", "done"],
-                          "checkpoints": [{"id": "ok-build", "before": "build", "then": "spawn-project"}]}]}
-    (hub.root / "workflow" / "stages.yaml").write_text(yaml.safe_dump(doc), encoding="utf-8")
-    shutil.copytree(REPO / ".claude" / "skills", hub.root / ".claude" / "skills")
-    K.migrate.run(hub.root)
-    w = model.workflow("mine", hub.root)
-    assert w["path"] == ["idea", "spawn-project", "build", "done"]          # `then:` became a step of its own
-    assert w["checkpoints"][0]["before"] == "spawn-project" and w["routes"] == {"done": {"to-build": "build"}}
-
-
 # ── the brief, instructions, proposals ───────────────────────────────────────────────────────────
 def test_the_brief_says_where_how_to_finish_and_what_the_pi_added(lab):
     studies.new(lab.root, "k", "K", at="analysis")
@@ -420,10 +356,10 @@ def test_the_brief_says_where_how_to_finish_and_what_the_pi_added(lab):
     K.instructions.write("add", "analyze", "This study: look at layer 7.", lab.root, study="k")
     checkpoints.decide(lab.root, "k", "approve-full-runs", via="cli", note="3 seeds max")
     text, h = K.brief.brief(lab.root, "analyze", study="k")
-    assert text.startswith("NEWTS BRIEF /analyze · study k · sha=" + h)
+    assert text.startswith("ARLOTOPE BRIEF /analyze · study k · sha=" + h)
     assert "k is at **Analysis**" in text and "`more-experiments` → Experiments" in text
     assert "`done` → Writing" in text and "`null-result` the PI decides" in text
-    assert K.brief.newts_cmd(lab.root) + ' move k' in text
+    assert K.brief.arlotope_cmd(lab.root) + ' move k' in text
     assert text.index("Report effect sizes") < text.index("look at layer 7")             # lab-wide, then the study's
     assert "Plot every seed." in text and "The PI's note: 3 seeds max" in text
     with pytest.raises(KeyError):
@@ -525,7 +461,7 @@ def test_a_runs_digest_flags_what_it_did(lab):
     assert any(f.endswith("configs/base.yaml") for f in dg["files"]["written"]) and dg["cost_usd"] == 0.12
     rules_hit = {f["rule"] for f in dg["flags"]}
     assert {"eval-protocol-edited", "refused", "pushed"} <= rules_hit and dg["notable"] == ["git push origin main"]
-    said = "\n".join(K.watch.render(dg))                                          # `newts run <id>` shows it
+    said = "\n".join(K.watch.render(dg))                                          # `arlotope run <id>` shows it
     assert "configs/base.yaml" in said and "$ git push origin main" in said and "3 denied" in said
     seen = load("dashboard/sources").workers.compact_run({**m, "digest": dg})["digest"]   # …and the run sheet
     assert seen["written"] == len(dg["files"]["written"]) and seen["denials"] == 3 and seen["flags"]
@@ -592,11 +528,11 @@ def test_a_step_procedure_runs_only_where_the_study_stands(lab):
 def test_an_agent_files_a_study_at_the_start_never_past_a_checkpoint(lab, monkeypatch):
     """Only the PI places a new study past a `before` checkpoint; an agent may still file it at a later step that
     no checkpoint guards (a quick study straight at its proposal)."""
-    monkeypatch.setenv("NEWTS_RUN_ID", "hub-2")
+    monkeypatch.setenv("ARLOTOPE_RUN_ID", "hub-2")
     with pytest.raises(studies.StudyError, match="only the PI"):
         studies.new(lab.root, "late", "Late", at="active")
     assert studies.new(lab.root, "early", "Early", at="proposal")["step"] == "proposal"
-    monkeypatch.delenv("NEWTS_RUN_ID")
+    monkeypatch.delenv("ARLOTOPE_RUN_ID")
     assert studies.new(lab.root, "placed", "Placed", at="active")["step"] == "active"
 
 
@@ -609,7 +545,7 @@ def test_a_procedure_offered_at_a_step_is_told_to_leave_the_outcome_to_its_own(l
 
 
 def test_skills_report_outcomes_and_never_name_steps_or_checkpoints():
-    """A skill is portable across workflows: it reports what happened (`newts move <study> <outcome>`) and reads
+    """A skill is portable across workflows: it reports what happened (`arlotope move <study> <outcome>`) and reads
     its checkpoints from the brief. So no skill names a step or a checkpoint of the shipped definition, moves a
     study by hand, or calls the old lifecycle tools — and only the procedures that do a step's work are told, in
     their generated contract, to report an outcome."""
@@ -621,7 +557,7 @@ def test_skills_report_outcomes_and_never_name_steps_or_checkpoints():
     named = {s for s in m["steps"] if s not in procs} | {c["id"] for w in m["workflows"] for c in w["checkpoints"]}
     old = re.compile(r"guard\.py\s+(state|spawn|finalization|approved)\b|METHOD\.md|tools/workflow\.py|approvals\.jsonl|"
                      r"state\s*(→|->)|stages\.yaml|update (the )?(lab/)?REGISTRY|registry row|next-table|replaceable:", re.I)
-    generated = re.compile(r"<!-- newts:[\w-]+.*?<!-- /newts:[\w-]+ -->", re.S)
+    generated = re.compile(r"<!-- arlotope:[\w-]+.*?<!-- /arlotope:[\w-]+ -->", re.S)
     bad = []
     for f in sorted((REPO / ".claude" / "skills").glob("*/SKILL.md")):
         text = f.read_text(encoding="utf-8")

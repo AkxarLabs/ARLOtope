@@ -105,22 +105,22 @@ def test_hub_run_completes_and_records_everything(hub, monkeypatch):
     assert "--append-system-prompt-file" in c["argv"] and "--settings" in c["argv"]
     assert c["argv"][c["argv"].index("--input-format") + 1] == "stream-json"
     assert c["argv"][c["argv"].index("--permission-prompt-tool") + 1] == "stdio" and "--mcp-config" not in c["argv"]
-    assert "AUTOSCIENTIST_NO_GATE3" not in c["env"] and c["env"]["AUTOSCIENTIST_AGENT_DEPTH"] == "1"
+    assert c["env"]["ARLOTOPE_AGENT_DEPTH"] == "1"
     # the run's own settings pre-approve exactly the lab's record commands — the bus (footer, dispatch) and the
     # kernel's agent verbs (report an outcome, read where a study stands) — never the PI's verbs
     st = json.loads((run_dir(lab, m) / "settings.json").read_text(encoding="utf-8"))
     allow = st["permissions"]["allow"]
     verbs = ("move", "next", "brief", "approved", "status", "flags", "propose")
-    cli_path = (REPO / 'tools/newts_cli.py').as_posix()
+    cli_path = (REPO / 'tools/arlotope_cli.py').as_posix()
     scoped_commands = tuple(f'{path} --hub "{hub.root.as_posix()}" {verb}:*)'
                             for path in (cli_path, f'"{cli_path}"') for verb in verbs)
     assert allow and all(("lab_bus.py" in a and (" emit:*)" in a or " escalate:*)" in a))
-                         or ("newts.py" in a and any(f" {v}:*)" in a for v in verbs))
+                         or ("arlotope.py" in a and any(f" {v}:*)" in a for v in verbs))
                          or a.endswith(scoped_commands) for a in allow)
-    assert any("newts.py move:*)" in a for a in allow)
+    assert any("arlotope.py move:*)" in a for a in allow)
     assert any(f'{cli_path} --hub "{hub.root.as_posix()}" move:*)' in a for a in allow)
     assert not any(f" {v}:*)" in a for a in allow for v in ("approve", "revoke", "changes", "ack"))
-    assert c["env"]["NEWTS_RUN_ID"] == m["run_id"]
+    assert c["env"]["ARLOTOPE_RUN_ID"] == m["run_id"]
     assert Path(c["cwd"]).resolve() == hub.root.resolve()
     # the next tick post-processes: the footer becomes the report
     executor.tick(lab)

@@ -6,7 +6,7 @@ It says where the study is and in which workflow; how to finish (the outcomes th
 each leads, and the command that reports one); what the procedure must produce; the PI's own instructions
 (lab-wide, then for this study — for the procedure and for the step); and the workflow's checkpoints with
 the PI's decisions and notes. Headless runs get it injected; a procedure's SKILL.md tells an agent to load it
-(`newts brief <proc> --study <slug>`) when it isn't already in context.
+(`arlotope brief <proc> --study <slug>`) when it isn't already in context.
 """
 
 from __future__ import annotations
@@ -17,12 +17,12 @@ from pathlib import Path
 from . import instructions, journal, model, studies
 
 
-def newts_cmd(hub) -> str:
+def arlotope_cmd(hub) -> str:
     """The command an agent runs to talk to the kernel, from anywhere (the hub or a project repo)."""
-    local = Path(hub) / 'newts.py'
+    local = Path(hub) / 'arlotope.py'
     if local.is_file():
         return f'uv run --with pyyaml python "{local.as_posix()}"'
-    return f'uv run --with pyyaml python "{(model.CODE / "tools/newts_cli.py").as_posix()}" --hub "{Path(hub).as_posix()}"'
+    return f'uv run --with pyyaml python "{(model.CODE / "tools/arlotope_cli.py").as_posix()}" --hub "{Path(hub).as_posix()}"'
 
 
 def sha(text: str) -> str:
@@ -48,10 +48,10 @@ def outcomes_block(hub, slug: str, proc: str | None = None) -> str:
     owner = model.does(s["step"], wid, s["use"], hub)
     if proc and owner and proc != owner:
         return (f"## How to finish\n\nYou run at this step alongside its own procedure, /{owner}, which reports where "
-                f"the study goes next. Do your work, then stop — don't report an outcome (`newts move`) yourself; say in "
+                f"the study goes next. Do your work, then stop — don't report an outcome (`arlotope move`) yourself; say in "
                 f"your final message what /{owner} should know.")
     lines = [f"## When your work on this step is done, report its outcome",
-             f"`{newts_cmd(hub)} move {slug} <outcome> --note \"<one line: why>\"` — this is how the study moves; "
+             f"`{arlotope_cmd(hub)} move {slug} <outcome> --note \"<one line: why>\"` — this is how the study moves; "
              "never edit lab/REGISTRY.md or lab/journal.jsonl. Report once, at the end, then stop:"]
     proc = model.procedure(model.does(s["step"], wid, s["use"], hub) or "", hub) or {}
     for o in studies.outcomes_at(hub, s):
@@ -172,8 +172,8 @@ def brief(hub, proc: str, study: str | None = None) -> tuple[str, str]:
         parts.append(cps)
     body = "\n\n".join(x for x in parts if x)
     h = sha(body)
-    head = (f"NEWTS BRIEF /{proc}{' · study ' + study if study else ''} · sha={h}\n"
+    head = (f"ARLOTOPE BRIEF /{proc}{' · study ' + study if study else ''} · sha={h}\n"
             "The procedure's SKILL.md says how to do the work; this says where you are, how to finish, and what the PI "
             "added. AGENTS.md's hard rules always bind. The PI owns these instructions: never edit them — to suggest a "
-            f"change, run `{newts_cmd(hub)} propose {proc} --file <draft.md>`.")
+            f"change, run `{arlotope_cmd(hub)} propose {proc} --file <draft.md>`.")
     return head + ("\n\n" + body if body else ""), h

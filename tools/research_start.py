@@ -28,7 +28,7 @@ def _clone_staging(parent):
     # This becomes a real workspace. tempfile's owner-only Windows DACL would
     # survive the checkout's rename and exclude the agent's sandbox identity.
     parent = Path(parent).resolve()
-    folder = parent / ('.newts-clone-' + uuid.uuid4().hex)
+    folder = parent / ('.arlotope-clone-' + uuid.uuid4().hex)
     folder.mkdir()
     try:
         yield folder
@@ -54,7 +54,7 @@ def repository(value: str) -> str:
 def github(value: str, authenticated=False) -> dict:
     name = repository(value)
     request = urllib.request.Request('https://api.github.com/repos/' + name,
-        headers={'Accept': 'application/vnd.github+json', 'User-Agent': 'Newts-Lab'})
+        headers={'Accept': 'application/vnd.github+json', 'User-Agent': 'ARLOtope-Lab'})
     try:
         if authenticated:
             import github_access
@@ -79,7 +79,7 @@ def github(value: str, authenticated=False) -> dict:
 
 def projects_root(hub: Path) -> Path:
     configured = labfiles.load_yaml(hub / 'lab/config.yaml').get('lab') or {}
-    path = Path(configured.get('projects_root') or '../newts-lab-projects').expanduser()
+    path = Path(configured.get('projects_root') or '../arlotope-projects').expanduser()
     return (path if path.is_absolute() else hub / path).resolve()
 
 

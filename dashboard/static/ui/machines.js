@@ -196,7 +196,7 @@
       <${NL.Field} label="SSH host"><input class="input mono" list=${listId} value=${host} onInput=${e => setHost(e.target.value)} onKeyDown=${e=>e.key==='Enter'&&!busy&&add()} placeholder="SSH alias or user@host" />
           <datalist id=${listId}>${(suggestions || []).map(h => html`<option value=${h} />`)}</datalist></${NL.Field}>
       <details><summary>Display name</summary><${NL.Field} label="Name"><${NL.Input} value=${name} onInput=${setName} placeholder=${host || 'GPU box'} onEnter=${add} /></${NL.Field}></details>
-      <p class="muted small">Uses your SSH settings. Adds a small runner in ~/.newts.</p>
+      <p class="muted small">Uses your SSH settings. Adds a small runner in ~/.arlotope.</p>
       <div class="row end"><${NL.Btn} kind="primary" busy=${busy} disabled=${!host.trim()} onClick=${add}>Connect</${NL.Btn}></div></div></${NL.Section}>`;
   }
 

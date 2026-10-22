@@ -30,7 +30,7 @@ class Acp(Backend):
                           fork_from=a.m.get('fork_session') if not a.resume_sid else None)
 
     def parse(self, obj):
-        return obj.get('events', []) if obj.get('type') == 'newts.acp' else []
+        return obj.get('events', []) if obj.get('type') == 'arlotope.acp' else []
 
 
 class AcpSession(live.Session):
@@ -58,7 +58,7 @@ class AcpSession(live.Session):
     def open(self, proc):
         self.proc = proc
         self.rpc('initialize', {'protocolVersion': 1,
-            'clientInfo': {'name': 'newts-lab', 'version': '2.0'},
+            'clientInfo': {'name': 'arlotope', 'version': '2.0'},
             'clientCapabilities': {'fs': {'readTextFile': True, 'writeTextFile': True}, 'terminal': True,
                                    'elicitation': {'form': {}, 'url': {}}}})
 
@@ -274,7 +274,7 @@ class AcpSession(live.Session):
                             self._send_next()
                         if not self.turn:
                             control.append({'event': 'turn_end'})
-        return ([{'type': 'newts.acp', 'events': events}] if events else []), control
+        return ([{'type': 'arlotope.acp', 'events': events}] if events else []), control
 
     def _session(self):
         params = {'cwd': str(self.ctx['workdir']), 'mcpServers': self.ctx['config'].get('mcp_servers', [])}

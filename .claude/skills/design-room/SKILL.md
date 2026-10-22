@@ -1,7 +1,7 @@
 ---
 name: design-room
 description: Design or refine a research room in a private draft, using the real 3D preview and normal agent tools.
-newts:
+arlotope:
   kind: utility
   level: hub
   mode: headless

@@ -276,7 +276,7 @@ def test_world_scripts_load_only_in_the_isolated_view():
     view = (STATIC / 'lab-view.html').read_text(encoding='utf-8')
     order = ['vendor/three/three.module.min.js', 'world3d/kit.js', 'world3d/newt.js',
              'world3d/characters.js', 'world3d/components.js', 'world3d/layout.js', 'world3d/model.js',
-             'newts:rooms3d', 'world3d/world.js', 'ui/lab-view.js']
+             'arlotope:rooms3d', 'world3d/world.js', 'ui/lab-view.js']
     positions = [view.index(item) for item in order]
     assert positions == sorted(positions)
     assert 'rapier' not in view and 'design.js' not in view
@@ -287,7 +287,7 @@ def test_the_server_puts_every_built_in_room_on_the_page():
     page = serve._with_rooms3d((STATIC / "lab-view.html").read_text(encoding="utf-8"), "world3d/rooms/")
     for f in ROOM_FILES:
         assert f'<script src="world3d/rooms/{f}"></script>' in page, f
-    assert "newts:rooms3d" not in page
+    assert "arlotope:rooms3d" not in page
     assert page.index("world3d/model.js") < page.index("rooms/" + ROOM_FILES[0]) < page.index("world3d/world.js")
 
 

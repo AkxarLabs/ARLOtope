@@ -1,38 +1,37 @@
 #!/usr/bin/env python3
-"""`newts <verb>` — the whole lab from a terminal. Everything the dashboard does has a verb here, and both call
+"""`arlotope <verb>` — the whole lab from a terminal. Everything the dashboard does has a verb here, and both call
 the same code (the kernel in tools/kernel/, tools/panels.py, the executor).
 
-    newts status                              what needs you, what is running, every study and where it stands
-    newts studies                             the studies, their workflow and step
-    newts new <study> --title "…" [--workflow W] [--at STEP]      file a study
-    newts move <study> <outcome> [--note "…"]                      report an outcome: the workflow moves it
-    newts move <study> --to <step> [--note "…"]                    (the PI) move it anywhere: revive, jump, skip
-    newts next <study>                        where it stands and what runs next
-    newts brief <procedure> [--study S]       what an agent is told for that work
-    newts checkpoint <study> <checkpoint>     what a checkpoint shows: where, evidence, checks, history
-    newts approve <study> <checkpoint> [--note "…"] [--start] [--yes]
-    newts changes <study> <checkpoint> --note "…"      ask for changes (goes to the agent)
-    newts revoke <study> <checkpoint> [--yes]
-    newts approved <study> <checkpoint>       exit 0 if it is approved (for agents and scripts)
-    newts checks <study> <checkpoint>         run the checkpoint's checks now
-    newts approvals [<study>]                 the record of every decision
-    newts flags [<study>] | ack <flag> [--note "…"]    what the lab's watches flagged; acknowledge one (releases a hold)
-    newts start <procedure> [study] [--args "…"] [--backend B]    (or: newts ask "…" [--study S])
-    newts runs | run <id> | answer <id> … | reply <id> --text "…" | stop <id> | resume [<id>] | pause
-    newts hold <study> [--reason "…"] | release <study>
-    newts workflow [show [<study>] | set <study> <workflow> | use <study> <procedure>=<variant>
+    arlotope status                              what needs you, what is running, every study and where it stands
+    arlotope studies                             the studies, their workflow and step
+    arlotope new <study> --title "…" [--workflow W] [--at STEP]      file a study
+    arlotope move <study> <outcome> [--note "…"]                      report an outcome: the workflow moves it
+    arlotope move <study> --to <step> [--note "…"]                    (the PI) move it anywhere: revive, jump, skip
+    arlotope next <study>                        where it stands and what runs next
+    arlotope brief <procedure> [--study S]       what an agent is told for that work
+    arlotope checkpoint <study> <checkpoint>     what a checkpoint shows: where, evidence, checks, history
+    arlotope approve <study> <checkpoint> [--note "…"] [--start] [--yes]
+    arlotope changes <study> <checkpoint> --note "…"      ask for changes (goes to the agent)
+    arlotope revoke <study> <checkpoint> [--yes]
+    arlotope approved <study> <checkpoint>       exit 0 if it is approved (for agents and scripts)
+    arlotope checks <study> <checkpoint>         run the checkpoint's checks now
+    arlotope approvals [<study>]                 the record of every decision
+    arlotope flags [<study>] | ack <flag> [--note "…"]    what the lab's watches flagged; acknowledge one (releases a hold)
+    arlotope start <procedure> [study] [--args "…"] [--backend B]    (or: arlotope ask "…" [--study S])
+    arlotope runs | run <id> | answer <id> … | reply <id> --text "…" | stop <id> | resume [<id>] | pause
+    arlotope hold <study> [--reason "…"] | release <study>
+    arlotope workflow [show [<study>] | set <study> <workflow> | use <study> <procedure>=<variant>
                     | rename-step <old> <new> [--yes]]
-    newts project <study> <path>              where a study's project repository is
-    newts propose <procedure|step:S|role:R> --file F [--study S] [--why "…"]   (agents) suggest added instructions
-    newts extension [list | install <name> [--yes]]   a ready-made addition (extensions/<name>/): its workflows,
+    arlotope project <study> <path>              where a study's project repository is
+    arlotope propose <procedure|step:S|role:R> --file F [--study S] [--why "…"]   (agents) suggest added instructions
+    arlotope extension [list | install <name> [--yes]]   a ready-made addition (extensions/<name>/): its workflows,
                                               steps, skills and checks, laid over the lab after you see what changes
-    newts check [--design <folder>]           validate the lab's definition, rules and generated docs — or a
+    arlotope check [--design <folder>]           validate the lab's definition, rules and generated docs — or a
                                               designer's draft laid over it (and say what it would change)
-    newts docs [--check]                      rewrite the generated parts of the manuals
-    newts migrate                             bring an older lab onto the kernel (once)
-    newts room <room>                         what a stage group contains
-    newts panels [list] | panel <id> [--study S] | approve-collector <panel> [--yes]
-    newts config [view | set key=value]
+    arlotope docs [--check]                      rewrite the generated parts of the manuals
+    arlotope room <room>                         what a stage group contains
+    arlotope panels [list] | panel <id> [--study S] | approve-collector <panel> [--yes]
+    arlotope config [view | set key=value]
 
 The PI's verbs (approve, revoke, changes, move --to, workflow set/use/rename-step, approve-collector) refuse inside an agent
 run, and ask you to confirm on a terminal (or pass --yes). Output is plain text; most verbs take --json.
@@ -54,7 +53,7 @@ if hasattr(sys.stdout, "reconfigure"):
 
 import lab_docs  # noqa: E402
 import panels  # noqa: E402
-from kernel import brief as kbrief, checkpoints, diff, instructions, journal, migrate, model, rules, studies, watch  # noqa: E402
+from kernel import brief as kbrief, checkpoints, diff, instructions, journal, model, rules, studies, watch  # noqa: E402
 
 # Every dashboard action (POST route) and the verb that does the same thing here — tests/test_cli.py checks that
 # no route is missing. "dashboard-only" marks what only makes sense in a browser.
@@ -85,7 +84,7 @@ ROUTE_VERBS = {
     "/api/doc/save": "dashboard-only", "/api/workflow/save": "dashboard-only", "/api/workflow/proposal": "dashboard-only",
     "/api/compose": "dashboard-only", "/api/lab/config": "config set", "/api/keys": "dashboard-only",
     "/api/notify": "dashboard-only", "/api/notify/test": "dashboard-only", "/api/setup/complete": "dashboard-only",
-    "/api/server/stop": "newts.py --stop", "/api/system/scheduler": "config set",
+    "/api/server/stop": "arlotope.py --stop", "/api/system/scheduler": "config set",
     "/api/directive": "reply", "/api/artifact/reply": "reply", "/api/artifact/seen": "dashboard-only",
     "/api/withdraw": "dashboard-only", "/api/command": "start", "/api/tool": "dashboard-only", "/api/read": "checkpoint",
     "/api/libdoc": "dashboard-only", "/api/claims": "dashboard-only",
@@ -99,7 +98,7 @@ ROUTE_VERBS = {
 
 
 def _hub(a) -> Path:
-    return Path(a.hub or os.environ.get("NEWTS_HUB") or HERE.parent).resolve()
+    return Path(a.hub or os.environ.get("ARLOTOPE_HUB") or HERE.parent).resolve()
 
 
 def _out(a, data, text: str) -> None:
@@ -107,7 +106,7 @@ def _out(a, data, text: str) -> None:
 
 
 def _err(msg: str, code: int = 2) -> int:
-    print(f"[newts] {msg}", file=sys.stderr)
+    print(f"[arlotope] {msg}", file=sys.stderr)
     return code
 
 
@@ -152,20 +151,20 @@ def cmd_status(a) -> int:
             "paused": paused, "holds": holds}
     lines = []
     if paused:
-        lines.append(f"❚❚ The lab is paused (since {paused.get('since')}). `newts resume` to go on.")
+        lines.append(f"❚❚ The lab is paused (since {paused.get('since')}). `arlotope resume` to go on.")
     n = len(waiting) + len(asking) + len(alerts)
     lines.append(f"{n} thing(s) need you." if n else "Nothing needs you.")
     for r in waiting:
         w = r["waiting"]
         if w.get("checkpoint"):
             cp = model.checkpoint(w["checkpoint"], r["workflow"], hub) or {"title": w["checkpoint"]}
-            lines.append(f"  ◆ {cp['title']} — {r['title']}   →  newts checkpoint {r['id']} {w['checkpoint']}")
+            lines.append(f"  ◆ {cp['title']} — {r['title']}   →  arlotope checkpoint {r['id']} {w['checkpoint']}")
         else:
-            lines.append(f"  ? {r['title']} reported `{w.get('outcome')}` — where should it go?   →  newts move {r['id']} --to <step>")
+            lines.append(f"  ? {r['title']} reported `{w.get('outcome')}` — where should it go?   →  arlotope move {r['id']} --to <step>")
     for m in asking:
-        lines.append(f"  ? {m.get('command') or m.get('skill')} asks you   →  newts run {m['run_id']}")
+        lines.append(f"  ? {m.get('command') or m.get('skill')} asks you   →  arlotope run {m['run_id']}")
     for al in alerts:
-        lines.append(f"  ▲ {al['say']} ({al['title']})   →  newts panel {al['panel']}")
+        lines.append(f"  ▲ {al['say']} ({al['title']})   →  arlotope panel {al['panel']}")
     lines.append(f"{len(live)} agent run(s) working or queued." + (f" On hold: {', '.join(holds)}." if holds else ""))
     for m in live[:12]:
         lines.append(f"  · {m.get('run_id')}  {m.get('status'):<14} {m.get('command') or m.get('skill')}")
@@ -215,7 +214,7 @@ def cmd_move(a) -> int:
         elif a.outcome:
             res = studies.move(hub, a.study, a.outcome, note=a.note or "")
         else:
-            return _err("which outcome? (newts move <study> <outcome>, or --to <step> for the PI)")
+            return _err("which outcome? (arlotope move <study> <outcome>, or --to <step> for the PI)")
     except (studies.StudyError, model.ModelError) as e:
         return _err(str(e), 1)
     if res.get("finished"):
@@ -285,7 +284,7 @@ def cmd_checkpoint(a) -> int:
         lines.append(f"  check {c['name']}: " + ("not run" if c["code"] is None else "passed" if c["code"] == 0 else f"exit {c['code']}"))
     if rec.get("note"):
         lines.append(f"  your note: {rec['note']}")
-    lines.append(f"  → newts approve {a.study} {cp['id']}   ·   newts changes {a.study} {cp['id']} --note \"…\"")
+    lines.append(f"  → arlotope approve {a.study} {cp['id']}   ·   arlotope changes {a.study} {cp['id']} --note \"…\"")
     _out(a, r, "\n".join(lines))
     return 0
 
@@ -319,7 +318,7 @@ def _decide(a, decision: str) -> int:
         if nxt["procedure"]:
             if getattr(a, "start", False):
                 return _start(hub, nxt["procedure"], a.study, "", None)
-            print(f"  next: newts start {nxt['procedure']} {a.study}")
+            print(f"  next: arlotope start {nxt['procedure']} {a.study}")
     return 0
 
 
@@ -372,7 +371,7 @@ def cmd_approvals(a) -> int:
 def cmd_flags(a) -> int:
     fl = watch.flags(_hub(a), a.study or None, open_only=not a.all)
     _out(a, fl, "\n".join(f"{f['ts']}  {f['level']:<5} {f['study']:<22} {f['say']}" + (" (held)" if f.get("hold") else "")
-                           + (f" — {f['detail']}" if f.get("detail") else "") + f"   → newts ack {f['id']}"
+                           + (f" — {f['detail']}" if f.get("detail") else "") + f"   → arlotope ack {f['id']}"
                            + ("  [acknowledged]" if f.get("acked") else "") for f in fl) or "No flags.")
     return 0
 
@@ -396,7 +395,7 @@ def _start(hub: Path, skill: str, study: str | None, args: str, backend: str | N
                                        prompt=prompt, created_by="cli"))
     except ex.SpecError as e:
         return _err(str(e), 1)
-    print(f"queued {m['run_id']}: {m.get('command') or skill}  (the scheduler starts it; `newts run {m['run_id']}`)")
+    print(f"queued {m['run_id']}: {m.get('command') or skill}  (the scheduler starts it; `arlotope run {m['run_id']}`)")
     return 0
 
 
@@ -448,7 +447,7 @@ def cmd_stop(a) -> int:
 
 
 def _pi_only() -> int | None:
-    """The PI's verbs refuse inside an agent run (NEWTS_RUN_ID)."""
+    """The PI's verbs refuse inside an agent run (ARLOTOPE_RUN_ID)."""
     return _err(studies.PI_ONLY, 1) if studies.in_agent_run() else None
 
 
@@ -465,7 +464,7 @@ def cmd_hold(a) -> int:
         return 1
     ex, lab = _executor(_hub(a))
     ex.pause.hold(lab, a.study, by="PI", reason=a.reason)
-    print(f"{a.study} is on hold — nothing new starts for it (`newts release {a.study}`)")
+    print(f"{a.study} is on hold — nothing new starts for it (`arlotope release {a.study}`)")
     return 0
 
 
@@ -482,7 +481,7 @@ def cmd_workflow(a) -> int:
     hub = _hub(a)
     if a.action == "rename-step":
         if len(a.rest) != 2:
-            return _err("usage: newts workflow rename-step <old-id> <new-id>")
+            return _err("usage: arlotope workflow rename-step <old-id> <new-id>")
         if not _confirm(a, f"Rename the step {a.rest[0]} to {a.rest[1]} (the studies there move with it)"):
             return 1
         try:
@@ -494,7 +493,7 @@ def cmd_workflow(a) -> int:
         return 0
     if a.action in ("set", "use"):
         if len(a.rest) != 2:
-            return _err(f"usage: newts workflow {a.action} <study> " + ("<workflow>" if a.action == "set" else "<procedure>=<variant>"))
+            return _err(f"usage: arlotope workflow {a.action} <study> " + ("<workflow>" if a.action == "set" else "<procedure>=<variant>"))
         study, val = a.rest
         try:
             if a.action == "set":
@@ -512,7 +511,7 @@ def cmd_workflow(a) -> int:
         except studies.StudyError as e:
             return _err(str(e), 1)
         return 0
-    if a.rest:                                   # newts workflow show <study>: the workflow that study follows
+    if a.rest:                                   # arlotope workflow show <study>: the workflow that study follows
         try:
             w = model.workflow(studies.workflow_of(hub, a.rest[0]), hub)
         except (studies.StudyError, model.ModelError) as e:
@@ -546,7 +545,7 @@ def cmd_propose(a) -> int:
     try:
         text = Path(a.file).read_text(encoding="utf-8")
         rec = instructions.propose(kind, name.lstrip("/"), text, hub, study=a.study, why=a.why,
-                                   by=os.environ.get("NEWTS_RUN_ID", ""))
+                                   by=os.environ.get("ARLOTOPE_RUN_ID", ""))
     except (OSError, ValueError) as e:
         return _err(str(e))
     studies._bus(hub, "instruction_proposal", a.study or "", f"{kind} {name}", proposal=rec["id"])
@@ -568,41 +567,31 @@ def cmd_check(a) -> int:
     if a.design:
         probs, said = diff.check_overlay(hub, Path(a.design))
         for x in probs:
-            print(f"[newts] problem: {x}")
+            print(f"[arlotope] problem: {x}")
         for x in said:
-            print(f"[newts] it {x}")
+            print(f"[arlotope] it {x}")
         if not probs:
-            print("[newts] ok — the design can be taken" + ("" if said else " (it changes nothing)"))
+            print("[arlotope] ok — the design can be taken" + ("" if said else " (it changes nothing)"))
         return 1 if probs else 0
-    if migrate.needed(hub):
-        print("[newts] this lab predates the kernel — run `newts migrate` first")
     probs, stale = check_all(hub)
     for x in probs:
-        print(f"[newts] {x}")
+        print(f"[arlotope] {x}")
     for x in stale:
-        print(f"[newts] {x.as_posix()} is stale — run `newts docs`")
+        print(f"[arlotope] {x.as_posix()} is stale — run `arlotope docs`")
     for r in model.rooms(hub):      # not a problem: the dashboard draws a room with no look plain
         if not ((model.CODE / "dashboard" / "static" / "world3d" / "rooms" / f"{r['id']}.js").is_file()
                 or (hub / "lab" / "rooms3d" / f"{r['id']}.json").is_file()):
-            print(f"[newts] note: room {r['id']} has no look — it is drawn plain")
+            print(f"[arlotope] note: room {r['id']} has no look — it is drawn plain")
     if not probs and not stale:
-        print("[newts] ok")
+        print("[arlotope] ok")
     return 1 if probs or stale else 0
 
 
 def cmd_docs(a) -> int:
     stale = lab_docs.render(_hub(a), check_only=a.check)
     for x in stale:
-        print(f"[newts] {'stale' if a.check else 'updated'}: {x.as_posix()}")
+        print(f"[arlotope] {'stale' if a.check else 'updated'}: {x.as_posix()}")
     return 1 if (a.check and stale) else 0
-
-
-def cmd_migrate(a) -> int:
-    done = migrate.run(_hub(a))
-    if done:
-        lab_docs.render(_hub(a))
-    print("\n".join(f"[newts] {x}" for x in done) or "[newts] nothing to do — this lab is on the kernel")
-    return 0
 
 
 def cmd_extension(a) -> int:
@@ -626,7 +615,7 @@ def cmd_extension(a) -> int:
         return 1
     diff.lay(x["path"], hub, merge=True)
     lab_docs.render(hub)
-    print(f"added {x['title']} — `newts workflow` shows it; `newts new <study> --workflow …` files a study on it")
+    print(f"added {x['title']} — `arlotope workflow` shows it; `arlotope new <study> --workflow …` files a study on it")
     return 0
 
 
@@ -668,14 +657,14 @@ def cmd_approve_collector(a) -> int:
 
 def cmd_config(a) -> int:
     if a.action not in (None, "view") and studies.in_agent_run() \
-            and os.environ.get("NEWTS_RUN_SKILL") not in (rules.load(_hub(a)).get("config_procedures") or ["setup-lab", "configure"]):
+            and os.environ.get("ARLOTOPE_RUN_SKILL") not in (rules.load(_hub(a)).get("config_procedures") or ["setup-lab", "configure"]):
         return _err("the lab's settings are the PI's — they change them in Settings (or ask for it in /configure)", 1)
     argv = ["view"] if a.action in (None, "view") else ["set", *a.rest, "--pi-approved"]
     return subprocess.run([sys.executable, str(HERE / "configure.py"), *argv]).returncode
 
 
 def build() -> argparse.ArgumentParser:
-    ap = argparse.ArgumentParser(prog="newts", description="ARLOtope from a terminal",
+    ap = argparse.ArgumentParser(prog="arlotope", description="ARLOtope from a terminal",
                                  formatter_class=argparse.RawDescriptionHelpFormatter, epilog=__doc__.split("\n\n", 1)[1])
     ap.add_argument("--hub", default=None)
     ap.add_argument("--json", action="store_true")
@@ -730,7 +719,6 @@ def build() -> argparse.ArgumentParser:
     add("propose", cmd_propose, "what", (["--file"], {"required": True}), opt("--study"), (["--why"], {"default": ""}))
     add("check", cmd_check, opt("--design"))
     add("docs", cmd_docs, (["--check"], {"action": "store_true"}))
-    add("migrate", cmd_migrate)
     add("room", cmd_room, "room")
     add("panels", cmd_panels)
     add("panel", cmd_panel, "id", opt("--study"))
@@ -741,7 +729,7 @@ def build() -> argparse.ArgumentParser:
 
 VERBS = {"status", "studies", "tags", "new", "move", "next", "brief", "checkpoint", "approve", "revoke", "changes", "approved",
          "checks", "approvals", "flags", "ack", "start", "ask", "runs", "run", "answer", "reply", "stop", "resume", "pause", "hold",
-         "release", "workflow", "project", "extension", "propose", "check", "docs", "migrate", "room", "panels", "panel",
+         "release", "workflow", "project", "extension", "propose", "check", "docs", "room", "panels", "panel",
          "approve-collector", "config"}
 
 

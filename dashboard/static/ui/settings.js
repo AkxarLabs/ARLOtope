@@ -268,7 +268,7 @@
       <p class="small"><a class="link" href="https://github.com/AkxarLabs/ARLOtope/blob/main/LICENSE" target="_blank" rel="noopener">AGPL-3.0-only</a> · <a class="link" href="https://github.com/AkxarLabs/ARLOtope" target="_blank" rel="noopener">Source code</a></p>
       <div class="row"><${NL.Btn} onClick=${() => NL.go('labs')}>Switch or create a lab</${NL.Btn}><${NL.Btn} onClick=${async () => { if (await NL.confirm({ title: 'Open a terminal in the lab folder?', ok: 'Open', body: 'A shell on the machine the lab runs on, as you. Anything you type runs there.' })) NL.runOnLabMachine('shell'); }}>Open a terminal here</${NL.Btn}>
         <${NL.Btn} onClick=${() => NL.go('setup')}>Run the setup again</${NL.Btn}><${NL.Btn} onClick=${() => NL.go('history')}>History</${NL.Btn}></div>
-      <${NL.Section} title="Server"><p class="muted small">Stopping the server closes this dashboard. Agents already running keep going; start it again with <span class="mono">Start Newts Lab</span>.</p>
+      <${NL.Section} title="Server"><p class="muted small">Stopping the server closes this dashboard. Agents already running keep going; start it again with <span class="mono">Start ARLOtope</span>.</p>
         <${NL.Btn} kind="danger" onClick=${async () => { if (await NL.confirm({ title: 'Stop the dashboard server?', ok: 'Stop it', danger: true, body: 'Running agents keep going. You can start it again any time.' })) { const r = await NL.api('/api/server/stop', { confirm: true }); NL.toast(r.note || r.error, r.ok ? 'ok' : 'bad'); } }}>Stop the server</${NL.Btn}></${NL.Section}></div>`;
   };
 
@@ -379,9 +379,9 @@
     <${Cast} />
     <${NL.Section} title="What they do">
       <div class="agent-links">
-        <a class="agent-link" href="#/compose/procedures"><b>Procedures</b><small>what a main agent does at each step: add your own instructions, or rewrite the method</small></a>
-        <a class="agent-link" href="#/compose/roles"><b>Roles</b><small>the subagents: what each specialist is told, and new ones copied from an old</small></a>
-        <a class="agent-link" href="#/compose/rules"><b>Rules</b><small>what every agent always does</small></a>
+        <a class="agent-link" href="#/workflow/procedures"><b>Procedures</b><small>what a main agent does at each step: add your own instructions, or rewrite the method</small></a>
+        <a class="agent-link" href="#/workflow/roles"><b>Roles</b><small>the subagents: what each specialist is told, and new ones copied from an old</small></a>
+        <a class="agent-link" href="#/workflow/rules"><b>Rules</b><small>what every agent always does</small></a>
         <a class="agent-link" href="#/settings/autonomy"><b>Limits & permissions</b><small>whether the dashboard may start agents, how many at once, how long each may run</small></a>
       </div></${NL.Section}>
   </div>`;
@@ -408,7 +408,7 @@
         <div class="settings-mobile-nav"><${NL.Field} label="Settings section"><${NL.Select} value=${cur.id} onChange=${id=>NL.go('settings/'+id)} options=${SECTIONS.map(x=>({value:x.id,label:x.label}))}/></${NL.Field}></div><nav class="side-nav">
         ${GROUPS.map(([g, title]) => html`<div class="side-sec">${title}</div>${SECTIONS.filter(x => x.group === g).map(x => html`<a class=${cls('side-link', x.id === cur.id && 'on')} href=${'#/settings/' + x.id}>${x.label}</a>`)}`)}
         <div class="side-sec">How the lab works</div>
-        ${WORKFLOW_LINKS.map(([w, l]) => html`<a class="side-link ext" href=${'#/compose' + (w ? '/' + w : '')}>${l} <span class="muted">↗</span></a>`)}
+        ${WORKFLOW_LINKS.map(([w, l]) => html`<a class="side-link ext" href=${'#/workflow' + (w ? '/' + w : '')}>${l} <span class="muted">↗</span></a>`)}
         <p class="muted small side-note">Procedures, roles, rules and stage groups are edited as a draft on the Workflow page and published together.</p></nav></aside>
       <main class="split-right"><h2>${cur.label} <span class=${cls('pill', 'scope-pill', cur.group)} title=${cur.group === 'lab' ? 'Saved in this lab’s configuration; everyone who opens the lab sees it' : 'Saved in this browser only'}>${cur.group === 'lab' ? 'this lab' : 'this browser'}</span></h2>
         ${cur.blurb ? html`<p class="lede">${cur.blurb}</p>` : null}<${cur.C} /></main></div>`;

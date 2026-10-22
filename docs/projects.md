@@ -16,7 +16,7 @@ existing repository only when requested.
 | Record | Location |
 |---|---|
 | Question, literature, proposal and decisions | `studies/<slug>/` |
-| Notes, saved Q&A and retained sources | Project `.newts/knowledge/`; before attachment, `studies/<slug>/knowledge/` |
+| Notes, saved Q&A and retained sources | Project `.arlotope/knowledge/`; before attachment, `studies/<slug>/knowledge/` |
 | Uploaded materials | `studies/<slug>/materials/`, indexed by `MATERIALS.md` |
 | Discussions, critiques, paper and reviews | Study `sessions/`, `critiques/` and `paper/` |
 | Code, data and original run evidence | Project repository |
@@ -41,11 +41,11 @@ paths; only the parent writes shared experiment ledgers.
 ## Where projects live
 
 Generated projects live outside the Lab at `lab.projects_root`, default
-`../newts-lab-projects/<slug>`. Each has its own Git repository. The Lab records its path; it does
+`../arlotope-projects/<slug>`. Each has its own Git repository. The Lab records its path; it does
 not store all experiment artifacts in the hub.
 
-Attached repositories stay where they are. `.newts/project.json` records stable project identity
-and the knowledge location; the compatible `.bus/newts-owner.json` records execution ownership.
+Attached repositories stay where they are. `.arlotope/project.json` records stable project identity
+and the knowledge location, together with its owning Lab and study. This is the sole project identity record.
 Keep those files when moving a project, and update its registered path deliberately.
 See [remote projects](remote-projects.md).
 

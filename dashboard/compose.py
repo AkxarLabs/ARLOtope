@@ -9,7 +9,7 @@ own instructions and swaps stay on its page.
 The first edit copies those files into a draft (lab/.bus/compose/draft/, their shas in draft.json). Every edit
 after that changes only the draft: the lab and every run keep using the published files. An edit of the
 definition reads it (tools/kernel/model.py), changes it, and writes the small file back whole
-(tools/kernel/define.py) — the same code tools/new.py and `newts migrate` use. `problems()` is the kernel's
+(tools/kernel/define.py) — the same code tools/new.py use. `problems()` is the kernel's
 check on the draft, plus what no lab changes from here (the rules' safety tables, the hard rules' numbering)
 and studies left on steps the draft no longer has. Publishing copies the changed files over the lab's
 (refusing any the lab changed since the draft began), renders the docs and the role files, and keeps the
@@ -239,7 +239,7 @@ def _skill_md(name: str) -> str:
 
 
 def _set_skill_meta(name: str, fields: dict) -> None:
-    """Rewrite a SKILL.md's frontmatter: `description`, and the `newts:` block (the procedure's definition)."""
+    """Rewrite a SKILL.md's frontmatter: `description`, and the `arlotope:` block (the procedure's definition)."""
     rel = _skill_md(name)
     text = _read(rel, _begin())
     m = re.match(r"\A---\n(.*?)\n---\n", text, re.S)
@@ -253,7 +253,7 @@ def _set_skill_meta(name: str, fields: dict) -> None:
             chunks[-1][1].append(ln)
         else:
             chunks.append([None, [ln]])
-    block = dict(model.skill_meta(text).get("newts") or {})
+    block = dict(model.skill_meta(text).get("arlotope") or {})
     fields = dict(fields)
     if "description" in fields:
         desc = " ".join(str(fields.pop("description") or "").split())
@@ -268,12 +268,12 @@ def _set_skill_meta(name: str, fields: dict) -> None:
             block.pop(k, None)
         else:
             block[k] = v
-    newts = ("newts:\n" + textwrap.indent(yaml.safe_dump(block, sort_keys=False, allow_unicode=True, width=110), "  ")).rstrip("\n").split("\n") if block else None
-    hit = next((c for c in chunks if c[0] == "newts"), None)
-    if hit and newts:
-        hit[1] = newts
-    elif newts:
-        chunks.append(["newts", newts])
+    arlotope = ("arlotope:\n" + textwrap.indent(yaml.safe_dump(block, sort_keys=False, allow_unicode=True, width=110), "  ")).rstrip("\n").split("\n") if block else None
+    hit = next((c for c in chunks if c[0] == "arlotope"), None)
+    if hit and arlotope:
+        hit[1] = arlotope
+    elif arlotope:
+        chunks.append(["arlotope", arlotope])
     elif hit:
         chunks.remove(hit)
     fm = "\n".join(ln for c in chunks for ln in c[1])
@@ -985,7 +985,7 @@ def view(q: dict | None = None) -> tuple[dict, int]:
     for name, p in m["procedures"].items():
         folder = skill_folders[name]
         meta = model.skill_meta(ctx.read(folder / 'SKILL.md') or '')
-        own = meta.get("newts") or {}
+        own = meta.get("arlotope") or {}
         procs[name] = {**{k: v for k, v in p.items() if not k.startswith("_")}, "description": meta.get("description", ""),
                        "own": sorted(own), "like": own.get("like"), "origin": _origin(f".claude/skills/{name}/SKILL.md"),
                        "steps": [s for s, d in m["steps"].items() if name in [d.get("do"), *d["also"]]],

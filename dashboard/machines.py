@@ -1,18 +1,18 @@
 """Remote machines, from one local dashboard.
 
 The local dashboard can open a lab that lives on another machine you reach over SSH. It starts (or finds)
-that lab's own dashboard server there (`newts.py --background`), holds an SSH tunnel to it, and the local
+that lab's own dashboard server there (`arlotope.py --background`), holds an SSH tunnel to it, and the local
 server proxies the page's API calls through the tunnel (serve.py). Everything a lab does — file reads, agent
 runs, the terminal — happens on the machine the lab lives on; this module only manages the connection.
 
-  registry   ~/.newts/machines.json (NEWTS_HOME overrides): {machines: [{id, name, host, labs: [...], facts}]}
+  registry   ~/.arlotope/machines.json (ARLOTOPE_HOME overrides): {machines: [{id, name, host, labs: [...], facts}]}
   hosts      suggestions parsed from ~/.ssh/config (named Host entries)
   probe      one non-interactive SSH call: OS, tools (uv, git, python3, agent CLIs), GPUs, schedulers, labs
   connect    key auth: start the remote server + a supervised `ssh -N -L` tunnel (BatchMode, restarts itself)
              MFA / password: a local terminal window runs the same SSH (you sign in there; it stays the tunnel)
   create     copy this template over SSH (`git archive | ssh … tar -x`) and run tools/new_lab.py there
 
-`NEWTS_SSH` overrides the ssh command (the tests use a fake). Nothing here ever handles a password.
+`ARLOTOPE_SSH` overrides the ssh command (the tests use a fake). Nothing here ever handles a password.
 """
 
 from __future__ import annotations
@@ -37,7 +37,7 @@ import ctx  # noqa: E402
 
 
 def _home() -> Path:
-    return Path(os.environ.get("NEWTS_HOME") or (Path.home() / ".newts"))
+    return Path(os.environ.get("ARLOTOPE_HOME") or (Path.home() / ".arlotope"))
 
 
 def _file() -> Path:
@@ -107,7 +107,7 @@ def _rpath(p: str) -> str:
 # ── ssh ──────────────────────────────────────────────────────────────────────
 
 def ssh_cmd() -> list[str]:
-    env = os.environ.get("NEWTS_SSH")
+    env = os.environ.get("ARLOTOPE_SSH")
     if env:
         return shlex.split(env, posix=(os.name != "nt")) if not env.startswith("[") else json.loads(env)
     return [shutil.which("ssh") or "ssh"]
@@ -228,7 +228,7 @@ class Conn:
 
     # the remote side: make sure the lab's dashboard runs on exactly rport
     def _start_cmd(self) -> str:
-        launcher = self.machine.get("launcher") or "newts.py"
+        launcher = self.machine.get("launcher") or "arlotope.py"
         py = self.machine.get("python") or "uv run --with pyyaml python"
         return (f"{PATH_PREFIX}; cd {_rpath(self.lab)} && {py} {launcher} --hub . --background --json --port {self.rport}")
 
@@ -406,7 +406,7 @@ class Conn:
             c.request("GET", "/api/ping")
             r = c.getresponse()
             info = json.loads(r.read() or b"{}")
-            if info.get("app") != "newts-lab":
+            if info.get("app") != "arlotope":
                 return False
             if self.expected_lab and info.get('lab') != self.expected_lab:
                 self.error = 'This tunnel reached a different lab.'
@@ -440,7 +440,7 @@ class Conn:
         self.state = "idle"
         self._stop_window()
         if stop_remote and not self.window:
-            launcher = self.machine.get("launcher") or "newts.py"
+            launcher = self.machine.get("launcher") or "arlotope.py"
             py = self.machine.get("python") or "uv run --with pyyaml python"
             try:
                 _run(self.machine["host"], f"{PATH_PREFIX}; cd {_rpath(self.lab)} && {py} {launcher} --hub . --stop", timeout=60)
@@ -654,7 +654,7 @@ def create_lab(body: dict) -> tuple[dict, int]:
         return {"error": f"could not package the template: {e}"}, 500
     if not tar:
         return {"error": "can't package the template: it is not a git checkout"}, 500
-    tmp = f".newts/tpl-{int(time.time())}"
+    tmp = f".arlotope/tpl-{int(time.time())}"
     r = _run(m["host"], f'mkdir -p "$HOME/{tmp}" && tar -x -C "$HOME/{tmp}"', timeout=300, stdin=tar)
     if r.returncode != 0:
         kind, msg = _why(r)

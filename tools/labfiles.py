@@ -27,7 +27,7 @@ from contextlib import contextmanager
 from contextvars import ContextVar
 from pathlib import Path
 
-DEFAULT_PROJECTS_ROOT = "../newts-lab-projects"
+DEFAULT_PROJECTS_ROOT = "../arlotope-projects"
 _EMPTY = ("—", "-", "")
 _reads = ContextVar('lab_reads', default=None)
 
@@ -153,7 +153,7 @@ def registry_project_path(hub, slug: str, r: dict | None = None) -> Path | None:
     raw = ((r or {}).get("project") or "").strip().strip("`")
     if raw in _EMPTY:
         return None
-    if raw.startswith('newts+ssh://'):
+    if raw.startswith('arlotope+ssh://'):
         return None
     p = Path(raw)
     return p if p.is_absolute() else (Path(hub) / p).resolve()
@@ -161,7 +161,7 @@ def registry_project_path(hub, slug: str, r: dict | None = None) -> Path | None:
 
 def project_dir(hub, slug: str, r: dict | None = None) -> Path | None:
     r = r if r is not None else (row(hub, slug) or {})
-    if str(r.get('project') or '').startswith('newts+ssh://'):
+    if str(r.get('project') or '').startswith('arlotope+ssh://'):
         return None
     p = registry_project_path(hub, slug, r)
     if p:

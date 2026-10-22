@@ -221,7 +221,7 @@ def _env_local(lab: Lab) -> dict:
     """lab/.env.local (git-ignored; written by the dashboard's Research keys form): KEY=value lines a run
     inherits (e.g. S2_API_KEY). Never overrides what the executor itself sets."""
     return {k: v for k, v in labfiles.read_env(lab.lab / ".env.local").items()
-            if k.replace("_", "").isalnum() and not k.startswith(("NEWTS_", "AUTOSCIENTIST_"))}
+            if k.replace("_", "").isalnum() and not k.startswith(("ARLOTOPE_"))}
 
 
 _CONTINUE = ("This session was interrupted before it finished ({why}). Check what was already done "
@@ -349,10 +349,10 @@ def _prepare(lab: Lab, b, st: _State, workdir: Path, rd: Path, is_live: bool):
     if b.preassign_session and not m.get("session_id"):
         m["session_id"] = str(uuid.uuid4())   # resumable even if it dies before its first line
     attempt = int(m.get("attempt") or 0) + 1
-    env = {**os.environ, "NEWTS_RUN_ID": run_id, "NEWTS_RUN_DIR": str(rd), "NEWTS_HUB": str(lab.hub),
-           "NEWTS_RUN_TARGET": str(m.get("target")), "NEWTS_ATTEMPT": str(attempt),
-           "NEWTS_RUN_SUBJECT": str(m.get("subject") or ""), "NEWTS_RUN_SKILL": str(m.get("skill") or ""),
-           "AUTOSCIENTIST_AGENT_DEPTH": str(pos_int(m.get("depth"), 0, 0) + 1)}
+    env = {**os.environ, "ARLOTOPE_RUN_ID": run_id, "ARLOTOPE_RUN_DIR": str(rd), "ARLOTOPE_HUB": str(lab.hub),
+           "ARLOTOPE_RUN_TARGET": str(m.get("target")), "ARLOTOPE_ATTEMPT": str(attempt),
+           "ARLOTOPE_RUN_SUBJECT": str(m.get("subject") or ""), "ARLOTOPE_RUN_SKILL": str(m.get("skill") or ""),
+           "ARLOTOPE_AGENT_DEPTH": str(pos_int(m.get("depth"), 0, 0) + 1)}
     profile.run_env(m, env)                   # what the lab sets for one run
     if not m.get("watch_start"):
         try:   # where the repos stood as it started — the digest compares against this (the lab's monitoring)
@@ -360,7 +360,7 @@ def _prepare(lab: Lab, b, st: _State, workdir: Path, rd: Path, is_live: bool):
         except Exception as e:  # noqa: BLE001 — monitoring never stops a run
             m["watch_error"] = f"{type(e).__name__}: {e}"[:300]
     env.update(_env_local(lab))
-    env["NEWTS_PYTHON"] = python_exe()   # the opencode tracer plugin shells out to trace_hook.py with it
+    env["ARLOTOPE_PYTHON"] = python_exe()   # the opencode tracer plugin shells out to trace_hook.py with it
     preamble = (rd / "preamble.md").read_text(encoding="utf-8") if (rd / "preamble.md").exists() else ""
     a = backends.Attempt(lab=lab, m=m, workdir=workdir, rd=rd, prog=prog, cli=cli, ver=ver, prompt=prompt,
                          preamble=preamble, resuming=resuming, live=is_live, env=env, python=python_exe(),

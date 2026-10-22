@@ -55,9 +55,9 @@ def test_attached_brief_to_interrupted_task_gate_and_loop_history(hub, tmp_path,
 
     # Only an accepted task outcome reaches the fixture's PI checkpoint.
     with monkeypatch.context() as agent:
-        agent.setenv('NEWTS_RUN_ID', 'inspection')
-        agent.setenv('NEWTS_RUN_SUBJECT', slug)
-        agent.setenv('NEWTS_RUN_NODE', 'inspect')
+        agent.setenv('ARLOTOPE_RUN_ID', 'inspection')
+        agent.setenv('ARLOTOPE_RUN_SUBJECT', slug)
+        agent.setenv('ARLOTOPE_RUN_NODE', 'inspect')
         k.studies.move(hub.root, slug, 'done')
     study = k.studies.study(hub.root, slug)
     assert not study['runnable'] and study['waiting']['checkpoint'] == 'inspect-results'

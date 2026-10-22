@@ -13,7 +13,7 @@
 What each one does:
   skill     copies the skill's folder; the copy says `like: <skill>`, so it inherits the definition (level,
             mode, args, outcomes, …) and overrides what you change. It is a VARIANT: use it in a workflow
-            (`use:`), for one study (`newts workflow use`), or as a step's work (`--step` offers it there).
+            (`use:`), for one study (`arlotope workflow use`), or as a step's work (`--step` offers it there).
   step      copies a step (its label, work and room) under a new id; `--in W --after S` puts it on workflow W's
             path right after S.
   workflow  copies a workflow file under a new id (checkpoint ids get `-<id>` so they stay unique).
@@ -22,7 +22,7 @@ What each one does:
   check     copies checks/<check>.py under the new name (the guard finds it by itself).
   type      copies templates/project-types/<type>/ into lab/templates/project-types/<name>/.
   rule      appends a rule to workflow/rules.yaml.
-Then the generated docs are refreshed (`newts docs`). A lab's own components are the PI's: a headless run
+Then the generated docs are refreshed (`arlotope docs`). A lab's own components are the PI's: a headless run
 can't write them, and the signature guard refuses this tool from a run.
 """
 
@@ -94,7 +94,7 @@ def new_skill(hub: Path, name: str, like: str, step: str | None = None, title: s
     meta = model.skill_meta(text)
     desc = str(meta.get("description") or "").replace('"', "'")
     fm = (f"---\nname: {name}\ndescription: \"A variant of /{like} — say here what /{name} does. ({desc[:200]})\"\n"
-          f"newts:\n  like: {like}            # its definition is /{like}'s, except what is listed below\n"
+          f"arlotope:\n  like: {like}            # its definition is /{like}'s, except what is listed below\n"
           f"  title: {title or _title(name)}\n---\n")
     body = _rename_refs(text.replace("\r\n", "\n")[m.end():], like, name)
     out = [dst / "SKILL.md"]

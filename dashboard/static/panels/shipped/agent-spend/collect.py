@@ -9,9 +9,9 @@ import sys
 import time
 from pathlib import Path
 
-HUB = Path(os.environ.get("NEWTS_HUB") or ".").resolve()
+HUB = Path(os.environ.get("ARLOTOPE_HUB") or ".").resolve()
 sys.path.insert(0, str(HUB / "tools"))
-CFG = json.loads(os.environ.get("NEWTS_CONFIG") or "{}")
+CFG = json.loads(os.environ.get("ARLOTOPE_CONFIG") or "{}")
 
 
 def main() -> None:

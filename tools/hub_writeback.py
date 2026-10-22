@@ -7,7 +7,7 @@
 The normal write-back path (hard rule 11) as one safe call: appends a dated `lab/notebook/`
 entry, promotes durable insights to `lab/knowledge/{FINDINGS,FAILURES,OPEN-QUESTIONS}.md`, and
 (with `--outcome`) reports the study's outcome to the kernel, which moves it as its workflow says
-(`newts move`). The hub is found from this script's own location. Appends are single-write (atomic for
+(`arlotope move`). The hub is found from this script's own location. Appends are single-write (atomic for
 small blocks). If you CANNOT run this tool (hub unreachable), append a `HUB-WRITEBACK-PENDING:`
 block to the project's `EXPERIMENT_LOG.md` instead (see the project CLAUDE.md) — a hub session
 reconciles it via `tools/process_writebacks.py --apply`.
@@ -58,7 +58,7 @@ def _notebook(slug: str, text: str, evidence: str) -> str:
 
 
 def _report(slug: str, outcome: str, note: str) -> str:
-    """Report the study's outcome to the kernel (`newts move`): its workflow says where it goes."""
+    """Report the study's outcome to the kernel (`arlotope move`): its workflow says where it goes."""
     try:
         res = studies.move(HUB, slug, outcome, note=note)
     except studies.StudyError as e:

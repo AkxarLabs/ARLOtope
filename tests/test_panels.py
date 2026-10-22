@@ -25,8 +25,8 @@ sys.path.insert(0, str(REPO / "tools"))
 
 @pytest.fixture
 def pn(hub, monkeypatch, tmp_path):
-    monkeypatch.setenv("NEWTS_HOME", str(tmp_path / "home"))
-    monkeypatch.delenv("NEWTS_RUN_ID", raising=False)
+    monkeypatch.setenv("ARLOTOPE_HOME", str(tmp_path / "home"))
+    monkeypatch.delenv("ARLOTOPE_RUN_ID", raising=False)
     return load("panels")
 
 
@@ -178,7 +178,7 @@ def test_collector_review_hash_matches_its_code_even_if_file_changes_during_the_
 
 def test_an_agent_run_cannot_approve_a_collector(pn, hub, monkeypatch):
     _panel(pn.lab_dir(hub.root), "gpu", {"title": "GPU", "collector": "collect.py"}, collector=("collect.py", COLLECT))
-    monkeypatch.setenv("NEWTS_RUN_ID", "hub-design-1")
+    monkeypatch.setenv("ARLOTOPE_RUN_ID", "hub-design-1")
     with pytest.raises(K.checkpoints.CheckpointError):
         pn.approve_collector(hub.root, "gpu")
 
@@ -193,7 +193,7 @@ def test_collector_edit_before_execution_is_rechecked(pn, hub, monkeypatch):
     monkeypatch.setattr(pn, '_run_collector', changed)
     result = pn.collect(hub.root, 'race')
     assert 'waiting for your approval' in result['error'] and result['data'] == {}
-    assert not list(folder.glob('.newts-collector-*'))
+    assert not list(folder.glob('.arlotope-collector-*'))
 
 
 def test_collector_executes_the_checked_bytes_if_source_changes_at_launch(pn, hub, monkeypatch):
@@ -226,8 +226,8 @@ def test_collector_snapshot_keeps_language_parent_cwd_environment_and_cleans_up(
         assert script.suffix == suffix and script.parent == folder
         assert script.read_bytes() == (folder/('collect'+suffix)).read_bytes()
         assert options['cwd'] == str(hub.root)
-        assert options['env']['NEWTS_COLLECTOR'] == str((folder/('collect'+suffix)).resolve())
-        assert options['env']['NEWTS_STUDY'] == 'a-study' and 'NEWTS_RUN_ID' not in options['env']
+        assert options['env']['ARLOTOPE_COLLECTOR'] == str((folder/('collect'+suffix)).resolve())
+        assert options['env']['ARLOTOPE_STUDY'] == 'a-study' and 'ARLOTOPE_RUN_ID' not in options['env']
         return SimpleNamespace(returncode=0, stdout=b'{"ok":true}', stderr=b'')
     monkeypatch.setattr(pn.subprocess, 'run', run)
     assert pn.collect(hub.root, 'paths', 'a-study')['data'] == {'ok': True}
@@ -238,18 +238,18 @@ def test_collector_snapshot_keeps_language_parent_cwd_environment_and_cleans_up(
 def test_native_collector_keeps_sibling_resources_and_original_path(pn, hub, monkeypatch, tmp_path, suffix):
     if suffix == '.js' and not pn.shutil.which('node'):
         pytest.skip('Node is not installed')
-    monkeypatch.setenv('NEWTS_HOME', str(tmp_path/'user space 研究'))
+    monkeypatch.setenv('ARLOTOPE_HOME', str(tmp_path/'user space 研究'))
     code = ('import json, os\nfrom pathlib import Path\nprint(json.dumps({'
             '"resource":Path(__file__).with_name("resource.txt").read_text(),'
-            '"cwd":str(Path.cwd()),"original":os.environ["NEWTS_COLLECTOR"]}))\n')
+            '"cwd":str(Path.cwd()),"original":os.environ["ARLOTOPE_COLLECTOR"]}))\n')
     if suffix == '.js':
-        code = 'console.log(JSON.stringify({resource:require("fs").readFileSync(require("path").join(__dirname,"resource.txt"),"utf8"),cwd:process.cwd(),original:process.env.NEWTS_COLLECTOR}));'
+        code = 'console.log(JSON.stringify({resource:require("fs").readFileSync(require("path").join(__dirname,"resource.txt"),"utf8"),cwd:process.cwd(),original:process.env.ARLOTOPE_COLLECTOR}));'
     folder = _panel(pn.user_dir(), 'paths', {'title': 'Paths', 'collector': 'collect'+suffix}, collector=('collect'+suffix, code))
     (folder/'resource.txt').write_text('sibling resource')
     pn.approve_collector(hub.root, 'paths')
     result = pn.collect(hub.root, 'paths')
     assert result['data'] == {'resource': 'sibling resource', 'cwd': str(hub.root), 'original': str((folder/('collect'+suffix)).resolve())}
-    assert not list(folder.glob('.newts-collector-*'))
+    assert not list(folder.glob('.arlotope-collector-*'))
 
 
 def test_collector_snapshot_is_removed_after_timeout(pn, hub, monkeypatch):
@@ -260,7 +260,7 @@ def test_collector_snapshot_is_removed_after_timeout(pn, hub, monkeypatch):
         raise pn.subprocess.TimeoutExpired(command, options['timeout'])
     monkeypatch.setattr(pn.subprocess, 'run', run)
     assert 'did not finish' in pn.collect(hub.root, 'timeout')['error']
-    assert not list(folder.glob('.newts-collector-*'))
+    assert not list(folder.glob('.arlotope-collector-*'))
 
 
 def test_shipped_collector_needs_no_write_access_to_its_installation(pn, hub, monkeypatch):
@@ -270,7 +270,7 @@ def test_shipped_collector_needs_no_write_access_to_its_installation(pn, hub, mo
         pytest.fail('A trusted shipped collector must not write to its installation.')
     monkeypatch.setattr(pn.tempfile, 'NamedTemporaryFile', no_copy)
     assert pn._run_collector(hub.root, panel)['data']['gpu_hours'] == 12.5
-    assert not list(folder.glob('.newts-collector-*'))
+    assert not list(folder.glob('.arlotope-collector-*'))
 
 
 def test_a_broken_collector_is_reported_not_raised(pn, hub):

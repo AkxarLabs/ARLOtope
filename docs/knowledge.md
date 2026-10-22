@@ -60,8 +60,8 @@ The assistant sees supplied context and can use normal file/transcript tools. Fi
 
 | Location | Purpose |
 |---|---|
-| `.newts/project.json` | Project identity and configured knowledge directory |
-| `.newts/knowledge/` | Default project notes, answers and retained sources |
+| `.arlotope/project.json` | Project identity and configured knowledge directory |
+| `.arlotope/knowledge/` | Default project notes, answers and retained sources |
 | `studies/<slug>/knowledge/` | Records created before a project is attached |
 | `lab/records/` | Lab-wide records |
 
@@ -77,13 +77,13 @@ Attaching an existing repository leaves its `.gitignore` unchanged. The review a
 
 | Path | Git and backup guidance |
 |---|---|
-| `.newts/project.json` | Keep with the project if its stable identity should travel. It includes its owning Lab ID and knowledge location, not credentials. A copy still belongs to that Lab; copying it does not transfer ownership. |
-| `.newts/knowledge/` | Review notes, answers and source attachments before committing. Keep selected records in Git if they should travel; leave private or large files local. A custom `knowledge_dir` uses that configured path instead. |
-| `.bus/` | Local attachment, directives, task records and transcripts. Keep out of Git; back it up separately if you need that history. This includes `.bus/newts-owner.json`, the local ownership marker. |
+| `.arlotope/project.json` | Keep with the project if its stable identity should travel. It includes its owning Lab ID and knowledge location, not credentials. A copy still belongs to that Lab; copying it does not transfer ownership. |
+| `.arlotope/knowledge/` | Review notes, answers and source attachments before committing. Keep selected records in Git if they should travel; leave private or large files local. A custom `knowledge_dir` uses that configured path instead. |
+| `.bus/` | Local directives, task records and transcripts. Keep out of Git; back it up separately if you need that history. Project identity and ownership live in `.arlotope/project.json`. |
 
-In a Git checkout, add `/.bus/` to `.git/info/exclude` for a local ignore, or to `.gitignore` for a shared rule. Worktrees use their Git directory's `info/exclude`. Do not blanket-ignore `.newts/` if you want its identity or knowledge committed. Ignore rules do not untrack already committed files.
+In a Git checkout, add `/.bus/` to `.git/info/exclude` for a local ignore, or to `.gitignore` for a shared rule. Worktrees use their Git directory's `info/exclude`. Do not blanket-ignore `.arlotope/` if you want its identity or knowledge committed. Ignore rules do not untrack already committed files.
 
-When moving a Lab, preserve its `lab/identity.json` along with its studies and project records. The machine-local `~/.newts/projects.json` is a discovery index, not the durable project identity. Discovery can find `.newts/project.json` again when scanning a chosen folder. New clones do not carry local task history; a different Lab cannot claim them merely because `.bus/` is absent.
+When moving a Lab, preserve its `lab/identity.json` along with its studies and project records. The machine-local `~/.arlotope/projects.json` is a discovery index, not the durable project identity. Discovery can find `.arlotope/project.json` again when scanning a chosen folder. New clones do not carry local task history; a different Lab cannot claim them merely because `.bus/` is absent.
 
 ## Record and source reference
 

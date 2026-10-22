@@ -19,9 +19,9 @@ import subprocess
 import time
 from pathlib import Path
 
-HUB = Path(os.environ.get("NEWTS_HUB") or ".").resolve()
-PROJECTS = Path(os.environ.get("NEWTS_PROJECTS") or HUB.parent)
-CFG = json.loads(os.environ.get("NEWTS_CONFIG") or "{}")
+HUB = Path(os.environ.get("ARLOTOPE_HUB") or ".").resolve()
+PROJECTS = Path(os.environ.get("ARLOTOPE_PROJECTS") or HUB.parent)
+CFG = json.loads(os.environ.get("ARLOTOPE_CONFIG") or "{}")
 NOW = time.time()
 
 

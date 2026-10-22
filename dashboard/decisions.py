@@ -1,4 +1,4 @@
-"""The PI's decisions in the dashboard — all through the kernel (tools/kernel/), the same code `newts` uses:
+"""The PI's decisions in the dashboard — all through the kernel (tools/kernel/), the same code `arlotope` uses:
 
     checkpoint_view(q)   GET  /api/checkpoint?study=&id=      the sheet: where, evidence, checks, history
     decide(body)         POST /api/checkpoint/decide          approved | changes-requested | revoked; approving the

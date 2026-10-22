@@ -41,9 +41,9 @@ for line in sys.stdin:
                     '<p>Deterministic test fixture; no research measurements.</p>'
                     '<button onclick="document.querySelector(\'output\').textContent=\'Details opened\'">Show details</button>'
                     '<output>Overview</output>', encoding='utf-8')
-                result = subprocess.run([sys.executable, os.environ['NEWTS_WORKER_RUNTIME'], 'artifact',
+                result = subprocess.run([sys.executable, os.environ['ARLOTOPE_WORKER_RUNTIME'], 'artifact',
                     'publish', '--title', 'Visual summary', '--file', str(page),
-                    '--about', os.environ['NEWTS_RUN_ID']], capture_output=True, text=True, timeout=25)
+                    '--about', os.environ['ARLOTOPE_RUN_ID']], capture_output=True, text=True, timeout=25)
                 if result.returncode:
                     send({'method': 'session/update', 'params': {'sessionId': sid, 'update': {
                         'sessionUpdate': 'agent_message_chunk', 'content': {'type': 'text', 'text': result.stdout+result.stderr}}}})
@@ -51,8 +51,8 @@ for line in sys.stdin:
                     continue
             if 'REPORT_DONE' in text:
                 import subprocess
-                result = subprocess.run([sys.executable, os.environ['NEWTS_WORKER_RUNTIME'], 'control',
-                    'move', os.environ['NEWTS_RUN_SUBJECT'], 'done'], capture_output=True, text=True, timeout=25)
+                result = subprocess.run([sys.executable, os.environ['ARLOTOPE_WORKER_RUNTIME'], 'control',
+                    'move', os.environ['ARLOTOPE_RUN_SUBJECT'], 'done'], capture_output=True, text=True, timeout=25)
                 if result.returncode:
                     send({'method': 'session/update', 'params': {'sessionId': sid, 'update': {
                         'sessionUpdate': 'agent_message_chunk', 'content': {'type': 'text', 'text': result.stdout+result.stderr}}}})

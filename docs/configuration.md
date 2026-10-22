@@ -22,8 +22,8 @@ View the effective merged configuration — with the layer that set each key —
 
 ```bash
 uv run --with pyyaml python tools/show_config.py                          # lab layer
-uv run --with pyyaml python tools/show_config.py ../newts-lab-projects/my-proj
-uv run --with pyyaml python tools/show_config.py ../newts-lab-projects/my-proj exp-004.yaml
+uv run --with pyyaml python tools/show_config.py ../arlotope-projects/my-proj
+uv run --with pyyaml python tools/show_config.py ../arlotope-projects/my-proj exp-004.yaml
 ```
 
 …or just run `/configure` and let the agent present it. Edits go through `/configure [slug] set key=value` (or by hand — they're YAML files).
@@ -64,7 +64,7 @@ See [Choose agents](agent-workflows.md#choose-agents) for precedence, saved laun
 
 | Key | Default | Owner | Effect |
 |---|---|---|---|
-| `lab.projects_root` | `../newts-lab-projects` | PI | where `/spawn-project` creates project repos (relative to hub) |
+| `lab.projects_root` | `../arlotope-projects` | PI | where `/spawn-project` creates project repos (relative to hub) |
 | `lab.keep_awake` | `auto` | PI | hold the computer awake while agents work or a campaign runs; `off` never (Settings → Research defaults) |
 | `lab.stale_days` | 14 | PI | studies that have not moved for longer than this get flagged by `check_lab.py` |
 | `critique.ensemble_external` | 3 | PI | reviewer lenses for external-paper triage |

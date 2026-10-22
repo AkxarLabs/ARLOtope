@@ -468,7 +468,7 @@ def test_existing_session_continues_at_depth_cap_but_new_agent_cannot_launch(hub
     m = executor.enqueue(lab, RunSpec('lab-status'))
     path = executor.find_run(lab, m['run_id'])[2]
     manifest.transition(lab, path, m, 'completed', by='fixture', session_id='existing-session')
-    monkeypatch.setenv('AUTOSCIENTIST_AGENT_DEPTH', '1')
+    monkeypatch.setenv('ARLOTOPE_AGENT_DEPTH', '1')
     if operation == 'reply':
         continued = executor.reply(lab, m['run_id'], 'Inspect the requested evidence', by='run:assistant')
     else:
@@ -514,8 +514,8 @@ def test_cli_inspection_exposes_evidence_paths_and_message_source(hub, monkeypat
     shown = json.loads(capsys.readouterr().out)
     assert Path(shown['files']['record']) == path
     assert Path(shown['files']['transcript']) == path.parent / m['stream']
-    monkeypatch.setenv('AUTOSCIENTIST_AGENT_DEPTH', '1')
-    monkeypatch.setenv('NEWTS_RUN_ID', 'assistant-source')
+    monkeypatch.setenv('ARLOTOPE_AGENT_DEPTH', '1')
+    monkeypatch.setenv('ARLOTOPE_RUN_ID', 'assistant-source')
     assert cli.main(['--hub', str(hub.root), 'reply', m['run_id'], '--text', 'Requested follow-up']) == 0
     events = (hub.lab / '.bus/runs.jsonl').read_text(encoding='utf-8').splitlines()
     assert json.loads(events[-1])['by'] == 'run:assistant-source'
@@ -524,7 +524,7 @@ def test_cli_inspection_exposes_evidence_paths_and_message_source(hub, monkeypat
 def test_depth_guard_blocks_enqueue_and_tick(hub, monkeypatch):
     lab = setup(hub)
     rid = _queue(lab, 1)[0]
-    monkeypatch.setenv("AUTOSCIENTIST_AGENT_DEPTH", "1")
+    monkeypatch.setenv("ARLOTOPE_AGENT_DEPTH", "1")
     with pytest.raises(SpecError, match="depth"):
         _queue(lab, 1)
     assert executor.tick(lab, spawn=Spawns())["started"] == []

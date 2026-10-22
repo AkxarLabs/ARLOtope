@@ -53,7 +53,7 @@ jobs:
           enable-cache: true
       - name: Hub trust-tools regression suite (hermetic)
         env:
-          NEWTS_HOME: ${{ runner.temp }}/newts-test-home
+          ARLOTOPE_HOME: ${{ runner.temp }}/arlotope-test-home
         run: uv run --with pyyaml --with pytest python -m pytest tests/ -vv -s -o faulthandler_timeout=90
 
   template-smoke:

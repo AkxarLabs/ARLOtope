@@ -180,7 +180,7 @@ def test_routes_handle_bad_escapes_and_preserve_valid_identifiers():
     source = _js()['core']
     parser = source[source.index('NL.parseRoute ='):source.index('NL.go =')]
     cases = ['#/study/%', '#/%E0%A4%A', '#/study/Mixed%20Case?checkpoint=approve-proposal',
-             '#/agents', '#/not-a-page', '#/', '#/constructor', '#/__proto__']
+             '#/runs', '#/agents', '#/not-a-page', '#/', '#/constructor', '#/__proto__']
     script = f"""const NL={{}},location={{hash:''}}; {parser}
       console.log(JSON.stringify({json.dumps(cases)}.map(hash=>{{location.hash=hash;return NL.parseRoute()}})));"""
     r = subprocess.run([NODE, '-e', script], capture_output=True, text=True, timeout=60)
@@ -188,7 +188,7 @@ def test_routes_handle_bad_escapes_and_preserve_valid_identifiers():
     values = json.loads(r.stdout)
     assert all(v['page'] == 'not-found' and v['error'] for v in values[:2])
     assert values[2] == {'page': 'study', 'args': ['Mixed Case'], 'query': {'checkpoint': 'approve-proposal'}}
-    assert [v['page'] for v in values[3:]] == ['runs', 'not-a-page', 'home', 'constructor', '__proto__']
+    assert [v['page'] for v in values[3:]] == ['runs', 'agents', 'not-a-page', 'home', 'constructor', '__proto__']
 
 
 @pytest.mark.skipif(not NODE, reason='node is needed')
@@ -200,7 +200,7 @@ def test_demo_and_static_require_named_query_flags():
              ('?demo', False, 'http:'), ('?demo', True, 'http:'), ('?demo', False, 'file:')]
     script = f"""const cases={json.dumps(cases)};
       console.log(JSON.stringify(cases.map(([search,allowed,protocol])=>{{
-        const NL={{}},location={{search,protocol}},window={{__VIV_DEMO__:allowed}};
+        const NL={{}},location={{search,protocol}},window={{__ARLOTOPE_DEMO__:allowed}};
         {flags}; return [NL.STATIC,NL.DEMO];
       }})));"""
     r = subprocess.run([NODE, '-e', script], capture_output=True, text=True, timeout=60)

@@ -101,7 +101,7 @@ def test_changed_workflow_requires_review_and_cancel_preserves_history(hub):
 def test_an_agent_cannot_select_reuse_or_cancel_the_researchers_plan(hub, monkeypatch):
     k, entry, w = setup(hub)
     value = plan(entry, hub, w, collect='reuse')
-    monkeypatch.setenv('NEWTS_RUN_ID', 'working-agent')
+    monkeypatch.setenv('ARLOTOPE_RUN_ID', 'working-agent')
     with pytest.raises(k.studies.StudyError): k.studies.new(hub.root, 'sample', entry=value, by='pi')
     with pytest.raises(k.studies.StudyError): entry.cancel(hub.root, 'sample')
 
@@ -204,11 +204,11 @@ def test_join_handoff_keeps_real_context_and_imported_references(hub, monkeypatc
         'run_id': 'inspection-run', 'target': 'hub', 'subject': 'sample', 'schema': 2,
         'level': 'hub', 'workflow_node': 'inspect', 'cwd': str(root), 'backend': 'claude',
         'status': 'completed', 'last_message': 'Inspected the evidence.'})
-    monkeypatch.setenv('NEWTS_RUN_SUBJECT', 'sample')
-    monkeypatch.setenv('NEWTS_RUN_NODE', 'inspect')
-    monkeypatch.setenv('NEWTS_RUN_ID', 'inspection-run')
+    monkeypatch.setenv('ARLOTOPE_RUN_SUBJECT', 'sample')
+    monkeypatch.setenv('ARLOTOPE_RUN_NODE', 'inspect')
+    monkeypatch.setenv('ARLOTOPE_RUN_ID', 'inspection-run')
     k.studies.move(hub.root, 'sample', 'done')
-    for key in ('NEWTS_RUN_SUBJECT', 'NEWTS_RUN_NODE', 'NEWTS_RUN_ID'):
+    for key in ('ARLOTOPE_RUN_SUBJECT', 'ARLOTOPE_RUN_NODE', 'ARLOTOPE_RUN_ID'):
         monkeypatch.delenv(key)
     specs = []
     lab_profile.start_graph(lab, 'sample', lambda _, s: specs.append(s) or {'run_id': 'joined'}, executor.RunSpec)

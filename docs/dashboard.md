@@ -1,6 +1,6 @@
 # The dashboard
 
-Run `uv run --with pyyaml python newts.py` or use the platform launcher. The local browser interface normally opens on port 8787; it can choose another free port.
+Run `uv run --with pyyaml python arlotope.py` or use the platform launcher. The local browser interface normally opens on port 8787; it can choose another free port.
 
 ## Find the right place
 

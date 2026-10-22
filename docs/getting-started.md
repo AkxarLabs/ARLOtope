@@ -7,7 +7,7 @@ Create a study, give an agent one useful task, and inspect its answer. You can a
 From the repository folder, with Git and uv installed, run:
 
 ```bash
-uv run --with pyyaml python newts.py
+uv run --with pyyaml python arlotope.py
 ```
 
 The platform launcher opens the same application. The browser connects to a local server, normally on `http://127.0.0.1:8787`. Agent requests use the accounts configured in their own tools.
@@ -67,7 +67,7 @@ The workflow map stays visible on the review screen and is available under **Wor
 
 Choose **Create study**, or **Clone & create study** for GitHub. Attaching a folder adds Lab registration files; existing code and environment stay in place. Cloning downloads source without installing dependencies or running repository code. Creating a study does not start a research agent or approve a checkpoint.
 
-For an attached or cloned project, expand **Files added to this project** on the review or success screen. It explains the portable `.newts/` records and local `.bus/` records. The Lab leaves your ignore files unchanged; see [what to keep in Git](knowledge.md#what-to-keep-in-git).
+For an attached or cloned project, expand **Files added to this project** on the review or success screen. It explains the portable `.arlotope/` records and local `.bus/` records. The Lab leaves your ignore files unchanged; see [what to keep in Git](knowledge.md#what-to-keep-in-git).
 
 If attachment reports another Lab, it names the selected folder and recorded Lab ID or study/owner. Open the owning Lab or choose a different folder. A project-ID mismatch names both conflicting files and IDs; restore matching records from a known backup. Do not remove identity files to bypass the check. Failed identity validation creates no study and leaves existing registration records unchanged.
 

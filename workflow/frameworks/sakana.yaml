@@ -3,7 +3,7 @@ command: [agsci]
 platforms: [linux, darwin]
 setup: https://github.com/SakanaAI/AI-Scientist-v3/blob/main/docs/install.md
 # Source-reviewed against df8313889a004f8a44a472e19a833cd547bb828a. No upstream code is vendored.
-# One internal worker fits one Newts task slot. Parallel campaign control needs a separate adapter test.
+# One internal worker fits one ARLOtope task slot. Parallel campaign control needs a separate adapter test.
 inputs: [task]
 reserved_args: [task.dir, paths.run_dir, execution.phases, execution.dry_run, investigation.execution.workers]
 activity:

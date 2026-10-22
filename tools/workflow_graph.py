@@ -1,7 +1,7 @@
 """Small, product-neutral task graph helpers. Rooms and context never change dependencies."""
 from __future__ import annotations
 
-MODES = ('fresh', 'continue', 'fork', 'native-fork')
+MODES = ('fresh', 'continue', 'native-fork')
 
 
 def targets(value):

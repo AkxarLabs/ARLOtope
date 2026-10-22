@@ -14,16 +14,16 @@ For everyday use, see [The dashboard](dashboard.md).
 | `studies/<study>/` | Study brief, process overrides, materials and research documents |
 | `lab/.bus/` and project `.bus/` | Signals, run manifests, transcripts, interaction inboxes and scheduler state |
 | `lab/records/` | Lab-wide shared records |
-| `<project>/.newts/knowledge/` | Project-local documents, sources, notes, answers, outputs and logs |
-| `<project>/.newts/project.json` | Stable project identity and its relative knowledge directory |
+| `<project>/.arlotope/knowledge/` | Project-local documents, sources, notes, answers, outputs and logs |
+| `<project>/.arlotope/project.json` | Stable project identity and its relative knowledge directory |
 | `lab/identity.json` | Lab identity and execution owner used when attaching projects |
 
 The journal is append-only; other state files have their own update rules. The bus is a signal and
 transport layer, not an alternative source of approvals. A `run_report` is an agent's summary;
 accepted workflow outcomes come from the kernel journal.
 
-`tools/project_identity.py` maintains a small per-user discovery index under `~/.newts/` (or
-`NEWTS_HOME`). It supports finding attached projects without an account service or a filesystem-wide
+`tools/project_identity.py` maintains a small per-user discovery index under `~/.arlotope/` (or
+`ARLOTOPE_HOME`). It supports finding attached projects without an account service or a filesystem-wide
 scan. Project ownership prevents an accidental second Lab attachment; it is not a multi-user
 authorization system.
 
@@ -155,7 +155,7 @@ separate model runtime. Visual summaries are separate scoped explanation runs, s
 
 ## Demo mode and dependencies
 
-`newts.py --demo`, opened with `/?demo`, provides synthetic studies, agents and outputs for interface
+`arlotope.py --demo`, opened with `/?demo`, provides synthetic studies, agents and outputs for interface
 inspection. Demo browser actions are intercepted rather than launching real work.
 
 Vendored browser libraries and their licences live in `static/vendor/`: Three.js, Preact, htm,

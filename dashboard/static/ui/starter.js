@@ -10,7 +10,7 @@
     { id: 'github', title: 'A GitHub repository', sub: 'Clone a repository.' }
   ];
   const ProjectFiles = () => html`<details class="more"><summary>Files added to this project</summary>
-    <p class="muted small"><code>.newts/project.json</code> keeps its identity. Notes and saved answers use <code>.newts/knowledge/</code> by default. Commit these only if they should travel with the project.</p>
+    <p class="muted small"><code>.arlotope/project.json</code> keeps its identity. Notes and saved answers use <code>.arlotope/knowledge/</code> by default. Commit these only if they should travel with the project.</p>
     <p class="muted small"><code>.bus/</code> holds local attachment and task records. Keep it out of Git by adding <code>/.bus/</code> to <code>.git/info/exclude</code> or your <code>.gitignore</code>. Your ignore files stay unchanged.</p></details>`;
   const StartingPlan = ({ flow, plan, onChange, selected, onClose }) => {
     const tasks = plan?.tasks || {};

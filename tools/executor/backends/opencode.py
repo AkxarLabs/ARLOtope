@@ -4,7 +4,7 @@ Live: a server on a random local port with a per-run password; the session is dr
 (prompt_async, question/permission replies, abort) and watched on its event stream (SSE). The
 server's events are translated to `run --format json` lines (root session only: a subagent shows as
 its finished `task` tool; live child activity comes from the lab's tracer plugin,
-.opencode/plugins/newts-trace.js, which runs under both). The signature guard is a per-run plugin dir.
+.opencode/plugins/arlotope-trace.js, which runs under both). The signature guard is a per-run plugin dir.
 """
 
 from __future__ import annotations
@@ -148,7 +148,7 @@ def guard_dir(run_dir, guard, python: str, own: str | None = None) -> Path | Non
     (d / "plugins").mkdir(parents=True, exist_ok=True)
     src = GUARD_PLUGIN.read_text(encoding="utf-8")
     src = src.replace("__GUARD__", json.dumps(str(guard))).replace("__PYTHON__", json.dumps(str(python)))
-    (d / "plugins" / "newts-guard.js").write_text(src, encoding="utf-8")
+    (d / "plugins" / "arlotope-guard.js").write_text(src, encoding="utf-8")
     return d
 
 
@@ -157,7 +157,7 @@ def traced(workdir) -> bool:
     lab's tracer plugin there feeds the same worker logs as the claude/codex hooks."""
     w = Path(workdir).resolve()
     for d in [w, *w.parents]:
-        if (d / ".opencode" / "plugins" / "newts-trace.js").is_file():
+        if (d / ".opencode" / "plugins" / "arlotope-trace.js").is_file():
             return True
         if (d / ".git").exists():
             break
@@ -209,7 +209,7 @@ class OpencodeSession(live.Session):
                 if not self.session_id or self.session_id == self.ctx['fork_from']:
                     raise ValueError('The agent did not create an independent fork.')
             if not self.session_id:
-                self.session_id = (self._http("POST", "/session", {"title": self.ctx.get("title") or "newts run"}) or {})["id"]
+                self.session_id = (self._http("POST", "/session", {"title": self.ctx.get("title") or "arlotope run"}) or {})["id"]
             yield json.dumps({"type": "_session", "sessionID": self.session_id})
             self.send(self.prompt)
             for raw in events:

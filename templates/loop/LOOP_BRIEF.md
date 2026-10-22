@@ -60,9 +60,9 @@ FROZEN once the PI approves the loop — changes need a fresh approval.*
 
 If the study's workflow has a checkpoint for starting an unattended research loop (the brief lists
 it, with its id), the PI approves it in the dashboard (the study's sheet → Run overnight) or with
-`newts approve <slug> <checkpoint-id>`; the approval is a record in the lab's journal, and the PI's
+`arlotope approve <slug> <checkpoint-id>`; the approval is a record in the lab's journal, and the PI's
 note on it carries the mode. A loop never approves itself.
-`uv run --with pyyaml python <hub>/newts.py approved <slug> <checkpoint-id>` says whether it is approved.
+`uv run --with pyyaml python <hub>/arlotope.py approved <slug> <checkpoint-id>` says whether it is approved.
 
 ## Loop Log (append-only)
 

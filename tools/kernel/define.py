@@ -1,5 +1,5 @@
 """The lab's definition as plain data, and written back: steps.yaml, rooms.yaml and one file per workflow, each a
-plain YAML dump under a fixed header (so Compose, a designer's draft, tools/new.py and `newts migrate` all write the
+plain YAML dump under a fixed header (so Compose, a designer's draft, tools/new.py all write the
 same shape, and an edit is a whole-file rewrite — no line surgery).
 
     read(root) -> {steps, rooms, workflows}      change it, then write(root, d)
@@ -59,9 +59,9 @@ STEPS_HEAD = """\
 # variant of one) and the others a study there can run (`also:`). `room:` is where it stands in the
 # dashboard's world (workflow/rooms.yaml).
 #
-# A procedure never names a step: it ends by reporting an outcome (`newts move <study> <outcome>`) and the
+# A procedure never names a step: it ends by reporting an outcome (`arlotope move <study> <outcome>`) and the
 # study's workflow says where that leads. `parked` and `killed` are the two shelves every lab has — `park`
-# and `kill` lead there from anywhere. The PI shapes this file (agents never edit it); `newts check`
+# and `kill` lead there from anywhere. The PI shapes this file (agents never edit it); `arlotope check`
 # validates it.
 
 """
@@ -90,9 +90,8 @@ WORKFLOW_HEAD = """\
 
 ROOMS_HEAD = """\
 # Research stage groups, also used as columns on the Studies board. A step belongs to the group
-# its `room:` names in workflow/steps.yaml. The legacy key keeps existing workflows compatible.
+# its `room:` names in workflow/steps.yaml.
 # The Lab draws one shared room per definition (one set per machine in By-machine view).
-# Existing placement metadata remains readable.
 
 """
 

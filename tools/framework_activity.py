@@ -18,7 +18,7 @@ def read(definition, project, study, phase):
     if not all(isinstance(v, str) and ID.fullmatch(v) for v in (definition['id'], study, phase)):
         raise ValueError('Invalid framework activity scope.')
     project = Path(project).resolve()
-    root = project / '.newts/framework-runs' / study / definition['id'] / 'run'
+    root = project / '.arlotope/framework-runs' / study / definition['id'] / 'run'
     if not root.resolve().is_relative_to(project):
         raise ValueError('Activity must remain inside its project.')
     recipe = definition.get('activity') or {}

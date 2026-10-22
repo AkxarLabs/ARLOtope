@@ -19,7 +19,7 @@ def probe(command, cwd, timeout=20):
     threading.Thread(target=read, daemon=True).start()
     try:
         process.stdin.write(json.dumps({'jsonrpc': '2.0', 'id': 1, 'method': 'initialize', 'params': {
-            'protocolVersion': 1, 'clientInfo': {'name': 'newts-lab', 'version': '1'}, 'clientCapabilities': {}}})+'\n')
+            'protocolVersion': 1, 'clientInfo': {'name': 'arlotope', 'version': '1'}, 'clientCapabilities': {}}})+'\n')
         process.stdin.flush()
         until = time.monotonic()+timeout
         while time.monotonic() < until:

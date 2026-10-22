@@ -78,7 +78,7 @@ CV + sparing external confirmation, never on the external rank alone.
 
 Sending an output to an external scorer **sends data outside the lab**, so it waits for the
 study's "Approve external scoring" checkpoint (in the default `target` workflow). The approval
-is a record the PI makes in the dashboard or with `newts approve`; their note on it says how
+is a record the PI makes in the dashboard or with `arlotope approve`; their note on it says how
 many reads they allow. `scripts/report_score.py` refuses an external read until it is approved.
 **Selecting the final output** for the hidden/final split is the "Choose the final output"
 checkpoint — the PI's, never automated.

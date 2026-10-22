@@ -20,15 +20,15 @@ import { existsSync } from "node:fs"
 import path from "node:path"
 import { fileURLToPath } from "node:url"
 
-export const NewtsTrace = async ({ directory }) => {
+export const ARLOtopeTrace = async ({ directory }) => {
   const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..", "..")
   const script = [path.join(root, "tools", "trace_hook.py"), path.join(root, "scripts", "trace_hook.py")]
     .find((p) => existsSync(p))
   // one tracer per process even when a hub and a nested project both ship this file
-  if (!script || globalThis.__newtsTraceLoaded) return {}
-  globalThis.__newtsTraceLoaded = true
+  if (!script || globalThis.__arlotopeTraceLoaded) return {}
+  globalThis.__arlotopeTraceLoaded = true
   // the executor passes its own interpreter; otherwise the usual name per platform
-  const python = process.env.NEWTS_PYTHON || (process.platform === "win32" ? "python" : "python3")
+  const python = process.env.ARLOTOPE_PYTHON || (process.platform === "win32" ? "python" : "python3")
   const sessions = new Map()   // id -> { root, parent, agent }
   const lastText = new Map()   // child session id -> its latest finished text part (its result)
   const roots = new Set()

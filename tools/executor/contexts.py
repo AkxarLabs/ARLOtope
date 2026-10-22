@@ -15,13 +15,13 @@ def reservation(lab):
 
 
 def prepare(lab, config, backend, workdir, prompt, outputs=(), machine=None):
-    """Return prompt and lineage: fresh, same session, native fork, or legacy portable handoff."""
+    """Return prompt and lineage: fresh with optional handoff, continue, or native fork."""
     config = config or {}
     if not isinstance(config, dict):
         raise SpecError('Context must be a mapping.')
     mode = config.get('mode', 'fresh')
-    if mode not in ('fresh', 'continue', 'fork', 'native-fork'):
-        raise SpecError('Context must be fresh, continue, handoff or native-fork.')
+    if mode not in ('fresh', 'continue', 'native-fork'):
+        raise SpecError('Context must be fresh, continue or native-fork. Enable handoff on a fresh context to share a summary.')
     lineage = {'mode': mode, 'source_run': config.get('run_id')}
     if mode == 'fresh' and not config.get('handoff'):
         return prompt, {'context': lineage}
@@ -31,13 +31,13 @@ def prepare(lab, config, backend, workdir, prompt, outputs=(), machine=None):
         raise SpecError('The context source run is unavailable.') from None
     if source.get('status') not in TERMINAL:
         raise SpecError('Wait for the source task to finish before continuing or copying its context.')
-    if mode == 'fork' or mode == 'fresh' and config.get('handoff'):
+    if mode == 'fresh' and config.get('handoff'):
         lineage['method'] = 'handoff'
         folder = run_dir(path.parent, source['run_id'])
         files = [str(p) for p in (folder / 'prompt.md', folder / 'preamble.md', path.parent / str(source.get('stream') or '')) if p.is_file()]
         if source.get('remote'):
             from remote_projects import owner
-            base = source['remote']['path'].rstrip('/') + '/.bus/newts/' + owner(lab.hub) + '/agents/'
+            base = source['remote']['path'].rstrip('/') + '/.bus/arlotope/' + owner(lab.hub) + '/agents/'
             files = [base+source['run_id']+'.d/prompt.md', base+source['run_id']+'.d/preamble.md', base+source['stream']]
         summaries = [handoff(source, [*files, *outputs])]
         for other_id in config.get('run_ids', []):

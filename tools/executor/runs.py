@@ -32,7 +32,7 @@ MAX_REPLY_CHARS = 4000
 
 
 def _depth_now() -> int:
-    return pos_int(os.environ.get("AUTOSCIENTIST_AGENT_DEPTH", "0") or 0, 0, 0)
+    return pos_int(os.environ.get("ARLOTOPE_AGENT_DEPTH", "0") or 0, 0, 0)
 
 
 def check_enabled(lab: Lab, *, new_run: bool = True) -> dict:

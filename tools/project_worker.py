@@ -24,7 +24,7 @@ def user_id():
 
 
 def session_file(port):
-    return Path(os.environ.get('NEWTS_HOME') or Path.home() / '.newts') / 'workers' / f'session-{port}.json'
+    return Path(os.environ.get('ARLOTOPE_HOME') or Path.home() / '.arlotope') / 'workers' / f'session-{port}.json'
 
 
 def private_json(path, value):
@@ -61,7 +61,7 @@ class Worker:
             raise ValueError('Choose an existing absolute project folder.')
         root = root.resolve()
         owner, slug = safe_id(data['owner']), safe_id(data['study'])
-        marker = root / '.bus' / 'newts-owner.json'
+        marker = root / '.arlotope' / 'project.json'
         with self.lock:
             if not marker.exists() and claim:
                 if (root / 'lab/config.yaml').is_file():
@@ -83,7 +83,7 @@ class Worker:
                                      f'(study: {current.get("study")}, execution owner: {current.get("owner")}). Open its Lab instead.')
             else:
                 raise ValueError('Attach the project to this Lab first.')
-        return root, root / '.bus' / 'newts' / owner
+        return root, root / '.bus' / 'arlotope' / owner
 
     def info(self, data):
         from executor import backends
@@ -95,7 +95,7 @@ class Worker:
             clis[name] = {'found': bool(argv), 'command': argv, 'logged_in': auth.get('logged_in') if auth else None}
         # Registrations only: no recursive filesystem scan.
         labs = []
-        registrations = Path.home() / '.newts' / 'labs.json'
+        registrations = Path.home() / '.arlotope' / 'labs.json'
         if registrations.is_file():
             try:
                 labs = json.loads(registrations.read_text(encoding='utf-8')).get('labs', [])
@@ -139,7 +139,7 @@ class Worker:
                     value = github.repository(name)
                 else:
                     import urllib.request
-                    with urllib.request.urlopen(urllib.request.Request('https://api.github.com/repos/'+name, headers={'User-Agent':'Newts-Lab'}), timeout=12) as response:
+                    with urllib.request.urlopen(urllib.request.Request('https://api.github.com/repos/'+name, headers={'User-Agent':'ARLOtope-Lab'}), timeout=12) as response:
                         value = json.loads(response.read(1_000_001))
                 return {'name':value['full_name'],'url':'https://github.com/'+value['full_name'],
                         'description':str(value.get('description') or '')[:500],'language':value.get('language'),
@@ -464,7 +464,7 @@ def run(project, owner, rid):
     from executor.procs import RunLock
     from executor.supervise import _attempt
     root = Path(project)
-    bus = root / '.bus' / 'newts' / safe_id(owner)
+    bus = root / '.bus' / 'arlotope' / safe_id(owner)
     adir, rd = bus / 'agents', bus / 'agents' / (safe_id(rid) + '.d')
     lock = RunLock(rd / 'lock')
     deadline = time.monotonic() + 10
@@ -485,7 +485,7 @@ def run(project, owner, rid):
 
 def serve(port):
     worker, token = Worker(), secrets.token_urlsafe(32)
-    identity = {'app':'newts-worker','protocol':PROTOCOL,'pid':os.getpid(),
+    identity = {'app':'arlotope-worker','protocol':PROTOCOL,'pid':os.getpid(),
                 'build':Path(worker.runtime).stem,'uid':user_id()}
     class Handler(BaseHTTPRequestHandler):
         def log_message(self, *_):
@@ -528,7 +528,7 @@ def serve(port):
                 return self.send({'error': str(error)}, 400)
     server = ThreadingHTTPServer(('127.0.0.1', port), Handler)
     credentials = session_file(server.server_port)
-    private_json(credentials, {**identity, 'port':server.server_port,'cookie':'worker='+token,'newts_worker_session':True})
+    private_json(credentials, {**identity, 'port':server.server_port,'cookie':'worker='+token,'arlotope_worker_session':True})
     try:
         server.serve_forever()
     finally:
@@ -566,14 +566,14 @@ def main():
             c = http.client.HTTPConnection('127.0.0.1', a.port, timeout=2)
             c.request('GET', '/api/ping')
             result = json.loads(c.getresponse().read())
-            if result.get('app') != 'newts-worker' or result.get('protocol') != PROTOCOL:
+            if result.get('app') != 'arlotope-worker' or result.get('protocol') != PROTOCOL:
                 raise ValueError('The worker port belongs to an incompatible service.')
             if result.get('build') != Path(sys.argv[0]).stem:
                 raise ValueError('A different worker build uses this port. Reconnect from the updated Lab.')
             if result.get('uid') != user_id():
                 raise ValueError('The worker port belongs to another account. Choose another connection.')
         except OSError:
-            log = Path.home() / '.newts/worker.log'
+            log = Path.home() / '.arlotope/worker.log'
             log.parent.mkdir(parents=True, exist_ok=True)
             with log.open('ab') as stream:
                 child = subprocess.Popen([sys.executable, str(Path(sys.argv[0]).resolve()), 'serve', '--port', str(a.port)],
@@ -583,11 +583,11 @@ def main():
                     c = http.client.HTTPConnection('127.0.0.1', a.port, timeout=1)
                     c.request('GET', '/api/ping')
                     result = json.loads(c.getresponse().read())
-                    if result.get('app') == 'newts-worker':
+                    if result.get('app') == 'arlotope-worker':
                         break
                 except OSError:
                     if child.poll() is not None:
-                        raise ValueError('The worker did not start; inspect ~/.newts/worker.log.')
+                        raise ValueError('The worker did not start; inspect ~/.arlotope/worker.log.')
                 time.sleep(.1)
             else:
                 raise ValueError('The worker did not start.')
