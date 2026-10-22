@@ -138,17 +138,17 @@ def _locks(root: Path) -> list[str]:
 
 
 # ── reading and writing the draft ────────────────────────────────────────────────────────────────
-def _rel(path) -> str:
+def _rel(path, *, text=True) -> str:
     rel = str(path or "").replace("\\", "/").strip().strip("/")
     parts = rel.split("/")
     if not rel or any(p in ("", ".", "..") for p in parts) or not any(rel.startswith(r + "/") for r in ROOTS):
         raise ComposeError(f"`{path}` is not part of the lab's definition")
-    if Path(rel).suffix.lower() not in TEXT_EXT:
+    if text and Path(rel).suffix.lower() not in TEXT_EXT and Path(rel).name not in ('LICENSE', 'NOTICE'):
         raise ComposeError(f"`{rel}` is not a text file Compose edits")
     return rel
 
 
-def _read(rel: str, root: Path | None = None) -> str:
+def _file(rel: str, root: Path | None = None) -> Path:
     base = root or _draft()
     path = base / rel
     parts = Path(rel).parts
@@ -157,7 +157,11 @@ def _read(rel: str, root: Path | None = None) -> str:
         folder = folders(base).get(parts[2])
         if folder:
             path = folder.joinpath(*parts[3:])
-    return (ctx.read(path) or "").replace("\r\n", "\n")
+    return path
+
+
+def _read(rel: str, root: Path | None = None) -> str:
+    return (ctx.read(_file(rel, root)) or "").replace("\r\n", "\n")
 
 
 def _put(rel: str, text: str | None) -> None:
@@ -1064,12 +1068,15 @@ def run_tasks(body):
 def file_get(q: dict) -> tuple[dict, int]:
     """One definition file: as the draft has it (or the lab, with no draft) and as published."""
     try:
-        rel = _rel(q.get("path"))
+        rel = _rel(q.get("path"), text=False)
     except ComposeError as e:
         return {"error": str(e)}, 400
 
     def norm(s):
         return s.replace("\r\n", "\n") if s is not None else None
+    if Path(rel).suffix.lower() not in TEXT_EXT and Path(rel).name not in ('LICENSE', 'NOTICE'):
+        file = _file(rel, _root())
+        return {'ok': True, 'path': rel, 'resource': True, 'bytes': file.stat().st_size if file.is_file() else 0}, 200
     cur, pub = _read(rel, _root()) or None, _read(rel, ctx.HUB) or None
     if cur is None and pub is None and rel.startswith("checks/"):
         cur = pub = ctx.read(ctx.ROOT / rel)      # a check this code ships that the lab doesn't override

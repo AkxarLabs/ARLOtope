@@ -56,6 +56,8 @@ def test_imported_skill_keeps_its_folder_through_review_publish_and_undo(m, hub,
     assert not (hub.root/'.claude/skills/custom-method').exists()
     definition = m.compose.file_get({'path':'.claude/skills/custom-method/SKILL.md'})[0]
     assert definition['text'] == original.decode().replace('\r\n', '\n')
+    resource, code = m.compose.file_get({'path':'.claude/skills/custom-method/asset.bin'})
+    assert code == 200 and resource['resource'] and resource['bytes'] == 256
     assert 'experiment' in m.compose.view()[0]['procedures']
     result, code = m.compose.op({'op':'publish', 'note':'Import evidence method'})
     assert code == 200, result

@@ -186,7 +186,7 @@
     return html`<div class="cmp-change">
       <button type="button" class="cmp-change-h" onClick=${() => setOpen(!open)}><span class=${'chg chg-' + c.status}>${c.status}</span>
         <span class="grow clip"><${PathLabel} d=${d} path=${c.path} /></span><${NL.Icon} name=${open ? 'caret' : 'chevron'} /></button>
-      ${open ? (f ? html`<${NL.Diff} a=${f.published || ''} b=${f.text || ''} context=${3} />` : html`<${NL.LoadState} ...${read} />`) : null}</div>`;
+      ${open ? (f ? f.resource ? html`<p class="muted small">Resource file · ${f.bytes} bytes. Included with the skill.</p>` : html`<${NL.Diff} a=${f.published || ''} b=${f.text || ''} context=${3} />` : html`<${NL.LoadState} ...${read} />`) : null}</div>`;
   };
   const ReviewSheet = ({ onClose }) => {
     const d = useCompose() || {};
@@ -501,6 +501,7 @@
     const dirty = !!f && !f.error && t !== (f.text || '');
     useDirty(dirty);
     if (!f) return html`<${NL.LoadState} ...${read} />`;
+    if (f.resource) return html`<div class="cmp-file"><p class="mono">${path}</p><p class="muted">Resource file · ${f.bytes} bytes. Included with the skill; edit it in its folder.</p></div>`;
     const state = f.text == null ? 'removed' : f.published == null ? 'new' : f.text !== f.published ? 'edited' : null;
     const save = async () => { const r = await edit({ op: 'write', path, text: t }, SAVED); if (r.ok) { await load(); onSaved && onSaved(); } };
     const revert = async () => { const r = await edit({ op: 'write', path, text: f.published }, 'Back to the published version'); if (r.ok) load(); };
@@ -517,8 +518,9 @@
         <${NL.Btn} small kind="primary" disabled=${!dirty || !read.data} onClick=${save}>Save to draft</${NL.Btn}></div></div>`;
   };
   const FilesTab = ({ files, intro, onSaved }) => {
-    const [sel, setSel] = useState(files[0]);
-    useEffect(() => { if (!files.includes(sel)) setSel(files[0]); }, [files.join('|')]);
+    const first = files.find(f=>f.endsWith('/SKILL.md')) || files[0];
+    const [sel, setSel] = useState(first);
+    useEffect(() => { if (!files.includes(sel)) setSel(first); }, [files.join('|')]);
     if (!files.length) return html`<div class="muted">No files.</div>`;
     return html`<div class="cmp-files">${files.length > 1 ? html`<div class="cmp-file-list">${files.map(f => html`<button type="button" class=${cls('cmp-file-pick', f === sel && 'on')} onClick=${() => f !== sel && leaveOk() && setSel(f)}>${f.split('/').slice(-1)[0]}<small class="mono">${f.split('/').slice(0, -1).join('/')}</small></button>`)}</div>` : null}
       <div class="grow"><${FileEditor} key=${sel} path=${sel} intro=${intro} onSaved=${onSaved} /></div></div>`;
@@ -619,7 +621,7 @@
         ${tab === 'variants' ? html`<${VariantsTab} d=${d} name=${name} p=${p} />` : null}
         ${tab === 'instructions' ? html`<div class="cmp-narrow"><p class="muted">Added to <b>${p.title}</b> every time it runs, anywhere in the lab, on top of its skill. Write what you'd tell a new lab member: preferences, must-dos, datasets or tools to use, things to avoid.</p>
           <${LayerText} path=${`lab/workflow/${name}.add.md`} kind="add" name=${name} placeholder=${'e.g.\n- Always compare against the strongest 2024 baseline.\n- Never use dataset X (license).'} /></div>` : null}
-        ${tab === 'files' ? html`<${FilesTab} files=${p.files} intro="SKILL.md is the procedure: how the work is done. Its first block (between the --- lines) is its definition; the generated part under the title refreshes itself." />` : null}
+        ${tab === 'files' ? html`<${FilesTab} files=${p.files} intro="SKILL.md contains the instructions and metadata. References, scripts and assets stay beside it." />` : null}
       </div></div>`;
   };
 

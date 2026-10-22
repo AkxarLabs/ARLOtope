@@ -14,6 +14,8 @@ In **Workflow → Skills → Import folder**, browse to a folder containing `SKI
 then **Add to draft**. Review and publish before selecting it on a workflow task. **New skill** creates
 plain Markdown instructions; **Make a copy** creates a variant of an existing method.
 
+![Preview a local skill before adding it to the Lab](assets/current/skills-import.png)
+
 The `name` in the YAML header must match its folder. A `description` says when to use it. For example:
 
 ```markdown
