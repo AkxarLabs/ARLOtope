@@ -181,6 +181,32 @@ def test_create_a_lab_on_a_remote_machine(env):
     assert any(l["path"] == dest for l in m.machines._get("box")["labs"])
 
 
+def test_foreground_custom_port_has_status_and_can_be_stopped(hub, tmp_path, monkeypatch):
+    launcher = load('arlotope.py')
+    with socket.socket() as available:
+        available.bind(('127.0.0.1', 0))
+        port = available.getsockname()[1]
+    monkeypatch.setenv('ARLOTOPE_HOME', str(tmp_path/'home'))
+    monkeypatch.setenv('ARLOTOPE_KEEP_PYTHON', '1')
+    with (tmp_path/'launcher.log').open('w') as log:
+        process = subprocess.Popen([sys.executable, str(REPO/'arlotope.py'), '--hub', str(hub.root),
+                                    '--foreground', '--no-browser', '--port', str(port)],
+                                   env=os.environ.copy(), stdout=log, stderr=log)
+        try:
+            deadline = time.monotonic()+30
+            while time.monotonic()<deadline and not launcher.ping(port):
+                assert process.poll() is None
+                time.sleep(.1)
+            hit = launcher.running_for(hub.root)
+            assert hit and hit[0] == port and hit[1]['app'] == 'arlotope'
+            assert launcher.stop(hub.root)['ok']
+            process.wait(timeout=10)
+        finally:
+            if process.poll() is None:
+                process.terminate()
+                process.wait(timeout=10)
+
+
 def test_detached_processes_never_run_on_uvs_throwaway_python():
     """`uv run --with …` runs in builds-v0/.tmpXXXX, deleted when uv exits — a detached server (and the agent
     supervisors it spawns) must re-exec on a stable interpreter first. The venv's python is a symlink out of

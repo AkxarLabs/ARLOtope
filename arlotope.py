@@ -176,8 +176,6 @@ def background(hub: Path, port: int | None, demo: bool) -> dict:
         info = ping(port, 0.3)
         if info:
             st = {"pid": info.get("pid") or child.pid, "port": port, "lab": str(hub), "started": time.strftime("%Y-%m-%dT%H:%M:%S")}
-            state_file(hub).parent.mkdir(parents=True, exist_ok=True)
-            state_file(hub).write_text(json.dumps(st), encoding="utf-8")
             return {"ok": True, "port": port, "pid": st["pid"], "lab": str(hub), "name": info.get("name"), "already": False}
         if child.poll() is not None:
             break
@@ -289,7 +287,14 @@ def main() -> int:
     sys.path.insert(0, str(HERE / "dashboard"))
     import serve   # noqa: E402 — the dashboard server, in this process
     sys.argv = ["serve.py", "--hub", str(hub), "--port", str(port), *(["--demo"] if a.demo else [])]
-    return serve.main()
+    state = state_file(hub)
+    state.parent.mkdir(parents=True, exist_ok=True)
+    state.write_text(json.dumps({'port': port, 'pid': os.getpid(), 'lab': str(hub),
+                                 'started': time.strftime('%Y-%m-%dT%H:%M:%S')}), encoding='utf-8')
+    try:
+        return serve.main()
+    finally:
+        state.unlink(missing_ok=True)
 
 
 if __name__ == "__main__":

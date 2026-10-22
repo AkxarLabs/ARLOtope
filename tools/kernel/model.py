@@ -654,5 +654,3 @@ def view(hub=None) -> dict:
         "workflows": wfs, "rooms": rooms(hub),
         "procedures": {n: {k: p[k] for k in PROC_VIEW if k in p} for n, p in m["procedures"].items()},
     }
-
-
