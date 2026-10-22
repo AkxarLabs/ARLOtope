@@ -1,4 +1,4 @@
-/* Newts' Lab — shared UI pieces: buttons, pills, cards, sheets, dialogs, fields, tabs, markdown. */
+/* ARLOtope — shared UI pieces: buttons, pills, cards, sheets, dialogs, fields, tabs, markdown. */
 (function () {
   'use strict';
   const NL = window.NL;

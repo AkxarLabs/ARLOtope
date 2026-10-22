@@ -1,6 +1,6 @@
 # Research dashboard
 
-A local, no-build interface for Newts' Lab. Start it with `uv run --with pyyaml python newts.py`.
+A local, no-build interface for ARLOtope. Start it with `uv run --with pyyaml python newts.py`.
 The CLI, native procedures and executor also work without this interface.
 
 The shell is `static/ui/app.js`; Lab is the primary page and `home.js` provides the overview. `starter.js` and `starter.py`

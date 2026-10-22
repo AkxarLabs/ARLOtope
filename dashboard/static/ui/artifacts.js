@@ -1,4 +1,4 @@
-/* Newts' Lab — Artifacts: what agents made for you to look at (tools/artifact.py publish) — plans, reports,
+/* ARLOtope — Artifacts: what agents made for you to look at (tools/artifact.py publish) — plans, reports,
    figures, tables, HTML pages — each rendered in place, with the agent's question when it asked one and your
    reply, which goes back to the run that made it. Also "What it wrote" on a run's sheet: every file the run's
    own transcript says it wrote, openable here (Markdown rendered).

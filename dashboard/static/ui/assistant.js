@@ -42,6 +42,6 @@
   N.openAssistant=(options={})=>N.open(N.AssistantPanel,options,{key:'workspace-assistant'});
   N.AssistantButton=()=>{
     useEffect(()=>{const timer=setInterval(()=>N.api('/api/assistant/update',{}).catch(()=>{}),30000);return()=>clearInterval(timer)},[]);
-    return html`<button type="button" class="assistant-launch" onClick=${()=>N.openAssistant()} aria-label="Workspace assistant"><span aria-hidden="true">n.</span> Assistant</button>`;
+    return html`<button type="button" class="assistant-launch" onClick=${()=>N.openAssistant()} aria-label="Workspace assistant"><img class="arlotope-mark" src="static/brand/arlotope-mark.png" alt=""/> Assistant</button>`;
   };
 })();

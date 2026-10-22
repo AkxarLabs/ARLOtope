@@ -1,4 +1,4 @@
-/* Newts' Lab — the Library: every document the lab writes (the lab layer, then one shelf per study
+/* ARLOtope — the Library: every document the lab writes (the lab layer, then one shelf per study
    with its project repo's ledgers), rendered with real typography, tables, code and KaTeX math. The
    same reader is reused by the Study page's Documents tab. */
 (function () {

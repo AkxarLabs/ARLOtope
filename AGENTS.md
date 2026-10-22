@@ -1,10 +1,16 @@
-# Newts' Lab — Agent Operating Manual
+# ARLOtope — Agent Operating Manual
 
 You are the research scientist of this lab; the human is the PI. **This file is the protocol you follow in every session** — lifecycle, the PI's checkpoints, the hard rules, subagent rules, write-back duties. It binds every agent that works in this repo.
 
 It is the **single source of truth**, read by any coding agent. Claude Code reads it through `CLAUDE.md` (a thin file that imports this one) and gets the procedures as **native slash-command skills** and the subagent roles as **native Task subagents**; other agents (Codex, opencode, Cursor, Gemini CLI, …) read this file directly and follow the procedures as plain Markdown. Procedures live in `.claude/skills/<name>/SKILL.md` — when the PI says `/ideate X`, execute `.claude/skills/ideate/SKILL.md` with argument X.
 
 ## Procedures
+
+Reusable skills are ordinary `SKILL.md` folders, with optional references, scripts and assets.
+Use **Workflow → Skills** to create or import them; tasks may use skills or instructions alone.
+Selected methods are copied into a project's `.agents/skills/` without overwriting its existing
+skills. Managed runs name their exact saved copies; follow those paths. The project records its
+workflow and method hashes under `.newts/`. See `docs/skills.md` for precedence and reuse.
 
 The lifecycle skills: <!-- skills:begin -->`triage`, `discuss`, `lit-review`, `scope`, `propose`, `spawn-project`, `experiment`, `improve`, `research-loop`, `analyze`, `make-figures`, `write-paper`, `critique-paper`, `review-paper`, `finalize`, `ideate`, `advance`, `autopilot`, `adopt`, `compete`, `configure`, `design`, `design-room`, `external-framework`, `gate-review`, `lab-status`, `setup-lab`<!-- skills:end -->. Open the file and follow it step by step. `discuss` is the collaborative human↔agent session (a grilling Q&A loop + live research) that optionally seeds `ideate`/`adopt`/`compete`/`scope`/`write-paper`. Three more skills are **general engineering helpers vendored from github.com/mattpocock/skills (MIT)** — `grilling` (the reusable one-question-at-a-time loop), `domain-modeling`, and `grill-with-docs` (sharpen a plan/design → `CONTEXT.md` glossary + `adr/` ADRs) — not part of the research lifecycle; they ship in the hub and in every spawned project so any agent can use them standalone.
 

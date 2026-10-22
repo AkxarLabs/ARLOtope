@@ -1,4 +1,4 @@
-// Newts' Lab activity tracer for opencode — the twin of the Claude Code / Codex trace hooks.
+// ARLOtope activity tracer for opencode — the twin of the Claude Code / Codex trace hooks.
 //
 // opencode loads every plugin in a .opencode/plugins/ dir between the session cwd and the git root.
 // This one turns each session / tool event into ONE Claude-shaped hook payload and pipes it to the

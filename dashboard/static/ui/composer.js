@@ -1,4 +1,4 @@
-/* Newts' Lab — starting work. Procedures are buttons where they belong (a procedure's SKILL.md `newts.ui`
+/* ARLOtope — starting work. Procedures are buttons where they belong (a procedure's SKILL.md `newts.ui`
    says where: `home` → the Start orb, `step` → a study's action orb, `study` → every study); this file holds
    what they share: the intents (each with its glyph and one line of what it does), the "Start something"
    sheet, a free-form instruction, the options every launch shares, and the campaign form (it records your
@@ -79,13 +79,13 @@
     const it = INTENTS.find(i => i.id === intent);
     const study = target && target !== 'hub' ? NL.item(s, target) : null;
     // for "work on a study": the procedures that fit its state
-    const procs = study ? (NL.PROCS_FOR_STATE[study.state] || []).filter(p => (s.skills || {})[p]) : [];
+    const procs = study ? NL.proceduresFor(study).filter(p => (s.skills || {})[p]) : [];
     useEffect(() => { if (it && it.study && study && (!skill || !procs.includes(skill))) setSkill(procs[0] || ''); }, [intent, target]);
     const theSkill = it ? (it.study ? skill : it.skill) : null;
     const cfg = theSkill ? (s.skills || {})[theSkill] : null;
     const proc = theSkill ? NL.PROC[theSkill] || {} : {};
     const needsProject = cfg && cfg.level === 'project';
-    const blocked = needsProject && study && !study.has_project ? 'This study has no project repo yet. It gets one once its proposal is approved.' : null;
+    const blocked = needsProject && study && !study.has_project ? 'Attach or create a project folder before running this skill.' : null;
     const go = async () => {
       if (!theSkill) return;
       const body = { skill: theSkill, ...optBody(opts) };

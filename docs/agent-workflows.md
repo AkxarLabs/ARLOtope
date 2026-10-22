@@ -40,6 +40,13 @@ validation and publication path; a task is not automatically allowed to publish 
 
 **Task starting points** offers Literature, Experiment, Analyze, Independent review and Write. These fill ordinary editable task fields; they do not create a new kind of runner. **Duplicate task** copies an existing task. Changing a role preserves your instructions; choosing Reviewer starts fresh with no author-summary handoff. You can explicitly change that context afterward, but inherited context is not an independent review.
 
+These starting points come from skill metadata, not a fixed list in the editor. A custom skill can
+add `ui: {task: {label: "Collect evidence", role: analyst}}` under its `newts:` frontmatter.
+Remove that entry to hide the shortcut; the skill remains available in the ordinary selector.
+Omitting `role` uses General. New workflows can use any skills or instructions-only tasks; the
+research stages are supplied defaults, not required stages.
+Variants opt into their own shortcut explicitly; copying a skill does not duplicate its shortcut.
+
 Use the Reviewer role for independent review tasks. Reviewers, explainers and assistants remain
 visible and monitored but do not count against the default seven-task capacity. Analyst, writer,
 designer and custom task roles count normally. See [capacity](compute.md#agent-slots-and-experiment-jobs).

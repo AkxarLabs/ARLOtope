@@ -81,7 +81,8 @@ definition = define.read      # the lab's definition as plain data to change and
 def new_skill(hub: Path, name: str, like: str, step: str | None = None, title: str | None = None) -> list[Path]:
     name = _name(name)
     skills = hub / ".claude" / "skills"
-    src, dst = skills / like, skills / name
+    from skill_resources import folders
+    src, dst = folders(hub).get(like, skills / like), skills / name
     if not (src / "SKILL.md").is_file():
         raise NewError(f"no skill '{like}' to copy (.claude/skills/{like}/SKILL.md)")
     if dst.exists():

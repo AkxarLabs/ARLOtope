@@ -1,4 +1,4 @@
-# Contributing to Newts' Lab
+# Contributing to ARLOtope
 
 Contributions to the dashboard, tools, procedures, templates and documentation belong here.
 Your research records and project repositories belong to your Lab, rather than a product pull request.

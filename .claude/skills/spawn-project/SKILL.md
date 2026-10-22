@@ -38,7 +38,7 @@ independently cloneable.
    proposal, say so and report `park`.
 2. Resolve `lab.projects_root` from `lab/config.yaml` (default `../newts-lab-projects`,
    relative to the hub). If the container directory doesn't exist, create it with a
-   one-paragraph README ("Projects spawned by the Newts' Lab at <hub path>; each
+   one-paragraph README ("Projects spawned by the ARLOtope at <hub path>; each
    is an independent git repo — `newts status` in the hub lists them").
 3. **Scaffold via the tool** (mechanical copy/substitute — Windows-BOM-safe). After deciding the
    type/domain in 3b (below), run:
@@ -94,7 +94,7 @@ independently cloneable.
    - `uv run python scripts/run.py --config configs/experiments/exp-001-smoke.yaml`
    - `uv run pytest tests/`
    - `uv run --with pyyaml python scripts/check_project.py` (readiness lint — exit 0)
-   Commit (with `uv.lock`) only once all pass ("scaffold: spawn from Newts' Lab template, smoke green").
+   Commit (with `uv.lock`) only once all pass ("scaffold: spawn from ARLOtope template, smoke green").
    If any of `uv sync` / smoke / tests / check_project fail: debug up to `experiment.max_debug_depth`
    attempts; still red → leave the directory **uncommitted** — never commit a red scaffold.
 8. Append a lab notebook entry.

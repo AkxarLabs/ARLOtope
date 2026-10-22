@@ -1,4 +1,4 @@
-/* Newts' Lab — the in-browser terminal: a CLI's own sign-in, an installer, or a shell, running on the
+/* ARLOtope — the in-browser terminal: a CLI's own sign-in, an installer, or a shell, running on the
    machine the lab lives on (remote or headless included). xterm.js is loaded only when one opens. The
    server picks the command from a fixed table (dashboard/term.py); the page never sends a command line. */
 (function () {

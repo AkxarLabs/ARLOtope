@@ -1,4 +1,4 @@
-"""Read-only world model for the Newts' Lab dashboard.
+"""Read-only world model for the ARLOtope dashboard.
 
 The lab's files ARE the database — this module only reads them, tolerantly:
   - lab/journal.jsonl      -> the studies: where each stands, what it waits for, the PI's decisions, flags

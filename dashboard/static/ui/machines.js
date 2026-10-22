@@ -1,4 +1,4 @@
-/* Newts' Lab — Labs & machines (#/labs): every lab you can open, on this computer and on the machines
+/* ARLOtope — Labs & machines (#/labs): every lab you can open, on this computer and on the machines
    you reach over SSH. Opening a lab elsewhere starts that lab's own dashboard there and tunnels to it;
    the whole UI then works on it unchanged (agents, files and the terminal all run on that machine). */
 (function () {

@@ -53,6 +53,27 @@ def configure(hub):
     (hub.root/'lab/config.yaml').write_text(yaml.safe_dump(cfg),encoding='utf-8')
 
 
+def test_remote_skill_package_retains_binary_resources_and_project_edits(hub, worker):
+    import base64
+    import research_start
+    root = worker['root']/'skill-project'
+    root.mkdir()
+    study = research_start.create(hub.root,title='Remote methods',question='Check methods',local=str(root),machine='box')
+    name = study['slug'] if 'slug' in study else 'remote-methods'
+    sources = {'evidence-check': {'SKILL.md':base64.b64encode(b'# Evidence method').decode(),
+                                 'assets/sample.bin':base64.b64encode(bytes(range(256))).decode()}}
+    workflow = {'id':'custom','path':['check'],'checkpoints':[]}
+    receipt = R.call(hub.root, name, 'skills', sources=sources, workflow=workflow)
+    assert receipt['records']['evidence-check']['source'] == 'lab'
+    target = root/'.agents/skills/evidence-check'
+    assert (target/'assets/sample.bin').read_bytes() == bytes(range(256))
+    (target/'SKILL.md').write_text('# Project-specific method', encoding='utf-8')
+    second = R.call(hub.root, name, 'skills', sources=sources, workflow=workflow)
+    assert second['records']['evidence-check']['source'] == 'project'
+    assert base64.b64decode(second['files']['evidence-check']['SKILL.md']) == b'# Project-specific method'
+    assert json.loads((root/'.newts/workflows'/f'{name}.json').read_text()) == workflow
+
+
 def wait(lab, run_id, predicate, seconds=25):
     from executor.manifest import find_run
     end=time.monotonic()+seconds

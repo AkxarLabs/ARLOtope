@@ -141,8 +141,8 @@
       return () => cancelAnimationFrame(frame);
     }, [path]);
     return html`<a class="skip-link" href="#main-content" onClick=${e=>{e.preventDefault();document.getElementById('main-content').focus();}}>Skip to content</a>
-      <header class="lab-header"><a class="lab-brand" href="#/" aria-label="Newts' Lab"><span class="lab-monogram">n.</span>
-        <span>${s?.lab_info?.name || "Newts’ Lab"}</span></a>
+      <header class="lab-header"><a class="lab-brand" href="#/" aria-label="ARLOtope"><img class="arlotope-mark" src="static/brand/arlotope-mark.png" alt=""/>
+        <span>ARLOtope</span></a>
         <button type="button" class="theme-switch" aria-label=${NL.themeNow()==='day'?'Switch to dark mode':'Switch to light mode'} title=${NL.themeNow()==='day'?'Switch to dark mode':'Switch to light mode'} onClick=${()=>NL.setPref('theme',NL.themeNow()==='day'?'night':'day')}>${NL.themeNow()==='day'?'◑ Dark':'◐ Light'}</button>
         <nav class="lab-nav" aria-label="Main navigation">${NAV.map(([path, title]) => html`<a href=${'#/' + path}
           aria-current=${(GROUP[page] ?? page) === path ? 'page' : null}>${title}</a>`)}</nav>
@@ -160,7 +160,7 @@
   let seen = null;
   NL.onSnapshot = (_previous, next) => {
     const attention = next?.attention || [], needs = attention.filter(a => a.sev !== 'info');
-    document.title = (needs.length ? `(${needs.length}) ` : '') + (next?.lab_info?.name || "Newts' Lab");
+    document.title = (needs.length ? `(${needs.length}) ` : '') + 'ARLOtope' + (next?.lab_info?.name && next.lab_info.name !== 'ARLOtope' ? ` · ${next.lab_info.name}` : '');
     const fresh = seen === null ? [] : attention.filter(a => !seen.has(a.id));
     const notices = fresh.length > 3 ? [...fresh.slice(0, 2), {
       id: 'attention-burst:' + fresh.slice(2).map(a => a.id).join('|'),

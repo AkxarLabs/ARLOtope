@@ -1,4 +1,6 @@
-# Newts' Lab
+# ARLOtope
+
+<img src="docs/assets/brand/arlotope-wordmark.png" alt="ARLOtope" width="440">
 
 A local research workspace for scientists working with coding agents. Bring a question or an existing
 project, work with your own tools, and keep a clear record of methods, evidence and decisions.
@@ -7,7 +9,7 @@ Licensed under [AGPL-3.0-only](LICENSE). Commercial use is allowed, with the lic
 requirements. Reusable templates retain MIT terms; third-party components retain their own licenses.
 See [licensing](docs/licensing.md).
 
-![Newts’ Lab visual workspace](docs/assets/current/lab-light.webp)
+![ARLOtope visual workspace](docs/assets/current/lab-light.webp)
 
 *Current interface with demonstration data.*
 
@@ -30,6 +32,10 @@ Attach existing work without moving files, replacing its package manager, or add
 Connect Claude Code, Codex, opencode or an [ACP agent](docs/acp.md) when you want an agent's help.
 Use the CLI's own sign-in. Projects can stay on [remote machines](docs/remote-projects.md) without
 installing another full Lab there.
+
+Build your own workflow with tasks, skills, roles and gates. **Workflow → Skills → Import folder**
+reuses an existing `SKILL.md` folder, including its references and scripts. Selected skills are copied
+into each project's `.agents/skills/`; existing project skills are preserved. See [reusing skills](docs/skills.md#reuse-a-skill).
 Creating a study does not start an agent or approve a checkpoint.
 Use **Browse** to choose project folders. Uploaded materials stay with the study and are available to its agents.
 **Library → Notes & sources** keeps human notes, saved workspace answers and retained papers with
@@ -93,7 +99,7 @@ handoff. See [recovery](docs/recovering-work.md) for limits, retries and what is
 [Configuration](docs/configuration.md) · [Compute](docs/compute.md) ·
 [Background work](docs/autonomy.md) · [Notes & sources](docs/knowledge.md) · [Contributing](CONTRIBUTING.md)
 
-The [documentation website](https://akxarlabs.github.io/newts-lab/) is built from `docs/` with
+The [documentation website](https://akxarlabs.github.io/ARLOtope/) is built from `docs/` with
 `properdocs.yml`. Historical implementation plans stay in the repository and are excluded from the
 public site. Build it locally with `uv run --with properdocs --with mkdocs-material properdocs build --strict`.
 

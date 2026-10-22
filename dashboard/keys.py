@@ -108,7 +108,7 @@ def notify_test(body: dict) -> tuple[dict, int]:
     cfg = notify.config(sources.executor.Lab(ctx.HUB))
     if not (cfg.get("ntfy") or cfg.get("webhook")):
         return {"error": "set an ntfy topic or a webhook first"}, 400
-    failed = notify.send(cfg, {"title": "Newts' Lab: notifications work", "kind": "test",
+    failed = notify.send(cfg, {"title": "ARLOtope: notifications work", "kind": "test",
                                "body": "Questions, approvals and checkpoints that need you land here."})
     if failed:
         return {"error": f"could not reach {', '.join(failed)} ; check the address"}, 400

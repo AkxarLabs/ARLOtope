@@ -1,4 +1,4 @@
-/* Newts' Lab — a running campaign: what the lab is doing on its own while the PI is away. A compact card
+/* ARLOtope — a running campaign: what the lab is doing on its own while the PI is away. A compact card
    (Home's Today rail, the Studies page) and a sheet with everything: progress against the deadline and
    budget, each study (waiting for you? held?), the last passes, what was started or refused and why,
    questions a pass left, the checkpoints it may approve for you (and what it approved) — with Pause / Resume /

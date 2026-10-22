@@ -306,7 +306,7 @@ class Conn:
         spec = self.pidfile.with_suffix('.json')
         spec.write_text(json.dumps({'argv': argv, 'pidfile': str(self.pidfile)}), encoding='utf-8')
         res = terminal.open_terminal([sys.executable, str(ctx.ROOT / 'tools/ssh_worker_install.py'), str(spec)],
-                                     title=f"Newts' Lab · {self.machine.get('name') or self.machine['host']}")
+                                     title=f"ARLOtope · {self.machine.get('name') or self.machine['host']}")
         if not res.get("ok"):
             self.state, self.error = "error", res.get("error")
             return {"error": res.get("error"), "command": " ".join(shlex.quote(a) for a in argv)}

@@ -60,6 +60,37 @@ def test_every_NL_name_used_is_defined():
 
 
 @pytest.mark.skipif(not NODE, reason='node is needed')
+def test_procedure_menus_use_the_studys_workflow_and_instruction_only_override():
+    source = _js()['core']
+    logic = source[source.index('NL.doesFor ='):source.index('// what a study should run next:')]
+    script = f"""const NL={{STEPS:{{task:{{do:'write-paper',also:['discuss']}}}},workflowOf:it=>it.workflow}};
+      {logic}
+      const workflow={{nodes:{{task:{{procedure:'collect'}}}},use:{{collect:'collect-carefully'}}}};
+      const it={{state:'task',workflow,use:{{discuss:'discuss-data'}}}};
+      const replaced=NL.proceduresFor(it);
+      workflow.nodes.task.procedure=null;
+      console.log(JSON.stringify([replaced,NL.proceduresFor(it)]));"""
+    result = subprocess.run([NODE, '-e', script], capture_output=True, text=True, timeout=60)
+    assert result.returncode == 0, result.stderr
+    assert json.loads(result.stdout) == [['collect-carefully', 'discuss-data'], ['discuss-data']]
+
+
+@pytest.mark.skipif(not NODE, reason='node is needed')
+def test_workflow_details_follow_node_replacements_in_the_draft():
+    source = _js()['compose']
+    logic = source[source.index('const doesIn ='):source.index('const procTitle =')]
+    script = f"""const stepOf=()=>({{do:'write-paper',also:['discuss']}});
+      {logic}
+      const w={{nodes:{{task:{{procedure:'collect'}}}},use:{{collect:'collect-carefully',discuss:'discuss-data'}}}};
+      const replaced=offers({{}},'task',w);
+      w.nodes.task.procedure=null;
+      console.log(JSON.stringify([replaced,offers({{}},'task',w)]));"""
+    result = subprocess.run([NODE, '-e', script], capture_output=True, text=True, timeout=60)
+    assert result.returncode == 0, result.stderr
+    assert json.loads(result.stdout) == [['collect-carefully', 'discuss-data'], ['discuss-data']]
+
+
+@pytest.mark.skipif(not NODE, reason='node is needed')
 def test_document_metadata_preserves_structure_and_escapes_markup_without_a_yaml_parser():
     source = _js()['components']
     reader = source[source.index('const esc ='):source.index('NL.Markdown =')]

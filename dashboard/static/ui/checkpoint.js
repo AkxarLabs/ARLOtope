@@ -1,4 +1,4 @@
-/* Newts' Lab — checkpoints: the Permit (one sheet for every checkpoint of every workflow: what it covers,
+/* ARLOtope — checkpoints: the Permit (one sheet for every checkpoint of every workflow: what it covers,
    the exhibits, its checks, the agent's case, a note to agents, and hold-to-approve), the research loop's
    approval, and moving a study back onto its workflow. Every decision is a record (POST /api/checkpoint/decide →
    lab/journal.jsonl); `newts approve <study> <checkpoint>` does the same from a terminal. Approving a `before`

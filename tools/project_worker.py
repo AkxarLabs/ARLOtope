@@ -167,6 +167,14 @@ class Worker:
         root, bus = self.root(data, claim=method == 'attach')
         if method == 'attach':
             return {'path': str(root), 'bus': str(bus)}
+        if method == 'skills':
+            import skill_resources
+            sources = {name: {rel: base64.b64decode(value, validate=True) for rel, value in content.items()}
+                       for name, content in data['sources'].items()}
+            records = skill_resources.install(root, sources)
+            skill_resources.record_project(root, data['workflow'], data['study'], records)
+            return {'records': records, 'files': {name: {rel: base64.b64encode(value).decode()
+                for rel, value in skill_resources.files(root / record['path']).items()} for name, record in records.items()}}
         if method == 'knowledge':
             import knowledge
             folder=knowledge.project_folder(root)
@@ -276,6 +284,12 @@ class Worker:
                         raise ValueError('Invalid instruction path.')
                     dest.parent.mkdir(parents=True, exist_ok=True)
                     dest.write_text(text, encoding='utf-8')
+                for rel, encoded in data.get('resources', {}).items():
+                    dest = (rd / 'skills' / rel).resolve()
+                    if not dest.is_relative_to((rd / 'skills').resolve()):
+                        raise ValueError('Invalid skill resource path.')
+                    dest.parent.mkdir(parents=True, exist_ok=True)
+                    dest.write_bytes(base64.b64decode(encoded, validate=True))
                 atomic(rd / 'config.json', data['config'])
                 atomic(manifest, m)
                 result = {'ok': True, 'accepted': True, 'run_id': rid, 'attempt': generation}

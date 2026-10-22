@@ -1,4 +1,4 @@
-/* Newts' Lab — shared research controls: line-art glyphs, choice tiles, pickers, the hold-to-approve
+/* ARLOtope — shared research controls: line-art glyphs, choice tiles, pickers, the hold-to-approve
    button and its seal, dials, and the metro strip a study's path is drawn as. Shared by every lens. */
 (function () {
   'use strict';

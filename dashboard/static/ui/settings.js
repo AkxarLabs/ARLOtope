@@ -1,4 +1,4 @@
-/* Newts' Lab — Settings (#/settings/<section>). Human words first; the config key it writes is shown
+/* ARLOtope — Settings (#/settings/<section>). Human words first; the config key it writes is shown
    small underneath. Every save shows what changes and asks before writing; each change is logged. */
 (function () {
   'use strict';
@@ -265,7 +265,7 @@
     const li = s.lab_info || {};
     return html`<div class="form">
       <div class="facts"><div><span>Lab</span><b>${li.name || '—'}</b></div><div><span>Folder</span><b class="mono small">${li.path || ''}</b></div><div><span>Dashboard</span><b>v${window.__NL_VERSION__ || '2'}</b></div></div>
-      <p class="small"><a class="link" href="https://github.com/akxarlabs/newts-lab/blob/main/LICENSE" target="_blank" rel="noopener">AGPL-3.0-only</a> · <a class="link" href="https://github.com/akxarlabs/newts-lab" target="_blank" rel="noopener">Source code</a></p>
+      <p class="small"><a class="link" href="https://github.com/AkxarLabs/ARLOtope/blob/main/LICENSE" target="_blank" rel="noopener">AGPL-3.0-only</a> · <a class="link" href="https://github.com/AkxarLabs/ARLOtope" target="_blank" rel="noopener">Source code</a></p>
       <div class="row"><${NL.Btn} onClick=${() => NL.go('labs')}>Switch or create a lab</${NL.Btn}><${NL.Btn} onClick=${async () => { if (await NL.confirm({ title: 'Open a terminal in the lab folder?', ok: 'Open', body: 'A shell on the machine the lab runs on, as you. Anything you type runs there.' })) NL.runOnLabMachine('shell'); }}>Open a terminal here</${NL.Btn}>
         <${NL.Btn} onClick=${() => NL.go('setup')}>Run the setup again</${NL.Btn}><${NL.Btn} onClick=${() => NL.go('history')}>History</${NL.Btn}></div>
       <${NL.Section} title="Server"><p class="muted small">Stopping the server closes this dashboard. Agents already running keep going; start it again with <span class="mono">Start Newts Lab</span>.</p>

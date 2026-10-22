@@ -236,7 +236,7 @@ def main() -> int:
     if not why:
         return 0
     _log("deny", tool, why)
-    sys.stderr.write(f"Denied by the Newts' Lab signature guard: {why}. Ask the PI instead; do not try another way "
+    sys.stderr.write(f"Denied by the ARLOtope signature guard: {why}. Ask the PI instead; do not try another way "
                      "around it.\n")
     return 2
 

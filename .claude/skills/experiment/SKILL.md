@@ -2,6 +2,8 @@
 name: experiment
 description: Run the experiment loop in a project — staged scale (smoke/pilot/full), ledger + git as memory, debug caps, kill-criteria checks. Argument; idea slug and optionally an experiment id.
 newts:
+  ui:
+    task: {label: Experiment, role: general}
   kind: stage
   level: project
   mode: headless

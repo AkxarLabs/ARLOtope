@@ -282,7 +282,7 @@ def cmd_skills(lab: Lab, a) -> int:
 
 
 def main(argv=None) -> int:
-    ap = argparse.ArgumentParser(description="the Newts' Lab executor (headless procedure runs)")
+    ap = argparse.ArgumentParser(description="the ARLOtope executor (headless procedure runs)")
     ap.add_argument("--hub", default=None, help="hub root (default: this repo)")
     sub = ap.add_subparsers(dest="cmd", required=True)
 

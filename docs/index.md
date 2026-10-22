@@ -1,4 +1,6 @@
-# Newts’ Lab
+# ARLOtope
+
+![ARLOtope](assets/brand/arlotope-wordmark.png){ .brand-wordmark width="440" }
 
 A visual research workspace for scientists working with coding agents. Bring a question or an
 existing repository, keep your tools, and build a readable record of work, evidence and decisions.

@@ -1,5 +1,5 @@
 """The lab's half of running agents: everything the executor (tools/executor/) needs to know about THIS lab
-— Newts' Lab's procedures, checkpoints, campaigns, papers and hooks — in one module. The executor itself only
+— ARLOtope's procedures, checkpoints, campaigns, papers and hooks — in one module. The executor itself only
 runs coding agents: sessions, the queue, caps, retries, the campaign keeper's mechanics. A different kind
 of lab plugs in by replacing this file.
 
@@ -116,13 +116,13 @@ def campaign_brief(lab, arg: str) -> Path:
 # ── what a run is told ─────────────────────────────────────────────────────────────────────────────
 def render_prompt(lab, v: dict, cmd: str, native_slash: bool) -> str:
     """The user prompt. Hub runs on a backend with native slash commands (claude expands them) use the
-    command itself. Project runs — and every other backend — name the procedure file explicitly, because
-    project repos don't ship the lifecycle skills (their AGENTS.md points at the hub's copies)."""
+    command itself. Project runs and other backends name a file explicitly. The executor replaces
+    these paths with the project-resolved snapshot when packaging a managed workflow run."""
     if native_slash and v["level"] == "hub" and (lab.hub / '.claude/skills' / v['skill'] / 'SKILL.md').is_file():
         return cmd
     skill_file = runtime_file(lab.hub, f'.claude/skills/{v["skill"]}/SKILL.md').as_posix()
     rest = cmd.split(" ", 1)[1] if " " in cmd else ""
-    return (f"Run the Newts' Lab procedure `/{v['skill']}`" + (f" with arguments: {rest}" if rest else "")
+    return (f"Run the ARLOtope procedure `/{v['skill']}`" + (f" with arguments: {rest}" if rest else "")
             + f". Its procedure file is {skill_file} — read it and follow it step by step, exactly as if "
             f"the PI had typed `{cmd}` in a session.")
 
@@ -248,7 +248,7 @@ def preamble(lab, run_id: str, v: dict, ask_tool: str | None) -> str:
            "available, state the question as your final message and end your turn; the PI's reply "
            "resumes this session.")
     lines = [
-        f"You are running HEADLESS under the Newts' Lab executor (run id {run_id}, target "
+        f"You are running HEADLESS under the ARLOtope executor (run id {run_id}, target "
         f"{v['target']}, cwd {Path(v['workdir']).as_posix()}). There is no terminal: the PI watches and "
         "answers from the Lab dashboard.",
         "- Follow the lab protocol (AGENTS.md) exactly. Every checkpoint and hard rule still binds you.",
@@ -597,7 +597,7 @@ def start_graph(lab, slug, enqueue, spec_type, retry=False, **options):
             result += start_graph(lab, slug, enqueue, spec_type, **options)
             continue
         if procedure:
-            task = f"Read and follow {(lab.hub / '.claude/skills' / procedure / 'SKILL.md').as_posix()}.\n" + task
+            task = f"Read and follow {runtime_file(lab.hub, f'.claude/skills/{procedure}/SKILL.md').as_posix()}.\n" + task
         if node.get('skills'):
             task += ('\nFollow these skills in order within this conversation, preserving the task context. '
                      'Use each skill for its method. Intermediate skills must not move the study or start later tasks. '
@@ -694,5 +694,5 @@ def trace_script(workdir: Path) -> Path | None:
 
 
 # ── notifications ────────────────────────────────────────────────────────────────────────────────
-NOTIFY_TITLE = "Newts' Lab needs you"
+NOTIFY_TITLE = "ARLOtope needs you"
 NOTIFY_PATH = "#/studies"

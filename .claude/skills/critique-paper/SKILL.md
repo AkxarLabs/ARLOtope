@@ -9,6 +9,8 @@ newts:
   launchable: true
   hint: study slug
   title: Critique the paper
+  ui:
+    task: {label: Independent review, role: reviewer}
   does: A fresh-context reviewer ensemble critiques the draft.
   guide:
   - 'The back half: analysis, writing, review and back'

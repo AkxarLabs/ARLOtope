@@ -40,6 +40,15 @@ separate model loop, renderer SDK, browser installation or special tool protocol
    skill/rubric and `decisions` mapped to `continue`, a task ID or a shelf. Preserve researcher-owned
    default approvals unless the request explicitly changes them. See docs/agent-workflows.md.
    Include role instructions, skills and expected outputs.
+   No research stage is mandatory: keep the supplied workflows as defaults, but design the requested
+   tasks and outcomes. A task may use a custom skill or instructions alone. Put reusable method
+   guidance in the skill and optional references; the generated contract and run brief supply the
+   Lab protocol and study state. To offer a skill as a task starting point, set its `newts.ui.task`
+   to `{label: "Collect evidence", role: analyst}`; omit it when no shortcut is useful.
+   Ordinary imported skills need no `newts` block. Preserve their body, supporting files and license.
+   Read `docs/skills.md`: the Lab library supplies project copies; existing project methods win;
+   managed runs save exact snapshots. Put task-specific context in node instructions rather than
+   duplicating the method in every node. Workflow YAML remains the same for humans and agents.
    For an external research engine, read `docs/external-frameworks.md`. Prefer a declarative
    `workflow/frameworks/<id>.yaml` and node `external: {framework: <id>, phase: <phase>}` over
    another backend or scheduler. Keep inputs/budgets in project `.newts/frameworks.yaml`.

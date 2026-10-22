@@ -9,6 +9,8 @@ newts:
   launchable: true
   hint: study slug
   title: Write the paper
+  ui:
+    task: {label: Write, role: writer}
   does: Drafts the paper with every claim linked to evidence.
   outcomes:
     more-experiments: "the paper needs a result no run has produced yet"

@@ -111,7 +111,7 @@ def bundle():
         raise RemoteError('PyYAML license notice is missing. Reinstall PyYAML before bundling the worker.')
     for index, notice in enumerate(notices):
         files['LICENSES/PyYAML' + (str(index) if index else '') + '.txt'] = dependency.locate_file(notice).read_bytes()
-    for name in ('project_worker', 'project_identity', 'project_files', 'project_control', 'interactive_terminal', 'terminal', 'labfiles', 'artifact', 'knowledge', 'tagging', 'github_access', 'frameworks', 'framework_activity'):
+    for name in ('project_worker', 'project_identity', 'project_files', 'project_control', 'interactive_terminal', 'terminal', 'labfiles', 'artifact', 'knowledge', 'tagging', 'github_access', 'frameworks', 'framework_activity', 'skill_resources'):
         files[name + '.py'] = (ROOT / 'tools' / (name + '.py')).read_bytes()
     files['lab_profile.py'] = (ROOT / 'tools/project_profile.py').read_bytes()
     files['executor/__init__.py'] = b'"""Execution-only package; no central scheduler or research kernel."""\n'
@@ -240,7 +240,9 @@ def dispatch(lab, path, m):
             if not receipt or receipt.get('stored') is not True:
                 raise RemoteError('Reconnect this machine to update its runner before using study materials.')
     result = call(lab.hub, m['target'], 'dispatch', run_id=rid, manifest=supplied, prompt=prompt, preamble=pre,
-                  instructions={k: rewrite(lab, m, v) for k, v in instructions.items()}, config=config)
+                  instructions={k: rewrite(lab, m, v) for k, v in instructions.items()}, config=config,
+                  resources={p.relative_to(rd / 'skills').as_posix(): base64.b64encode(p.read_bytes()).decode()
+                             for p in (rd / 'skills').rglob('*') if p.is_file()})
     m['remote_dispatched'] = True
     m.pop('remote_dispatch_pending', None)
     m['remote_status'] = 'connected'

@@ -1,6 +1,6 @@
 # Research-first Lab
 
-Newts' Lab keeps a research question, its evidence and its decisions together while agents work with your existing tools. Start with a study rather than configuring a complete paper pipeline.
+ARLOtope keeps a research question, its evidence and its decisions together while agents work with your existing tools. Start with a study rather than configuring a complete paper pipeline.
 
 For the first-run walkthrough, use [Getting started](getting-started.md). This page explains how the pieces fit.
 

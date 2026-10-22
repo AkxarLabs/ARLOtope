@@ -120,7 +120,7 @@ def create_lab(dest: str | Path, name: str | None = None, projects_root: str | N
             _git(["add", "-A"], dest)
             out["git"] = "initialized"
             if commit:
-                r = _git(["commit", "-q", "-m", "New lab from the Newts' Lab template"], dest)
+                r = _git(["commit", "-q", "-m", "New lab from the ARLOtope template"], dest)
                 out["git"] = "committed" if r.returncode == 0 else \
                     "initialized (files staged — the first commit needs your git name/email)"
     return out

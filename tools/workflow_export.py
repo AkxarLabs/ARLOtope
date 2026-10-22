@@ -17,8 +17,9 @@ def export(hub, workflow):
     if w['id'] != workflow:
         raise ValueError('Choose an existing workflow.')
     ns = nodes(w, model.steps(hub))
-    skills = list(dict.fromkeys(p for n in ns for p in ([n.get('procedure')] if n.get('procedure') else []) + n.get('skills', [])))
-    skills += [c.get('judge', {}).get('skill') or 'gate-review' for c in w['checkpoints'] if c.get('approver')=='agent']
+    from skill_resources import selected, folders, files as skill_files
+    skills = selected(hub, w)
+    inventory = folders(hub)
     resources, missing = {}, []
     from frameworks import definitions, requirements
     for fid in requirements(w):
@@ -26,13 +27,12 @@ def export(hub, workflow):
         if definition:
             resources['resources/frameworks/'+fid+'.yaml'] = Path(definition['file']).read_bytes()
     for skill in dict.fromkeys(skills):
-        folder = model.skills_root(hub) / skill
+        folder = inventory.get(skill, model.skills_root(hub) / skill)
         if not (folder/'SKILL.md').is_file():
             missing.append(skill)
         else:
-            for p in sorted(folder.rglob('*')):
-                if p.is_file() and not p.is_symlink() and '__pycache__' not in p.parts:
-                    resources['resources/skills/'+skill+'/'+p.relative_to(folder).as_posix()] = p.read_bytes()
+            for relative, data in skill_files(folder).items():
+                resources['resources/skills/'+skill+'/'+relative] = data
     from kernel import instructions
     from executor import Lab
     from executor.contexts import role_text

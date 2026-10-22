@@ -96,6 +96,31 @@ def test_a_procedure_variant_is_used_where_a_workflow_or_study_says(lab):
     assert model.does("seed", "research", {"triage": "lit-review-quick"}, lab.root) == "lit-review-quick"
 
 
+def test_offered_procedures_follow_node_replacements_and_swaps(lab):
+    _edit_workflow(lab, 'quick', lambda d: d.update(nodes={'setup': {'procedure': 'analyze'}}))
+    assert model.offers('setup', 'quick', hub=lab.root) == ['analyze']
+    _edit_workflow(lab, 'quick', lambda d: d.update(nodes={'setup': {'procedure': None}}))
+    assert model.offers('setup', 'quick', hub=lab.root) == []
+    _edit_workflow(lab, 'quick', lambda d: d.update(nodes={'seed': {'procedure': 'analyze'}}, use={'analyze': 'scope'}))
+    assert model.offers('seed', 'quick', hub=lab.root) == ['scope', 'discuss']
+    assert model.offers('seed', 'quick', {'analyze': 'experiment', 'discuss': 'scope'}, lab.root) == ['experiment', 'scope']
+
+
+def test_custom_task_starting_points_are_skill_metadata(lab):
+    folder = lab.root / '.claude/skills/collect-evidence'
+    folder.mkdir()
+    path = folder / 'SKILL.md'
+    text = ('---\nname: collect-evidence\ndescription: Collect supplied evidence.\nnewts:\n'
+            '  ui: {task: {label: Collect evidence, role: analyst}}\n---\n# Collect evidence\n')
+    path.write_text(text, encoding='utf-8')
+    assert model.view(lab.root)['procedures']['collect-evidence']['ui']['task']['label'] == 'Collect evidence'
+    assert not model.check(lab.root)
+    load('new').new_skill(lab.root, 'collect-variant', 'collect-evidence')
+    assert 'task' not in model.view(lab.root)['procedures']['collect-variant'].get('ui', {})
+    path.write_text(text.replace('label: Collect evidence', 'label: 12'), encoding='utf-8')
+    assert any('ui.task' in p for p in model.check(lab.root))
+
+
 def test_check_catches_what_would_break(lab):
     def bad(d):
         d["path"].append("nowhere")

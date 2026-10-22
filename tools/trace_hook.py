@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Fail-safe activity tracer for the Newts' Lab (a Claude Code hook).
+"""Fail-safe activity tracer for the ARLOtope (a Claude Code hook).
 
 Registered in `.claude/settings.json` on SessionStart, SubagentStart, PreToolUse(*),
 PostToolUse(*), SubagentStop(*) and SessionEnd. It reads one hook JSON object on stdin

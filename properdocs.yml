@@ -1,6 +1,6 @@
-site_name: Newts' Lab
+site_name: ARLOtope
 site_description: A visual research workspace for scientists using coding agents.
-site_url: https://akxarlabs.github.io/newts-lab/
+site_url: https://akxarlabs.github.io/ARLOtope/
 docs_dir: docs
 exclude_docs: |
   /plans/
@@ -21,8 +21,8 @@ theme:
     - navigation.top
     - navigation.footer
     - content.code.copy
-  icon:
-    logo: material/flask-outline
+  logo: assets/brand/arlotope-mark.png
+  favicon: assets/brand/arlotope-mark.png
 
 extra_css:
   - stylesheets/extra.css
@@ -49,7 +49,7 @@ nav:
       - Recover interrupted work: recovering-work.md
   - Do research:
       - Research workflows: workflow.md
-      - Procedures & skills: skills.md
+      - Skills and workflows: skills.md
       - Discuss a question: discuss.md
       - Existing & new projects: projects.md
       - Methodology types: project-types.md

@@ -1,4 +1,4 @@
-/* Newts' Lab — demo mode (?demo, only when the server was started with --demo): a synthetic, living
+/* ARLOtope — demo mode (?demo, only when the server was started with --demo): a synthetic, living
    lab so the world and the panels can be seen with no real session. Pure client-side; nothing is
    written (every API write is refused in demo mode). Every few seconds the lab moves on: runs start and
    finish, a study advances (a newt carries its card), a question comes and goes, a new lab gets built. */
@@ -277,7 +277,7 @@ NL.demoPanelData = {
 };
 
 NL.startDemo = function startDemo() {
-  document.title = "Newts' Lab · demo";
+  document.title = "ARLOtope · demo";
   setTimeout(() => NL.toast('Demo mode: nothing here is real, and nothing is written.'), 700);
   const items = BASE_ITEMS.map(x => Object.assign({}, x));
   let T = 0;

@@ -9,6 +9,8 @@ newts:
   launchable: true
   hint: idea slug
   title: Review the literature
+  ui:
+    task: {label: Literature, role: analyst}
   does: Searches and reads related work and gives a novelty verdict.
   show_pi: 'the novelty verdict with the 3–5 closest papers and how this idea differs — a short Markdown note, once lit-review.md is written'
   stops: with the verdict

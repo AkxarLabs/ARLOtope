@@ -90,7 +90,7 @@ def labs_open(body: dict) -> tuple[dict, int]:
     except OSError:
         return {"error": f"can't read {raw}"}, 400
     if not (hub / "lab").is_dir() or not (hub / "lab" / "config.yaml").exists():
-        return {"error": f"{hub} is not a Newts' Lab (no lab/config.yaml there)"}, 400
+        return {"error": f"{hub} is not a ARLOtope (no lab/config.yaml there)"}, 400
     ctx.set_remote(None)
     ctx.switch_hub(hub)
     remember_lab(hub)
@@ -133,7 +133,7 @@ def terminal_open(body: dict) -> tuple[dict, int]:
     ctx.tool("labfiles")   # tools/ on sys.path for the imports below
     import terminal   # noqa: E402
     if purpose == "shell":
-        res = terminal.open_terminal("echo Newts' Lab — this is your lab folder", ctx.HUB)
+        res = terminal.open_terminal("echo ARLOtope — this is your lab folder", ctx.HUB)
     elif purpose == 'login' and backend == 'github':
         import term
         argv, err = term.command_for(purpose, backend)

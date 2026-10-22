@@ -112,9 +112,11 @@ def _load(hub=None) -> dict:
 
     Raises ModelError (or a yaml error) on a file it can't read."""
     root, skills = root_of(hub), skills_root(hub)
-    files = _files(root, skills)
+    from skill_resources import folders
+    methods = [p / 'SKILL.md' for p in folders(hub_of(hub)).values()]
+    files = _files(root, skills) + methods + [CODE / SKILLS / '.excluded.json', hub_of(hub) / SKILLS / '.excluded.json']
     sig = _sig(files)
-    key = f"{root}|{skills}"
+    key = f"{hub_of(hub)}|{root}|{skills}"
     hit = _cache.get(key)
     if hit and hit[0] == sig:
         return hit[1]
@@ -125,7 +127,7 @@ def _load(hub=None) -> dict:
     else:
         raw = convert(_yaml(root / LEGACY) or {})
     m = normalise(raw)
-    m["procedures"] = procedures(skills, m)
+    m["procedures"] = procedures(skills, m, files=methods)
     _cache[key] = (sig, m)
     return m
 
@@ -208,11 +210,11 @@ def skill_meta(text: str) -> dict:
     return out
 
 
-def procedures(skills: Path, m: dict | None = None) -> dict[str, dict]:
+def procedures(skills: Path, m: dict | None = None, files=None) -> dict[str, dict]:
     """{name: definition} from each skill's frontmatter: the steps' procedures first, in step order. A skill
     with `like: <other>` inherits the other's definition and overrides what it lists itself."""
     found = {}
-    files = sorted(f for f in skills.glob("*/SKILL.md") if f.is_file()) if skills.is_dir() else []
+    files = files if files is not None else (sorted(f for f in skills.glob("*/SKILL.md") if f.is_file()) if skills.is_dir() else [])
     for f in files:
         fm = skill_meta(_read(f))
         block = fm.get("newts")
@@ -246,6 +248,8 @@ def procedures(skills: Path, m: dict | None = None) -> dict[str, dict]:
                     p[k] = v
             base = parent.get("like") if "like" in parent.get("_own", set()) else None
     for p in found.values():
+        if p.get('like') and 'ui' not in p['_own'] and isinstance(p.get('ui'), dict):
+            p['ui'] = {k: v for k, v in p['ui'].items() if k != 'task'}
         p.pop("_own", None)
     order = {"stage": 0, "driver": 1, "entry": 2, "utility": 3}
     stepped = list(dict.fromkeys(x for s in (m or {}).get("steps", {}).values()
@@ -323,8 +327,9 @@ def offers(sid: str, wid: str | None = None, use: dict | None = None, hub=None) 
     """What a study at this step can run: its procedure first, then the step's others (with swaps applied)."""
     s = step(sid, hub) or {}
     swaps = [use or {}, workflow(wid, hub)["use"] if workflows(hub) else {}]
-    out = []
-    for p in ([s["do"]] if s.get("do") else []) + list(s.get("also") or []):
+    owner = does(sid, wid, use, hub)
+    out = [owner] if owner else []
+    for p in s.get("also") or []:
         for swap in swaps:
             if p in swap:
                 p = swap[p]
@@ -503,8 +508,10 @@ def check(hub=None, checks: set[str] | None = None) -> list[str]:
                     pass  # the graph validator reports the malformed external field
             if isinstance(node, dict) and isinstance(node.get('room'), str) and node['room'] and node['room'] not in room_ids:
                 probs.append(f"workflow {w['id']}: task {sid} names an unknown room")
+    from skill_resources import folders
+    inventory = folders(hub_of(hub))
     for name, p in procs.items():
-        fm_name = skill_meta(_read(skills_root(hub) / name / "SKILL.md")).get("name")
+        fm_name = skill_meta(_read(inventory[name] / 'SKILL.md')).get('name')
         if fm_name and fm_name != name:
             probs.append(f"skill {name}: its frontmatter says name: {fm_name} (the folder name is the procedure)")
         if p.get("kind") not in KINDS:
@@ -516,6 +523,12 @@ def check(hub=None, checks: set[str] | None = None) -> list[str]:
                 probs.append(f"procedure {name}: outcome {o!r} is not a plain name")
         if p.get("like") and p["like"] not in procs:
             probs.append(f"procedure {name}: like {p['like']!r} is not a procedure")
+        ui = p.get('ui')
+        if isinstance(ui, dict) and 'task' in ui:
+            task = ui['task']
+            if not isinstance(task, dict) or not isinstance(task.get('label'), str) or not task['label'].strip() or (
+                    'role' in task and (not isinstance(task['role'], str) or not SLUG.fullmatch(task['role']))):
+                probs.append(f"procedure {name}: ui.task needs a label and an optional role identifier")
     h = hub_of(hub)
     rdir = h / "agent-roles" if (h / "agent-roles").is_dir() else CODE / "agent-roles"
     for r in roles(hub):

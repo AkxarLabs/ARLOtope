@@ -149,13 +149,27 @@ def _rel(path) -> str:
 
 
 def _read(rel: str, root: Path | None = None) -> str:
-    return (ctx.read((root or _draft()) / rel) or "").replace("\r\n", "\n")
+    base = root or _draft()
+    path = base / rel
+    parts = Path(rel).parts
+    if not path.is_file() and parts[:2] == ('.claude', 'skills') and len(parts) > 3:
+        from skill_resources import folders
+        folder = folders(base).get(parts[2])
+        if folder:
+            path = folder.joinpath(*parts[3:])
+    return (ctx.read(path) or "").replace("\r\n", "\n")
 
 
 def _put(rel: str, text: str | None) -> None:
     """Write one file of the draft (None removes it)."""
     d = _begin()
     p = d / rel
+    parts = Path(rel).parts
+    if text is not None and parts[:2] == ('.claude', 'skills') and len(parts) > 3:
+        from skill_resources import folders, copy
+        folder = folders(d).get(parts[2])
+        if folder and not (d / '.claude/skills' / parts[2]).exists():
+            copy(folder, d / '.claude/skills' / parts[2])
     if text is None:
         if p.is_file():
             p.unlink()
@@ -630,12 +644,15 @@ def _op_delete(b: dict) -> str:
     if not re.match(r"^[a-z0-9][a-z0-9._-]{0,79}$", name):
         raise ComposeError(f"bad name {name!r}")
     if kind == "procedure":
-        if not (d / ".claude/skills" / name).is_dir():
+        from skill_resources import folders, exclude
+        if name not in folders(d):
             raise ComposeError(f"no procedure /{name}")
         used = [s for s, x in model.load(d)["steps"].items() if x.get("do") == name]
         if used:
             raise ComposeError(f"/{name} does the work of {', '.join(used)} ; give those steps another procedure first")
         _rmtree(f".claude/skills/{name}")
+        _put(f".claude/skills/.imports/{name}.json", None)
+        exclude(d, name)
         _put(f"lab/workflow/{name}.add.md", None)
         defn = _definition()
         for s in defn["steps"].values():
@@ -731,7 +748,33 @@ def _op_discard(b: dict) -> str:
     return "draft discarded; the lab is unchanged"
 
 
-OPS = {"graph": _op_graph, "write": _op_write, "instructions": _op_instructions, "procedure": _op_procedure, "step": _op_step,
+def _op_skill_import(body):
+    from skill_resources import inspect, copy, exclude
+    info = inspect(body.get('path') or '')
+    if info['name'] in model.load(_root())['procedures']:
+        raise ComposeError('This skill name is already in the Lab. Use it, or import a separately named variant.')
+    target = _begin() / '.claude/skills' / info['name']
+    copy(body['path'], target)
+    receipt = target.parent / '.imports' / (info['name'] + '.json')
+    receipt.parent.mkdir(exist_ok=True)
+    receipt.write_text(json.dumps({'source': Path(body['path']).name, 'sha256': info['sha256']}, indent=2) + '\n', encoding='utf-8')
+    exclude(_draft(), info['name'], False)
+    return f"Imported /{info['name']} into your draft"
+
+
+def _op_skill_create(body):
+    name = _slug(body.get('name'))
+    if name in model.load(_root())['procedures']:
+        raise ComposeError('This skill name already exists.')
+    description = str(body.get('description') or '').strip()
+    text = str(body.get('text') or '').strip()
+    if not description or not text:
+        raise ComposeError('Add a description and instructions.')
+    _put(f'.claude/skills/{name}/SKILL.md', '---\nname: ' + name + '\ndescription: ' + json.dumps(description) + '\n---\n\n' + text + '\n')
+    return f'Created /{name} in your draft'
+
+
+OPS = {"skill-import": _op_skill_import, "skill-create": _op_skill_create, "graph": _op_graph, "write": _op_write, "instructions": _op_instructions, "procedure": _op_procedure, "step": _op_step,
        "room": _op_room, "role": _op_role, "rule": _op_rule, "copy": _op_copy,
        "delete": _op_delete, "discard": _op_discard, "workflow": _op_workflow, "workflow-delete": _op_workflow_delete,
        "route": _op_route, "checkpoint": _op_checkpoint,
@@ -742,6 +785,13 @@ def op(body: dict) -> tuple[dict, int]:
     """One edit of the draft. After it the draft's generated text (each skill's head) is refreshed, so what the
     review shows is what will be published."""
     name = str(body.get("op") or "")
+    if name == 'skill-import' and body.get('preview'):
+        from skill_resources import inspect
+        try:
+            info = inspect(body.get('path') or '')
+            return {'ok': True, 'skill': info, 'exists': info['name'] in model.load(_root())['procedures']}, 200
+        except (ValueError, OSError, UnicodeError) as error:
+            return {'error': str(error)}, 400
     if name == "publish":
         return publish(body)
     if name == "undo":
@@ -925,17 +975,18 @@ def view(q: dict | None = None) -> tuple[dict, int]:
     except Exception as e:  # noqa: BLE001 — show the draft and the error; the PI fixes the file
         out["error"] = f"the lab's definition can't be read: {e}"
         return out, 200
-    skills = root / ".claude" / "skills"
+    from skill_resources import folders
+    skill_folders = folders(root)
     procs = {}
     for name, p in m["procedures"].items():
-        meta = model.skill_meta(ctx.read(skills / name / "SKILL.md") or "")
+        folder = skill_folders[name]
+        meta = model.skill_meta(ctx.read(folder / 'SKILL.md') or '')
         own = meta.get("newts") or {}
-        folder = skills / name
         procs[name] = {**{k: v for k, v in p.items() if not k.startswith("_")}, "description": meta.get("description", ""),
                        "own": sorted(own), "like": own.get("like"), "origin": _origin(f".claude/skills/{name}/SKILL.md"),
                        "steps": [s for s, d in m["steps"].items() if name in [d.get("do"), *d["also"]]],
                        "variants": sorted(n for n, x in m["procedures"].items() if x.get("like") == name),
-                       "files": sorted(f.relative_to(root).as_posix() for f in folder.rglob("*")
+                       "files": sorted('.claude/skills/' + name + '/' + f.relative_to(folder).as_posix() for f in folder.rglob("*")
                                        if f.is_file() and "__pycache__" not in f.parts) if folder.is_dir() else []}
     roles = []
     rdir = root / "agent-roles"
@@ -1019,7 +1070,7 @@ def file_get(q: dict) -> tuple[dict, int]:
 
     def norm(s):
         return s.replace("\r\n", "\n") if s is not None else None
-    cur, pub = ctx.read(_root() / rel), ctx.read(ctx.HUB / rel)
+    cur, pub = _read(rel, _root()) or None, _read(rel, ctx.HUB) or None
     if cur is None and pub is None and rel.startswith("checks/"):
         cur = pub = ctx.read(ctx.ROOT / rel)      # a check this code ships that the lab doesn't override
     return {"ok": True, "path": rel, "text": norm(cur), "published": norm(pub)}, 200

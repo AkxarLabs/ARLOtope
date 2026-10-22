@@ -246,7 +246,7 @@ class CodexSession(live.Session):
 
     def open(self, proc) -> None:
         self.proc = proc
-        self._rpc("initialize", {"clientInfo": {"name": "newts-lab", "title": "Newts' Lab", "version": "1"},
+        self._rpc("initialize", {"clientInfo": {"name": "newts-lab", "title": "ARLOtope", "version": "1"},
                                  "capabilities": {"experimentalApi": True}})
 
     def send(self, text: str) -> bool:

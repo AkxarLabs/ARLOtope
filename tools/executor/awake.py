@@ -69,7 +69,7 @@ def hold(reason: str) -> bool:
                 _state["proc"] = subprocess.Popen(["caffeinate", "-i", "-w", str(os.getpid())],
                                                   stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
             else:
-                _state["proc"] = subprocess.Popen(["systemd-inhibit", "--what=sleep", "--who=Newts' Lab",
+                _state["proc"] = subprocess.Popen(["systemd-inhibit", "--what=sleep", "--who=ARLOtope",
                                                    f"--why={reason[:80]}", "--mode=block", "sleep", "infinity"],
                                                   stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
         except OSError:

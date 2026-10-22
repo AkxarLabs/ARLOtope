@@ -1,4 +1,4 @@
-"""Newts' Lab dashboard: the HTTP server. Optional, local-only.
+"""ARLOtope dashboard: the HTTP server. Optional, local-only.
 
     uv run --with pyyaml python dashboard/serve.py [--port 8787] [--hub <another lab's hub root>]
     (or just: uv run --with pyyaml python newts.py — starts this and opens the browser)
@@ -729,7 +729,7 @@ def main() -> int:
     if not Handler.demo:
         panels_api.start_keeper()
         fleet.start_keeper()          # remote labs stay connected whether or not this dashboard runs agents
-    print(f"Newts' Lab · http://127.0.0.1:{args.port}  (Ctrl-C to stop)")
+    print(f"ARLOtope · http://127.0.0.1:{args.port}  (Ctrl-C to stop)")
     if executor is None:
         print("  executor: not available (tools/executor missing) — observe-and-sign only")
     elif cfg.get("executor", True) is False:
@@ -744,7 +744,7 @@ def main() -> int:
     try:
         server.serve_forever()
     except KeyboardInterrupt:
-        print("\nNewts' Lab stopped.")
+        print("\nARLOtope stopped.")
     ticker.handoff_scheduler()
     return 0
 

@@ -675,7 +675,7 @@ def cmd_config(a) -> int:
 
 
 def build() -> argparse.ArgumentParser:
-    ap = argparse.ArgumentParser(prog="newts", description="Newts' Lab from a terminal",
+    ap = argparse.ArgumentParser(prog="newts", description="ARLOtope from a terminal",
                                  formatter_class=argparse.RawDescriptionHelpFormatter, epilog=__doc__.split("\n\n", 1)[1])
     ap.add_argument("--hub", default=None)
     ap.add_argument("--json", action="store_true")

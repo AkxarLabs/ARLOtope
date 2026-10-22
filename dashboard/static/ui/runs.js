@@ -1,4 +1,4 @@
-/* Newts' Lab — runs as conversations. A run is one agent session the PI started (a procedure or a
+/* ARLOtope — runs as conversations. A run is one agent session the PI started (a procedure or a
    free-form instruction); the run sheet streams it like a chat: the agent's messages, its tool calls
    folded into groups, subagents inline, its questions as forms you answer in place, and the report
    with its next step as a button. Also: the runs list, and the per-agent inspector. */

@@ -1,4 +1,4 @@
-/* Newts' Lab — studies. The Ledger (every study as a row with its path drawn as a metro strip) and the
+/* ARLOtope — studies. The Ledger (every study as a row with its path drawn as a metro strip) and the
    Dossier (one study: its path, what waits for you, the action orb — its step's procedures as buttons — and
    tabs for its overview, documents, agents, instruments, instructions and fate). Both sit in a glass column
    on the left; the world keeps the rest of the screen and flies to the study's room. Also the paper viewer
@@ -98,7 +98,7 @@
     const nx = NL.nextFor(s, it);
     const held = !!s.holds?.[it.id];
     const [open, setOpen] = useState(false);
-    const procs = (NL.PROCS_FOR_STATE[it.state] || []).filter(p => p!=='discuss'&&(s.skills || {})[p] && (!nx || p !== nx.skill));
+    const procs = NL.proceduresFor(it).filter(p => p!=='discuss'&&(s.skills || {})[p] && (!nx || p !== nx.skill));
     const can = p => ((s.skills || {})[p] || {}).level !== 'project' || it.has_project;
     const isLoop = p => (NL.PROC[p] || {}).kind === 'driver' && (NL.PROC[p] || {}).level === 'project';
     const run = p => isLoop(p) ? NL.openLoop(it.id) : NL.launch({ skill: p, target: it.id });
@@ -304,7 +304,7 @@
     </div><aside class="col-side"><${NL.Section} title="Look closer"><div class="stack">
       <${NL.Btn} onClick=${() => tool('status')}>Project status</${NL.Btn}><${NL.Btn} onClick=${() => tool('compare')}>Compare runs</${NL.Btn}>
       <${NL.Btn} onClick=${() => tool('show_config')}>Settings in force for this study</${NL.Btn}><${NL.Btn} onClick=${() => tool('inbox')}>Notes to its agents</${NL.Btn}></div></${NL.Section}>
-      <${NL.Section} title="Start"><div class="stack">${(NL.PROCS_FOR_STATE[it.state] || []).filter(p => (NL.getState().skills || {})[p]).map(p => {
+      <${NL.Section} title="Start"><div class="stack">${NL.proceduresFor(it).filter(p => (NL.getState().skills || {})[p]).map(p => {
         const brief = (NL.PROC[p] || {}).kind === 'driver' && (NL.PROC[p] || {}).level === 'project';   // a loop needs your approval first
         return html`<${NL.Btn} onClick=${() => brief ? NL.openLoop(it.id) : NL.launch({ skill: p, target: it.id })}>${NL.procTitle(p)}${brief ? '…' : ''}</${NL.Btn}>`; })}
         </div></${NL.Section}></aside></div>`;

@@ -1,4 +1,4 @@
-/* Newts' Lab — one study's own instructions, and agents' suggestions for the lab's.
+/* ARLOtope — one study's own instructions, and agents' suggestions for the lab's.
    The lab-wide definition (steps, workflows, procedures and their variants, roles, rules, rooms…) is edited in
    Compose (compose.js). Here: the study page's Instructions tab — instructions ADDED to a procedure or to a
    whole step for this study only, saved at once (studies/<slug>/workflow/), and which variant does a procedure

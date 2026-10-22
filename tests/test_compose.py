@@ -45,6 +45,38 @@ def _wf(m, wid):
     return next(w for w in _draft(m)["workflows"] if w["id"] == wid)
 
 
+def test_imported_skill_keeps_its_folder_through_review_publish_and_undo(m, hub, tmp_path):
+    from test_skill_resources import skill
+    source = skill(tmp_path / 'external')
+    original = (source/'SKILL.md').read_bytes()
+    preview, code = m.compose.op({'op':'skill-import', 'path':str(source), 'preview':True})
+    assert code == 200 and not preview['exists'] and len(preview['skill']['files']) == 3
+    assert not m.compose._draft().exists()
+    _op(m, op='skill-import', path=str(source))
+    assert not (hub.root/'.claude/skills/custom-method').exists()
+    definition = m.compose.file_get({'path':'.claude/skills/custom-method/SKILL.md'})[0]
+    assert definition['text'] == original.decode().replace('\r\n', '\n')
+    assert 'experiment' in m.compose.view()[0]['procedures']
+    result, code = m.compose.op({'op':'publish', 'note':'Import evidence method'})
+    assert code == 200, result
+    folder = hub.root/'.claude/skills/custom-method'
+    assert (folder/'SKILL.md').read_bytes() == original
+    assert (folder/'asset.bin').read_bytes() == bytes(range(256))
+    assert (folder.parent/'.imports/custom-method.json').exists()
+    assert m.compose.op({'op':'skill-import','path':str(source)})[1] == 400
+    change = m.compose.view()[0]['history'][0]['id']
+    assert m.compose.op({'op':'undo','id':change})[1] == 200
+    assert not folder.exists()
+
+
+def test_blank_skill_is_not_an_unrelated_procedure_variant(m):
+    _op(m, op='skill-create', name='evidence-check', description='Check evidence.', text='Read the supplied source files.')
+    procedure = _draft(m)['procedures']['evidence-check']
+    assert not procedure.get('like')
+    assert m.compose.view()[0]['procedures']['evidence-check']['description'] == 'Check evidence.'
+    assert m.compose.op({'op':'skill-create','name':'empty','description':'','text':''})[1] == 400
+
+
 def test_extension_additions_stay_in_a_reviewable_draft(m, hub):
     extension = hub.root / 'extensions/review-study'
     files = extension / 'workflow/workflows'

@@ -1,4 +1,4 @@
-/* Newts' Lab — answers without an agent. A question the lab's own live state already answers ("what needs
+/* ARLOtope — answers without an agent. A question the lab's own live state already answers ("what needs
    me?", "what's running?", "what happened overnight?", "how much today?", "where is <study>?") is answered here,
    instantly and for free, instead of starting a Claude/Codex session that would spend ~50k tokens just loading
    its context. Anything that asks for WORK (run, write, compare, explain why…) still goes to an agent, and every

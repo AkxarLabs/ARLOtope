@@ -9,6 +9,8 @@ newts:
   launchable: true
   hint: project slug
   title: Analyze results
+  ui:
+    task: {label: Analyze, role: analyst}
   does: 'Analyzes the runs and says what they support: a result, more experiments, or a null result.'
   guide:
   - 'The back half: analysis, writing, review and back'

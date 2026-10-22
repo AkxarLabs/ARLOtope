@@ -8,6 +8,65 @@ The file is the full procedure; this page helps choose one. Workflow definitions
 procedures advance a study and which checkpoints wait for the researcher. A chat statement, note,
 question answer or artifact reply does not approve a checkpoint.
 
+## Reuse a skill
+
+In **Workflow → Skills → Import folder**, browse to a folder containing `SKILL.md`, check its files,
+then **Add to draft**. Review and publish before selecting it on a workflow task. **New skill** creates
+plain Markdown instructions; **Make a copy** creates a variant of an existing method.
+
+The `name` in the YAML header must match its folder. A `description` says when to use it. For example:
+
+```markdown
+---
+name: evidence-check
+description: Check whether claims are supported by the supplied evidence.
+---
+
+Read the evidence. Separate supported claims from uncertainties.
+Write a short review with links to the source files.
+```
+
+Keep optional `references/`, `scripts/`, `assets/` and supplied license files inside that folder.
+The import retains their bytes, adds a separate `.claude/skills/.imports/<name>.json` receipt with the source folder name and content
+hash, and leaves the skill's instructions intact. It leaves out Git metadata, environments and caches.
+Links outside the skill folder are rejected. Importing runs no scripts and installs no dependencies.
+Review third-party instructions, dependencies and licenses before use. Skills from repositories such
+as `academic-research-skills` can be imported locally; they are not bundled with ARLOtope.
+
+### Project copies and run records
+
+The Lab's reusable library lives in `.claude/skills/`. Adding a local method keeps installed defaults
+available. A project receives its selected workflow methods and declared dependencies when scaffolded,
+or before its first managed workflow run:
+
+```text
+project/
+  .agents/skills/evidence-check/...
+  .newts/
+    project.json
+    skills.json
+    workflows/my-study.json
+```
+
+Existing project skills win in `.agents/skills/`, then `.claude/skills/`, then `.opencode/skills/`.
+They are never overwritten by the Lab copy. Edit a project copy to adapt its method; changing the Lab
+original does not silently change an established project. Attached repositories keep their own tooling.
+
+Each managed workflow run with a project saves the resolved folders in its run directory under
+`skills/<name>/`, alongside `skills/_manifest.json` and `skills/_workflow.json`. Instructions point
+to those exact files. Later edits do not change that run's saved method. The project workflow snapshot
+is a reference record; execution uses the Lab's published definition and refreshes the record per run.
+
+This packaging path is shared by Claude Code, Codex, opencode and ACP. Native skill discovery remains
+available outside managed runs. Remote project runners use the same structure; reconnect a machine
+after updating ARLOtope to update its runner.
+
+**Export as skill** bundles a workflow's Markdown procedure, selected skills and resources. Mechanical
+gates, independent agents and native parallel forks still require an execution environment supporting them.
+
+The visible product is **ARLOtope**. Existing `newts` commands, `.newts/` records and `NEWTS_*`
+variables retain their names so existing projects and scripts keep working.
+
 ## Setup & autonomy
 
 ### `/setup-lab`

@@ -1,4 +1,4 @@
-/* Newts' Lab — UI core: the live lab store, the API client, the router, preferences, toasts, layers.
+/* ARLOtope — UI core: the live lab store, the API client, the router, preferences, toasts, layers.
    No build step: Preact + hooks + htm are vendored UMD globals (static/vendor/preact/). Every UI file
    registers into window.NL. Components use `html\`...\`` (htm) instead of JSX. */
 (function () {
@@ -42,7 +42,7 @@
      rooms and procedures — from workflow/ (the live snapshot's `workflow`; the generated workflow-default.js
      serves demo/static pages). applyWorkflow() refills these in place whenever the definition changes.
      A study stands at one step (item.state) of its workflow (item.workflow). */
-  NL.LIFECYCLE = []; NL.STATE_LABEL = {}; NL.ROOMS = []; NL.PROC = {}; NL.PROCS_FOR_STATE = {};
+  NL.LIFECYCLE = []; NL.STATE_LABEL = {}; NL.ROOMS = []; NL.PROC = {};
   NL.NEXT_FOR_STATE = {}; NL.WORKFLOWS = []; NL.STEPS = {}; NL.WF = {};
   let wfSig = '';
   // the subagent roles: labels from agent-roles/<role>.yaml (via the workflow), colours from the theme
@@ -62,7 +62,6 @@
     NL.ROOMS.splice(0, NL.ROOMS.length, ...(wf.rooms || []).map(r => ({ key: r.id, label: r.label, title: r.title, states: r.steps || [] })));
     NL.WORKFLOWS.splice(0, NL.WORKFLOWS.length, ...(wf.workflows || []).map(w => ({ ...w, steps: w.path || [] })));
     refill(NL.PROC, wf.procedures || {});
-    refill(NL.PROCS_FOR_STATE, Object.fromEntries(wf.steps.map(s => [s.id, [s.do, ...(s.also || [])].filter(Boolean)])));
     refill(NL.NEXT_FOR_STATE, Object.fromEntries(wf.steps.filter(s => s.do).map(s => [s.id, s.do])));
     for (const k of Object.keys(NL.ROLE)) if (k !== 'orchestrator') delete NL.ROLE[k];
     (wf.roles || []).forEach(r => { NL.ROLE[r] = { label: (wf.role_labels || {})[r] || r, color: ROLE_COLOR[r] || 'var(--ink-soft)' }; });
@@ -95,6 +94,10 @@
     const p = node&&'procedure' in node?node.procedure:(NL.STEPS[st] || {}).do;
     if (!p) return null;
     return ((it && it.use) || {})[p] || (NL.workflowOf(it).use || {})[p] || p;
+  };
+  NL.proceduresFor = it => {
+    const swaps=p=>it.use?.[p]||NL.workflowOf(it).use?.[p]||p;
+    return [...new Set([NL.doesFor(it,it.state),...(NL.STEPS[it.state]?.also||[]).map(swaps)].filter(Boolean))];
   };
   // what a study should run next: its step's procedure — unless it waits for you, is shelved or finished
   NL.nextSkill = it => {

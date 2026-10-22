@@ -1,4 +1,4 @@
-/* Newts' Lab — the Workflow lens: how the lab works, in one place, all of it editable.
+/* ARLOtope — the Workflow lens: how the lab works, in one place, all of it editable.
    The Map draws every workflow as a metro line — its steps are stations (what does the work there, where
    each outcome leads), its checkpoints lanterns you can open, move, add and remove. Then the Instruments
    cabinet, the steps, the procedures (each a skill, with any variants of it), rooms, roles, rules, checks and
@@ -220,8 +220,8 @@
   const ROOM_G = { incubator: 'seed', study: 'book', lab: 'flask', bench: 'lens', writing: 'pen', archive: 'archive', margins: 'margin' };
   const glyphOf = (d, id) => ROOM_G[stepOf(d, id).room] || 'spark';
   /** the procedure that does a step's work in a workflow: the workflow's variant of it, else the step's own */
-  const doesIn = (d, w, st) => { const p = stepOf(d, st).do; return p ? ((w && w.use) || {})[p] || p : null; };
-  const offers = (d, st, w) => [doesIn(d, w, st), ...(stepOf(d, st).also || [])].filter(Boolean);
+  const doesIn = (d, w, st) => { const node=w.nodes?.[st],p=node&&'procedure' in node?node.procedure:stepOf(d,st).do; return p ? w.use?.[p] || p : null; };
+  const offers = (d, st, w) => [...new Set([doesIn(d,w,st),...(stepOf(d,st).also||[]).map(p=>w.use?.[p]||p)].filter(Boolean))];
   const procTitle = (d, p) => ((d.procedures || {})[p] || {}).title || p;
   const describeWorkflow = text => NL.launch({ prompt: 'Follow .claude/skills/design/SKILL.md to draft a research workflow change. Requirements:\n' + text });
 
@@ -234,7 +234,7 @@
     const room=async title=>{let id=title.toLowerCase().replace(/[^a-z0-9]+/g,'-').replace(/^-|-$/g,'')||'room',base=id,i=2;while(d.rooms.some(r=>r.id===id))id=base+'-'+i++;
       const result=await edit({op:'copy',kind:'room',like:d.rooms[0]?.id,name:id,plain:true,title,steps:[]});return result.ok?id:null};
     return html`<${NL.WorkflowCanvas} nodes=${nodes} rooms=${d.rooms} frameworks=${d.frameworks||[]} roles=${d.roles.map(r=>({value:r.name,label:r.label}))}
-      tags=${d.tags||[]} checkpoints=${w.checkpoints||[]} skills=${Object.entries(d.procedures).map(([value,p])=>({value,label:p.title||value}))} onChange=${setNodes}
+      tags=${d.tags||[]} checkpoints=${w.checkpoints||[]} skills=${Object.entries(d.procedures).map(([value,p])=>({value,label:p.title||value,task:p.ui?.task}))} onChange=${setNodes}
       onCreateRoom=${room} onDesignRoom=${id=>NL.openRoomDesign(id)} onEditSkill=${name=>NL.go('compose/procedure/'+name)}
       onExport=${async()=>{const x=await NL.get('/api/compose/export?workflow='+encodeURIComponent(w.id));if(x.error)return NL.toast(x.error,'bad');const a=document.createElement('a'),bytes=Uint8Array.from(atob(x.data),c=>c.charCodeAt(0)),url=URL.createObjectURL(new Blob([bytes],{type:'application/zip'}));a.href=url;a.download=x.filename;a.click();setTimeout(()=>URL.revokeObjectURL(url),1000);NL.toast('Procedure downloaded. Lab tools are required for enforced gates and parallel execution.')}}
       onCheckpoint=${(id,checkpoint)=>openCp(d,w,checkpoint||null,w.path[0]===id&&!w.nodes?{during:id}:{before:id})}
@@ -478,7 +478,7 @@
   };
 
   const ListHead = ({ k, children }) => html`<header class="cmp-head"><div class="grow"><a class="kicker" href=${href()}>Workflow</a><h1>${k.label}</h1><p class="lede">${k.blurb}</p></div>
-    <div class="row">${children}${k.item !== 'step' && k.item !== 'rule' ? html`<${NL.Btn} kind="primary" onClick=${() => openNew(k.item)}><${NL.Icon} name="plus" /> New ${k.one}</${NL.Btn}>` : null}</div></header>`;
+    <div class="row">${children}${k.item === 'procedure' ? html`<${NL.Btn} onClick=${openImportSkill}>Import folder</${NL.Btn}>` : null}${k.item !== 'step' && k.item !== 'rule' ? html`<${NL.Btn} kind="primary" onClick=${() => k.item === 'procedure' ? NL.open(CreateSkill, {}, {kind:'dialog'}) : openNew(k.item)}><${NL.Icon} name="plus" /> New ${k.one}</${NL.Btn}>` : null}</div></header>`;
   const ItemHead = ({ k, name, title, sub, chips, actions }) => html`<header class="cmp-head"><div class="grow">
       <div class="kicker"><a href=${href(k.id)}>${k.label}</a> / ${name}</div><h1>${title}</h1>${sub ? html`<p class="lede">${sub}</p>` : null}
       ${chips ? html`<div class="row cmp-chips">${chips}</div>` : null}</div><div class="row">${actions}</div></header>`;
@@ -550,6 +550,35 @@
   /* ── procedures ───────────────────────────────────────────────────────────── */
   const GROUPS = [['stage', 'Step procedures', 'Each does the work of a step, and reports where the study goes next.'], ['driver', 'Drivers', 'Carry studies through several steps on their own.'],
     ['entry', 'Ways in', 'Start something new.'], ['utility', 'Utilities', 'Everything else agents can be asked to do.']];
+  const openImportSkill = () => NL.open(ImportSkill, {}, {kind:'dialog', key:'skill-import'});
+  const ImportSkill = ({onClose}) => {
+    const [path, setPath] = useState(''), [info, setInfo] = useState(null), [error, setError] = useState(''), [busy, setBusy] = useState(false);
+    const preview = async folder => {
+      setPath(folder); setInfo(null); setError(''); setBusy(true);
+      try { const r = await NL.api('/api/compose', {op:'skill-import', path:folder, preview:true});
+        if (r.error) setError(r.error); else setInfo({...r.skill, exists:r.exists});
+      } finally { setBusy(false); }
+    };
+    const add = async () => { setBusy(true); try { const r = await edit({op:'skill-import', path}); if (r.ok) {onClose(); NL.go(`${base()}/procedure/${info.name}?tab=files`);} } finally {setBusy(false);} };
+    return html`<div class="dialog"><h3>Import a skill</h3><p class="muted">Choose a folder containing SKILL.md. Its references, scripts and assets come with it.</p>
+      <div class="row"><${NL.Input} ariaLabel="Skill folder" disabled=${busy} value=${path} onInput=${v=>{setPath(v);setInfo(null);}} placeholder="Folder on this machine"/>
+        <${NL.Btn} disabled=${busy} onClick=${()=>NL.pickFolder({initial:path,onPick:preview,title:'Choose a skill folder'})}>Browse</${NL.Btn}>
+        <${NL.Btn} disabled=${busy||!path.trim()} onClick=${()=>preview(path)}>Check</${NL.Btn}></div>
+      ${error?html`<p class="note bad">${error}</p>`:null}
+      ${info?html`<div class="stack"><h4>/${info.name}</h4><p>${info.description}</p><span class="muted small">${info.files.length} files · ${Math.ceil(info.bytes/1024)} KB</span>
+        ${info.exists?html`<p class="note">This name is already in your Lab. Use it, or rename your source skill and its folder.</p>`:html`<p class="muted small">Added as a draft. Review and publish before using it.</p>`}</div>`:null}
+      <div class="dialog-actions"><${NL.Btn} onClick=${onClose}>Cancel</${NL.Btn}><${NL.Btn} kind="primary" disabled=${busy||!info||info.exists} onClick=${add}>Add to draft</${NL.Btn}></div></div>`;
+  };
+  const CreateSkill = ({onClose}) => {
+    const [title,setTitle]=useState(''),[description,setDescription]=useState(''),[text,setText]=useState(''),[busy,setBusy]=useState(false);
+    const name=slugify(title);
+    const save=async()=>{setBusy(true);try{const r=await edit({op:'skill-create',name,description,text});if(r.ok){onClose();go('procedure',name);}}finally{setBusy(false);}};
+    return html`<div class="dialog dialog-wide"><h3>New skill</h3>
+      <${NL.Field} label="Name"><${NL.Input} value=${title} onInput=${setTitle}/></${NL.Field}>
+      <${NL.Field} label="When to use it"><${NL.Input} value=${description} onInput=${setDescription}/></${NL.Field}>
+      <${NL.Field} label="Instructions"><${NL.Textarea} rows=${10} value=${text} onInput=${setText}/></${NL.Field}>
+      <div class="dialog-actions"><${NL.Btn} onClick=${onClose}>Cancel</${NL.Btn}><${NL.Btn} kind="primary" disabled=${busy||!name||!description.trim()||!text.trim()} onClick=${save}>Add to draft</${NL.Btn}></div></div>`;
+  };
   const ProcRow = ({ d, name, p }) => {
     const cu = (d.custom.procedures || {})[name] || {};
     return html`<a class="cmp-row" href=${href('procedure', name)}>

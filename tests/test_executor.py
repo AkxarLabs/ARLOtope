@@ -54,6 +54,38 @@ class Spawns:
         return 4242
 
 
+@pytest.mark.parametrize('backend', ['claude','codex','opencode','acp'])
+def test_managed_method_uses_project_snapshot_on_every_backend(hub, tmp_path, backend):
+    import yaml
+    import shutil
+    from test_skill_resources import skill
+    shutil.copytree(REPO/'workflow',hub.root/'workflow',dirs_exist_ok=True)
+    source = skill(hub.root/'.claude/skills')
+    definition = {'id':'custom','title':'Custom','path':['inspect','finish'],
+                  'nodes':{'inspect':{'procedure':'custom-method'},'finish':{'procedure':None}},'checkpoints':[]}
+    folder = hub.root/'workflow/workflows'
+    folder.mkdir(parents=True,exist_ok=True)
+    (folder/'custom.yaml').write_text(yaml.safe_dump(definition),encoding='utf-8')
+    project = hub.make_project('custom-study')
+    hub.add_registry_row('custom-study',state='inspect',project=str(project),workflow='custom')
+    lab = setup(hub)
+    config = yaml.safe_load((hub.lab/'config.yaml').read_text())
+    config['agents']['programmatic']['backends'][backend] = {'command':[sys.executable,str(FAKE)]}
+    (hub.lab/'config.yaml').write_text(yaml.safe_dump(config),encoding='utf-8')
+    first = executor.enqueue(lab, RunSpec('custom-method',target='custom-study',backend=backend))
+    hit = executor.find_run(lab,first['run_id'])
+    directory = manifest.run_dir(hit[2].parent,first['run_id'])
+    method = directory/'skills/custom-method/SKILL.md'
+    assert method.is_file() and first['skills']['custom-method']['source'] == 'lab'
+    assert method.as_posix() in (directory/'prompt.md').read_text(encoding='utf-8')
+    assert '/custom-method custom-study' not in (directory/'prompt.md').read_text(encoding='utf-8')
+    project_method = project/'.agents/skills/custom-method/SKILL.md'
+    project_method.write_text('---\nname: custom-method\ndescription: Project method.\n---\nProject adaptation.',encoding='utf-8')
+    second = executor.enqueue(lab,RunSpec('custom-method',target='custom-study',backend=backend))
+    assert second['skills']['custom-method']['source'] == 'project'
+    assert 'Project adaptation' not in method.read_text(encoding='utf-8')
+
+
 def test_pid_liveness_tracks_process_exit_without_shell_probes(monkeypatch):
     child = subprocess.Popen([sys.executable, '-c', 'import time; time.sleep(30)'], **procs.NO_WINDOW)
     def unwanted(*_args, **_kwargs):

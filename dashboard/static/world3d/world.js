@@ -1,4 +1,4 @@
-/* Newts' Lab — the world: the lab as an open-plan tabletop (three.js), drawn from the live lab.
+/* ARLOtope — the world: the lab as an open-plan tabletop (three.js), drawn from the live lab.
  *
  * The rooms are the workflow's, on plots round the PI's desk (world3d/layout.js), each in its own look
  * (a built-in world3d/rooms/<id>.js, the lab's lab/rooms3d/<id>.json, or plain).

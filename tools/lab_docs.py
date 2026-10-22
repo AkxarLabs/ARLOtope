@@ -148,7 +148,8 @@ def _blocks(hub) -> list[tuple[Path, str, str]]:
            (Path("AGENTS.md"), "project-types", project_types_line(hub)),
            (model.SKILLS / "spawn-project" / "SKILL.md", "project-types", project_types_line(hub))]
     for name, p in model.load(hub)["procedures"].items():
-        if not p.get("engineering"):
+        file = Path(hub) / model.SKILLS / name / 'SKILL.md'
+        if not p.get("engineering") and file.is_file() and model.skill_meta(_read(file)).get('newts'):
             out.append((model.SKILLS / name / "SKILL.md", "contract", contract_block(name, hub)))
     return out
 

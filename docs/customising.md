@@ -6,6 +6,9 @@ If a definition or instruction cannot be read, choose **Retry**. A failed read d
 
 ## Choose the smallest edit
 
+The shipped research stages are defaults. Your workflow can use any tasks, skills, rooms and
+outcomes, including instructions-only tasks; it does not need an ideation, experiment or writing stage.
+
 | Need | Edit |
 |---|---|
 | Add context for one study | Study **Instructions** |
@@ -39,6 +42,22 @@ Reloading a comparison does not edit or publish the draft.
 Expand **Draft with an agent** and explain the method or process you want. **New workflow → Describe it** opens the designer for a new process. The ordinary agent writes a proposal under `lab/.bus/designs/workflow/`. Inspect the proposal and take it into the shared draft, then review and publish. The proposing agent does not publish its own definition. Sending a design request uses an agent turn; opening the form does not.
 
 For a single study, its **Instructions** tab saves additional step or procedure guidance in `studies/<slug>/workflow/`. Removing that local guidance restores the Lab's instructions. A study can also choose an existing procedure variant without changing other studies.
+
+## Reuse a method
+
+A preset is an ordinary skill or skill variant selected by a task. This applies equally to collecting
+data, reviewing evidence, coding, writing or another method. A workflow supplies its default choices;
+a study can select a variant without changing that workflow for everyone else.
+
+Keep the method in `SKILL.md`. Put substantial optional guidance in `references/` and say when to read
+each file. Metadata inheritance through `newts.like` does not include the parent's instruction body:
+a variant supplies its own body. Lab and study additions supplement the selected method; use a variant
+when replacing the method rather than adding context.
+
+The shared contract tells the agent to load its brief. The brief supplies current workflow state,
+outcomes, checkpoints and custom instructions. Keep those operational rules out of method-specific
+references. Role instructions define responsibility; task instructions define this assignment.
+Relevant project records remain evidence to inspect, rather than being copied into every skill.
 
 If an instruction sheet cannot load, choose **Retry**; it does not open an empty editor over unread instructions. An agent's suggested instruction change shows its comparison only after both the suggestion and current instructions load. **Accept** waits for that comparison; **Decline** remains available when the suggestion itself has loaded.
 

@@ -1,6 +1,6 @@
 # {{title}}
 
-*Spawned from Newts' Lab `templates/project/` on {{date}} · Idea: `{{slug}}` · Proposal: `studies/{{slug}}/proposal.md` in the hub repo.*
+*Spawned from ARLOtope `templates/project/` on {{date}} · Idea: `{{slug}}` · Proposal: `studies/{{slug}}/proposal.md` in the hub repo.*
 
 ## What this is
 

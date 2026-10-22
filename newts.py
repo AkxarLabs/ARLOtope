@@ -1,4 +1,4 @@
-"""Start Newts' Lab: the dashboard server for this lab, then your browser.
+"""Start ARLOtope: the dashboard server for this lab, then your browser.
 
     uv run --with pyyaml python newts.py                 # this lab, http://127.0.0.1:8787 (or the next free port)
     uv run --with pyyaml python newts.py --hub ../my-lab # another lab
@@ -191,7 +191,7 @@ def main() -> int:
         import newts_cli  # noqa: PLC0415
         if sys.argv[1] in newts_cli.VERBS:
             return newts_cli.main(sys.argv[1:])
-    ap = argparse.ArgumentParser(description="Start Newts' Lab (the dashboard) and open it in your browser. "
+    ap = argparse.ArgumentParser(description="Start ARLOtope (the dashboard) and open it in your browser. "
                                              "`newts.py <verb>` controls the lab from a terminal: newts.py status, "
                                              "approve, start, runs, panels … (`newts.py status --help`).")
     ap.add_argument("--hub", default=str(HERE), help="the lab to open (default: this folder)")
@@ -214,7 +214,7 @@ def main() -> int:
     hub = Path(a.hub).expanduser().resolve()
     say = (lambda d: print(json.dumps(d))) if a.json else None
     if not (hub / "lab" / "config.yaml").exists():
-        msg = (f"{hub} is not a Newts' Lab (no lab/config.yaml). Open the dashboard from a lab folder, "
+        msg = (f"{hub} is not a ARLOtope (no lab/config.yaml). Open the dashboard from a lab folder, "
                "or create one from the dashboard's Labs page.")
         (say or print)({"error": msg} if say else msg)
         return 2
@@ -234,7 +234,7 @@ def main() -> int:
         if say:
             say(res)
         elif res.get("ok"):
-            print(f"Newts' Lab is {'already ' if res.get('already') else ''}running in the background for "
+            print(f"ARLOtope is {'already ' if res.get('already') else ''}running in the background for "
                   f"{res.get('name')} on http://127.0.0.1:{res['port']} (pid {res['pid']}). Stop it with --stop.")
             if headless():
                 print(tunnel_hint(res["port"]))
@@ -246,7 +246,7 @@ def main() -> int:
     hit = running_for(hub, a.port)
     if hit:
         url = f"http://127.0.0.1:{hit[0]}/"
-        print(f"Newts' Lab is already running for {hit[1].get('name')} — {url}")
+        print(f"ARLOtope is already running for {hit[1].get('name')} — {url}")
         if headless():
             print(tunnel_hint(hit[0]))
         elif not a.no_browser:
@@ -260,7 +260,7 @@ def main() -> int:
             print(res.get("error"))
             return 1
         url = f"http://127.0.0.1:{res['port']}/"
-        print(f"Newts' Lab is running for {res.get('name')} — {url}\n"
+        print(f"ARLOtope is running for {res.get('name')} — {url}\n"
               "It keeps working when you close this window; stop it from Settings → About & server "
               "(or: newts.py --stop).")
         if headless():

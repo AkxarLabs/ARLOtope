@@ -1,16 +1,17 @@
 # Project Protocol — {{title}}
 
-You are the implementation agent of this project, spawned from the Newts' Lab at `{{hub_path}}`
+You are the implementation agent of this project, spawned from the ARLOtope at `{{hub_path}}`
 (the hub). **This file is the protocol for any session started in this directory** — orientation
 order, autonomy bounds, subagent policy, the extensibility rules, session write-back. It binds every
 agent. The hub's `AGENTS.md`/`CLAUDE.md` (the lab-wide protocol) still binds you too; this file adds
 what is specific to working inside a project.
 
 It is the **single source of truth**: Claude Code reads it through `CLAUDE.md` (a thin file that
-imports this one) and gets the hub procedures as native slash-command **skills** and the subagent
-roles as native **Task subagents**; other agents (Codex, opencode, …) read this file directly. The
-research procedures live in the hub at `{{hub_path}}/.claude/skills/<name>/SKILL.md` — open the file
-and follow it step by step.
+imports this one); other agents (Codex, opencode, …) read this file directly. Selected workflow
+methods live in `.agents/skills/<name>/SKILL.md`. Existing `.claude/skills/` and `.opencode/skills/`
+methods are also retained. A managed run names its exact saved copies: read those paths. For a
+method not copied here, consult `{{hub_path}}/.claude/skills/<name>/SKILL.md` or the installed Lab.
+Native slash commands and subagent roles depend on the harness; explicit files work across harnesses.
 
 ## Orientation (start of every session, in this order)
 
@@ -78,7 +79,7 @@ uv run pytest                                                      # keep green 
 
 ## Procedures
 
-The lab's procedures live in the hub at `{{hub_path}}/.claude/skills/<name>/SKILL.md`.
+Use the project's selected methods first; the reusable originals live in the Lab's skill library.
 From inside this project you will mainly need, in lifecycle order:
 
 | Procedure | When |
@@ -189,7 +190,8 @@ is no runtime to install** (a Claude session also gets them as native slash-comm
     `grilling` + `domain-modeling`. Vendored, MIT — see `grill-with-docs/NOTICE`. Reach for it
     before a non-trivial refactor or new-module design (distinct from the hub's *research* design
     records).
-- **Research-lifecycle procedures** live in the HUB at `{{hub_path}}/.claude/skills/<name>/SKILL.md`
+- **Research-lifecycle procedures** have selected project copies in `.agents/skills/` and reusable
+  originals at `{{hub_path}}/.claude/skills/<name>/SKILL.md`
   (`experiment`, `improve`, `ideate --in-project`, `analyze`, `make-figures`, …) — same convention:
   open the file and follow it step by step.
 
