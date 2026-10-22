@@ -1,8 +1,8 @@
 # Extending the Lab
 
-Change a method or workflow through the existing definitions. **Workflow** offers the map, shared
-steps and procedures; **Advanced** contains roles, rooms, rules, checks, project types and
-instruments. Agent harness/model presets belong in Settings, not in role instructions.
+Change a method or workflow through the existing definitions. **Workflow** offers the map,
+**Skills** and **Rooms**. **More settings** contains shared steps, roles, rules, checks, project
+types and instruments. Agent harness/model presets belong in Settings, not in role instructions.
 
 Dashboard edits stay in a draft. Use **Review & publish** to inspect changes and validation problems;
 publishing applies them. **Change history** can undo the latest publication. An agent designer
@@ -24,13 +24,14 @@ uv run --with pyyaml python tools/new.py step replication --like analysis \
 
 The procedure `replicate` must already exist. This copies the shared step and inserts it after
 analysis in the research path. By hand, edit `workflow/steps.yaml` and the workflow’s `path`.
-In the dashboard use **Steps → New step**, then **Edit steps** on the workflow.
+In the dashboard use **More settings → Task defaults → New step** for a reusable definition.
+For a workflow-specific task, use **Add task** or the **+** after an existing task on the map.
 
 A composed task can instead carry its own instructions and skill sequence. Select it on the map
 to edit role, preset, expected files and context. Role describes the job; choosing it does not
 implicitly change conversation inheritance.
 
-![Task instructions, role, agent and context](assets/current/workflow-task.webp)
+![Task instructions, role, agent and context](assets/current/workflow-task-grouped.png)
 
 ## Make a variant of a procedure
 
@@ -118,7 +119,7 @@ newts workflow rename-step active running --yes
 ```
 
 This updates the shared identifier, workflow references and study positions through recorded remap
-events. To change only the visible label, edit **Steps → step → About**. Do not rename history by
+events. To change only the visible label, edit **More settings → Task defaults → step → About**. Do not rename history by
 hand or edit the generated registry.
 
 ## Add a check

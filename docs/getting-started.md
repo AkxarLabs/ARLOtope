@@ -12,7 +12,7 @@ uv run --with pyyaml python newts.py
 
 The platform launcher opens the same application. The browser connects to a local server, normally on `http://127.0.0.1:8787`. Agent requests use the accounts configured in their own tools.
 
-If you want dashboard-managed tasks, choose **Connect an agent** in the Lab or open **Settings → Agents & models**, then install or sign in to a harness. Enable agent runs in **Settings → Limits & permissions** when you are ready to launch work. You can create a study and browse its files before doing this.
+If you want dashboard-managed tasks, open **Settings → Agents & models**, then install or sign in to a harness. A **Connect an agent** link also appears when the Lab cannot find a usable harness. Enable agent runs in **Settings → Limits & permissions** when you are ready to launch work. You can create a study and browse its files before doing this.
 
 ![The visual Lab before starting work](assets/current/lab-light.webp)
 
@@ -73,7 +73,11 @@ If attachment reports another Lab, it names the selected folder and recorded Lab
 
 ## 4. Start one task
 
-After creation, choose **Plan the first task with an agent**. Review the prefilled instruction, choose an agent if needed, then launch from the task dialog. **Open study** lets you inspect the record first.
+After creation, choose **Open study** to inspect the record and its next work. **Run ready tasks** starts eligible workflow tasks with their saved instructions and agent assignments.
+
+For an initial inspection or discussion, choose **Plan with an agent** instead. Review the prefilled **Instruction**, confirm its **Study**, and expand **Options** to change agents before **Send**. This is a separate instruction; it does not automatically run the next workflow task.
+
+The success screen waits for the new study's details before offering those actions. If that read fails, **Retry** reloads the saved study; it does not create a second one.
 
 ![Created study with a separate first-task action](assets/current/start-created.webp)
 
@@ -83,7 +87,7 @@ A useful first instruction for an existing project is: “Read the project instr
 
 ![Reviewing the first instruction before launching an agent](assets/current/start-task.webp)
 
-*Demonstration fixture: inspect the instruction and agent options before sending.*
+*Isolated test Lab: the instruction targets the created study. Opening or canceling it starts no agent.*
 
 ## 5. Inspect the conversation and result
 

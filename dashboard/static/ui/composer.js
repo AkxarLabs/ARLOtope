@@ -141,8 +141,8 @@
     const [opts, setOpts] = useState(DEFAULT_OPTS);
     const go = async () => { const r = await NL.launch({ prompt: t.trim(), target: tgt || 'hub', ...optBody({ ...opts, chain: 'off' }) }); if (r) { onSent && onSent(); onClose(); } };
     return html`<div class="dialog dialog-wide"><h3>New instruction</h3>
-      <${NL.Textarea} rows="4" value=${t} onInput=${setT} onSubmit=${go} autofocus />
-      <${StudyPicker} label="Where" value=${tgt} onChange=${setTgt} allowLab />
+      <${NL.Field} label="Instruction"><${NL.Textarea} rows="4" value=${t} onInput=${setT} onSubmit=${go} autofocus /></${NL.Field}>
+      <${StudyPicker} label="Study" value=${tgt} onChange=${setTgt} allowLab />
       <${LaunchOptions} opts=${opts} setOpts=${setOpts} target=${tgt} />
       <p class="muted small">A run on your account. It can use any lab procedure but cannot approve checkpoints.</p>
       <div class="dialog-actions"><${NL.Btn} onClick=${onClose}>Cancel</${NL.Btn}><${NL.Btn} kind="primary" disabled=${!t.trim()} onClick=${go}>Send</${NL.Btn}></div></div>`;

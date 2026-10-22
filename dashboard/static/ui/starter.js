@@ -7,7 +7,7 @@
   const CHOICES = [
     { id: 'topic', title: 'A research question', sub: 'Start with a question.' },
     { id: 'local', title: 'An existing project', sub: 'On this computer or another machine.' },
-    { id: 'github', title: 'A GitHub repository', sub: 'Clone a public repository.' }
+    { id: 'github', title: 'A GitHub repository', sub: 'Clone a repository.' }
   ];
   const ProjectFiles = () => html`<details class="more"><summary>Files added to this project</summary>
     <p class="muted small"><code>.newts/project.json</code> keeps its identity. Notes and saved answers use <code>.newts/knowledge/</code> by default. Commit these only if they should travel with the project.</p>
@@ -152,7 +152,7 @@
         const result = await NL.api('/api/starter', { confirm: true, title: title.trim(), question: question.trim(),
           slug: sid, workflow, tags, agents:agentChoices, entry:selectedEntry, draft:materialId, github_auth:github.data?.connected===true, machine:kind==='topic'?'':machine, local: kind === 'local'||kind==='github'&&machine ? local.trim() : '', repo: kind === 'github' ? resolved.name : '' });
         if (!result.ok) { setError(result.error || 'The study could not be created.'); return; }
-        NL.ls.set(draftKey, null); NL.invalidateLibrary(); setCreated(result); NL.refresh();
+        NL.ls.set(draftKey, null); NL.invalidateLibrary(); await NL.refresh(); setCreated(result);
       } finally { setBusy(false); }
     };
     const firstTask = () => {
@@ -168,8 +168,9 @@
       
       ${created.project ? html`<p class="mono path-wrap">${created.project}</p>` : null}
       ${created.project ? html`<${ProjectFiles}/>` : null}
-      <div class="starter-actions"><${NL.Btn} kind="primary" onClick=${firstTask}>Plan the first task with an agent</${NL.Btn}>
-        <${NL.Btn} onClick=${() => NL.go('study/' + created.study)}>Open study</${NL.Btn}>
+      ${!NL.item(lab,created.study)?html`<${NL.LoadState} error="Study saved. Reload its details to continue." reload=${NL.refresh}/>`:null}
+      <div class="starter-actions"><${NL.Btn} kind="primary" disabled=${!NL.item(lab,created.study)} onClick=${() => NL.go('study/' + created.study)}>Open study</${NL.Btn}>
+        <${NL.Btn} disabled=${!NL.item(lab,created.study)} onClick=${firstTask}>Plan with an agent</${NL.Btn}>
         <${NL.Btn} onClick=${reset}>Create another study</${NL.Btn}></div>
       <section class="process-primer"><h2>Workflow</h2><p>${flow?.title || 'Workflow'} · Edit tasks, instructions and checkpoints.</p>
         ${flow?html`<${NL.WorkflowOverview} workflow=${flow} entry=${selectedEntry}/>`:null}

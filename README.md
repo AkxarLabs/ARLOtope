@@ -22,7 +22,7 @@ uv run --with pyyaml python newts.py
 
 The local dashboard opens in your browser. **New study** guides you through:
 
-1. A research question, an existing project on this or a connected machine, or a public GitHub `owner/repository`.
+1. A research question, an existing project on this or a connected machine, or a GitHub `owner/repository`. Private repositories use the connected GitHub account.
 2. A research goal and workflow. Optionally upload a brief or supporting files and ask an agent to suggest details.
 3. Review, then create the study. A GitHub clone downloads source without installing or running it.
 

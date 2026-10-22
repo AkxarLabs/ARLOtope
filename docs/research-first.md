@@ -17,7 +17,7 @@ uv run --with pyyaml python tools/research_start.py --title "Replication study" 
   --question "Which assumptions explain the published result?" --local /absolute/path/to/project
 ```
 
-Omit `--local` for a question-only study, or use `--repo owner/repository` for a public clone. `--workflow` selects a process and `--slug` selects an ID. Existing private repositories can be attached after a normal clone.
+Omit `--local` for a question-only study, or use `--repo owner/repository` for a public clone. `--workflow` selects a process and `--slug` selects an ID. The dashboard can also clone private repositories through the connected GitHub account. Existing private checkouts can be attached without cloning again.
 
 ## Keep method, execution and decisions distinct
 

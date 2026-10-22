@@ -12,7 +12,8 @@ existing repository, keep your tools, and build a readable record of work, evide
 
 ## Start with the work you have
 
-Save a research question, attach a local or remote folder, or clone a public GitHub repository.
+Save a research question, attach a local or remote folder, or clone a GitHub repository.
+Private repositories use the connected GitHub account on the selected machine.
 Upload a brief and supporting materials if you have them. Ask an agent to help refine the study,
 then review its suggestions. Creating a study does not start work or approve a checkpoint.
 

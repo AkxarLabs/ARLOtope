@@ -1,6 +1,6 @@
 # Notes, sources and saved answers
 
-Use **Library → Notes & sources** for retained knowledge. Choose **Project / study**, a record kind and an optional search. Records live in ordinary files alongside the project or study they concern.
+Use **Library → Notes & sources** for retained knowledge. Choose **Library study**, a record kind and an optional search. Records live in ordinary files alongside the project or study they concern.
 
 Failed document shelves, records and note reads offer **Retry**. If a refresh fails after loading, the last copy remains labelled. Changing the study or record does not reuse another selection's contents. Adding a note refreshes the shelf without changing the document it discusses.
 

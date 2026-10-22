@@ -15,6 +15,10 @@ You can create several studies before launching any work.
 5. Use **Show in lab** to focus the character and its task panel, open its conversation, or use **All agents**. A queued task waits for
    admission; creating or queuing it does not mean the model is already running.
 
+**Plan with an agent** and **Ask agent** open a separate instruction. They can
+inspect a project or discuss a plan without automatically dispatching the workflow. **Run ready
+tasks** starts the saved task contracts. Creating a study or opening either form starts no agent.
+
 An accepted task outcome updates the workflow. Ordered tasks can follow the next step when that
 launch option is enabled. Graph tasks use their connections to make branches ready; joins wait for
 their declared inputs. An agent turn ending without its task outcome stays unfinished. See

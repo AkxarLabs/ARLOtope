@@ -11,7 +11,7 @@ agent-only workflow language. The [workflow reference](workflow.md) gives exampl
 another scheduler.
 
 An agent designer can propose tasks, skill sequences, roles, conversation sources, parallel
-branches, joins, outcome routes, loops, rooms and checkpoints. **Adapt a workflow** gives it the
+branches, joins, outcome routes, loops, rooms and checkpoints. **Draft with an agent** gives it the
 existing definitions and a private proposal folder. It validates with `newts check --design`,
 then the researcher reviews and publishes the proposal in Workflow.
 
@@ -28,7 +28,7 @@ validation and publication path; a task is not automatically allowed to publish 
 3. **Output files** names specific files you want produced; blank uses the skill and task instructions. Paths are relative to the working area. **More skills & tools** contains skill sequences and external research phases.
 4. Open **Agent & conversation** for role, agent and conversation choices. **Model & role instructions** contains overrides. Collapsed headings show configured choices.
 5. Open **Connections & loops** for destinations, named outcomes, joins, tags and **Maximum passes**.
-6. **Save workflow draft**, then **Review & publish** the shared change.
+6. **Save workflow draft**, then **Review & publish** the shared change. Use **Change history** to inspect previous publications. A copy opens automatically so edits apply to the version you just created.
 
 ![A workflow map with tasks and branches](assets/current/workflow-map.webp)
 

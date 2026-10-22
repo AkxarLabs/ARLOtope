@@ -10,7 +10,7 @@ Run `uv run --with pyyaml python newts.py` or use the platform launcher. The loc
 | **Studies** | A study's question, tasks, files, instructions and history |
 | **Library** | Outputs, existing documents, notes, sources and saved Q&A |
 | **Workflow** | Tasks, reusable methods, roles, routes, rooms and checkpoints |
-| **New study** | Create a study from a question, existing folder or public repository |
+| **New study** | Create a study from a question, existing folder or GitHub repository |
 | **Inbox** | Answer questions, review permissions and handle decisions |
 | **Assistant** | Ask a separate workspace agent about selected work |
 

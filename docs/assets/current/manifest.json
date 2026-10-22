@@ -14,6 +14,15 @@
       "sha256": "3ccabd1f04221ea5f9b9849f15f60ed72496505f45e3fbce320bd1e853f03ffb"
     },
     {
+      "file": "agent-role-rows.png",
+      "size": [
+        1440,
+        1050
+      ],
+      "bytes": 52418,
+      "sha256": "b3a151878d269b1ace69666cf7a38d9340dfb87c28afb7c730cc950f1434bfa9"
+    },
+    {
       "file": "agents-quota.webp",
       "size": [
         1440,
@@ -46,8 +55,10 @@
         1440,
         1000
       ],
-      "bytes": 55698,
-      "sha256": "1ac0897a4a989b72dee27e9e0afa9b3fb6590fdd5417a181a87ba6b6f4b24e53"
+      "bytes": 47300,
+      "sha256": "f32119ad3892ea82b1ecd4b6d0ecb5a3d9799de6ace09031b0262533ef1dd4fc",
+      "captured": "2026-10-21",
+      "source": "Current UI in isolated Journey review Lab; fictitious study/reference/output. No agent launches."
     },
     {
       "file": "assistant.webp",
@@ -55,8 +66,10 @@
         1440,
         1000
       ],
-      "bytes": 53068,
-      "sha256": "094a078fbc85dff44455992e07855e9adc263347de524238faed6433e96aef7c"
+      "bytes": 40422,
+      "sha256": "54d0b4d2676e489d142f79e606a30cbf3023a6088bd88d61594ed82b092b6380",
+      "captured": "2026-10-21",
+      "source": "Current UI in isolated Journey review Lab; fictitious study/reference/output. No agent launches."
     },
     {
       "file": "checkpoint.webp",
@@ -66,6 +79,33 @@
       ],
       "bytes": 54104,
       "sha256": "346128d55da25a5d72629635796d3466c36d09e000e65995078cd6740ef84bfd"
+    },
+    {
+      "file": "external-activity.png",
+      "size": [
+        1440,
+        1100
+      ],
+      "bytes": 156883,
+      "sha256": "541ab4897275fa215b3b2d2ceed3da9b49c69d708926f870e30f18e6a0c699c7"
+    },
+    {
+      "file": "external-phase.png",
+      "size": [
+        1440,
+        1000
+      ],
+      "bytes": 106439,
+      "sha256": "4c7e6d2640011ea93ce364f9b9cd92082bd8c0cfc8dfb23c0eff70d2b35ec20c"
+    },
+    {
+      "file": "external-tools.png",
+      "size": [
+        1440,
+        1000
+      ],
+      "bytes": 106292,
+      "sha256": "2b88ebd3a42675784f0f03b4f0355117bd4b573675f6df2e250d016db25ff87a"
     },
     {
       "file": "lab-dark.webp",
@@ -91,8 +131,10 @@
         1440,
         1000
       ],
-      "bytes": 36068,
-      "sha256": "2cfcbc0413498261f2f9f98b490e1f721360d6bbfba99cba0c7340a458ef196c"
+      "bytes": 59220,
+      "sha256": "f85a2977462a6d0c7748de9553615b1abc0241f2d6e0ba1faf559e124a6f984c",
+      "captured": "2026-10-21",
+      "source": "Current UI in isolated Journey review Lab; fictitious study/reference/output. No agent launches."
     },
     {
       "file": "library-records.webp",
@@ -100,8 +142,19 @@
         1440,
         1000
       ],
-      "bytes": 48062,
-      "sha256": "4b95dc026d0cb5ae23872cf8e1c7c876431f2c5660974319afbf3d4aed15dad5"
+      "bytes": 28362,
+      "sha256": "14b51056cf1d9b9f66aa38c900099284d24d3a8e6924b4ac1a9a641c0e681d9d",
+      "captured": "2026-10-21",
+      "source": "Current UI in isolated Journey review Lab; fictitious study/reference/output. No agent launches."
+    },
+    {
+      "file": "library-study-scope.png",
+      "size": [
+        1440,
+        1050
+      ],
+      "bytes": 62990,
+      "sha256": "2bdcbb3cb1bdc6392d382d558a16770ff78c9fdefa34341099fe7b434edf3785"
     },
     {
       "file": "machine-folder.webp",
@@ -127,8 +180,19 @@
         1440,
         1000
       ],
-      "bytes": 30048,
-      "sha256": "f816d94f9711438c18ec05fe82061f378c6f60b9808129f80982a4fb75ceedab"
+      "bytes": 25746,
+      "sha256": "23354fcb2a34ac50835efd9a767794023ff4b5f857c884a974060f9750486ac6",
+      "captured": "2026-10-21",
+      "source": "Current UI in isolated Journey review Lab; fictitious study/reference/output. No agent launches."
+    },
+    {
+      "file": "project-files.png",
+      "size": [
+        350,
+        157
+      ],
+      "bytes": 19549,
+      "sha256": "357c8923b78ae3e5cba46167210d60cf81ca39bd2b0820a35973ea7e16fbc4ba"
     },
     {
       "file": "settings-limits.webp",
@@ -154,8 +218,10 @@
         1440,
         1000
       ],
-      "bytes": 25248,
-      "sha256": "f5ad4c5b2db94de0238d99a33da69f6f85926759a418497ccc4f709f631a1ac7"
+      "bytes": 26368,
+      "sha256": "728063b1be1cfe37f11f6f8f1a8ead14e022db612d471a362aa0af1e369f3fc6",
+      "captured": "2026-10-21",
+      "source": "Current UI in isolated Journey review Lab; fictitious study/reference/output. No agent launches."
     },
     {
       "file": "start-details.webp",
@@ -163,8 +229,10 @@
         1440,
         1000
       ],
-      "bytes": 41304,
-      "sha256": "64cbca297d6c349740e114b4552606f8920b9197ccdb44cd6dcd96c5b2fd9baa"
+      "bytes": 30788,
+      "sha256": "0ce430dd7313fd430cd26c865756f962d0d1a84cf8422243dff78023654c5b6d",
+      "captured": "2026-10-21",
+      "source": "Current UI in isolated Journey review Lab; fictitious study/reference/output. No agent launches."
     },
     {
       "file": "start-review.webp",
@@ -172,8 +240,10 @@
         1440,
         1000
       ],
-      "bytes": 40736,
-      "sha256": "b415fdab269df90d9a1e1cff149eda17853b1ffa35be2477830cb8990a56e4ef"
+      "bytes": 31140,
+      "sha256": "8ca8d2604043a7e7064359a03b662558e2b8e5866a76a692a2d8c42c5d37aca2",
+      "captured": "2026-10-21",
+      "source": "Current UI in isolated Journey review Lab; fictitious study/reference/output. No agent launches."
     },
     {
       "file": "start-task.webp",
@@ -181,8 +251,19 @@
         1440,
         1000
       ],
-      "bytes": 60082,
-      "sha256": "9ed98df443cbf8fc6f6521b413f17a20a6d5aa3bb1f8f37ee1fb9e8875093058"
+      "bytes": 47032,
+      "sha256": "2303218283186bc6109ac880adce8de874c9a668ef55387dd3d3a18006fb43b9",
+      "captured": "2026-10-21",
+      "source": "Current UI in isolated Journey review Lab; fictitious study/reference/output. No agent launches."
+    },
+    {
+      "file": "starting-plan.png",
+      "size": [
+        680,
+        949
+      ],
+      "bytes": 50402,
+      "sha256": "0cdd0f54944c8b6a68d5269b30bd848477ea73bf220f23dcfa05b3cc55cd7161"
     },
     {
       "file": "study-overview.webp",
@@ -190,8 +271,19 @@
         1440,
         1000
       ],
-      "bytes": 58522,
-      "sha256": "e129a7e9861689f1f5ac88e3cf3f2f42d42eabfef69de80fc3245f1938ded655"
+      "bytes": 45064,
+      "sha256": "0f935f40eb8339a5bee76ff7e2529ed9dd860d90e53002adfec97b5e0101a030",
+      "captured": "2026-10-21",
+      "source": "Current UI in isolated Journey review Lab; fictitious study/reference/output. No agent launches."
+    },
+    {
+      "file": "study-workflow-history.png",
+      "size": [
+        1440,
+        1050
+      ],
+      "bytes": 98311,
+      "sha256": "d0aff4a291046a0297e8bf54717cf4d992a2fe09b740bdbe316f40ed3e8d1ca6"
     },
     {
       "file": "workflow-map.webp",
@@ -199,8 +291,10 @@
         1440,
         1000
       ],
-      "bytes": 55032,
-      "sha256": "ecca4441391b928383b328550b41409c14195ad8f05803779361736d3f0c3b45"
+      "bytes": 43120,
+      "sha256": "c38b8cff2e7521f8ab22f3b544d727394207cbe8f811b182817e2ecac0337650",
+      "captured": "2026-10-21",
+      "source": "Current UI in isolated Journey review Lab; fictitious study/reference/output. No agent launches."
     },
     {
       "file": "workflow-rooms.webp",
@@ -212,13 +306,36 @@
       "sha256": "8a4392c47cb273a28c6d50db8c2f262ba34224e7e50b3e1d0cba5e0002dd5207"
     },
     {
+      "file": "workflow-start.png",
+      "size": [
+        1440,
+        1050
+      ],
+      "bytes": 72361,
+      "sha256": "f14eb9d1476a7e5d2dfe10ed60a9187e2da3d4b4cb2bb66b7a56b3409a79f1f7"
+    },
+    {
+      "file": "workflow-task-grouped.png",
+      "size": [
+        1440,
+        1000
+      ],
+      "bytes": 104644,
+      "sha256": "0f74594a4befc4efa8b4753ccbc5dabbd825da9553fb405a41888bb941fcdc8a",
+      "captured": "2026-10-21",
+      "source": "Current UI in isolated Journey review Lab; fictitious study/reference/output. No agent launches."
+    },
+    {
       "file": "workflow-task.webp",
       "size": [
         1440,
         1000
       ],
-      "bytes": 60616,
-      "sha256": "4b29405a77a357b8b9901440e71d5ffcf1e89a4036c09a937a6e1f1aecef87ef"
+      "bytes": 42684,
+      "sha256": "8473e49e46a14d6ee2a2708af736e1011bd2c9226ebe6975de12344944cdaa2c",
+      "captured": "2026-10-21",
+      "source": "Current UI in isolated Journey review Lab; fictitious study/reference/output. No agent launches."
     }
-  ]
+  ],
+  "updated": "2026-10-21"
 }

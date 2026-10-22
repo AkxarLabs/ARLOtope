@@ -7,7 +7,8 @@ unchanged until it is merged and tagged.
 
 ## Included
 
-- Start with a question, attach an existing project, or clone a public GitHub repository. Add
+- Start with a question, attach an existing project, or clone a GitHub repository, using the
+  connected account for private repositories. Add
   supporting materials and reuse existing work without changing the original project environment.
 - Compose tasks, skills, rooms, branches, loops and configurable checkpoints. Choose fresh,
   continued or forked conversations where the selected harness supports them.

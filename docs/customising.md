@@ -19,13 +19,13 @@ If a definition or instruction cannot be read, choose **Retry**. A failed read d
 
 ## Edit a shared workflow
 
-1. Select the workflow. Use **Make a copy** for a separate version or **New workflow** for a new starting point.
+1. Select the workflow. Use **Make a copy** for a separate version or **New workflow** for a new starting point. Enter **Workflow name**; **Workflow ID** is generated and can be changed in its disclosure. The new copy opens automatically.
 2. Select a task in **Flow**. Edit its skill, instructions, role, agent, context and expected files.
 3. Under **Connections & loops**, set destinations, named outcomes, joins and a pass limit if needed.
-4. Open a checkpoint diamond or **+ Checkpoint** to edit when work waits, its reviewer, evidence and checks.
+4. Open a checkpoint diamond or **Add checkpoint** to edit when work waits, its reviewer, evidence and checks.
 5. **Save workflow draft**. Then use **Review & publish** to inspect validation problems, changed files and affected studies before publication.
 
-![Selecting and editing a task in the workflow](assets/current/workflow-task.webp)
+![Selecting and editing a task in the workflow](assets/current/workflow-task-grouped.png)
 
 *Demonstration fixture: task edits belong to the shared draft until publication.*
 
@@ -36,7 +36,7 @@ Reloading a comparison does not edit or publish the draft.
 
 ## Ask an agent to propose an edit
 
-Expand **Describe a change to an agent** and explain the method or process you want. The ordinary agent writes a proposal under `lab/.bus/designs/workflow/`. Inspect the proposal and take it into the shared draft, then review and publish. The proposing agent does not publish its own definition.
+Expand **Draft with an agent** and explain the method or process you want. **New workflow → Describe it** opens the designer for a new process. The ordinary agent writes a proposal under `lab/.bus/designs/workflow/`. Inspect the proposal and take it into the shared draft, then review and publish. The proposing agent does not publish its own definition. Sending a design request uses an agent turn; opening the form does not.
 
 For a single study, its **Instructions** tab saves additional step or procedure guidance in `studies/<slug>/workflow/`. Removing that local guidance restores the Lab's instructions. A study can also choose an existing procedure variant without changing other studies.
 
@@ -50,4 +50,4 @@ The UI uses readable files: `workflow/steps.yaml`, `workflow/workflows/*.yaml`, 
 uv run --with pyyaml python newts.py check
 ```
 
-Use the dashboard draft path when you want a reviewable publication. Roles, rules, checks, templates and research instruments are under **Advanced**. See [workflow file reference](workflow.md) for formats and [extending the Lab](extending.md) for larger additions.
+Use the dashboard draft path when you want a reviewable publication. **Skills** and **Rooms** are in the Workflow navigation. **More settings** contains shared steps, roles, rules, checks, project types and research instruments. See [workflow file reference](workflow.md) for formats and [extending the Lab](extending.md) for larger additions.

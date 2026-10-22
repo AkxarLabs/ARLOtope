@@ -256,7 +256,7 @@
       <div class="process-toolbar"><${NL.WorkflowPicker} label="Research workflow" workflows=${workflows} value=${w?.id||''} onChange=${setSelected} blocked=${x=>NL.frameworkBlocked(x,tools.data)}/>
         <${NL.Btn} onClick=${()=>NL.open(NewWorkflow,{onMade:setSelected}, {kind:'dialog',key:'wf-new'})}>New workflow</${NL.Btn}></div>
       <${NL.FrameworkTools} read=${tools} machine=${machine} onMachine=${setMachine} onInspect=${id=>setSelected(workflows.find(x=>NL.requiredFrameworks(x).includes(id))?.id||selected)}/>
-      ${w ? html`<${Line} d=${d} w=${w} first=${w.default} n=${(s.items||[]).filter(i=>i.workflow===w.id&&!i.finished&&!NL.isShelved(i.state)).length} />` : null}
+      ${w ? html`<${Line} d=${d} w=${w} first=${w.default} n=${(s.items||[]).filter(i=>i.workflow===w.id&&!i.finished&&!NL.isShelved(i.state)).length} onCopy=${setSelected} />` : null}
       <details class="process-agent"><summary>Draft with an agent</summary><p class="muted">Review the draft before publishing.</p>
         <${NL.DescribeBar} what="workflow" placeholder="For example: add a replication review before writing, approved by me." onSend=${describeWorkflow} /></details>
       ${(d.workflow_designs||[]).length ? html`<section class="cmp-sec"><h2>Agent proposals</h2>${d.workflow_designs.map(x=>html`<button type="button" class="search-result" onClick=${()=>NL.open(WorkflowDesign,{x},{key:'wf-design'})}><b>${NL.clip(x.request||x.id,100)}</b><small>${x.problems.length?'Needs revision':'Ready to review'}</small></button>`)}</section>`:null}
@@ -281,11 +281,11 @@
     return { props, drag, over };
   };
 
-  const Line = ({ d,w,first,n,ro }) => {
+  const Line = ({ d,w,first,n,ro,onCopy }) => {
     const steps=w.path||[], checkpoints=w.checkpoints||[];
     return html`<section class="process-definition"><header class="process-definition-head"><div><h2>${w.title||w.id}</h2><p class="muted">${w.blurb||'Your steps and review decisions.'}</p>
       <span class="muted small">${first?'Default workflow · ':''}${NL.plural(n||0,'active study','active studies')}</span><${NL.Tags} value=${w.tags||[]}/></div>
-      ${ro?null:html`<${NL.Btn} small onClick=${()=>NL.open(NewWorkflow,{like:w.id},{kind:'dialog',key:'wf-new'})}>Make a copy</${NL.Btn}>`}</header>
+      ${ro?null:html`<${NL.Btn} small onClick=${()=>NL.open(NewWorkflow,{like:w.id,onMade:onCopy},{kind:'dialog',key:'wf-new'})}>Make a copy</${NL.Btn}>`}</header>
       ${ro?null:html`<${VisualComposition} d=${d} w=${w}/>`}
       <details class="process-step-details"><summary>Step and checkpoint details</summary><ol class="process-steps">${steps.map((st,i)=>html`<li>
         ${checkpoints.filter(c=>c.before===st).map(c=>html`<${CheckpointRow} key=${c.id} d=${d} w=${w} c=${c} ro=${ro} />`)}
@@ -467,13 +467,13 @@
       const r = await edit({ op: 'workflow', id: wid, new: true, preset:how==='single'?'single-agent':undefined, like: how === 'copy' ? like : undefined, fields: { title } }, `Added ${title} to your draft`);
       if (r.ok) { onClose(); onMade?.(wid); if (how === 'blank') { const w = (C.d.workflows || []).find(x => x.id === wid); if (w) NL.open(StepsEditor, { w }, { kind: 'dialog', key: 'wf-steps' }); } }
     };
-    return html`<div class="dialog dialog-wide"><h3>A new workflow</h3>
+    return html`<div class="dialog dialog-wide"><h3>New workflow</h3>
       <${NL.ChoiceTiles} value=${how} onChange=${setHow} columns=${2} options=${[{ value: 'blank', glyph: 'plus', title: 'Blank', desc: 'Pick its steps; add checkpoints after.' },
         {value:'single',glyph:'agent',title:'One lead agent',desc:'Chain skills and instructions in one task.'}, { value: 'copy', glyph: 'metro', title: 'A copy', desc: 'Copy a workflow and adapt it.' }, { value: 'describe', glyph: 'spark', title: 'Describe it', desc: 'The designer drafts it from your words, for you to look at.' }]} />
       ${how === 'describe' ? html`<${NL.Field} label="What should it be like?"><${NL.Textarea} rows=${4} value=${say} onInput=${setSay} autofocus placeholder="e.g. A theory workflow: ideas, a literature pass, a proof sketch I approve, then writing. No experiments." /></${NL.Field}>`
         : html`${how === 'copy' ? html`<${NL.Field} label="Copy"><${NL.Picker} value=${like} onChange=${setLike} options=${(d.workflows || []).map(w => ({ value: w.id, label: w.title || w.id, hint: w.blurb, glyph: 'metro' }))} /></${NL.Field}>` : null}
-          <div class="grid2"><${NL.Field} label="Its name"><${NL.Input} value=${title} onInput=${setTitle} autofocus placeholder="e.g. Replication study" /></${NL.Field}>
-            <${NL.Field} label="Its id" hint="lower-case, dashes"><${NL.Input} mono value=${wid} onInput=${setId} /></${NL.Field}></div>`}
+          <${NL.Field} label="Workflow name"><${NL.Input} value=${title} onInput=${setTitle} autofocus placeholder="e.g. Replication study" /></${NL.Field}>
+          <details><summary>Workflow ID</summary><${NL.Field} label="Workflow ID" hint="Generated from the name. Change it if needed; use lower-case letters and dashes."><${NL.Input} mono value=${wid} onInput=${setId} /></${NL.Field}></details>`}
       <div class="dialog-actions"><${NL.Btn} onClick=${onClose}>Cancel</${NL.Btn}><${NL.Btn} kind="primary" disabled=${how === 'describe' ? !say.trim() : !title.trim() || !wid} onClick=${make}>${how === 'describe' ? 'Ask the designer' : 'Add to draft'}</${NL.Btn}></div></div>`;
   };
 
