@@ -337,7 +337,7 @@ def test_resolve_cli(tmp_path, monkeypatch):
     exe = tmp_path / ("claude.exe" if os.name == "nt" else "claude")
     exe.write_text("", encoding="utf-8")
     assert backends.resolve_cli("claude", {"command": str(exe)}) == [str(exe)]
-    assert backends.resolve_cli("claude", {"command": ["py", "fake.py"]}) == ["py", "fake.py"]
+    assert backends.resolve_cli("claude", {"command": [sys.executable, "fake.py"]}) == [sys.executable, "fake.py"]
     assert backends.resolve_cli("claude", {"command": str(tmp_path / "nope")}) is None
     monkeypatch.setenv("PATH", str(tmp_path / "empty"))
     monkeypatch.setattr(backends, "_candidates", lambda name: [exe])

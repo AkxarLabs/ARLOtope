@@ -24,7 +24,7 @@ outcomes, including instructions-only tasks; it does not need an ideation, exper
 
 1. Select the workflow. Use **Make a copy** for a separate version or **New workflow** for a new starting point. Enter **Workflow name**; **Workflow ID** is generated and can be changed in its disclosure. The new copy opens automatically.
 2. Select a task in **Flow**. Edit its skill, instructions, role, agent, context and expected files.
-3. Drag a task's **+** handle onto another task to connect them. Select a task or arrow and use **Delete/Backspace** to remove it; **Undo** or **Ctrl/Cmd+Z** restores edits. **+ Task** adds an unconnected task. Under **Connections & loops**, set named outcomes, joins and pass limits.
+3. Drag a task's **+** handle onto another task to connect them. Select an arrow for conversation and waiting choices. Select a task or arrow and use **Delete/Backspace** to remove it; **Undo** or **Ctrl/Cmd+Z** restores edits. **+ Task** adds an unconnected task. **Advanced** contains named outcomes and pass limits; **Context & inputs** contains join choices.
 4. Open a checkpoint diamond or **Add checkpoint** to edit when work waits, its reviewer, evidence and checks.
 5. **Save workflow draft**. Then use **Review & publish** to inspect validation problems, changed files and affected studies before publication.
 

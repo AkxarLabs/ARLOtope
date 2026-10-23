@@ -33,9 +33,9 @@ is separate and remains available after saving.
 
 1. Select a task card in **Flow**. Its inspector opens beside the map, or below it on narrow screens.
 2. Give the task a useful name. Choose a **Skill** or **Instructions only**, then choose its **Room**. **View instructions** opens the method without leaving the map. With a skill selected, **Added task instructions** supplies extra directions; without one, **Task instructions** defines the task itself.
-3. **Output files** names specific files you want produced; blank uses the skill and task instructions. Paths are relative to the working area. **More skills & tools** contains skill sequences and external research phases.
-4. Open **Agent & conversation** for role, agent and conversation choices. **Model & role instructions** contains overrides. Collapsed headings show configured choices.
-5. Open **Connections & loops** for destinations, named outcomes, joins, tags and **Maximum passes**.
+3. **Outputs & tools** contains expected files, extra skills and external research phases. Paths are relative to the working area; leave expected files blank to use the skill's instructions.
+4. **Agent** selects the role and agent. **Context & inputs** chooses which conversation it uses and whether it waits for all branches. Select an arrow to edit these input choices directly beside the map.
+5. **Advanced** contains named outcomes, loop limits, tags and a destination list. Model and role overrides stay under **Agent**. Ordinary task connections need none of these fields.
 6. **Save workflow draft**, then **Review & publish** the shared change. Use **Change history** to inspect previous publications. A copy opens automatically so edits apply to the version you just created.
 
 ![The workflow editor with connection handles, Undo and shared room assignments](assets/current/workflow-editor.png)
@@ -61,7 +61,13 @@ designer and custom task roles count normally. See [capacity](compute.md#agent-s
 
 ## Choose agents
 
-Open **Settings → Agents & models → Agent choices** to save named presets. A preset selects a harness and optional model/effort; multiple presets may use one harness. ACP presets can use different compatible commands. Save a preset before **Test**. An executable check or ACP initialization is not proof of authentication or model access; those are checked when a task starts.
+Open **Settings → Agents & models → Agent choices** to save named presets. A preset selects an agent and, when needed, a model or effort. Multiple presets may use one agent. For another compatible agent, choose **Connect ACP agent** or follow the setup page's **Connect another agent with ACP** link.
+
+Enter a name, the ACP **Program**, and its **Arguments** (one per line). For `opencode acp`, the program is `opencode` and the argument is `acp`. **Check connection** tests the command before saving and does not send a model prompt. Then **Save agent** makes it available in task and role choices without changing the Lab default. **Model & advanced settings** contains model selection, negotiated sign-in methods and the internal preset ID. Sign in through the agent's own login first.
+
+Connection checks allow 45 seconds for initialization. Retry a failed check after checking the command or completing sign-in. An executable check or ACP initialization is not proof of model access; that is checked when a task starts.
+
+![Connect an ACP agent without editing JSON](assets/current/acp-connect.png)
 
 ![Compact role-to-agent choices with harness names](assets/current/agent-role-rows.png)
 
@@ -89,9 +95,9 @@ New launches capture their selected options. Editing preferences does not silent
 | **Continue conversation** | Next task in the selected source conversation |
 | **Fork conversation** | New native conversation copied from a supported source boundary |
 
-For a new conversation, **Include a summary of prior work** enables handoff; **Evidence from** selects its source tasks. A handoff supplies summaries and evidence links, not hidden model state. It can cross harnesses when the receiving agent can actually access the files.
+For a new conversation, **Include a summary of prior work** enables handoff; **Choose source tasks** selects its sources. A handoff supplies summaries and evidence links, not hidden model state. It can cross harnesses when the receiving agent can actually access the files.
 
-Continue/fork chooses one **Context from** source. It may be an earlier causal task rather than an immediate predecessor: Draft → Review → Revise can wait for Review while continuing Draft's writer. It cannot select unrelated live work or rewind a session after later work has changed it. Missing, stale or unsupported sources produce an error instead of silently starting fresh. A task can select its previous loop visit with an initial fresh visit.
+Continue/fork chooses one source conversation. It may be an earlier causal task rather than an immediate predecessor: Draft → Review → Revise can wait for Review while continuing Draft's writer. It cannot select unrelated live work or rewind a session after later work has changed it. Missing, stale or unsupported sources produce an error instead of silently starting fresh. A task can select its previous loop visit with an initial fresh visit.
 
 An exception is work explicitly supplied through a study's starting plan: it has evidence references, but no native conversation to continue or fork. A task selecting that source starts fresh with those references. Actual run sources still undergo the normal context checks.
 
@@ -99,9 +105,13 @@ Only one task can own a continued session at a time. Native fork support depends
 
 ## Connect tasks and outcomes
 
+Arrows choose what runs next. Select an arrow to open its **Connection inspector**. Conversation settings apply to the destination task across all its incoming arrows. **Wait for** appears when multiple tasks feed that destination: choose **All incoming tasks** for parallel branches, or **Any incoming task** for alternative paths. The parallel-task shortcut sets up the waiting join automatically. Waiting for tasks and inheriting their conversation are separate choices.
+
+![Edit a task's conversation from its incoming connection](assets/current/workflow-connection.png)
+
 An arrow drawn on the map is an ordinary `done` route. It does not change the destination's
-agent or conversation. Select an arrow to **Disconnect**, or open **Connections & loops**
-to set named outcomes and joins. Several outgoing arrows create parallel branches; a return
+agent or conversation. Select an arrow for conversation and waiting choices, or to **Disconnect**.
+Use **Advanced** for named outcomes and visit limits. Several outgoing arrows create parallel branches; a return
 arrow creates a loop. Review the conversation choices and visit limits before running.
 Removing a dependency resets a conversation source to fresh if it is no longer upstream;
 Undo restores both. Deleting a task also removes its checkpoint placements and routes to it.

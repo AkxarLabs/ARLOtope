@@ -372,8 +372,8 @@
       <div class="row end">${diff.length ? html`<${NL.Btn} onClick=${() => {setV({ ...c });setCustomModels({})}}>Reset</${NL.Btn}>` : null}<${NL.Btn} kind="primary" disabled=${!diff.length} onClick=${save}>Save changes…</${NL.Btn}></div>
     </div>`;
   };
-  const AgentsPage = () => html`<div class="agents-page">
-    <${NL.Section} title="Agent choices"><${NL.AgentAssignments} compact/></${NL.Section}>
+  const AgentsPage = ({query}) => html`<div class="agents-page">
+    <${NL.Section} title="Agent choices"><${NL.AgentAssignments} compact connect=${query?.connect}/></${NL.Section}>
     <${NL.Section} title="Installed agents"><p class="muted small">Sign in with each agent you want to use.</p><${NL.AgentsSignIn} /></${NL.Section}>
     <details><summary>Tool defaults & subagents</summary><${DefaultAgent}/><${AgentModels}/></details>
     <${Cast} />
@@ -398,7 +398,7 @@
     { id: 'notifications', label: 'Notifications', group: 'lab', C: Notifications, blurb: 'Desktop preferences stay in this browser. Phone and chat delivery are shared Lab settings.' },
   ];
   const GROUPS = [['lab', 'This lab'], ['browser', 'This browser']];
-  NL.SettingsPage = ({ args }) => {
+  NL.SettingsPage = ({ args, query }) => {
     const cur = SECTIONS.find(x => x.id === args[0]) || SECTIONS[0];
     return html`<div class="page page-split settings-page">
       <aside class="split-left"><div class="split-head"><h1>Settings</h1></div>
@@ -406,6 +406,6 @@
         ${GROUPS.map(([g, title]) => html`<div class="side-sec">${title}</div>${SECTIONS.filter(x => x.group === g).map(x => html`<a class=${cls('side-link', x.id === cur.id && 'on')} href=${'#/settings/' + x.id}>${x.label}</a>`)}`)}
         </nav></aside>
       <main class="split-right"><h2>${cur.label} <span class=${cls('pill', 'scope-pill', cur.group)} title=${cur.group === 'lab' ? 'Saved in this lab’s configuration; everyone who opens the lab sees it' : 'Saved in this browser only'}>${cur.group === 'lab' ? 'this lab' : 'this browser'}</span></h2>
-        ${cur.blurb ? html`<p class="lede">${cur.blurb}</p>` : null}<${cur.C} /></main></div>`;
+        ${cur.blurb ? html`<p class="lede">${cur.blurb}</p>` : null}<${cur.C} query=${query}/></main></div>`;
   };
 })();

@@ -12,6 +12,7 @@
 .wf-map{position:relative;transform-origin:top left}
 .wf-connectors{position:absolute;inset:0;overflow:visible;color:var(--ink-soft)}
 .wf-edge{cursor:pointer;outline:none}
+.wf-edge-target{fill:transparent;pointer-events:all}
 .wf-edge>path{fill:none;stroke:var(--ink-soft);stroke-width:1.5}
 .wf-edge.fresh>path{stroke-dasharray:6 4}
 .wf-edge.fork>path{stroke-dasharray:2 4}

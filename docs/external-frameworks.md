@@ -13,7 +13,7 @@ anything, or certify credentials, version compatibility or scientific validity.
 The **Agentic Scientist · Sakana** preset uses the normal task graph, rooms, agents and checkpoints.
 Its external phases are followed by an independent ARLOtope review and a Results summary. Copy it,
 insert normal tasks, move checkpoints, change rooms, or remove phases whose downstream inputs you
-already have. In the task inspector, expand **More skills & tools**, then use **Research tool** and **Tool phase**. Save,
+already have. In the task inspector, expand **Outputs & tools → Extra skills & research tools**, then use **Research tool** and **Tool phase**. Save,
 review and publish as usual. A receiving agent reads original outputs; no shared conversation is
 required. Skipping a phase does not synthesize its required evidence.
 

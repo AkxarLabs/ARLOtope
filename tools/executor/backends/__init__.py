@@ -212,7 +212,8 @@ def resolve_cli(backend: str, bcfg: dict | None = None) -> list[str] | None:
     explicit = (bcfg or {}).get("command")
     if explicit:
         if isinstance(explicit, list):
-            return [str(x) for x in explicit] if explicit else None
+            program = str(Path(str(explicit[0])).expanduser())
+            return [shutil.which(program) or program, *map(str, explicit[1:])]
         p = Path(str(explicit)).expanduser()
         if p.exists():
             return [str(p)]
