@@ -9,6 +9,24 @@ A skill supplies a method; a workflow assigns it to a task. The same skill can s
 or workflows. Reporting a task outcome advances the workflow. Ordinary replies do not approve
 checkpoints.
 
+## Read the instructions
+
+Select a task on the workflow map and choose **View instructions**. Read its skill, added task
+instructions, role, context and expected outputs without leaving the map. Skills open as formatted
+Markdown; supporting files are listed below them. **Workflow → Skills** also opens each skill in
+this reading view. Use **Files → Edit** to change its source, or **Lab additions** for shared additions.
+
+![Read a task's skill directly from the workflow](assets/current/skill-instructions.png)
+
+The map shows the shared workflow draft. A study's **View instructions** uses its published task
+and project-local skill copies where present. Source paths identify which files you are reading.
+Remote previews identify Lab definitions explicitly; the run's saved copies show what was resolved
+on its machine.
+
+On a run, **Recorded instructions** opens its saved task prompt, standing instructions and available
+skill copies. It does not substitute today's skills when an old record is missing. These are the
+Lab's recorded inputs; the harness may also supply its own system instructions and conversation history.
+
 ## Reuse a skill
 
 In **Workflow → Skills → Import folder**, browse to a folder containing `SKILL.md`, check its files,

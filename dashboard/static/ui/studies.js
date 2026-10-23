@@ -106,6 +106,7 @@
     const run = p => isLoop(p) ? NL.openLoop(it.id) : NL.launch({ skill: p, target: it.id });
     return html`<div class="action-orb">
       ${nx ? html`<button type="button" class=${cls('pill-act', nx.checkpoint && 'warm')} aria-label=${nx.task?'Start task: '+nx.task:nx.label} onClick=${nx.run}><${NL.Glyph} name=${nx.glyph || 'play'} size=${18} /><span class="action-copy">${nx.task||nx.label}${nx.method?html`<small>${nx.method}</small>`:null}</span></button>` : null}
+      <button type="button" class="link small" onClick=${()=>NL.openTaskInstructions(it)}>View instructions</button>
       <${NL.Btn} small disabled=${held} onClick=${() => NL.openAsk('', it.id)}>Ask agent</${NL.Btn}>
       <button type="button" class="btn btn-sm" aria-expanded=${open} aria-controls=${it.id+'-actions'} onClick=${() => setOpen(!open)}>More actions</button>
       ${open ? html`<div class="orb-menu glass" id=${it.id+'-actions'} onKeyDown=${e=>{if(e.key==='Escape'){setOpen(false);e.currentTarget.previousElementSibling?.focus()}}}>${procs.filter(can).map(p=>html`<button type="button" disabled=${held} onClick=${()=>{setOpen(false);run(p)}}>${isLoop(p)?'Run overnight':NL.procTitle(p)}</button>`)}

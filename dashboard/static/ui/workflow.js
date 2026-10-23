@@ -10,6 +10,51 @@
 
   const studyCustom = (s, study) => (((s.workflow || {}).study_custom || {})[study]) || { procedures: {}, steps: {} };
 
+  // Reading never navigates away from an unsaved workflow or enters an editor.
+  NL.InstructionsBody = ({ skills = [], primary, role, step, study, draft, run_id, file, skill, external, sections = [] }) => {
+    const g = NL.useGet('/api/workflow/instructions?' + NL.qs({ skills: skills.join(','), primary, role, step, study, draft: draft ? '1' : '', run_id, file, skill, framework:external?.framework,phase:external?.phase }));
+    const d = g.data;
+    return html`<div class="instruction-reader">
+      ${!d ? html`<${NL.LoadState} ...${g} />` : html`
+        <p class="instruction-scope">${d.scope}${study ? ' · ' + study : ''}</p>
+        ${(d.notices || []).map(text => html`<p class="note note-warn">${text}</p>`)}
+        ${[...sections.filter(s=>s.open), ...d.sections, ...sections.filter(s=>!s.open)].map((s, i) => html`<details class="instruction-section" open=${s.open ?? (i === 0 || !!s.skill)} key=${s.title + s.source}>
+          <summary>${s.title}</summary><div class="instruction-text">
+            ${s.source ? html`<p class="instruction-source">${s.source}</p>` : null}
+            ${s.code ? html`<pre>${s.text}</pre>` : html`<${NL.Markdown} literalHtml text=${s.text} onFile=${s.skill ? href => {
+              const base=new URL(s.file||'SKILL.md','https://skill.invalid/'),to=new URL(href,base);
+              if(to.origin!==base.origin)return;
+              const relative=decodeURIComponent(to.pathname.slice(1));
+              NL.openInstructions({skills:[s.skill],skill:s.skill,file:relative,study,draft,run_id,title:relative});
+            } : null} />`}
+            ${s.files?.length ? html`<details class="instruction-references"><summary>Supporting files · ${s.files.length}</summary>${s.files.map(f => html`<button type="button" class="link" onClick=${() => NL.openInstructions({ skills: [s.skill], skill: s.skill, file: f, study, draft, run_id, title: f })}>${f}</button>`)}</details>` : null}
+          </div></details>`)}
+        ${!sections.length && !d.sections.length ? html`<p class="muted">No instructions in this source.</p>` : null}`}
+    </div>`;
+  };
+  NL.InstructionsSheet = ({ node, onClose, title, ...props }) => {
+    const sections = [...(props.sections || [])];
+    if(node && !node.instructions && !node.procedure && !node.skills?.length && !node.external)sections.push({title:'Task instructions',text:'No instructions yet. Add a skill or write the task instructions.',open:true});
+    if (node?.instructions) sections.push({ title: 'Task instructions', text: node.instructions, open: true });
+    if (node?.agent?.instructions) sections.push({ title: 'Extra role instructions', text: node.agent.instructions });
+    if (node) {
+      const c = node.context || {}, sources = [c.from].flat().filter(Boolean).join(', ');
+      const context = c.mode === 'continue' ? 'Continue the source conversation.' : c.mode === 'native-fork' ? 'Fork the source conversation into a new agent.' : c.handoff ? 'New conversation with a summary of prior work.' : 'New conversation; earlier messages are not included.';
+      sections.push({ title: 'Context & outputs', text: context + (sources ? '\n\nSource tasks: ' + sources : '') + (node.outputs?.length ? '\n\nExpected output files:\n' + node.outputs.map(p => '- `' + p + '`').join('\n') : '') });
+      sections.push({ title: 'Completion', text: 'Report one outcome when this task is finished. Do not start the next task yourself.\n\n' + Object.entries({done:node.next || [],...node.outcomes}).map(([outcome,to]) => '- **' + outcome + '** → ' + ([to].flat().filter(Boolean).join(', ') || 'end branch')).join('\n') });
+    }
+    return html`<${NL.Sheet} wide title=${title || (node ? node.label + ' · Instructions' : 'Instructions')} sub="Read the source instructions" onClose=${onClose}>
+      <${NL.InstructionsBody} ...${props} skills=${node ? [node.procedure, ...(node.skills || [])].filter(Boolean) : props.skills || []} primary=${node ? node.procedure || '-' : undefined} external=${node?.external} role=${node?.agent?.role || props.role} step=${node?.id || props.step} sections=${sections} />
+    </${NL.Sheet}>`;
+  };
+  NL.openInstructions = props => NL.open(NL.InstructionsSheet, props);
+  NL.InstructionsButton = props => html`<button type="button" class="link small" onClick=${() => NL.openInstructions(props)}>View instructions</button>`;
+  NL.openTaskInstructions = (it, id = it.state) => {
+    const w = NL.WORKFLOWS.find(w => w.id === it.workflow) || {}, step = NL.STEPS[id] || {};
+    const node = { id, label: step.label || id, agent: step.agent, next: (w.path || []).slice((w.path || []).indexOf(id) + 1, (w.path || []).indexOf(id) + 2), outcomes: w.routes?.[id], ...w.nodes?.[id], procedure: NL.doesFor(it, id) };
+    NL.openInstructions({ node, study: it.id });
+  };
+
   /* a small line diff (yours vs the default · the draft vs the lab) */
   function lineDiff(a, b) {
     const A = a ? a.split('\n') : [], B = b ? b.split('\n') : [];
@@ -53,13 +98,13 @@
 
   /* ── one procedure, for one study: added instructions · which variant does it · its skill · what the agent reads ── */
   NL.ProcedureSheet = ({ name, study, onClose }) => {
-    const [tab, setTab] = useState('instructions');
+    const [tab, setTab] = useState('skill');
     const g = NL.useGet('/api/workflow/item?kind=procedure&name=' + encodeURIComponent(name) + '&study=' + encodeURIComponent(study));
     const d = g.data, reload = g.reload;
     const p = (NL.WF.procedures || {})[name] || {};
     const layer = (d && d.study_layer) || {};
-    const tabs = [{ id: 'instructions', label: 'Instructions' }, ...((d && (d.variants || []).length) ? [{ id: 'variant', label: 'Variant' }] : []),
-      { id: 'skill', label: 'Its skill' }, { id: 'brief', label: 'What the agent reads' }];
+    const tabs = [{ id: 'skill', label: 'Instructions' }, { id: 'instructions', label: 'Study additions' }, ...((d && (d.variants || []).length) ? [{ id: 'variant', label: 'Variant' }] : []),
+      { id: 'brief', label: 'Workflow brief' }];
     return html`<${NL.Sheet} wide kicker=${'For this study · /' + name} title=${p.title || '/' + name} sub=${p.does || ''} onClose=${onClose}>
       ${!d ? html`<${NL.LoadState} ...${g} />` : html`
         <${NL.Tabs} tabs=${tabs} value=${tab} onChange=${setTab} />
@@ -69,13 +114,10 @@
             placeholder=${'e.g.\n- The baseline for this study is the 2024 MoE router.\n- Run everything on CPU.'} />
           ${d.lab && d.lab.add ? html`<${NL.Section} title="Also applies: the lab's"><${NL.Markdown} text=${d.lab.add} /></${NL.Section}>` : null}` : null}
         ${tab === 'variant' ? html`<${VariantTab} d=${d} name=${name} study=${study} />` : null}
-        ${tab === 'skill' ? html`
-          <p class="muted">The procedure's skill, as every study gets it. Its outcomes and outputs bind whatever the instructions say.</p>
-          ${(p.outputs || []).length ? html`<${NL.Section} title="It must produce"><ul>${p.outputs.map(o => html`<li>${o}</li>`)}</ul></${NL.Section}>` : null}
-          <div class="wf-contract"><${NL.Markdown} text=${d.skill} /></div>` : null}
+        ${tab === 'skill' ? html`<${NL.InstructionsBody} skills=${[name]} study=${study} />` : null}
         ${tab === 'brief' ? html`
-          <p class="muted">Exactly what an agent running <span class="mono">/${name}</span> on ${study} reads first (sha <span class="mono">${d.brief_sha}</span>; each run records the version it used).</p>
-          <pre class="wf-brief">${d.brief}</pre>` : null}
+          <p class="muted small">Current workflow position, checkpoints and additions. The skill and role instructions are separate.</p>
+          <div class="instruction-reader"><${NL.Markdown} text=${d.brief} /></div>` : null}
         <div class="row end"><a class="link small" href=${'#/workflow/procedure/' + name} onClick=${onClose}>Change it lab-wide in Workflow →</a></div>`}
     </${NL.Sheet}>`;
   };

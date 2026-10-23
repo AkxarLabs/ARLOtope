@@ -32,7 +32,7 @@ Keep at least one task in a workflow. Undo keeps the last thirty local edits; pu
 is separate and remains available after saving.
 
 1. Select a task card in **Flow**. Its inspector opens beside the map, or below it on narrow screens.
-2. Give the task a useful name. Choose a **Skill** or **Instructions only**, write **Task instructions**, and choose its **Room**.
+2. Give the task a useful name. Choose a **Skill** or **Instructions only**, then choose its **Room**. **View instructions** opens the method without leaving the map. With a skill selected, **Added task instructions** supplies extra directions; without one, **Task instructions** defines the task itself.
 3. **Output files** names specific files you want produced; blank uses the skill and task instructions. Paths are relative to the working area. **More skills & tools** contains skill sequences and external research phases.
 4. Open **Agent & conversation** for role, agent and conversation choices. **Model & role instructions** contains overrides. Collapsed headings show configured choices.
 5. Open **Connections & loops** for destinations, named outcomes, joins, tags and **Maximum passes**.

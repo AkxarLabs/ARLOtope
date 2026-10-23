@@ -121,6 +121,7 @@ const demoCompose = () => {
 };
 NL.demoGet = path => {
   const q = Object.fromEntries(new URLSearchParams(path.split('?')[1]));
+  if (path.startsWith('/api/workflow/instructions?')) return {ok:true,scope:'Demo instructions',notices:['The demo shows skill summaries. Full skill text and saved run inputs are available in your Lab.'],sections:q.run_id?[]:(q.skills||'').split(',').filter(Boolean).map(name=>({title:'Skill · /'+name,text:NL.PROC[name]?.does||name,source:'Demo summary',skill:name}))};
   if (path.startsWith('/api/run/files?')) return { ok: true, files: NL.demoRunFiles({ run_id: q.run_id }) };
   if (path.startsWith('/api/run/file?')) return NL.demoRunFile({ path: q.path, kind: /\.md$/i.test(q.path || '') ? 'md' : 'text' });
   if (path.startsWith('/api/run/log?')) return { ok: true, text: 'Demo session; no CLI process was started.' };

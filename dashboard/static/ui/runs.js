@@ -293,6 +293,7 @@
       </div></div>`;
     return html`<${NL.Sheet} title=${title} sub=${sub} onClose=${onClose} wide footer=${footer}>
       <nav class="inspector-links" aria-label="Related work">${it?html`<a href=${NL.focusHref('workflow/map')} onClick=${onClose}>Task</a><a href=${NL.focusHref('library')} onClick=${onClose}>Outputs</a>`:null}${(s.agents||[]).some(a=>a.run_id===r.run_id)?html`<button type="button" class="link" onClick=${()=>{onClose();NL.followAgent(r.run_id)}}>Show in Lab</button>`:null}</nav>
+      <button type="button" class="link small" onClick=${()=>NL.openInstructions({run_id:r.run_id,title:'Recorded instructions'})}>Recorded instructions</button>
       <div class="runmeta">
         ${r.elapsed_s != null ? html`<span><b>${NL.mins(r.elapsed_s)}</b>${budget ? html` of ${Math.round(r.max_minutes)}m <${NL.Bar} value=${r.elapsed_s} max=${budget} tone=${r.elapsed_s > budget * 0.85 ? 'warn' : ''} />` : null}</span>` : null}
         ${r.n_actions ? html`<span><b>${r.n_actions}</b> ${r.n_actions === 1 ? 'action' : 'actions'}</span>` : null}

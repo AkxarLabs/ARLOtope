@@ -235,6 +235,7 @@
       const result=await edit({op:'copy',kind:'room',like:d.rooms[0]?.id,name:id,plain:true,title,steps:[]});return result.ok?id:null};
     return html`<${NL.WorkflowCanvas} key=${w.id} nodes=${nodes} rooms=${d.rooms} frameworks=${d.frameworks||[]} roles=${d.roles.map(r=>({value:r.name,label:r.label}))}
       focusedTask=${bound?focus.task:null} onSelectTask=${id=>{if(bound)NL.setFocus(id===focus.task?focus:{study:study.id,task:id})}}
+      onInspect=${node=>NL.openInstructions({node,draft:true})}
       tags=${d.tags||[]} checkpoints=${w.checkpoints||[]} skills=${Object.entries(d.procedures).map(([value,p])=>({value,label:p.title||value,task:p.ui?.task}))} onChange=${setNodes}
       onCreateRoom=${room} onDesignRoom=${id=>NL.openRoomDesign(id)} onEditSkill=${name=>NL.go('workflow/procedure/'+name)}
       onExport=${async()=>{const x=await NL.get('/api/compose/export?workflow='+encodeURIComponent(w.id));if(x.error)return NL.toast(x.error,'bad');const a=document.createElement('a'),bytes=Uint8Array.from(atob(x.data),c=>c.charCodeAt(0)),url=URL.createObjectURL(new Blob([bytes],{type:'application/zip'}));a.href=url;a.download=x.filename;a.click();setTimeout(()=>URL.revokeObjectURL(url),1000);NL.toast('Procedure downloaded. Lab tools are required for enforced gates and parallel execution.')}}
@@ -401,6 +402,7 @@
         <h4 class="form-h">Who decides</h4>
         <${NL.ChoiceTiles} value=${f.approver || 'me'} onChange=${v => {set('approver',v);if(v==='agent'&&!f.decisions)set('decisions',{proceed:'continue',revise:step,stop:'parked'})}} columns=${2} options=${Object.entries(APPROVER).map(([v, a]) => ({ value: v, glyph: a.glyph, title: a.title, desc: a.desc }))} />
         ${f.approver==='agent'?html`<${NL.Field} label="Review skill"><${NL.Select} value=${f.judge?.skill||'gate-review'} options=${Object.entries(d.procedures).map(([value,p])=>({value,label:p.title||value}))} onChange=${v=>set('judge',{...f.judge,skill:v})}/></${NL.Field}>
+        <${NL.InstructionsButton} skills=${[f.judge?.skill||'gate-review']} draft role="reviewer" title="Reviewer instructions" sections=${f.judge?.rubric?[{title:'Review rubric',text:f.judge.rubric,open:true}]:[]} />
         <${NL.AgentChoice} role="reviewer" value=${f.judge?.preset?'preset:'+f.judge.preset:f.judge?.backend?'backend:'+f.judge.backend:''} onChange=${v=>{const {model,effort,...judge}=f.judge||{};set('judge',{...judge,preset:v.startsWith('preset:')?v.slice(7):'',backend:v.startsWith('backend:')?v.slice(8):''})}}/>
         <${NL.Field} label="Review question / rubric"><${NL.Textarea} rows=${3} value=${f.judge?.rubric||''} onInput=${v=>set('judge',{...f.judge,rubric:v})}/></${NL.Field}>
         <${NL.Field} label="Review visit limit"><${NL.Input} type="number" value=${f.judge?.max_visits||''} placeholder="Optional" onInput=${v=>set('judge',{...f.judge,...(v?{max_visits:Number(v)}:{max_visits:undefined})})}/></${NL.Field}>`:null}
@@ -496,12 +498,12 @@
   const FileEditor = ({ path, intro, rows, onSaved }) => {
     const read = NL.useGet('/api/compose/file?path=' + encodeURIComponent(path)), f = read.data || read.previous;
     const [t, setT] = useState('');
-    const [view, setView] = useState('edit');
+    const [view, setView] = useState(path.endsWith('.md') ? 'read' : 'edit');
     const loaded = NL.useRef(null);
     const load = read.reload;
     NL.useLayoutEffect(() => { if (read.data) { const previous = loaded.current, text = read.data.text || '';
       setT(t => previous?.path === path && t !== previous.text ? t : text); loaded.current = { path, text }; } }, [read.data]);
-    useEffect(() => { setView('edit'); }, [path]);
+    useEffect(() => { setView(path.endsWith('.md') ? 'read' : 'edit'); }, [path]);
     const dirty = !!f && !f.error && t !== (f.text || '');
     useDirty(dirty);
     if (!f) return html`<${NL.LoadState} ...${read} />`;
@@ -513,8 +515,9 @@
       ${read.error ? html`<${NL.LoadState} ...${read} stale />` : null}
       ${intro ? html`<p class="muted small">${intro}</p>` : null}
       <div class="cmp-file-bar"><${NL.Icon} name="file" /><span class="mono clip grow">${path}</span>${state ? html`<span class=${'chg chg-' + (state === 'edited' ? 'changed' : state === 'new' ? 'added' : 'removed')}>${state}</span>` : null}
-        ${f.published != null && f.text != null ? html`<${NL.Seg} value=${view} onChange=${setView} options=${[{ value: 'edit', label: 'Edit' }, { value: 'diff', label: 'Changes' }]} />` : null}</div>
+        <${NL.Seg} value=${view} onChange=${setView} options=${[...(path.endsWith('.md')?[{value:'read',label:'Read'}]:[]),{ value: 'edit', label: 'Edit' },...(f.published != null && f.text != null?[{ value: 'diff', label: 'Changes' }]:[])]} /></div>
       ${view === 'diff' ? html`<${NL.Diff} a=${f.published || ''} b=${t} context=${4} />`
+        : view === 'read' ? html`<div class="instruction-reader"><${NL.Markdown} literalHtml text=${stripFm(t)} /></div>`
         : html`<textarea class="cmp-code" spellcheck="false" rows=${rows || 22} value=${t} onInput=${e => setT(e.target.value)}
             onKeyDown=${e => { if ((e.key === 's' || e.key === 'Enter') && (e.ctrlKey || e.metaKey)) { e.preventDefault(); if (dirty && read.data) save(); } }}></textarea>`}
       <div class="row end">${state && f.published != null ? html`<${NL.Btn} small kind="ghost" onClick=${revert}><${NL.Icon} name="undo" /> Back to published</${NL.Btn}>` : null}
@@ -609,18 +612,19 @@
 
   const ProcedureEditor = ({ d, name, query }) => {
     const p = d.procedures[name];
-    const [tab, setTab] = useTab(query, 'about');
+    const [tab, setTab] = useTab(query, 'read');
     if (!p) return html`<${Missing} k=${KIND_OF.procedure} name=${name} />`;
     const cu = (d.custom.procedures || {})[name] || {};
     const family = (d.procedures[p.like || name] || {}).variants || [];
-    const tabs = [{ id: 'about', label: 'About' }, { id: 'variants', label: 'Variants', count: family.length || null },
-      { id: 'instructions', label: 'Your instructions' }, { id: 'files', label: 'Its skill', count: p.files.length }];
+    const tabs = [{ id: 'read', label: 'Instructions' }, { id: 'about', label: 'Settings' }, { id: 'variants', label: 'Variants', count: family.length || null },
+      { id: 'instructions', label: 'Lab additions' }, { id: 'files', label: 'Files', count: p.files.length }];
     return html`<div class="cmp-page">
       <${ItemHead} k=${KIND_OF.procedure} name=${'/' + name} title=${p.title} sub=${p.does}
         chips=${html`<${Origin} o=${p.origin} like=${p.like} />${p.like ? html`<a class="pill" href=${href('procedure', p.like)}>a variant of /${p.like}</a>` : null}${cu.add ? html`<span class="pill pill-state">+ your instructions</span>` : null}`}
         actions=${html`<${CopyBtn} kind="procedure" like=${name} /><${DeleteBtn} kind="procedure" name=${name} label=${'/' + name} body=${'Its folder is removed in your draft, and it leaves every step. If anything still names it, Review will say so before you publish.'} />`} />
       <${NL.Tabs} tabs=${tabs} value=${tab} onChange=${setTab} />
       <div class="tabpane">
+        ${tab === 'read' ? html`<${NL.InstructionsBody} skills=${[name]} draft />` : null}
         ${tab === 'about' ? html`<${ProcAbout} key=${JSON.stringify(p)} d=${d} name=${name} p=${p} />` : null}
         ${tab === 'variants' ? html`<${VariantsTab} d=${d} name=${name} p=${p} />` : null}
         ${tab === 'instructions' ? html`<div class="cmp-narrow"><p class="muted">Added to <b>${p.title}</b> every time it runs, anywhere in the lab, on top of its skill. Write what you'd tell a new lab member: preferences, must-dos, datasets or tools to use, things to avoid.</p>
@@ -816,15 +820,16 @@
       <div class="cmp-row-main"><div class="row"><b>${r.label}</b><span class="mono muted small">${r.name}</span>${touched(d, `agent-roles/${r.name}.`, `lab/workflow/roles/${r.name}.`) ? html`<i class="cmp-dot"></i>` : null}</div><div class="muted small clip">${r.description}</div></div>
       <div class="cmp-row-side">${(d.custom.roles || {})[r.name] ? html`<span class="pill pill-state">+ instructions</span>` : null}${r.origin === 'yours' ? html`<${Origin} o="yours" like=${r.like} />` : null}</div></a>`)}</div></div>`;
   const RoleEditor = ({ d, name, query }) => {
-    const [tab, setTab] = useTab(query, 'about');
+    const [tab, setTab] = useTab(query, 'read');
     const r = d.roles.find(x => x.name === name);
     if (!r) return html`<${Missing} k=${KIND_OF.role} name=${name} />`;
     return html`<div class="cmp-page">
       <${ItemHead} k=${KIND_OF.role} name=${name} title=${r.label} sub=${r.description} chips=${html`<${Origin} o=${r.origin} like=${r.like} />`}
         actions=${html`<${CopyBtn} kind="role" like=${name} /><${DeleteBtn} kind="role" name=${name} label=${'the role ' + r.label}
           ...${r.origin === 'yours' ? {} : { title: `Remove the built-in role ${r.label}?`, body: 'Procedures may rely on this built-in role. Remove it anyway?' }} />`} />
-      <${NL.Tabs} tabs=${[{ id: 'about', label: 'About' }, { id: 'instructions', label: 'Your instructions' }, { id: 'files', label: 'Files' }]} value=${tab} onChange=${setTab} />
+      <${NL.Tabs} tabs=${[{ id: 'read', label: 'Instructions' }, { id: 'about', label: 'Settings' }, { id: 'instructions', label: 'Lab additions' }, { id: 'files', label: 'Files' }]} value=${tab} onChange=${setTab} />
       <div class="tabpane">
+        ${tab === 'read' ? html`<${NL.InstructionsBody} role=${name} draft />` : null}
         ${tab === 'about' ? html`<${RoleAbout} key=${r.label + r.description} r=${r} />` : null}
         ${tab === 'instructions' ? html`<div class="cmp-narrow"><p class="muted">Added to this role's instructions for every agent CLI (Claude, Codex, opencode), wherever it is used.</p>
           <${LayerText} path=${`lab/workflow/roles/${name}.add.md`} kind="role" name=${name} placeholder="e.g. Be especially strict about leakage between train and test." /></div>` : null}

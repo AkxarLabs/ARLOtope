@@ -529,6 +529,7 @@ GET_ROUTES = {
     "/api/panel/view": panels_api.panel_view,
     "/api/doc": lambda q: settings.doc_get(q.get("which", "")),
     "/api/workflow/item": instructions.workflow_item,
+    "/api/workflow/instructions": instructions.inspect,
     "/api/compose": compose.view,
     '/api/compose/export': compose.export_procedure,
     "/api/compose/file": compose.file_get,

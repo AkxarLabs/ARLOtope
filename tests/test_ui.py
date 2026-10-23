@@ -112,6 +112,23 @@ def test_document_metadata_preserves_structure_and_escapes_markup_without_a_yaml
 
 
 @pytest.mark.skipif(not NODE, reason='node is needed')
+def test_instruction_markdown_preserves_placeholders_and_code_with_real_parser():
+    source = _js()['components']
+    reader = source[source.index('const esc ='):source.index('NL.Markdown =')]
+    text = '# Instructions\n<!-- generated marker -->\nWrite studies/<slug>/IDEA.md.\n\n`<id>`\n\n<div>literal text</div>\n\n```html\n<span>x</span>\n```'
+    script = f"""const window={{marked:require(process.argv[1]),DOMPurify:{{sanitize:x=>x}}}},NL={{}};
+      {reader}; console.log(NL.mdToHtml({json.dumps(text)},null,true));"""
+    result = subprocess.run([NODE, '-e', script, str(STATIC/'vendor/marked.min.js')],
+                            capture_output=True, text=True, timeout=60)
+    assert result.returncode == 0, result.stderr
+    assert '<h1>Instructions</h1>' in result.stdout
+    for tag in ('slug', 'id', 'div', 'span'):
+        assert '&lt;' + tag + '&gt;' in result.stdout
+    assert '<div>literal' not in result.stdout and '&amp;lt;' not in result.stdout
+    assert 'generated marker' not in result.stdout
+
+
+@pytest.mark.skipif(not NODE, reason='node is needed')
 def test_held_study_launch_does_not_offer_to_enable_execution_or_call_the_server():
     source = _js()['core']
     launch = source[source.index('NL.launch ='):source.index('NL.launchCommand =')]

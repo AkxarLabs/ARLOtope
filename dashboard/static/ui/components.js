@@ -277,7 +277,7 @@
     return `/api/libfile?${NL.qs({ scope: sel.scope, slug: sel.slug || '', rel: dir.join('/') })}`;
   }
   /** markdown → sanitized HTML (with unparsed document metadata). Math is stashed before marked so `$a_i$` survives. */
-  NL.mdToHtml = (mdText, sel) => {
+  NL.mdToHtml = (mdText, sel, literalHtml = false) => {
     let text = String(mdText || '').replace(/^﻿/, '');
     let front = '';
     const fm = /^---\r?\n([\s\S]*?)\r?\n---\r?\n?/.exec(text);
@@ -292,14 +292,18 @@
       .replace(/\$\$[\s\S]+?\$\$/g, put).replace(/\\\[[\s\S]+?\\\]/g, put).replace(/\\\([\s\S]+?\\\)/g, put)
       .replace(/\$(?!\s)((?:\\.|[^$\\\n])+?)(?<![\s\\])\$(?!\d)/g, put)).join('');
     let out;
-    try { out = window.marked.parse(text, { gfm: true, breaks: false, async: false }); } catch (e) { return front + `<pre class="plain">${esc(mdText)}</pre>`; }
+    try {
+      const renderer = literalHtml ? new window.marked.Renderer() : undefined;
+      if(renderer)renderer.html=token=>token.text.startsWith('<!--')?'':esc(token.text);
+      out = window.marked.parse(text, { gfm: true, breaks: false, async: false, ...(renderer ? {renderer} : {}) });
+    } catch (e) { return front + `<pre class="plain">${esc(mdText)}</pre>`; }
     out = window.DOMPurify.sanitize(out).replace(/(\d+)/g, (m, i) => mathHtml(stash[+i]));
     if (sel) out = out.replace(/<img([^>]*?)src="([^"]+)"/g, (m, a, src) => { const u = assetUrl(sel, src.replace(/&amp;/g, '&')); return `<img${a}loading="lazy" src="${u ? esc(u) : src}"`; });
     return front + out;
   };
-  NL.Markdown = ({ text, sel, className }) => {
+  NL.Markdown = ({ text, sel, className, onFile, literalHtml }) => {
     const ref = useRef();
-    const markup = useMemo(() => NL.mdToHtml(text, sel), [text, sel && sel.rel, sel && sel.slug]);
+    const markup = useMemo(() => NL.mdToHtml(text, sel, literalHtml), [text, sel && sel.rel, sel && sel.slug, literalHtml]);
     useEffect(() => {
       const host = ref.current; if (!host) return;
       host.querySelectorAll('a[href]').forEach(a => {
@@ -308,12 +312,13 @@
         else if (/^https?:/i.test(href)) { a.target = '_blank'; a.rel = 'noopener'; }
         else if (!href.startsWith('#')) a.onclick = ev => {
           ev.preventDefault();
+            if(onFile){onFile(href);return}
           const url=assetUrl(sel,href);
           if(url&&sel){const rel=new URL(url,location.origin).searchParams.get('rel');NL.openDoc(sel.scope,sel.slug,rel)}
           else NL.toast('That links to another file. Open it from the Library.');
         };
       });
-    }, [markup]);
+    }, [markup, onFile]);
     return html`<div ref=${ref} class=${cls('md', className)} dangerouslySetInnerHTML=${{ __html: markup }}></div>`;
   };
 
