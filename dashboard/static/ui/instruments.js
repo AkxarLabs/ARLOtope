@@ -42,7 +42,6 @@
     play: 'M8 5.5v13l10.5-6.5z',
     pause: 'M8 5.5v13M16 5.5v13',
   };
-  NL.GLYPHS = G;
   NL.Glyph = ({ name, size, className, title }) => html`<svg class=${cls('glyph', className)} viewBox="0 0 24 24" width=${size || 20} height=${size || 20} fill="none" stroke="currentColor"
     stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden=${title ? null : 'true'} role=${title ? 'img' : null}>${title ? html`<title>${title}</title>` : null}<path d=${G[name] || G.spark} /></svg>`;
   // a room's hue, so a study's path is coloured by where it goes

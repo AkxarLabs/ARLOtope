@@ -60,6 +60,25 @@ def test_empty_lab_snapshot_includes_machine_choices(hub, monkeypatch):
     assert snapshot['machines'][0]['id'] == 'local'
 
 
+@pytest.mark.parametrize('dashboard',[False,True])
+def test_local_servers_bind_without_dns_and_own_their_port(hub,monkeypatch,dashboard):
+    import socket
+    from loopback_http import LoopbackHTTPServer
+    m=_mod(hub,monkeypatch)
+    def unavailable_dns(*args):
+        raise AssertionError('Local server startup must not resolve a hostname')
+    monkeypatch.setattr(socket,'getfqdn',unavailable_dns)
+    assert 'ssh -N -L' in load('arlo.py').tunnel_hint(8787)
+    server_type=m.LabServer if dashboard else LoopbackHTTPServer
+    server=server_type(('127.0.0.1',0),m.Handler)
+    try:
+        assert server.server_name=='127.0.0.1' and server.server_port==server.server_address[1]
+        with pytest.raises(OSError):
+            server_type(server.server_address,m.Handler)
+    finally:
+        server.server_close()
+
+
 def test_acp_command_setting_survives_snapshot(hub, monkeypatch):
     import json
     import sys

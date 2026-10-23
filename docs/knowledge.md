@@ -6,7 +6,7 @@ Failed document shelves, records and note reads offer **Retry**. If a refresh fa
 
 ![Study-organized notes and saved answers](assets/current/library-records.webp)
 
-*Demonstration fixture: record filters and the reader keep questions, notes and sources together by study.*
+*Screenshots show an example Lab.*
 
 ## Choose the right action
 
@@ -29,8 +29,6 @@ These actions have different consequences. A saved note is context, not a task o
 
 ![Adding a note with acknowledgement requested](assets/current/note.webp)
 
-*Demonstration fixture: the checked acknowledgement option records a request for a read receipt.*
-
 Saving does not queue work, interrupt an agent or request an answer. An agent reading relevant records at its next check-in can acknowledge the note. That receipt means it read the note, not that it accepted directions or received an approval. The note's referenced document stays unchanged.
 
 ## Ask about a document or output
@@ -42,8 +40,6 @@ Saving does not queue work, interrupt an agent or request an answer. An agent re
 
 ![A workspace question linked to its source](assets/current/assistant.webp)
 
-*Demonstration fixture: Q&A has its own conversation and saved record.*
-
 Questions and answers are saved separately from their source files. A later response refreshes in the selected record. Failed starts and interrupted/unanswered turns have explicit states. If a remote project is unavailable during answer delivery, the Lab retains a local receipt and retries; warnings identify pending delivery. Changing the question does not discard an already captured answer.
 
 The assistant sees supplied context and can use normal file/transcript tools. File formats, clipping and remote availability can limit what it reads. An explanation is not a verified scientific finding. Use a task and the research protocol for new experiments or source edits.
@@ -53,8 +49,6 @@ The assistant sees supplied context and can use normal file/transcript tools. Fi
 **Library → Documents** groups existing study records, project documents and Lab files. A generated report may be an ordinary Markdown file here and may also have a published copy in **Outputs**. Publication does not make every source file an output; the original remains available for editing.
 
 ![Existing documents organized by Lab and study](assets/current/library-documents.webp)
-
-*Demonstration fixture: Documents reads existing files; Add note and Ask do not insert text into them.*
 
 ## Where records live
 
@@ -72,8 +66,6 @@ Earlier study records remain visible after a project is attached. Existing plans
 Attaching an existing repository leaves its `.gitignore` unchanged. The review and success screens explain the added files:
 
 ![Project-file guidance in the study review](assets/current/project-files.png)
-
-*Demonstration fixture: expand the file disclosure before attaching a project.*
 
 | Path | Git and backup guidance |
 |---|---|

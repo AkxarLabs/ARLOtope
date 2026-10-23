@@ -48,7 +48,7 @@ when you switch inspectors. Refreshing or closing the tab clears them.
 
 ![The Lab workspace in its light theme](assets/current/lab-light.webp)
 
-*Demonstration fixture: the scene and the records below it provide two ways to reach the same work.*
+*Screenshots show an example Lab.*
 
 ![The Lab workspace in its dark theme](assets/current/lab-dark.webp)
 
@@ -156,8 +156,6 @@ checkpoint decisions accessible. A failed History read offers **Retry** rather t
 
 ![A demonstration study overview](assets/current/study-overview.webp)
 
-*Demonstration fixture: start from the study to keep tasks and evidence in context.*
-
 ## Answer and recover
 
 Open **Inbox** or the run conversation for a question or tool permission. Read the producing agent and request before answering. Terminal/editor sessions observed by the Lab keep their input in their original terminal.
@@ -165,8 +163,6 @@ Open **Inbox** or the run conversation for a question or tool permission. Read t
 Research checkpoints have their own evidence and decision sheet. A tool permission allows one native request; it is not approval of an experiment plan or paper. Holding a study, pausing the Lab and stopping one run have different scopes.
 
 ![A demonstration stopped task with recovery controls](assets/current/agents-recovery.webp)
-
-*Demonstration fixture: inspect the recorded stopping point before continuing or handing work to a new agent.*
 
 ## Outputs and explanations
 

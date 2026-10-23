@@ -11,8 +11,10 @@ import subprocess
 import sys
 import threading
 import time
-from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
+from http.server import BaseHTTPRequestHandler
 from pathlib import Path
+
+from loopback_http import LoopbackHTTPServer
 
 PROTOCOL = 1
 MAX_BODY = 8 * 1024 * 1024
@@ -526,7 +528,7 @@ def serve(port):
                 return self.send({'ok': True, 'result': worker.call(body['method'], body.get('data') or {})})
             except (ValueError, KeyError, TypeError, OSError, subprocess.SubprocessError) as error:
                 return self.send({'error': str(error)}, 400)
-    server = ThreadingHTTPServer(('127.0.0.1', port), Handler)
+    server = LoopbackHTTPServer(('127.0.0.1', port), Handler)
     credentials = session_file(server.server_port)
     private_json(credentials, {**identity, 'port':server.server_port,'cookie':'worker='+token,'arlotope_worker_session':True})
     try:

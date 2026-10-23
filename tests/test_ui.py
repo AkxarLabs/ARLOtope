@@ -157,7 +157,7 @@ def test_next_action_names_the_task_and_recovers_an_unfinished_attempt():
         nextSkill:()=> 'custom-method',taskLabel:()=> 'Check evidence',procTitle:()=> 'Review sources',
         procGlyph:()=> 'read',launch:x=>calls.push(x),openRun:id=>calls.push(id)}};
       {next_for}
-      const it={{id:'custom',state:'check'}},ready=NL.nextFor({{}},it);
+      const it={{id:'custom',state:'check',project_mode:'attached'}},ready=NL.nextFor({{}},it);
       ready.run();const pending=NL.nextFor({{runs:[{{run_id:'unfinished',needs_followup:true}}]}},it);
       pending.run();console.log(JSON.stringify({{ready,pending,calls}}));
     """

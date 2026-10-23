@@ -104,7 +104,7 @@ This declares a fresh reviewer and a revision in the writer's conversation, prov
 
 ![A checkpoint's evidence and decision controls](assets/current/checkpoint.webp)
 
-*Demonstration fixture: checkpoint decisions are recorded separately from chat and tool permissions.*
+*Screenshots show an example Lab.*
 
 | Field | Purpose |
 |---|---|

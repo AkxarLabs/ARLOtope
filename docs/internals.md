@@ -8,6 +8,9 @@ Launcher probes connect directly to loopback without system proxy discovery. Pub
 use ETags and revalidate on each load; unchanged files return 304. The session page and API responses
 remain uncached. The renderer's sandbox and content policy are unchanged.
 
+The dashboard and project worker share a local HTTP server that binds without reverse DNS. Its
+server name is the bound address. SSH hints also use the local hostname without resolving it.
+
 ## Records and identity
 
 | Record | Purpose |

@@ -30,7 +30,7 @@ outcomes, including instructions-only tasks; it does not need an ideation, exper
 
 ![Direct workflow editing with connection handles and Undo](assets/current/workflow-editor.png)
 
-*Demonstration fixture: task edits belong to the shared draft until publication.*
+*Screenshots show an example Lab.*
 
 Shared changes are not installed by an agent's recommendation. Review the publication summary, especially changes that loosen a checkpoint. **Change history** can undo the latest publication when it does not conflict with later edits.
 

@@ -101,7 +101,7 @@ def headless() -> bool:
 
 def tunnel_hint(port: int) -> str:
     user = getpass.getuser()
-    host = socket.getfqdn() or socket.gethostname()
+    host = socket.gethostname()
     return (f"This machine has no browser of its own. On YOUR computer run:\n\n"
             f"    ssh -N -L 8787:127.0.0.1:{port} {user}@{host}\n\n"
             f"then open http://127.0.0.1:8787 (any free local port works in place of 8787).\n"

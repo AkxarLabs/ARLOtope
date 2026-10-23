@@ -328,8 +328,8 @@
         1440,
         1000
       ],
-      "bytes": 34848,
-      "sha256": "c4f296f0f237984524de7697c2950b77c0f5de23e2e47af7f80db7d7419c7926",
+      "bytes": 31326,
+      "sha256": "1cdc025f0c22d74161ce021b8d174bda69a73f590d0a1eec0575a868aa8214e8",
       "captured": "2026-10-22",
       "source": "Current local preview with a disposable study. No model runs or control requests launched for capture."
     },
@@ -339,8 +339,8 @@
         1440,
         1000
       ],
-      "bytes": 39152,
-      "sha256": "98e4799e62916a550813aff77f0bd7e9a99dab10bfef35e7e81ed9ea168be970",
+      "bytes": 39142,
+      "sha256": "953b73f6673230535b1c0a283267f49eb43c73b2eadbcd50e38909c7b1f2876a",
       "captured": "2026-10-22",
       "source": "Current local preview with a disposable study. No model runs or control requests launched for capture."
     },
@@ -372,8 +372,8 @@
         1440,
         1000
       ],
-      "bytes": 42008,
-      "sha256": "28803fc8d103ff4a7a17c7030cc2483003e58b2bd141a00515ae12c3823c6a05",
+      "bytes": 41934,
+      "sha256": "a5bcdf78c5fcf0bb41d74221166cae9895c776a87d4104db855d1fa544114ad5",
       "captured": "2026-10-22",
       "source": "Current local preview with a disposable study. No model runs or control requests launched for capture."
     },

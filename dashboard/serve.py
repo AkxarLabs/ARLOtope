@@ -38,11 +38,10 @@ import http.client
 import json
 import os
 import secrets
-import socket
 import sys
 import threading
 import time
-from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
+from http.server import BaseHTTPRequestHandler
 from pathlib import Path
 
 if hasattr(sys.stdout, "reconfigure"):
@@ -56,6 +55,7 @@ sys.path.insert(0, str(HERE))
 # imports this one.
 import ctx  # noqa: E402
 import labfiles  # noqa: E402
+from loopback_http import LoopbackHTTPServer  # noqa: E402
 import starter  # noqa: E402
 import sources  # noqa: E402
 import term  # noqa: E402
@@ -678,22 +678,14 @@ def _forget_snapshot(_old=None, _new=None) -> None:
 ctx.on_change(_forget_snapshot)
 
 
-class LabServer(ThreadingHTTPServer):
-    """On Windows SO_REUSEADDR lets a second server silently share the port; bind exclusively instead."""
+class LabServer(LoopbackHTTPServer):
     daemon_threads = True
     request_queue_size = 128  # a cold page and its 3D frame open many asset connections at once
-    allow_reuse_address = sys.platform != "win32"
 
     def handle_error(self, request, client_address):
         if isinstance(sys.exc_info()[1], (ConnectionResetError, BrokenPipeError, ConnectionAbortedError)):
             return   # a client (a tab, a tunnel) went away mid-request — routine, not an error
         super().handle_error(request, client_address)
-
-    def server_bind(self):
-        if sys.platform == "win32" and hasattr(socket, "SO_EXCLUSIVEADDRUSE"):
-            self.socket.setsockopt(socket.SOL_SOCKET, socket.SO_EXCLUSIVEADDRUSE, 1)
-        super().server_bind()
-
 
 def main() -> int:
     pre = argparse.ArgumentParser(add_help=False)

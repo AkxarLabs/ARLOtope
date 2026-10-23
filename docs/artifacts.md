@@ -10,7 +10,7 @@ Publish a report, figure, table or interactive page when it gives the researcher
 
 ![A published demonstration report with separate note and question actions](assets/current/artifact.webp)
 
-*Demonstration fixture: published content has provenance, inert notes, separate Q&A and explicit execution feedback.*
+*Screenshots show an example Lab.*
 
 HTML pages can have interactive controls inside the preview. Images, PDFs, tables and text have their own viewers. HTML under a run's **Files it changed** can also be previewed; publishing adds a durable Library copy and feedback controls.
 

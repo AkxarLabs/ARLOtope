@@ -19,7 +19,6 @@
     const unfinished=NL.runsOf(s,it.id).find(r=>r.needs_followup);
     if(unfinished)return {label:'Continue task',glyph:'loop',run:()=>NL.openRun(unfinished.run_id)};
     if(it.runnable?.length)return {label:'Run ready tasks',glyph:'play',run:()=>NL.act('/api/workflow/run',{study:it.id,retry:true},'Ready tasks queued')};
-    if (it.project_mode === 'attached' && it.state === NL.stepsOf(it)[0] && !it.finished && !NL.isShelved(it.state)) return { label: 'Work on this project', glyph: 'chat', run: () => NL.openAsk('', it.id) };
     const skill = NL.nextSkill(it);
     if (!skill) return NL.isDone(it.state) ? null : NL.isShelved(it.state) ? { label: 'Revive it', glyph: 'loop', run: () => NL.revive(it) } : null;
     if (((s.skills || {})[skill] || {}).level === 'project' && !it.has_project) return null;
@@ -378,20 +377,19 @@
         ${it.loop_active ? html`<${NL.Btn} kind="danger" onClick=${() => cmd('stop_loop', 'Stop the loop', {}, { title: 'Stop the loop?', body: 'Its agent stops the loop at its next safe point. You can start it again from here.' })}>Stop the loop</${NL.Btn}>` : null}
         <${NL.Btn} disabled=${held} onClick=${() => cmd('run_smoke', 'Run a smoke test')}>Run a smoke test</${NL.Btn}>
         <${NL.Btn} disabled=${held} onClick=${() => cmd('request_run', 'Request a run')}>Request a run</${NL.Btn}></div></${NL.Section}>` : null}
-      <${NL.Section} title="Requests"><p class="muted small">Saved for an agent's next inbox check. These requests do not start an agent, stop a process or reorder the run queue.</p><div class="btn-grid">
+      <${NL.Section} title="Requests"><p class="muted small" title="Requests do not launch agents, stop processes or change queue order.">Saved for the next agent inbox check.</p><div class="btn-grid">
         <${NL.Btn} title="Ask an agent to focus on this study; queue order is unchanged." onClick=${() => cmd('prioritize', 'Priority')}>Request priority</${NL.Btn}>
         ${off ? html`<${NL.Btn} kind="primary" onClick=${() => NL.revive(it)}>Revive it</${NL.Btn}>` : html`
           <${NL.Btn} onClick=${() => cmd('park', 'Park', {}, { title: 'Request parking this study?', ok: 'Send request', body: 'An agent must read the request and record the study as parked. You can revive it later. Running processes are not stopped by this button.' })}>Request park</${NL.Btn}>
           <${NL.Btn} kind="danger" onClick=${() => cmd('kill', 'Kill', {}, { title: 'Request abandoning this direction?', ok: 'Send request', body: 'An agent must read the request, record why the direction ended, and mark the study killed. Its records remain, and you can revive it. Running processes are not stopped by this button.' })}>Request kill</${NL.Btn}>`}</div></${NL.Section}>
     </div><aside class="col-side">
       <${PendingInstructions} it=${it} />
-      <${NL.Section} title="Its checkpoints"><div class="stack">${NL.checkpointsOf(it).map(c => html`<button type="button" class="cp-line" onClick=${() => NL.openCheckpoint(it.id, c.id)}>
+      <${NL.Section} title="Checkpoints"><div class="stack">${NL.checkpointsOf(it).map(c => html`<button type="button" class="cp-line" onClick=${() => NL.openCheckpoint(it.id, c.id)}>
           <${NL.Seal} state=${NL.approvedCp(it, c.id) ? 'approved' : 'waiting'} size=${22} /><span class="grow"><b>${c.title}</b><small class="muted">${NL.cpWhere(c)}</small></span></button>`)}
-        ${!NL.checkpointsOf(it).length ? html`<span class="muted small">Its workflow has no checkpoints.</span>` : null}</div></${NL.Section}>
+        ${!NL.checkpointsOf(it).length ? html`<span class="muted small">No checkpoints.</span>` : null}</div></${NL.Section}>
       <${NL.Section} title="Hold"><p class="muted small">Blocks new agent launches now. Existing work continues.</p><div class="stack">${(NL.getState().holds || {})[it.id]
-          ? html`<${NL.Btn} onClick=${() => NL.act('/api/study/hold', { study: it.id, hold: false }, 'Released')}>Release it</${NL.Btn}>`
-          : html`<${NL.Btn} onClick=${() => NL.act('/api/study/hold', { study: it.id, hold: true }, 'On hold. Nothing new starts for it.')}>Hold it (nothing new starts)</${NL.Btn}>`}</div></${NL.Section}>
-      <${NL.Section} title="Elsewhere"><div class="stack">${it.project_dir ? html`<${NL.EditorLink} path=${it.project_dir} machine=${it.remote_project?it.machine:null}>Open the project repo ↗</${NL.EditorLink}>` : null}
-        <button class="link small" onClick=${() => NL.openNote(it.id)}>Add note</button></div></${NL.Section}></aside></div>`;
+          ? html`<${NL.Btn} onClick=${() => NL.act('/api/study/hold', { study: it.id, hold: false }, 'Released')}>Release hold</${NL.Btn}>`
+          : html`<${NL.Btn} onClick=${() => NL.act('/api/study/hold', { study: it.id, hold: true }, 'On hold. Nothing new starts for it.')}>Hold study</${NL.Btn}>`}</div></${NL.Section}>
+      ${it.project_dir ? html`<${NL.EditorLink} path=${it.project_dir} machine=${it.remote_project?it.machine:null}>Open project ↗</${NL.EditorLink}>` : null}</aside></div>`;
   };
 })();

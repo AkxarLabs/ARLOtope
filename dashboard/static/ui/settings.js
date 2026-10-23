@@ -397,9 +397,6 @@
     { id: 'appearance', label: 'Appearance', group: 'browser', C: Appearance, blurb: 'Theme, density and Lab motion.' },
     { id: 'notifications', label: 'Notifications', group: 'lab', C: Notifications, blurb: 'Desktop preferences stay in this browser. Phone and chat delivery are shared Lab settings.' },
   ];
-  // the lab's own definition lives on the Workflow page (a draft you publish); Settings links there so it is one place
-  const WORKFLOW_LINKS = [['', 'Overview'], ['procedures', 'Procedures'], ['roles', 'Roles'], ['rules', 'Rules'], ['rooms', 'Rooms'], ['types', 'Project types'], ['history', 'Change log']];
-  NL.SETTINGS_SECTIONS = SECTIONS;
   const GROUPS = [['lab', 'This lab'], ['browser', 'This browser']];
   NL.SettingsPage = ({ args }) => {
     const cur = SECTIONS.find(x => x.id === args[0]) || SECTIONS[0];
@@ -407,9 +404,7 @@
       <aside class="split-left"><div class="split-head"><h1>Settings</h1></div>
         <div class="settings-mobile-nav"><${NL.Field} label="Settings section"><${NL.Select} value=${cur.id} onChange=${id=>NL.go('settings/'+id)} options=${SECTIONS.map(x=>({value:x.id,label:x.label}))}/></${NL.Field}></div><nav class="side-nav">
         ${GROUPS.map(([g, title]) => html`<div class="side-sec">${title}</div>${SECTIONS.filter(x => x.group === g).map(x => html`<a class=${cls('side-link', x.id === cur.id && 'on')} href=${'#/settings/' + x.id}>${x.label}</a>`)}`)}
-        <div class="side-sec">How the lab works</div>
-        ${WORKFLOW_LINKS.map(([w, l]) => html`<a class="side-link ext" href=${'#/workflow' + (w ? '/' + w : '')}>${l} <span class="muted">↗</span></a>`)}
-        <p class="muted small side-note">Procedures, roles, rules and stage groups are edited as a draft on the Workflow page and published together.</p></nav></aside>
+        </nav></aside>
       <main class="split-right"><h2>${cur.label} <span class=${cls('pill', 'scope-pill', cur.group)} title=${cur.group === 'lab' ? 'Saved in this lab’s configuration; everyone who opens the lab sees it' : 'Saved in this browser only'}>${cur.group === 'lab' ? 'this lab' : 'this browser'}</span></h2>
         ${cur.blurb ? html`<p class="lede">${cur.blurb}</p>` : null}<${cur.C} /></main></div>`;
   };
