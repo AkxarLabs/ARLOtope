@@ -5,6 +5,7 @@ server, reached through a real TCP relay standing in for `ssh -L`."""
 from __future__ import annotations
 
 import http.client
+import http.server
 import json
 import os
 import shutil
@@ -21,6 +22,32 @@ from conftest import REPO, kernel, load
 BASH = shutil.which("bash")
 needs_bash = pytest.mark.skipif(os.name != "posix" or not BASH,
     reason="the fake SSH integration needs a POSIX host and bash (Windows bash may use WSL paths)")
+
+
+@pytest.mark.parametrize('status,payload,expected',[
+    (200,{'app':'arlotope'},True), (200,{'app':'other'},False),
+    (200,[],False), (200,'not json',False), (302,{'app':'arlotope'},False),
+])
+def test_launcher_discovery_ignores_proxies_and_rejects_other_services(monkeypatch,status,payload,expected):
+    import urllib.request
+    launcher=load('arlo.py')
+    def proxy_lookup():
+        raise AssertionError('Loopback discovery consulted system proxies')
+    monkeypatch.setattr(urllib.request,'getproxies',proxy_lookup)
+    class Handler(http.server.BaseHTTPRequestHandler):
+        def do_GET(self):
+            assert self.path=='/api/ping'
+            self.send_response(status)
+            self.send_header('Location','http://unrelated.invalid/')
+            self.end_headers()
+            self.wfile.write((payload if isinstance(payload,str) else json.dumps(payload)).encode())
+        def log_message(self,*args): pass
+    server=http.server.HTTPServer(('127.0.0.1',0),Handler)
+    thread=threading.Thread(target=server.serve_forever,daemon=True);thread.start()
+    try:
+        assert bool(launcher.ping(server.server_port)) is expected
+    finally:
+        server.shutdown();server.server_close();thread.join()
 
 
 @pytest.mark.skipif(os.name != "posix", reason="POSIX HTTP servers reuse closed TCP connections")

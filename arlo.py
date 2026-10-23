@@ -20,6 +20,7 @@ from __future__ import annotations
 import argparse
 import getpass
 import hashlib
+import http.client
 import json
 import os
 import socket
@@ -27,7 +28,6 @@ import subprocess
 import sys
 import threading
 import time
-import urllib.request
 import webbrowser
 from pathlib import Path
 
@@ -62,12 +62,19 @@ def stable_python() -> str:
 
 
 def ping(port: int, timeout: float = 0.6) -> dict | None:
+    # Loopback discovery must not consult OS proxy settings or follow redirects.
+    conn = http.client.HTTPConnection('127.0.0.1', port, timeout=timeout)
     try:
-        with urllib.request.urlopen(f"http://127.0.0.1:{port}/api/ping", timeout=timeout) as r:
-            data = json.loads(r.read().decode("utf-8"))
-            return data if data.get("app") == "arlotope" else None
-    except (OSError, ValueError):
+        conn.request('GET', '/api/ping')
+        response = conn.getresponse()
+        if response.status != 200:
+            return None
+        data = json.loads(response.read().decode('utf-8'))
+        return data if isinstance(data, dict) and data.get('app') == 'arlotope' else None
+    except (OSError, ValueError, http.client.HTTPException):
         return None
+    finally:
+        conn.close()
 
 
 def port_free(port: int) -> bool:
