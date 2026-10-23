@@ -84,6 +84,33 @@ def test_optional_module_is_served_as_javascript(hub, monkeypatch, tmp_path):
     assert sent[0][0]==200 and sent[0][2].startswith('application/javascript')
 
 
+def test_static_revalidation_keeps_edits_visible_and_preserves_renderer_isolation(hub,monkeypatch,tmp_path):
+    m=_mod(hub,monkeypatch)
+    asset=tmp_path/'example.js';asset.write_text('version one',encoding='utf-8')
+    monkeypatch.setattr(m,'STATIC',tmp_path)
+    handler=object.__new__(m.Handler);handler.headers={};sent=[]
+    handler._send=lambda *args:sent.append(args)
+    handler._serve_static('example.js')
+    first=sent[-1];assert first[0]==200 and first[3]['Cache-Control']=='no-cache'
+    handler.headers={'If-None-Match':first[3]['ETag']}
+    handler._serve_static('example.js')
+    assert sent[-1][0]==304 and sent[-1][1]==b''
+    assert int(sent[-1][3]['Content-Length'])==len(first[1])
+    asset.write_text('version two',encoding='utf-8');handler._serve_static('example.js')
+    assert sent[-1][0]==200 and sent[-1][1]==b'version two' and sent[-1][3]['ETag']!=first[3]['ETag']
+
+
+def test_api_responses_remain_uncached(hub,monkeypatch):
+    import io
+    m=_mod(hub,monkeypatch);handler=object.__new__(m.Handler);headers={}
+    handler.send_response=lambda code:None
+    handler.send_header=lambda key,value:headers.update({key:value})
+    handler.end_headers=lambda:None
+    handler.command='GET';handler.wfile=io.BytesIO()
+    handler._json({'private':'study data'})
+    assert headers['Cache-Control']=='no-store' and 'ETag' not in headers
+
+
 def test_renderer_is_opaque_and_static_modules_allow_its_origin(hub, monkeypatch):
     m = _mod(hub, monkeypatch)
     handler = object.__new__(m.Handler)

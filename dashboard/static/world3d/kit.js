@@ -173,8 +173,6 @@
 
   L.FINISHES = { matte: { rough: 0.72, metal: 0 }, paper: { rough: 1, metal: 0 },
     ceramic: { rough: 0.3, metal: 0 }, glass: { rough: 0.2, metal: 0 }, metal: { rough: 0.4, metal: 0.65 } };
-  L.skinLook = skin => Object.assign({}, skin.world, { finish: skin.world.finish ||
-    ({ ceramic: 'ceramic', glass: 'glass', industrial: 'metal', blueprint: 'paper', riso: 'paper', linen: 'paper', editorial: 'paper' })[(skin.wrapper || {}).style] || 'matte' });
   L.appearance = (theme, look) => {
     const base = L.THEMES[theme], night = theme === 'night', colors = Object.assign({}, base.colors, look && look.colors);
     if (look) for (const [name, source] of Object.entries({ fruit: 'rose', flower: 'ochre', flower2: 'rose', flower3: 'paper', stone: 'steel' }))
@@ -183,7 +181,7 @@
       hemiColor: night ? '#8fb4dc' : '#d6efff', groundColor: night ? '#2a2a3a' : '#e9d9b8', exposure: night ? 1.3 : 1.05 }, base, look || {}, { colors });
   };
 
-  /** the builder's toolbox for one theme — `look`: a skin's world palette laid over it (static/skins) */
+  /** The builder's toolbox for one theme, with optional material overrides. */
   L.kit = function kit(THREE, themeName, look) {
     const base = L.THEMES[themeName], night = themeName === 'night', cache = new Map();
     let th = L.appearance(themeName, look);

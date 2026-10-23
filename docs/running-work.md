@@ -8,8 +8,8 @@ You can create several studies before launching any work.
 1. Connect an installed harness in **Settings → Agents & models** and enable launching in
    **Limits & permissions**. Each harness uses its own account and model access.
 2. Choose **New study**, review its details and create it. For an existing study, open **Studies**.
-3. Use the study's next-task button, or write a direct instruction. For a composed graph,
-   **Run ready tasks** queues eligible task nodes. Check the selected agent, role and context.
+3. Choose the next task, or write a direct instruction. The task button shows its skill underneath.
+   For a graph, **Run ready tasks** queues eligible nodes. Check the agent, role and context.
 4. Launch. The Lab saves the instruction and agent settings, then queues the run. The scheduler
    checks capacity, holds, workflow eligibility, gates, backend availability and usage backoff.
 5. Use **Show in lab** to focus the character and its task panel, open its conversation, or use **All agents**. A queued task waits for
@@ -19,10 +19,12 @@ You can create several studies before launching any work.
 inspect a project or discuss a plan without automatically dispatching the workflow. **Run ready
 tasks** starts the saved task contracts. Creating a study or opening either form starts no agent.
 
-An accepted task outcome updates the workflow. Ordered tasks can follow the next step when that
-launch option is enabled. Graph tasks use their connections to make branches ready; joins wait for
-their declared inputs. An agent turn ending without its task outcome stays unfinished. See
-[recovery](recovering-work.md).
+An accepted outcome updates the workflow. Ordered tasks can launch the next step when that option
+is enabled. Graph connections make branches ready; joins wait for their inputs.
+
+An agent turn ending without an outcome leaves the task unfinished. **Continue task** opens its
+attempt so you can continue the conversation or start a new agent with a handoff. The Lab checks
+recorded outcomes, not whether the agent wrote “done” in its reply. See [recovery](recovering-work.md).
 
 The study's **History** tab keeps task passes and agent attempts together. Saving its generated
 history snapshot is optional; the underlying workflow and run records are already retained.

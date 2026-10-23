@@ -4,6 +4,10 @@ The Lab uses plain files, a Python server and a browser interface. There is one 
 dashboard tasks, workflow tasks, gate reviewers, the workspace assistant and visual summaries.
 For everyday use, see [The dashboard](dashboard.md).
 
+Launcher probes connect directly to loopback without system proxy discovery. Public static files
+use ETags and revalidate on each load; unchanged files return 304. The session page and API responses
+remain uncached. The renderer's sandbox and content policy are unchanged.
+
 ## Records and identity
 
 | Record | Purpose |

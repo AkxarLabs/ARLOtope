@@ -237,18 +237,13 @@
   }
 
   NL.LabsPage = () => {
-    const [local, setLocal] = useState(null);
-    const [mach, setMach] = useState(null);
-    const [error, setError] = useState('');
+    const localRead=NL.usePoll(NL.DEMO?null:'/api/labs',8000);
+    const machineRead=NL.usePoll(NL.DEMO?null:'/api/machines',8000);
+    const local=NL.DEMO?demoLabs():localRead.data||localRead.previous;
+    const mach=NL.DEMO?demoMachines():machineRead.data||machineRead.previous;
+    const error=[localRead.error,machineRead.error].filter(Boolean).join(' · ');
     const s = NL.useLab();
-    const load = async () => {
-      if (NL.DEMO) { setLocal(demoLabs()); setMach(demoMachines()); return; }
-      const [labs, machines] = await Promise.all([NL.get('/api/labs'), NL.get('/api/machines')]);
-      if (!labs.error) setLocal(labs);
-      if (!machines.error) setMach(machines);
-      setError([labs.error, machines.error].filter(Boolean).join(' · '));
-    };
-    useEffect(() => { load(); if (NL.DEMO) return undefined; const t = setInterval(load, 8000); return () => clearInterval(t); }, []);
+    const load=()=>{localRead.reload();machineRead.reload()};
     const cur = s.remote;
     const fl = NL.useFleet();
     return html`<div class="page page-narrow">
@@ -366,9 +361,7 @@
   };
   NL.openMachineSetup=(id,options={})=>NL.open(NL.ProjectMachineSetup,{id,...options},{key:'machine-setup:'+id});
   NL.MachinePicker=({value,onChange,onProject})=>{
-    const [data,setData]=useState(null),[error,setError]=useState('');
-    const load=async()=>{const r=await NL.get('/api/project-machines');if(r.error)setError(r.error);else{setData(r);setError('')}};
-    useEffect(()=>{load();const t=setInterval(load,4000);return()=>clearInterval(t)},[]);
+    const read=NL.usePoll('/api/project-machines',4000),data=read.data||read.previous,error=read.error,load=read.reload;
     return html`<div><${NL.Field} label="Project machine"><${NL.Select} value=${value} onChange=${onChange} options=${[{value:'',label:'This computer'},...(data?.machines||[]).map(m=>({value:m.id,label:m.name})),...(value&&!(data?.machines||[]).some(m=>m.id===value)?[{value,label:value+' · unavailable'}]:[])]}/></${NL.Field}>
       ${error?html`<p class="note note-warn" role="alert">${error} <button type="button" class="link" onClick=${load}>Retry</button></p>`:null}
       <div class="row">${value?html`<button type="button" class="link" onClick=${()=>NL.openMachineSetup(value,{onProject})}>Browse projects</button>`:null}

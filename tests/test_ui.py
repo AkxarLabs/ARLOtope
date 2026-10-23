@@ -149,6 +149,27 @@ def test_held_study_primary_action_keeps_existing_work_and_checkpoint_access():
 
 
 @pytest.mark.skipif(not NODE, reason='node is needed')
+def test_next_action_names_the_task_and_recovers_an_unfinished_attempt():
+    source=_js()['studies']
+    next_for=source[source.index('NL.nextFor ='):source.index('/** a study')]
+    script=f"""
+      const calls=[],NL={{RUN_ACTIVE:new Set(['running']),runsOf:s=>s.runs||[],
+        nextSkill:()=> 'custom-method',taskLabel:()=> 'Check evidence',procTitle:()=> 'Review sources',
+        procGlyph:()=> 'read',launch:x=>calls.push(x),openRun:id=>calls.push(id)}};
+      {next_for}
+      const it={{id:'custom',state:'check'}},ready=NL.nextFor({{}},it);
+      ready.run();const pending=NL.nextFor({{runs:[{{run_id:'unfinished',needs_followup:true}}]}},it);
+      pending.run();console.log(JSON.stringify({{ready,pending,calls}}));
+    """
+    result=subprocess.run([NODE,'-e',script],capture_output=True,text=True,encoding='utf-8',timeout=60)
+    assert result.returncode==0,result.stderr
+    got=json.loads(result.stdout)
+    assert got['ready']['task']=='Check evidence' and got['ready']['method']=='Review sources'
+    assert got['ready']['label']=='Start task' and got['pending']['label']=='Continue task'
+    assert got['calls']==[{'skill':'custom-method','target':'custom'},'unfinished']
+
+
+@pytest.mark.skipif(not NODE, reason='node is needed')
 def test_get_rejects_http_and_empty_responses_without_accepting_them_as_data():
     source = _js()['core']
     get = source[source.index('NL.get ='):source.index('NL.useGet =')]

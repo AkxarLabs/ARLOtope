@@ -5,9 +5,9 @@ The Lab's shared library lives in `.claude/skills/`; selected project copies liv
 Claude Code exposes its native slash commands; managed runs on all supported harnesses receive the
 exact selected skill paths and the study/evidence brief. ACP is a transport, not a separate skill language.
 
-The main file supplies the method and can point to optional supporting files; this page helps choose one. Workflow definitions determine which
-procedures advance a study and which checkpoints wait for the researcher. A chat statement, note,
-question answer or artifact reply does not approve a checkpoint.
+A skill supplies a method; a workflow assigns it to a task. The same skill can serve several tasks
+or workflows. Reporting a task outcome advances the workflow. Ordinary replies do not approve
+checkpoints.
 
 ## Reuse a skill
 
@@ -66,9 +66,6 @@ after updating ARLOtope to update its runner.
 
 **Export as skill** bundles a workflow's Markdown procedure, selected skills and resources. Mechanical
 gates, independent agents and native parallel forks still require an execution environment supporting them.
-
-The command is `arlo.py`; project records live under `.arlotope/` and environment variables use
-the `ARLOTOPE_*` prefix. These are the canonical interfaces, with no old-name aliases.
 
 ## Setup & autonomy
 

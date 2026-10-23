@@ -208,6 +208,16 @@
     }, [key]);
     return { ...(result.key === key ? result : { data: null, error: null }), previous: previous.current?.path === path ? previous.current.data : null, reload };
   };
+  // Poll after the previous read settles; cleanup and stale-data scope stay with useGet.
+  NL.usePoll = (path, interval) => {
+    const read = NL.useGet(path);
+    H.useEffect(() => {
+      if (!path || !read.data && !read.error) return;
+      const timer = setTimeout(read.reload, interval);
+      return () => clearTimeout(timer);
+    }, [path, read.key, interval]);
+    return read;
+  };
   /** Run an API call with a toast for the outcome; returns the result. */
   NL.act = async (path, body, okMsg) => {
     const r = await NL.api(path, body);

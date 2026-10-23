@@ -10,11 +10,11 @@
  * a subagent; model.standsOf), else at its station. A subagent walks out of its parent and back to it when it's
  * done. Attention markers stay with the task; a stalled one dozes. Studies are cards on their room's shelf; when a study
  * moves on, a newt carries its card along the streets to the next room (and waits at a checkpoint's lantern for the
- * signature). Nothing on the table is written out: a name shows on hover, and in the tour (setLabels, tour).
+ * signature). Nothing on the table is written out: names appear on hover or through setLabels.
  *
- * Lab3D.createWorld(canvas, {lamp, reduced}) → the world contract scene.js wraps (sync, setPose, setLamp,
+ * Lab3D.createWorld(canvas, {lamp, reduced}) → the world contract lab-view.js uses (sync, setPose, setLamp,
  * setView, goRoom, focusProject, back, viewInfo, highlight, layout, setAmbient, followWorker/stopFollow/
- * following, setLabels, tour, on* callbacks). Nothing in here writes anything: clicks call back into the dashboard.
+ * following, setLabels, on* callbacks). Nothing in here writes anything: clicks call back into the dashboard.
  */
 (function () {
 'use strict';
@@ -23,7 +23,6 @@ const clamp = (v, a, b) => (v < a ? a : v > b ? b : v);
 const hash01 = s => { let h = 2166136261; for (let i = 0; i < (s || '').length; i++) { h ^= s.charCodeAt(i); h = Math.imul(h, 16777619); } return ((h >>> 0) % 100000) / 100000; };
 const ROLE_BADGE = { 'experiment-runner': '#3fb8a6', overseer: '#6f9be6', 'fresh-context-reviewer': '#9b84ea', 'ideation-critic': '#e57ab5',
   'scoping-advocate': '#e0a346', 'general-purpose': '#9aa7ad', orchestrator: '#e0b44e' };
-const ACTIVE = new Set(['starting', 'running', 'resuming']);
 const WALK = 3.0, STREET = 3.4, PLAZA = 13, ROOMSCALE = 1.15, SUB_SCALE = 0.62;
 function three() { return window.THREE ? Promise.resolve(window.THREE) : new Promise(r => addEventListener('three:ready', () => r(window.THREE), { once: true })); }
 const esc = s => String(s ?? '').replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
@@ -43,8 +42,8 @@ L.createWorld = async function createWorld(canvas, opts) {
   let destroyed = false, active = true; const listeners = [];
   const listen = (target, event, fn, options) => { target.addEventListener(event, fn, options); listeners.push(() => target.removeEventListener(event, fn, options)); };
   const motion = () => reduced ? 'reduced' : ambient ? 'full' : 'still';
-  let snap = null, labels = false, glowAll = false, touring = null, pose = 'idle', highlightRole = null, followKey = null, view = { level: 'WORLD', room: null, label: '' };
-  let onCheckpoint = null, onLab = null, onArtifact = null, onItem = null, onInbox = null, onWorker = null, onRun = null, onNewt = null, onView = null, onFollow = null;
+  let snap = null, labels = false, pose = 'idle', highlightRole = null, followKey = null, view = { level: 'WORLD', room: null, label: '' };
+  let onCheckpoint = null, onArtifact = null, onItem = null, onInbox = null, onWorker = null, onRun = null, onNewt = null, onView = null, onFollow = null;
   let staticSig = '', W = null, selectedKey = null; // the built table and current inspector selection
   const actors = new Map(), cards = new Map(), pickables = new Set(), resting = new Map();
   let settled = false;
@@ -226,7 +225,6 @@ L.createWorld = async function createWorld(canvas, opts) {
     }
     group.traverse(m => { if (m.isMesh && m.geometry && m.geometry.type === 'PlaneGeometry') m.castShadow = false; });
     W = { group, rooms, districts, bridgeZ, XS, ZS, colW, rowH, EXT, SPAN, hub, inbox, bigNewt, gates, sun, fireflies, glowLines, hubExits: Object.values(DIR).map(d => [d[0] * colW[0] / 2, d[1] * rowH[0] / 2]) };
-    buildNeighbours();
     fitCamera(true);
     return true;
   }
@@ -265,32 +263,6 @@ L.createWorld = async function createWorld(canvas, opts) {
       });
       if (list.length > n) board.add(K.sphere(0.1, 'amber', 0.78, 1.32, 0.05, { glow: true }));
     }
-  }
-
-  // ── your other labs (this computer's and other machines', all in this one dashboard): small tables beyond the
-  // back edge, a bridge to each — its name, what waits on you there, how many agents are at work. Click to go.
-  let neighbours = [], nbGroup = null, nbSig = '';
-  function buildNeighbours() {
-    if (!W) return;
-    const sig = JSON.stringify([theme, W.EXT, neighbours.map(n => [n.key, n.needs, n.running, n.state])]);
-    if (sig === nbSig && nbGroup) return;
-    nbSig = sig;
-    if (nbGroup) { L.resources.release(nbGroup); nbGroup.traverse(o => pickables.delete(o)); }
-    nbGroup = new THREE.Group(); scene.add(nbGroup);
-    const list = neighbours.slice(0, 6), E = W.EXT, wide = E.x1 - E.x0, step = Math.min(22, (wide + 16) / Math.max(1, list.length));
-    list.forEach((nb, i) => {
-      const x = (E.x0 + E.x1) / 2 + (i - (list.length - 1) / 2) * step, z = E.z0 - 11;   // spread along the back edge
-      const g = new THREE.Group(); g.position.set(x, 0, z);
-      const off = nb.state !== 'here' && nb.state !== 'connected';
-      g.add(K.box(9, 0.3, 6, off ? '@tableSide' : '@table', 0, -0.3, 0), K.box(8.6, 1.0, 5.6, '@tableSide', 0, -1.3, 0));
-      [[-2.6, -1.2], [0, -1.4], [2.6, -1.1], [-1.4, 1.2], [1.6, 1.3]].forEach(([a, b], k) => g.add(K.box(2.0, 0.55 + (k % 2) * 0.2, 1.6, off ? 'plasterDark' : 'plaster', a, 0, b)));
-      for (let k = 0; k < Math.min(8, nb.running || 0); k++) g.add(K.sphere(0.22, 'teal', -3 + k * 0.85, 1.05, 2.3, { glow: true }));   // agents at work
-      if (nb.needs) { const f = K.group(K.cyl(0.05, 0.05, 2.2, 'woodDark', 0, 0, 0), K.box(0.9, 0.55, 0.05, 'amber', 0.47, 1.6, 0, { glow: true })); f.position.set(3.6, 0, -2.2); g.add(f); }
-      const bridge = K.box(1.4, 0.18, 11 - 3 - 1.6, '@table', 0, -0.12, 3 + (11 - 3 - 1.6) / 2 - 0.4); g.add(bridge);
-      g.userData.pick = { kind: 'otherlab', key: nb.key };
-      g.traverse(o => { if (o.isMesh) o.castShadow = false; });
-      nbGroup.add(g); pickables.add(g); nb._at = [x, z];
-    });
   }
 
   function buildRoom(o, group) {
@@ -513,12 +485,11 @@ L.createWorld = async function createWorld(canvas, opts) {
   // ── the camera: the whole table, or one room; it keeps clear of the rail and the ask bar ──────────
   const cam = { az: 0, el: 0.92, r: 80, tx: 0, tz: 0 }, camT = { ...cam };
   let insets = { right: 0, left: 0, bottom: 0, top: 56, k: 0.5 };
-  const nbRoom = () => (neighbours.length ? 14 : 0);   // the back edge's other labs need a little more of the view
   function fitCamera(snapNow) {
     if (!W) return;
     const r = canvas.getBoundingClientRect(), wide = r.width - insets.right - insets.left, aspect = Math.max(0.3, wide / Math.max(1, r.height - insets.top - insets.bottom * insets.k)), base = W.SPAN * 3.5 * Math.max(1, 1.4 / aspect, 1.25 * r.height / Math.max(1, wide));   // (narrow screens: fit the width)
     if (view.level === 'ROOM' && W.rooms[view.room]) { const o = W.rooms[view.room]; Object.assign(camT, { tx: o.x, tz: o.z, r: Math.max(...o.spec.size,10)*2*Math.max(1,1.25/aspect), az: Math.atan2(o.dir[0], o.dir[1]), el: 0.95 }); }
-    else Object.assign(camT, { tx: (W.EXT.x0 + W.EXT.x1) / 2, tz: (W.EXT.z0 - nbRoom() + W.EXT.z1) / 2 + 1, r: base * (1 + nbRoom() / Math.max(10, W.EXT.z1 - W.EXT.z0) * 0.75), el: 0.92, az: camT.az && view.level === 'WORLD' ? camT.az : 0 });
+    else Object.assign(camT, { tx: (W.EXT.x0 + W.EXT.x1) / 2, tz: (W.EXT.z0 + W.EXT.z1) / 2 + 1, r: base, el: 0.92, az: camT.az && view.level === 'WORLD' ? camT.az : 0 });
     if (snapNow || motion() !== 'full') Object.assign(cam, camT);
   }
   // the room the UI leaves the world: a column on the left (a lens), the instrument rail on the right
@@ -606,7 +577,6 @@ L.createWorld = async function createWorld(canvas, opts) {
     if (p.kind === 'card' && onItem) return onItem(p.id);
     if (p.kind === 'hub' && onInbox) return onInbox();
     if (p.kind === 'newt' && onNewt) return onNewt();
-    if (p.kind === 'otherlab' && onLab) return onLab(p.key);
     if (p.kind === 'artifact' && onArtifact) return onArtifact(p.id);
     if (p.kind === 'checkpoint') { const it = ((snap && snap.items) || []).find(i => (i.waiting || []).includes(p.id)&&(snap.world_view!=='full'||(i.machine||'local')===p.machine));
       if (it && onCheckpoint) return onCheckpoint(it.id, p.id); if (it && onItem) return onItem(it.id); }
@@ -635,7 +605,6 @@ L.createWorld = async function createWorld(canvas, opts) {
   function describe(p) {
     const s = snap || {};
     if (p.kind === 'artifact') { const a = ((snap && snap.artifacts) || []).find(x => x.id === p.id); return a ? `<b>${esc(a.title)}</b>${a.question ? `<small>${esc(a.question)}</small>` : ''}` : null; }
-    if (p.kind === 'otherlab') { const nb = neighbours.find(n => n.key === p.key); return nb ? `<b>${esc(nb.name)}</b>${nb.needs ? `<small>${nb.needs} need${nb.needs === 1 ? 's' : ''} you</small>` : ''}` : null; }
     if (p.kind === 'actor') {
       const a = actors.get(p.key); if (!a) return null;
       if (a.courier) { const it = item(s, a.courier); return `<b>Carrying “${esc(it ? it.title || it.id : a.courier)}”</b><small>to its next room</small>`; }
@@ -661,7 +630,7 @@ L.createWorld = async function createWorld(canvas, opts) {
   // ── lenses and labels ─────────────────────────────────────────────────────────────────────────────
   const tmpV = new THREE.Vector3();
   function toScreen(x, y, z) { tmpV.set(x, y, z).project(camera); const r = canvas.getBoundingClientRect(); return [(tmpV.x + 1) / 2 * r.width + r.left, (1 - tmpV.y) / 2 * r.height + r.top, tmpV.z < 1]; }
-  /** what is drawn over the table: a "?" over each agent asking you; the rooms' names only when asked (the tour) */
+  /** what is drawn over the table: a "?" over each agent asking you; the rooms' names when requested */
   function overlays() {
     if (!W || !snap) return;
     const out = [];
@@ -739,8 +708,7 @@ L.createWorld = async function createWorld(canvas, opts) {
         if (g && g.host === o) { const k = (shelfN['gate' + c.userData.gate] = (shelfN['gate' + c.userData.gate] || 0) + 1) - 1; c.position.set(g.pos[0], 0.3 + k * 0.1, g.pos[1]); c.rotation.y = motion() === 'full' ? t * 0.6 : o.ry; c.visible = true; continue; }
         const i = (shelfN[o.id] = (shelfN[o.id] || 0) + 1) - 1, perRow = Math.max(1, Math.floor(Math.min(3.4, o.spec.size[0] * 0.4) / 0.62));
         const [x, z] = o.toWorld(o.shelfAt[0] + 0.34 + (i % perRow) * 0.62, o.shelfAt[1]);
-        c.position.set(x, 0.62 + Math.floor(i / perRow) * 0.1 + (touring === 'studies' ? 0.25 + Math.sin(t * 3 + i) * 0.12 : 0), z); c.rotation.y = o.ry; c.visible = true;
-        c.scale.setScalar(touring === 'studies' ? 1.7 : 1);
+        c.position.set(x, 0.62 + Math.floor(i / perRow) * 0.1, z); c.rotation.y = o.ry; c.visible = true;
       }
       // the desk: one envelope per thing waiting; Newt poses by the lab's mood; checkpoint lanterns glow when someone waits
       const n = needs(snap).length;
@@ -756,7 +724,7 @@ L.createWorld = async function createWorld(canvas, opts) {
         if (W.glowLines[0]) W.glowLines[0].material.emissiveIntensity = 0.32 + Math.sin(t * 0.8) * 0.1;
       }
       for (const g of Object.values(W.gates)) {
-        const on = (waitingGates.has(g.g.id)&&(snap.world_view!=='full'||(snap.items||[]).some(it=>(it.waiting||[]).includes(g.g.id)&&(it.machine||'local')===g.machine))) || glowAll;
+        const on = (waitingGates.has(g.g.id)&&(snap.world_view!=='full'||(snap.items||[]).some(it=>(it.waiting||[]).includes(g.g.id)&&(it.machine||'local')===g.machine)));
         g.lamp.material.emissiveIntensity = on ? 1.7 + (motion() === 'full' ? Math.sin(t * 4.5) * 0.6 : 0) : 0.12;
         g.lamp.rotation.y = on && motion() === 'full' ? t * 0.8 : 0;
         if (g.arch.userData.sway && motion() === 'full') g.arch.userData.sway.rotation.z = on ? Math.sin(t * 1.6) * 0.06 : 0;
@@ -873,24 +841,9 @@ L.createWorld = async function createWorld(canvas, opts) {
       return { boxes, bbox: { x: W.EXT.x0, y: W.EXT.z0, w: W.EXT.x1 - W.EXT.x0, h: W.EXT.z1 - W.EXT.z0 }, room: view.room, level: view.level };
     },
     setAmbient(on) { ambient = !!on; if (!on) for (const a of actors.values()) if (a.dest) sendTo(a, a.dest); kick(); },
-    /** the rooms' names over the table (the tour shows them; otherwise a name is a hover away) */
+    /** Toggle room names. */
     setLabels(on) { labels = !!on; kick(); },
-    /** the tour: show one of the lab's concepts — 'rooms' · 'studies' · 'agents' · 'checkpoints' · 'desk' — or end (null) */
-    tour(what) {
-      if (!W) return;
-      labels = what === 'rooms'; glowAll = what === 'checkpoints'; touring = what || null;
-      const busiest = count => { let best = null, n = 0; for (const o of Object.values(W.rooms)) { const k = count(o); if (k > n) { n = k; best = o.id; } } return best; };
-      const room = what === 'studies' ? busiest(o => [...cards.values()].filter(c => c.userData.room === o.id).length)
-        : what === 'agents' ? busiest(o => [...actors.values()].filter(a => a.room === o.id && !a.leaving && !a.courier).length)
-        : what === 'checkpoints' ? (() => { const waiting = new Set(((snap && snap.items) || []).flatMap(i => i.waiting || [])), gs = Object.values(W.gates);
-            const g = gs.find(x => waiting.has(x.g.id)) || gs[0]; return g && g.host ? g.host.id : null; })() : null;
-      if (room) setViewState('ROOM', room);
-      else { setViewState('WORLD'); if (what === 'desk') Object.assign(camT, { tx: 0, tz: 0, r: Math.max(16, W.SPAN * 1.1), el: 0.9 }); }
-      kick();
-    },
-    /** your other labs: [{key, name, machine, needs, running, state}] — drawn as small tables past the back edge */
-    setNeighbours(list) { const had = neighbours.length; neighbours = (list || []).map(n => ({ ...n })); nbSig = ''; buildNeighbours(); if (!had !== !neighbours.length && view.level === 'WORLD') fitCamera(false); kick(); },
-    onLab(cb) { onLab = cb; }, onArtifact(cb) { onArtifact = cb; }, onCheckpoint(cb) { onCheckpoint = cb; },
+    onArtifact(cb) { onArtifact = cb; }, onCheckpoint(cb) { onCheckpoint = cb; },
     /** who plays the agents: {mode: 'one'|'backend', one, claude, codex, opencode} — swapped in place, mid-stride */
     setCast(c) {
       cast = Object.assign({}, cast, c || {});

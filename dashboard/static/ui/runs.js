@@ -306,7 +306,7 @@
       ${r.remote_error ? html`<div class="note note-warn" role="status">${r.remote_error}</div>` : null}
       ${r.delivery_uncertain ? html`<div class="note note-warn">A message may not have reached the agent. Check the conversation before sending it again.</div>` : null}
       ${(r.external_interactions||[]).map(e=>html`<div class="small muted" role="status">${e.message||'External interaction'} · ${e.completed_at?'Completion reported by agent':'Link opened; completion not reported'}</div>`)}
-      ${r.needs_followup ? html`<div class="note note-warn"><p>The workflow is waiting for this task’s outcome.</p><div class="row wrap">
+      ${r.needs_followup ? html`<div class="note note-warn"><p>No outcome recorded.</p><div class="row wrap">
         ${r.session_id ? html`<${NL.Btn} small kind="primary" onClick=${() => NL.continueTask(r.run_id)}>Continue task</${NL.Btn}>` : null}
         <${NL.Btn} small kind=${r.session_id ? '' : 'primary'} onClick=${() => NL.continueTask(r.run_id,true)}>New agent with handoff</${NL.Btn}></div></div>` : null}
       ${r.status === 'waiting_input' && r.pending_question ? (r.pending_questions||[r.pending_question]).map(q=>q.input?.elicitation?html`<${ElicitationCard} key=${q.tool_use_id} r=${r} question=${q}/>`:html`<${AskCard} key=${q.tool_use_id} r=${{...r,pending_question:q}} />`) : null}

@@ -19,18 +19,18 @@ A procedure reports an outcome; the workflow decides the destination. A role or 
 
 ### Where the next-task button comes from
 
-The study's title does not choose its instructions. For example, a study named **Evidence review**
-created with **Quick study** starts at `seed` unless placed elsewhere. Quick study's YAML includes
-that step; `workflow/steps.yaml` gives it the label **Idea**, room `incubator` and procedure `triage`.
-The procedure's metadata supplies **Triage the idea**, which becomes the next-task button.
-That is a shipped default, not an Evidence-review-specific rule. Edit the task's skill or own
-instructions, choose another workflow, or record existing/skipped initial work in the starter.
-An evidence-review title alone does not automatically build an evidence-review process.
+The journal records the current task. Its definition selects a skill or own instructions.
+The start button shows the task name, with its skill underneath. For example, Quick study starts
+at `seed`: the task is **Idea**, its skill is **Triage the idea**, and its room is Incubator.
+The study's title does not change this assignment.
 
-Cards and map nodes use the saved task definitions. Rooms group these tasks visually across studies;
-they do not create new tasks or separate rooms for each study. Basic UI sections such as Controls
-and History are application navigation. `park` and `kill` are generic kernel shelving outcomes,
-separate from customizable task routes. See [study controls](running-work.md#hold-or-steer-a-study).
+The task stays current until the kernel accepts an outcome. Writing a document or ending an agent
+turn does not complete it. A finished attempt with no outcome offers **Continue task**. Graph
+workflows track each task and pass separately; **Run ready tasks** starts their ready branches.
+
+Change the task's skill or instructions in Workflow. The starter can also record existing work or
+skip initial tasks. Rooms are shared locations, not extra tasks. `park` and `kill` are generic
+shelving outcomes; see [study controls](running-work.md#hold-or-steer-a-study).
 
 ## Files
 

@@ -215,8 +215,11 @@ def test_foreground_custom_port_has_status_and_can_be_stopped(hub, tmp_path, mon
         port = available.getsockname()[1]
     monkeypatch.setenv('ARLOTOPE_HOME', str(tmp_path/'home'))
     monkeypatch.setenv('ARLOTOPE_KEEP_PYTHON', '1')
+    # Include the child stack if startup stalls; the parent pytest trace cannot see it.
+    bootstrap = ('import faulthandler,runpy,sys; faulthandler.dump_traceback_later(15,repeat=True); '
+                 'path=sys.argv.pop(1); sys.argv[0]=path; runpy.run_path(path,run_name="__main__")')
     with (tmp_path/'launcher.log').open('w') as log:
-        process = subprocess.Popen([sys.executable, str(REPO/'arlo.py'), '--hub', str(hub.root),
+        process = subprocess.Popen([sys.executable, '-u', '-c', bootstrap, str(REPO/'arlo.py'), '--hub', str(hub.root),
                                     '--foreground', '--no-browser', '--port', str(port)],
                                    env=os.environ.copy(), stdout=log, stderr=log)
         try:

@@ -33,6 +33,7 @@ from __future__ import annotations
 
 import argparse
 import functools
+import hashlib
 import http.client
 import json
 import os
@@ -158,9 +159,8 @@ class Handler(BaseHTTPRequestHandler):
     def _send(self, code: int, body: bytes, ctype: str, headers: dict | None = None) -> None:
         self.send_response(code)
         self.send_header("Content-Type", ctype)
-        for k, v in {"Content-Length": str(len(body)), **(headers or {})}.items():
+        for k, v in {"Content-Length": str(len(body)), "Cache-Control": "no-store", **(headers or {})}.items():
             self.send_header(k, v)
-        self.send_header("Cache-Control", "no-store")
         self.end_headers()
         try:
             if self.command != "HEAD":
@@ -396,7 +396,7 @@ class Handler(BaseHTTPRequestHandler):
     def _serve_static(self, rel: str) -> None:
         rel = rel.split("?")[0].replace("static/", "", 1)   # only the route prefix, never a nested "static/"
         target = (STATIC / rel).resolve()
-        if (STATIC not in target.parents and target != STATIC) or not target.exists():
+        if (STATIC not in target.parents and target != STATIC) or not target.is_file():
             return self._send(404, b"not found", "text/plain")
         ctype = {".html": "text/html", ".css": "text/css", ".js": "application/javascript", ".mjs": "application/javascript",
                  ".svg": "image/svg+xml", ".woff2": "font/woff2", ".woff": "font/woff",
@@ -415,6 +415,12 @@ class Handler(BaseHTTPRequestHandler):
                 return self._send(302, b'', 'text/plain', {'Location': '/?' + urlencode({'roomdraft': q['roomdraft']})})
             body = _with_rooms3d(body.decode("utf-8"), "world3d/rooms/").encode("utf-8")
             headers['Content-Security-Policy'] = 'sandbox allow-scripts'
+        # Only public assets are cached. Revalidate every load so edits are visible immediately.
+        etag = '"' + hashlib.sha256(body).hexdigest() + '"'
+        headers.update({'ETag': etag, 'Cache-Control': 'no-cache'})
+        previous = getattr(self, 'headers', {}).get('If-None-Match', '')
+        if etag in [tag.strip().removeprefix('W/') for tag in previous.split(',')]:
+            return self._send(304, b'', f'{ctype}{charset}', {**headers, 'Content-Length': str(len(body))})
         self._send(200, body, f"{ctype}{charset}", headers)
 
     def _serve_sse(self) -> None:

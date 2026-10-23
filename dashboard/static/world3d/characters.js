@@ -94,14 +94,6 @@
   function legsPair(T, body, g, m, dx, y) {
     return [-1, 1].map(s => T.add(body, g, m, s * dx, y, 0.02));
   }
-  /** a lathe profile's radius at height y (to set things on a body's surface) */
-  function profR(prof, y) {
-    for (let i = 1; i < prof.length; i++) {
-      const [r0, y0] = prof[i - 1], [r1, y1] = prof[i];
-      if (y <= y1) return r0 + (r1 - r0) * Math.max(0, (y - y0) / ((y1 - y0) || 1));
-    }
-    return 0;
-  }
   const ease = u => u * u * (3 - 2 * u);
 
   // ── the mini human: a little scientist in a lab coat, round glasses and a scarf in the family colour ──
@@ -190,8 +182,6 @@
       } });
   }
 
-  // ── the penguin: a round little intern — a navy coat, a heart-shaped white face, a bow tie in the family colour,
-  //    a clipboard tucked under one flipper (crisp: it's stationery) ──
   const BUILDERS = { human, robot };
 
   L.attachAccessory = (K, character, id, side = 'right') => {

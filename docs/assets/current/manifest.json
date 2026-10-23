@@ -328,8 +328,8 @@
         1440,
         1000
       ],
-      "bytes": 35070,
-      "sha256": "b5104c539c4262d8d9cc809994fef3edeae7b414989df42ec0a0f4a1d57c0aac",
+      "bytes": 34848,
+      "sha256": "c4f296f0f237984524de7697c2950b77c0f5de23e2e47af7f80db7d7419c7926",
       "captured": "2026-10-22",
       "source": "Current local preview with a disposable study. No model runs or control requests launched for capture."
     },
@@ -339,10 +339,10 @@
         1440,
         1000
       ],
-      "bytes": 38380,
-      "sha256": "4ab9e0facf8cee5292ee3947c1a7474d7e0213592be22601bf06fb3b1f81caff",
+      "bytes": 39152,
+      "sha256": "98e4799e62916a550813aff77f0bd7e9a99dab10bfef35e7e81ed9ea168be970",
       "captured": "2026-10-22",
-      "source": "Current application in an isolated synthetic example Lab; no research agents or SSH sessions launched."
+      "source": "Current local preview with a disposable study. No model runs or control requests launched for capture."
     },
     {
       "file": "study-workflow-history.png",
@@ -365,6 +365,17 @@
       "sha256": "fe36b7c0c08c34dfd261c943f7b98944704032476110327ce9284f16c0325e44",
       "captured": "2026-10-22",
       "source": "Current renderer and dashboard using synthetic browser-only agent telemetry; no model runs launched."
+    },
+    {
+      "file": "task-unfinished.webp",
+      "size": [
+        1440,
+        1000
+      ],
+      "bytes": 42008,
+      "sha256": "28803fc8d103ff4a7a17c7030cc2483003e58b2bd141a00515ae12c3823c6a05",
+      "captured": "2026-10-22",
+      "source": "Current local preview with a disposable study. No model runs or control requests launched for capture."
     },
     {
       "file": "workflow-editor.png",

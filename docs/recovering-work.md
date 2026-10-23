@@ -15,7 +15,9 @@ sentence such as “done.”
 | A checkpoint | The workflow needs its configured decision | Review its evidence and decide the checkpoint |
 | **Queued** with a usage-limit hold | That backend is temporarily blocked from starting new work | Wait for the hold to expire, or use another configured agent where appropriate |
 
-![Run activity, messages and evidence](assets/current/agents-run.webp)
+![An unfinished task with its continuation options](assets/current/task-unfinished.webp)
+
+*Synthetic run in the current dashboard; no agent was launched for this example.*
 
 **Task unfinished** is a mechanical check for formally assigned tasks. For an ordered workflow, the
 Lab checks whether the assigned step has an accepted move, wait or finish since assignment. For a

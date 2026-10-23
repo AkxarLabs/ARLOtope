@@ -16,7 +16,8 @@ to use `arlo` elsewhere. The local browser interface normally opens on port 8787
 | **Inbox** | Answer questions, review permissions and handle decisions |
 | **Assistant** | Ask a separate workspace agent about selected work |
 
-**All agents**, **History** and **Machines** are in the footer. Ctrl/Cmd+K opens search. Settings contains agent, execution and appearance options. The theme button beside the Lab name names the mode it will switch to.
+**All agents**, **History** and **Machines** are in the footer. Ctrl/Cmd+K opens search.
+Settings holds agent, execution and appearance options. The theme button names its target mode.
 
 In **Workflow**, use the map for task edits, **Skills** for reusable instructions and **Rooms** for
 shared spaces. **More settings** holds shared task defaults, roles, rules and checks. The workspace
@@ -33,15 +34,13 @@ For launch steps, multiple studies, session limits and notification behavior, se
 ## Keep your place
 
 Selecting a study, workflow task or agent adds a small **Selected work** strip above the page.
-The main navigation carries that selection between Lab, Workflow and Library. Workflow opens the
-study's workflow with the selected task; Library uses the same study scope. Select another study
-to change scope, or use **×** to return to the whole Lab. This is a viewing choice: it starts no
-agent and changes no workflow or approval.
+Navigation keeps that selection between Lab, Workflow and Library. Workflow opens the selected
+task; Library shows the study's records. Select another study to change scope, or use **×** to
+clear it. Selecting work starts no agent.
 
 Agent conversations, workers and output previews reuse one inspector. Its **Task**, **Outputs**
-and **Show in Lab** links lead back to the same work. Recent unsent replies and question-form
-answers survive switching inspectors in the current browser tab. They are not submitted until
-you send them, and refreshing or closing the tab clears them.
+and **Show in Lab** links lead back to the same work. Unsent replies and answers stay in the tab
+when you switch inspectors. Refreshing or closing the tab clears them.
 
 ![One study and task carried into Library](assets/current/study-context.webp)
 

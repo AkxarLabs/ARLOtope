@@ -206,12 +206,10 @@ def create(hub: Path, *, title: str, question: str, slug: str = '', workflow: st
             'project_mode': 'attached' if project else 'new',
             **({'repository': 'https://github.com/' + canonical} if canonical else {})},
             sort_keys=False, allow_unicode=True).strip()
-        text = ('---\n' + metadata + '\n---\n\n# Research question\n\n' + question.strip()
-                + '\n\n## Starting point\n\n'
-                + ('Existing project attached. Its code, environment and files are unchanged. '
-                   'Inspect it before proposing a plan. Add tracking or reproducibility scaffolding '
-                   'only when the researcher requests it.\n' if project else 'A new research direction.\n')
-                + '\nAttachment does not verify results or approve checkpoints. Any starting-plan decisions are recorded separately in the study history.\n')
+        text = '---\n' + metadata + '\n---\n\n# Research question\n\n' + question.strip() + '\n'
+        if project:
+            text += ('\n## Existing project\n\nInspect the existing code and environment before proposing changes. '
+                     'Add research scaffolding only when the researcher requests it.\n')
         (folder / 'IDEA.md').write_text(text, encoding='utf-8')
         if draft:
             count = study_materials.attach(hub, draft, folder, meta=material_meta)

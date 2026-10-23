@@ -16,12 +16,14 @@
     const w = (it.waiting || [])[0];
     if (w) { const c = NL.checkpoint(w, it) || { title: w }; return { label: `Review: ${c.title}`, glyph: 'diamond', run: () => NL.openCheckpoint(it.id, w), checkpoint: w }; }
     if (s.holds?.[it.id]) return { label: 'View hold', glyph: 'pause', run: () => NL.go('study/' + it.id + '/controls') };
+    const unfinished=NL.runsOf(s,it.id).find(r=>r.needs_followup);
+    if(unfinished)return {label:'Continue task',glyph:'loop',run:()=>NL.openRun(unfinished.run_id)};
     if(it.runnable?.length)return {label:'Run ready tasks',glyph:'play',run:()=>NL.act('/api/workflow/run',{study:it.id,retry:true},'Ready tasks queued')};
     if (it.project_mode === 'attached' && it.state === NL.stepsOf(it)[0] && !it.finished && !NL.isShelved(it.state)) return { label: 'Work on this project', glyph: 'chat', run: () => NL.openAsk('', it.id) };
     const skill = NL.nextSkill(it);
     if (!skill) return NL.isDone(it.state) ? null : NL.isShelved(it.state) ? { label: 'Revive it', glyph: 'loop', run: () => NL.revive(it) } : null;
     if (((s.skills || {})[skill] || {}).level === 'project' && !it.has_project) return null;
-    return { label: NL.procTitle(skill), glyph: NL.procGlyph(skill), skill, run: () => NL.launch({ skill, target: it.id }) };
+    return { label: 'Start task', task:NL.taskLabel(it), method:NL.procTitle(skill), glyph:'play', skill, run: () => NL.launch({ skill, target: it.id }) };
   };
 
   /** a study's next step, said plainly: a procedure's title in place of its slug ("/experiment …" too) */
@@ -43,6 +45,7 @@
     const n = runs.filter(r => NL.RUN_ACTIVE.has(r.status)).length;
     if (n) return ['live', NL.plural(n, 'agent') + ' at work'];
     if (runs.some(r=>r.status==='queued')) return ['live','queued'];
+    if (runs.some(r=>r.needs_followup)) return ['warm','Task unfinished'];
     if (NL.isShelved(it.state)) return ['muted', NL.taskLabel(it)];
     if (NL.isDone(it.state)) return ['ok', 'done'];
     return ['', 'idle'];
@@ -103,7 +106,7 @@
     const isLoop = p => (NL.PROC[p] || {}).kind === 'driver' && (NL.PROC[p] || {}).level === 'project';
     const run = p => isLoop(p) ? NL.openLoop(it.id) : NL.launch({ skill: p, target: it.id });
     return html`<div class="action-orb">
-      ${nx ? html`<button type="button" class=${cls('pill-act', nx.checkpoint && 'warm')} title=${nx.skill?'Skill for '+NL.taskLabel(it)+' in '+(NL.workflowOf(it).title||it.workflow):null} onClick=${nx.run}><${NL.Glyph} name=${nx.glyph || 'play'} size=${18} /><span>${nx.label}</span></button>` : null}
+      ${nx ? html`<button type="button" class=${cls('pill-act', nx.checkpoint && 'warm')} aria-label=${nx.task?'Start task: '+nx.task:nx.label} onClick=${nx.run}><${NL.Glyph} name=${nx.glyph || 'play'} size=${18} /><span class="action-copy">${nx.task||nx.label}${nx.method?html`<small>${nx.method}</small>`:null}</span></button>` : null}
       <${NL.Btn} small disabled=${held} onClick=${() => NL.openAsk('', it.id)}>Ask agent</${NL.Btn}>
       <button type="button" class="btn btn-sm" aria-expanded=${open} aria-controls=${it.id+'-actions'} onClick=${() => setOpen(!open)}>More actions</button>
       ${open ? html`<div class="orb-menu glass" id=${it.id+'-actions'} onKeyDown=${e=>{if(e.key==='Escape'){setOpen(false);e.currentTarget.previousElementSibling?.focus()}}}>${procs.filter(can).map(p=>html`<button type="button" disabled=${held} onClick=${()=>{setOpen(false);run(p)}}>${isLoop(p)?'Run overnight':NL.procTitle(p)}</button>`)}
