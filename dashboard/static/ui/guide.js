@@ -35,12 +35,12 @@
     const close=status=>{update({status,step});requestAnimationFrame(()=>document.querySelector('[aria-label="Open ARLO guide"]')?.focus())};
     const move=next=>{update({status:'open',step:next});N.go(stops[next].route)};
     if(progress.status!=='open')return home&&!N.DEMO&&progress.status==='new'?html`
-      <aside class="arlo-welcome" aria-label="Welcome to ARLOtope"><img src="static/brand/arlotope-mark.png" alt=""/>
+      <aside class="arlo-welcome" aria-label="Welcome to ARLOtope"><img class="arlotope-mark" src="static/brand/arlotope-mark.png" alt=""/>
         <div class="grow"><h2>Meet ARLO</h2><p>A short guide to your agents, workflows and research workspace.</p></div>
         <div class="row"><${N.Btn} small kind="primary" onClick=${start}>Show me around</${N.Btn}><a class="btn btn-sm" href="#/start">New study</a></div>
         <button type="button" class="iconbtn sm" aria-label="Dismiss welcome" onClick=${()=>close('done')}>×</button></aside>`:null;
     return html`<aside class="arlo-guide" aria-label="ARLO guide">
-      <header><img src="static/brand/arlotope-mark.png" alt=""/><b>ARLO</b><span class="muted small">${step+1} / ${stops.length}</span>
+      <header><img class="arlotope-mark" src="static/brand/arlotope-mark.png" alt=""/><b>ARLO</b><span class="muted small">${step+1} / ${stops.length}</span>
         <button type="button" class="iconbtn sm" aria-label="Close guide" onClick=${()=>close('paused')}>×</button></header>
       <div class="guide-copy" aria-live="polite"><h2>${stop.title}</h2><p>${stop.text}</p><small>${stop.hint}</small></div>
       <nav aria-label="Guide steps"><button type="button" class="link" onClick=${()=>stop.open?stop.open():N.go(stop.route)}>${stop.action} →</button>
