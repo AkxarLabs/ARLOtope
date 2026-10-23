@@ -15,12 +15,18 @@ See [licensing](docs/licensing.md).
 
 ## Start
 
-Install [uv](https://docs.astral.sh/uv/) and Git, then clone this repository or use it as a template.
-Double-click **Start ARLOtope.cmd** on Windows or **start-arlotope.command** on macOS, or run:
+Install [uv](https://docs.astral.sh/uv/) and Git, then clone and launch:
 
 ```bash
+git clone https://github.com/AkxarLabs/ARLOtope.git
+cd ARLOtope
 uv run --with pyyaml python arlo.py
 ```
+
+Or double-click **Start ARLOtope.cmd** on Windows or **start-arlotope.command** on macOS.
+No template setup, package installation step or frontend build is needed. Each clone can be its
+own Lab. First use creates private `lab/config.yaml` from the shipped defaults; it never replaces
+existing settings. Agent tools still need their own installation and sign-in.
 
 For a short terminal command, use `./arlo` on macOS/Linux or `.\arlo.cmd` on Windows.
 Add this folder to your PATH to use `arlo` from elsewhere. For example, `arlo status`
@@ -76,6 +82,12 @@ Procedures are Markdown skills; workflows and checkpoints are YAML; study histor
 journal. Code and experiments stay in project repositories, which may live anywhere. The visual
 dashboard needs no frontend build. Agents can also read `AGENTS.md` and follow procedures directly;
 the CLI and executor are available independently.
+
+The checkout holds the application and this Lab's local records. Git ignores `studies/` and
+private `lab/` state, including settings, notes, transcripts and published outputs. Project code
+stays in its own repository, outside the checkout by default. **Ignored does not mean backed up:**
+save `lab/`, `studies/` and your project repositories separately. See [storage and backups](docs/projects.md#storage-updates-and-backups).
+Reusable project scaffolds are optional; attaching or cloning an existing project does not apply one.
 
 ```bash
 # Attach a repository without scaffolding it

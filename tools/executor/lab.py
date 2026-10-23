@@ -54,7 +54,7 @@ class Lab:
 
     # ── config ──────────────────────────────────────────────────────────────
     def config(self) -> dict:
-        return load_yaml(self.lab / "config.yaml")
+        return labfiles.config(self.hub)
 
     def prog(self) -> dict:
         """agents.programmatic — the executor's whole config surface."""

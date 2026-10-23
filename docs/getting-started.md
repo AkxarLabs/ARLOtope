@@ -4,11 +4,17 @@ Bring a question or an existing project, give an agent one task, and inspect its
 
 ## 1. Open the Lab and connect an agent
 
-With Git and uv installed, run this from the repository:
+With Git and uv installed, clone the application and run it:
 
 ```bash
+git clone https://github.com/AkxarLabs/ARLOtope.git
+cd ARLOtope
 uv run --with pyyaml python arlo.py
 ```
+
+There is no template-generation step. First use creates this clone's private `lab/config.yaml`
+from `lab/config.defaults.yaml`. Existing settings are preserved. A second clone can be a separate
+Lab; cloning an existing Lab's source does not copy its ignored research records.
 
 You can also use `./arlo` on macOS/Linux, `.\arlo.cmd` on Windows, or the platform launcher.
 The browser normally opens at `http://127.0.0.1:8787`. Add the repository to PATH to use `arlo`
@@ -87,3 +93,5 @@ separate explainer without interrupting its agent.
 
 Screenshots use example studies. Next: [dashboard tour](dashboard.md),
 [build a workflow](agent-workflows.md), or [recover interrupted work](recovering-work.md).
+
+Before collecting research, choose a backup location for your [Lab and project records](projects.md#storage-updates-and-backups).

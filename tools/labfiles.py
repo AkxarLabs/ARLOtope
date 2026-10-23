@@ -128,8 +128,22 @@ def read_env(path) -> dict:
     return out
 
 
-def config(hub) -> dict:
+def ensure_config(hub) -> Path:
+    """Seed this clone's private settings once; never overwrite an existing Lab."""
     path = Path(hub) / "lab" / "config.yaml"
+    defaults = path.with_name('config.defaults.yaml')
+    if not path.exists() and defaults.is_file():
+        data = defaults.read_bytes()
+        try:
+            with path.open('xb') as output:
+                output.write(data)
+        except FileExistsError:
+            pass  # Another process initialized the same clone.
+    return path
+
+
+def config(hub) -> dict:
+    path = ensure_config(hub)
     return cached_read(('config', path), lambda: load_yaml(path))
 
 

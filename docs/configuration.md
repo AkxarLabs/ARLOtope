@@ -1,5 +1,10 @@
 # Configuration
 
+The repository ships `lab/config.defaults.yaml`. First use copies it to the ignored local
+`lab/config.yaml`; all Lab settings use that local file. Existing settings are never overwritten or
+implicitly merged with later defaults. Edit settings in the dashboard or local file, and include it
+in your Lab backup. A normal clone needs no template-generation step.
+
 Everything tunable lives in two places. The hub's **`lab/config.yaml`** configures the lab: its agents,
 the executor, campaigns and lab-wide defaults. An **experiment run** reads only its project's files,
 highest precedence first:

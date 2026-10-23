@@ -735,6 +735,8 @@ VERBS = {"status", "studies", "tags", "new", "move", "next", "brief", "checkpoin
 
 def main(argv=None) -> int:
     a = build().parse_args(argv)
+    from labfiles import ensure_config
+    ensure_config(_hub(a))
     return a.fn(a)
 
 

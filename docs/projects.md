@@ -5,6 +5,9 @@ remote folder without replacing its code, runner or environment. Attachment adds
 files. A GitHub starting point creates a new clone. Neither operation starts an agent or verifies
 existing results.
 
+Clone ARLOtope itself as an application; a GitHub template is not needed. Start a study by attaching
+your existing code or cloning a project through New study. That project keeps its own tools.
+
 For a new structured experiment project, `/spawn-project` applies `templates/project/` after the
 relevant proposal checkpoint. The scaffold below describes those generated projects; add it to an
 existing repository only when requested.
@@ -23,6 +26,31 @@ existing repository only when requested.
 | Experiment memory, when used | Project `NOTES.md`, `EXPERIMENT_LOG.md`, `runs/registry.jsonl` |
 | Published output copies and feedback | `lab/.bus/artifacts/<id>/` |
 | Workflow state and approvals | Kernel-owned `lab/journal.jsonl` |
+
+## Storage, updates and backups
+
+| Location | What Git does |
+|---|---|
+| Application code, `workflow/`, skills, assets and docs | Tracked in the ARLOtope checkout |
+| `lab/config.defaults.yaml`, supplied profiles | Tracked starting settings |
+| `lab/config.yaml`, identity, journal, notes, run records and outputs | Local to this Lab; ignored |
+| `studies/` | Local study documents, uploads and history; ignored |
+| External project repository | Its own Git history and ignore rules |
+
+First use copies the default configuration to `lab/config.yaml`. There is one active settings file;
+defaults are not merged over your edits on later launches. Saving settings does not change product
+defaults. Ignore rules keep local research out of ordinary application commits; they are not access
+controls, and `git add -f` can override them.
+
+Back up **`lab/` and `studies/` together**, plus each project repository, its uncommitted work and
+ignored evidence. Git alone does not back up ignored files. Preserve `lab/identity.json` and the
+journal when moving the Lab; deleting them is not a way to reconnect projects. Machine-local
+discovery and server/runtime files live under `~/.arlotope/`. Provider sign-ins stay with their tools.
+
+Before updating, stop the dashboard and inspect `git status`. Commit intentional changes to shared
+workflows or skills on your own branch, then pull and review conflicts. Source updates leave the
+ignored local settings and records in place; changed defaults do not silently reset your choices.
+For a separate empty Lab, clone again into a different folder and launch it there.
 
 Open **Study → Documents** or **Library → Documents** for source files. **Library → Outputs** holds
 published reports and interactive summaries; **Notes & sources** holds human notes, saved answers

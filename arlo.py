@@ -218,7 +218,9 @@ def main() -> int:
                               env={**os.environ, "ARLOTOPE_REEXEC": "1"}).returncode
     hub = Path(a.hub).expanduser().resolve()
     say = (lambda d: print(json.dumps(d))) if a.json else None
-    if not (hub / "lab" / "config.yaml").exists():
+    sys.path.insert(0, str(HERE / 'tools'))
+    from labfiles import ensure_config
+    if not ensure_config(hub).exists():
         msg = (f"{hub} is not an ARLOtope lab (no lab/config.yaml). Open the dashboard from a lab folder, "
                "or create one from the dashboard's Labs page.")
         (say or print)({"error": msg} if say else msg)

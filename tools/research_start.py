@@ -78,7 +78,7 @@ def github(value: str, authenticated=False) -> dict:
 
 
 def projects_root(hub: Path) -> Path:
-    configured = labfiles.load_yaml(hub / 'lab/config.yaml').get('lab') or {}
+    configured = labfiles.config(hub).get('lab') or {}
     path = Path(configured.get('projects_root') or '../arlotope-projects').expanduser()
     return (path if path.is_absolute() else hub / path).resolve()
 

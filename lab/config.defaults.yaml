@@ -1,5 +1,5 @@
 # ============================================================================
-# Newts' Lab — lab-wide configuration (layer 1 of 3)
+# ARLOtope — defaults copied to this clone's private lab/config.yaml on first use
 #
 # Resolution order:  experiment yaml  >  project control.yaml  >  THIS FILE
 #
@@ -11,7 +11,7 @@
 # ============================================================================
 
 lab:                            # ── hub behavior · PI-owned ──
-  projects_root: "../newts-lab-projects"  # where /spawn-project creates project repos (relative to hub)
+  projects_root: "../arlotope-projects"  # default parent for clones and optional generated projects
   stale_days: 14                # registry rows older than this get flagged by check_lab.py
 
 compute:                        # ── sharing compute across projects · PI-owned ──
@@ -208,7 +208,7 @@ agents:                         # ── subagent settings · PI-owned ──
         agent: ""               # optional: pin a primary orchestrator agent shipped in the project's
                                 # .opencode/agents/ (mode: primary). Blank = opencode's built-in agent.
                                 # The lab's named roles (experiment-runner, critics, …) are rendered to
-                                # .opencode/agents/ as mode: subagent; the .opencode/plugins/newts-trace.js
+                                # .opencode/agents/ as mode: subagent; the .opencode/plugins/arlotope-trace.js
                                 # plugin traces every session + subagent into the dashboard's worker logs.
         skip_permissions: false # also pass --dangerously-skip-permissions. Default OFF: that flag is
                                 # version-dependent (an open request on some builds); the env above is the
@@ -334,7 +334,7 @@ loop:                           # ── /research-loop defaults · project-over
   explore_max_new_lines_per_round: 3  # explore mode only: max NEW mechanism-distinct lines an
                                 # expand round may append to PLAN.md (each with pre-written criteria)
 
-dashboard:                      # ── optional Vivarium dashboard (dashboard/serve.py) ──
+dashboard:                      # ── visual Lab (dashboard/serve.py) ──
   port: 8787                    # local-only; see docs/dashboard.md
   editor: vscode                # "open in editor" deep-links: vscode|cursor|vscodium|windsurf|none
                                 # (local-only → <scheme>://file/<abs-path> opens YOUR editor; none = off)

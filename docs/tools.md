@@ -404,15 +404,15 @@ Publishing asks for a look; it never approves anything. `--about <run>[:<subagen
 visual explanation with the run it describes. The list API filters by study/run before paging; remote
 publication and replies are forwarded through the owning Lab. See [The dashboard](dashboard.md).
 
-### `new_lab.py` — create a new lab from this template
+### `new_lab.py` — optional local Lab copy
 
 ```bash
 uv run --with pyyaml python tools/new_lab.py <dest> [--name "My lab"] [--projects-root ../my-lab-projects]
 ```
 
-What the dashboard's *Create a new lab* runs:
+Normal installation uses `git clone`. The dashboard's *Create a new lab* offers a separate local copy:
 
-- copies the template's committed files (`git archive HEAD`);
+- copies this checkout's committed files (`git archive HEAD`);
 - empties the journal (and the registry written from it), the knowledge base, the notebook and `studies/`;
 - sets `lab.name` and `lab.projects_root`;
 - runs `git init` and makes the first commit.
