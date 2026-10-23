@@ -38,8 +38,6 @@ jobs:
 
   hub-tools:
     timeout-minutes: 30
-    env:
-      ARLOTOPE_HOME: ${{ runner.temp }}/arlotope-test-home
     strategy:
       fail-fast: false
       matrix:
@@ -54,8 +52,12 @@ jobs:
         with:
           enable-cache: true
       - name: Dashboard startup smoke
+        env:
+          ARLOTOPE_HOME: ${{ runner.temp }}/arlotope-test-home
         run: uv run --with pyyaml --with pytest python -m pytest tests/test_remote.py::test_foreground_custom_port_has_status_and_can_be_stopped -vv -s
       - name: Hub trust-tools regression suite (hermetic)
+        env:
+          ARLOTOPE_HOME: ${{ runner.temp }}/arlotope-test-home
         run: uv run --with pyyaml --with pytest python -m pytest tests/ -vv -s -o faulthandler_timeout=90
 
   template-smoke:
