@@ -23,15 +23,15 @@ settings, or choose a model available to that account. See [agent workflows](age
 |---|---|
 | Windows | Local process, browser and worker checks; native terminal and cancellation paths |
 | Linux | Local/controller and SSH-worker code paths; automated checks in an isolated Ubuntu environment |
-| macOS | CI runs the headless suite and generated-project smoke/sweep on a macOS runner; a custom-port launcher readiness failure remains under investigation |
+| macOS | Full headless suite, launcher startup and generated-project smoke/sweep passed on a macOS CI runner |
 | SSH project host | Linux/macOS-style host with OpenSSH, `bash` and Python 3.10+; Git when cloning |
 
 The dashboard needs a modern browser; the 3D Lab needs WebGL. Studies and Library provide ordinary
 lists and readers alongside the scene. Project dependencies are separate from Lab’s dependencies.
 Native Windows SSH bootstrap is not implemented.
 
-Passing checks describe the tested version and scenario. The latest reviewed full macOS run had
-a launcher readiness failure; this is not an all-platform release certification. Interactive browser,
+Passing checks describe the tested version and scenario. The macOS launcher’s reverse-DNS startup
+stall was fixed and the full platform suite passed on candidate 8254d11. Interactive browser,
 terminal sign-in and authenticated provider checks remain separate from the headless suite.
 
 Automated peers test the application’s sessions, questions, permissions and failure paths without

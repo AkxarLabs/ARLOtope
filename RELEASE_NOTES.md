@@ -1,6 +1,6 @@
 # Public beta candidate
 
-Newts’ Lab is a local visual workspace for research with coding agents. This candidate brings
+ARLOtope is a local visual workspace for research with coding agents. This candidate brings
 together the current workflow editor, project knowledge and histories, agent assignments and
 recovery controls. It is prepared on a separate release branch; main and published releases are
 unchanged until it is merged and tagged.

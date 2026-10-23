@@ -26,7 +26,10 @@ For a short terminal command, use `./arlo` on macOS/Linux or `.\arlo.cmd` on Win
 Add this folder to your PATH to use `arlo` from elsewhere. For example, `arlo status`
 shows your studies and `arlo --stop` stops the dashboard.
 
-The local dashboard opens in your browser. **New study** guides you through:
+The local dashboard opens in your browser.
+
+The first-visit ARLO guide shows agent setup, workflows and the visual workspace. Reopen it with
+**?** in the header. You can skip it and use **New study** directly:
 
 1. A research question, an existing project on this or a connected machine, or a GitHub `owner/repository`. Private repositories use the connected GitHub account.
 2. A research goal and workflow. Optionally upload a brief or supporting files and ask an agent to suggest details.

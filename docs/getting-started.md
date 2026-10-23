@@ -16,6 +16,13 @@ remain **Start ARLOtope.cmd** and **start-arlotope.command**.
 
 The platform launcher opens the same application. The browser connects to a local server, normally on `http://127.0.0.1:8787`. Agent requests use the accounts configured in their own tools.
 
+On your first visit, **Show me around** opens the ARLO guide. It introduces agent setup, studies,
+workflows, the Lab, the Inbox, the Library and the workspace assistant. Follow the links to try each
+part, or close the guide and continue later through **? — ARLO guide** in the header. Progress stays
+in this browser for this Lab. The guide does not change settings, sign in or start agents.
+
+![The ARLO guide introduces agent setup](assets/current/arlo-guide.webp)
+
 If you want dashboard-managed tasks, open **Settings → Agents & models**, then install or sign in to a harness. A **Connect an agent** link also appears when the Lab cannot find a usable harness. Enable agent runs in **Settings → Limits & permissions** when you are ready to launch work. You can create a study and browse its files before doing this.
 
 ![The visual Lab before starting work](assets/current/lab-light.webp)

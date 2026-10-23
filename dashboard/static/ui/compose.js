@@ -103,7 +103,7 @@
       dirty: d => touched(d, 'workflow/steps.yaml', 'lab/workflow/step.') },
     { id: 'procedures', item: 'procedure', label: 'Skills', one: 'skill', n: d => Object.keys(d.procedures).length, blurb: 'Reusable instructions for agents. Tasks can use a skill or their own instructions.',
       dirty: d => touched(d, '.claude/skills/') || changes(d).some(c => c.path.startsWith('lab/workflow/') && !/^lab\/workflow\/(step\.|roles\/)/.test(c.path)) },
-    { id: 'roles', item: 'role', label: 'Roles', one: 'role', n: d => d.roles.length, blurb: 'The specialist subagents that procedures call on: critics, reviewers, runners.',
+    { id: 'roles', item: 'role', label: 'Subagent roles', one: 'role', n: d => d.roles.length, blurb: 'Reusable instructions for specialist subagents: critics, reviewers and experiment runners.',
       dirty: d => touched(d, 'agent-roles/', 'lab/workflow/roles/') },
     { id: 'rooms', item: 'room', label: 'Rooms', one: 'room', n: d => d.rooms.length, blurb: 'Group related workflow steps and place their agents in the Lab.',
       dirty: d => touched(d, 'lab/rooms3d/') },
@@ -288,7 +288,7 @@
   const Line = ({ d,w,first,n,ro,onCopy }) => {
     const steps=w.path||[], checkpoints=w.checkpoints||[];
     return html`<section class="process-definition"><header class="process-definition-head"><div><h2>${w.title||w.id}</h2><p class="muted">${w.blurb||'Your steps and review decisions.'}</p>
-      <span class="muted small">${first?'Default workflow · ':''}${NL.plural(n||0,'active study','active studies')}</span><${NL.Tags} value=${w.tags||[]}/></div>
+      <span class="muted small">Shared workflow · ${first?'Lab default · ':''}${NL.plural(n||0,'active study','active studies')}</span><${NL.Tags} value=${w.tags||[]}/></div>
       ${ro?null:html`<${NL.Btn} small onClick=${()=>NL.open(NewWorkflow,{like:w.id,onMade:onCopy},{kind:'dialog',key:'wf-new'})}>Make a copy</${NL.Btn}>`}</header>
       ${ro?null:html`<${VisualComposition} d=${d} w=${w}/>`}
       <details class="process-step-details"><summary>Step and checkpoint details</summary><ol class="process-steps">${steps.map((st,i)=>html`<li>
@@ -554,7 +554,7 @@
   };
 
   /* ── procedures ───────────────────────────────────────────────────────────── */
-  const GROUPS = [['stage', 'Step procedures', 'Each does the work of a step, and reports where the study goes next.'], ['driver', 'Drivers', 'Carry studies through several steps on their own.'],
+  const GROUPS = [['stage', 'Task skills', 'Reusable methods for tasks and their outcomes.'], ['driver', 'Drivers', 'Carry studies through several steps on their own.'],
     ['entry', 'Ways in', 'Start something new.'], ['utility', 'Utilities', 'Everything else agents can be asked to do.']];
   const openImportSkill = () => NL.open(ImportSkill, {}, {kind:'dialog', key:'skill-import'});
   const ImportSkill = ({onClose}) => {

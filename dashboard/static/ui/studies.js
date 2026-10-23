@@ -140,6 +140,7 @@
         <h1>${it.title || it.id}</h1>
         ${it.remote_project?html`<p class="muted small">${it.machine} · ${it.remote_project.path} · <button class="link" onClick=${()=>NL.openMachineSetup(it.machine)}>Connection</button></p>`:null}
         <${NL.StudyTags} it=${it}/><${NL.Metro} it=${it} />
+        <p class="study-position"><span class="muted">Workflow position</span> · <b>${NL.taskLabel(it)}</b></p>
         <details class="study-workflow-map"><summary>Workflow map</summary><${NL.WorkflowOverview} workflow=${NL.workflowOf(it)} ready=${it.runnable||[]} completed=${it.completed_steps||[]}/></details>
         ${(it.slipped || []).map(x => html`<div class="banner banner-bad"><${NL.Glyph} name="diamond" size=${18} /><span class="grow"><b>Went past “${(NL.checkpoint(x.id, it) || {}).title || x.id}” without your approval.</b> <span class="muted">${x.why}</span></span>
           <${NL.Btn} small onClick=${() => NL.openCheckpoint(it.id, x.id)}>Review</${NL.Btn}></div>`)}
@@ -148,7 +149,8 @@
         ${hold ? html`<div class="banner"><${NL.Glyph} name="pause" size=${18} /><span class="grow"><b>On hold</b> <span class="muted small">· new agents cannot start${hold.reason && hold.reason !== 'held by the PI' ? ': ' + hold.reason : ''}</span></span>
           <${NL.Btn} small onClick=${() => NL.act('/api/study/hold', { study: it.id, hold: false }, 'Released')}>Release</${NL.Btn}></div>` : null}
         <${ActionOrb} key=${it.id} it=${it} /></header>
-      <${NL.Tabs} tabs=${tabs} value=${tab} onChange=${setTab} />
+      <div class="study-tabs"><${NL.Tabs} tabs=${tabs} value=${tab} onChange=${setTab} /></div>
+      <div class="study-mobile-nav"><${NL.Select} ariaLabel="Study section" value=${tab} onChange=${setTab} options=${tabs.map(t=>({value:t.id,label:t.label+(t.count?' · '+t.count:'')}))}/></div>
       <div class="tabpane">
         ${tab === 'overview' ? html`<${Overview} key=${it.id} it=${it} />` : null}
         ${tab === 'docs' ? html`<${Documents} key=${it.id} it=${it} rel=${args.slice(2).join('/')} />` : null}

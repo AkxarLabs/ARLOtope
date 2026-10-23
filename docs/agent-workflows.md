@@ -68,7 +68,7 @@ Open **Settings → Agents & models → Agent choices** to save named presets. A
 *Role choices in an example Lab. A role can inherit the Lab default or use a saved agent choice;
 opening these controls starts no agent.*
 
-Choose a Lab default and role-specific choices under **Agents by role**. **New study → Study settings** saves study preferences; existing studies expose **Agents**. A general study default preserves inherited specialist choices. **Use study default** on a role deliberately removes that inherited specialization.
+Choose a Lab default and role-specific choices under **Task agent assignments**. **New study → Study settings** saves study preferences; existing studies expose **Agents**. A general study default preserves inherited specialist choices. **Use study default** on a role deliberately removes that inherited specialization. **Workflow → Subagent roles** edits specialist child-agent instructions; their model settings are under **Tool defaults & subagents**.
 
 For fresh tasks, selection order is:
 
@@ -186,6 +186,6 @@ For checkpoint fields and commands, see [workflow reference](workflow.md). For a
 
 Switch to **By room** after composing tasks. Select tasks and **Group in room**, or **Create room & group**. **Design room** opens a separate preview/apply draft; see [room design](room-design.md).
 
-**Download procedure** exports a saved composition as a Markdown skill and ZIP of its local resources. Save edits first. The export describes the workflow; Lab execution is still needed for its recorded gates, parallel tasks and native conversation operations.
+**Download skill** exports a saved composition as a Markdown skill and ZIP of its local resources. Save edits first. The export describes the workflow; Lab execution is still needed for its recorded gates, parallel tasks and native conversation operations.
 
 For a small process, **New workflow → One lead agent** lets one task follow a skill sequence. Use separate tasks when independent contexts, parallel work or recorded transitions matter.

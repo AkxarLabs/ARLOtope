@@ -90,6 +90,24 @@ def test_acp_command_setting_survives_snapshot(hub, monkeypatch):
     assert m.settings.attention.executor_status()['config']['acp_command'] == command
 
 
+def test_snapshot_refreshes_task_slots_without_reprobing_agents(hub, monkeypatch):
+    import time
+    attention = _mod(hub, monkeypatch).settings.attention
+    runs = [{'status': 'running'}, {'status': 'running', 'role': 'reviewer'},
+            {'status': 'waiting_input', 'pid': 42}]
+    monkeypatch.setattr(attention, '_EXEC_CACHE', {
+        'ts': time.time(), 'key': str(hub.root), 'value': {'clis': {}, 'slots_used': 99}})
+    monkeypatch.setattr(attention.executor, 'all_runs', lambda _lab: [(None, run) for run in runs])
+    monkeypatch.setattr(attention.executor, 'health', lambda _lab: pytest.fail('CLI probe was cached'))
+    result = attention.executor_status()
+    assert result['active'] == 3 and result['slots_used'] == 2 and result['waiting'] == 1
+    runs[0]['status'] = 'completed'
+    runs[1]['status'] = 'completed'
+    runs[2]['pid'] = None
+    result = attention.executor_status()
+    assert result['active'] == result['slots_used'] == 0 and result['waiting'] == 1
+
+
 def test_optional_module_is_served_as_javascript(hub, monkeypatch, tmp_path):
     m=_mod(hub,monkeypatch)
     path=tmp_path/'vendor/example/module.mjs'

@@ -375,12 +375,12 @@
   const AgentsPage = () => html`<div class="agents-page">
     <${NL.Section} title="Agent choices"><${NL.AgentAssignments} compact/></${NL.Section}>
     <${NL.Section} title="Installed agents"><p class="muted small">Sign in with each agent you want to use.</p><${NL.AgentsSignIn} /></${NL.Section}>
-    <details><summary>Harness defaults & child agents</summary><${DefaultAgent}/><${AgentModels}/></details>
+    <details><summary>Tool defaults & subagents</summary><${DefaultAgent}/><${AgentModels}/></details>
     <${Cast} />
     <${NL.Section} title="What they do">
       <div class="agent-links">
-        <a class="agent-link" href="#/workflow/procedures"><b>Procedures</b><small>what a main agent does at each step: add your own instructions, or rewrite the method</small></a>
-        <a class="agent-link" href="#/workflow/roles"><b>Roles</b><small>the subagents: what each specialist is told, and new ones copied from an old</small></a>
+        <a class="agent-link" href="#/workflow/procedures"><b>Skills</b><small>Reusable task instructions. Import your own or adapt an existing method.</small></a>
+        <a class="agent-link" href="#/workflow/roles"><b>Subagent roles</b><small>Instructions for specialist reviewers, critics and experiment runners.</small></a>
         <a class="agent-link" href="#/workflow/rules"><b>Rules</b><small>what every agent always does</small></a>
         <a class="agent-link" href="#/settings/autonomy"><b>Limits & permissions</b><small>whether the dashboard may start agents, how many at once, how long each may run</small></a>
       </div></${NL.Section}>

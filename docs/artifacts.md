@@ -18,7 +18,7 @@ HTML pages can have interactive controls inside the preview. Images, PDFs, table
 
 - **Add note** saves separate human context. It does not message an agent or queue work.
 - **Ask workspace assistant** opens separate Q&A about this output and saves the answer as a record.
-- **Send answer** responds to a published question. **Send instruction** sends other feedback to the producing agent. It can resume that run; if the run cannot accept the message, the Lab queues a directive for the study's next agent.
+- **Send answer** responds to a published question. Expand **Instruct an agent** for other feedback. It can resume the producing run; if that run cannot accept the message, the Lab queues an instruction for the study's next agent, or the Lab inbox for a Lab-wide output.
 
 These messages are not checkpoint approvals. Record approvals in the checkpoint sheet. Feedback on an independently produced explanation goes to its explainer, not the original research agent.
 

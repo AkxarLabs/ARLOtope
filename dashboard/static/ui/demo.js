@@ -218,8 +218,8 @@ function demoState(T, items) {
         { label: 'The scaling law', description: 'the headline claim first; the ablation backs it up' },
         { label: 'The ablation', description: 'build up to the law from what each part contributes' }] }] } } }),
     run('r-sweep', 'experiment', 'rl', 'failed', { reason: 'timed out after its 45-minute limit (exp-019, seed 2)', finished: ago(95) }),
-    run('r-rev', 'review-paper', 'rev-1', 'running'),
-    run('r-ask', 'ask', null, 'running'),
+    run('r-rev', 'review-paper', 'rev-1', 'running', {role:'reviewer'}),
+    run('r-ask', 'ask', null, 'running', {role:'assistant'}),
     run('r-spawn', 'spawn-project', 'prop-2', items.find(i => i.id === 'prop-2' && !i.has_project) ? 'running' : 'completed'),
     run('r-ideate', 'ideate', null, T % 10 < 6 ? 'queued' : 'running'),
   ];
@@ -242,7 +242,9 @@ function demoState(T, items) {
     items: items.map(it => ({ inflight: [], events: [], directives: [], workflow: 'research', slipped: [], ...it, waiting: it.waiting || [],
       checkpoints: Object.fromEntries((it.approved || []).map(c => [c, rec(c)])) })), runs: runs.concat(done), attention, workers: [], agents: demoAgents(runs),
     directives: [], checkpoints_waiting: attention.filter(a => a.kind === 'checkpoint').length, cold: false, events,
-    executor: { available: true, enabled: true, caps: { total: 7 }, clis: DEMO_CLIS },
+    executor: { available: true, enabled: true, caps: { total: 7 }, clis: DEMO_CLIS,
+      active:runs.filter(r=>['running','waiting_input'].includes(r.status)).length,
+      slots_used:runs.filter(r=>['running','waiting_input'].includes(r.status)&&!['reviewer','assistant'].includes(r.role)).length },
     campaign_states: NL.demoCampaignStates ? NL.demoCampaignStates(T) : [],
     campaigns: [] };
 }

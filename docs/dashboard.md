@@ -140,6 +140,9 @@ polling lifetime, so a late reply cannot appear as another study's readings.
 
 Open a study from **Studies**, an output or a run. Its overview links the active task, documents, recent outputs and notes. Use **Instructions** for local method guidance and **Agents** for saved agent preferences. Attached project files stay in their project.
 
+On a narrow screen, **Study section** selects these views. The current workflow position replaces
+the small timeline; expand **Workflow map** for the full process.
+
 Expand **Workflow map** for a compact view of its task connections. Select a task to see its
 instructions, conversation mode, outputs and checkpoints. The same diagram is used when starting
 and reviewing a study; custom tasks and routes come from the saved workflow.

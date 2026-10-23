@@ -69,7 +69,7 @@
   NL.replyWhere = r => {
     if (!r) return '';
     if (r.delivered && r.delivered.startsWith('run ')) return `went to ${r.delivered} as its next message`;
-    if (r.delivered && r.delivered.startsWith('a note')) return `its run had ended; kept as ${r.delivered.replace('a note to', 'a note for the next agent on')}`;
+    if (r.delivered && r.delivered.startsWith('a note')) return `queued as an instruction for ${r.delivered.replace('a note to ', '')}`;
     if (r.delivered) return 'went to ' + r.delivered;
     return r.delivered_error ? 'not delivered: ' + r.delivered_error : '';
   };
@@ -94,13 +94,14 @@
       if (x && x.ok) { setText(''); setLocal(x.reply); NL.toast('Sent: ' + NL.replyWhere(x.reply), 'ok'); setTimeout(NL.refresh, 300); }
       else NL.toast((x && x.error) || 'That did not work.', 'bad');
     };
-    return html`<div class="art-ask">
+    const form=html`<div class="art-ask">
       ${a.question ? html`<div class="art-q"><span class="art-q-ico">?</span><b>${a.question}</b></div>` : null}
       ${choices.length ? html`<div class="art-choices" role="radiogroup">${choices.map(c => html`<button type="button" role="radio" aria-checked=${pick === c} class=${cls('art-choice', 'pickable', pick === c && 'chosen')} disabled=${busy} onClick=${() => setPick(pick === c ? null : c)}>${pick === c ? '◉ ' : '○ '}${c}</button>`)}</div>` : null}
       <div class="reply"><${NL.Textarea} rows="2" value=${text} onInput=${setText} onSubmit=${send}
         placeholder=${a.question ? (choices.length ? 'Add a note, if you like (Ctrl+Enter sends)' : 'Your answer (Ctrl+Enter)') : 'Instruction for the producing agent (Ctrl+Enter)'} />
         <${NL.Btn} kind="primary" disabled=${busy || (!pick && !text.trim())} onClick=${send}>${a.question?'Send answer':'Send instruction'}</${NL.Btn}></div>
-      <small class="muted">${a.run_id ? 'Continues the producing agent, or queues an instruction if it cannot resume.' : 'It is queued as an instruction for this study.'}</small></div>`;
+      <small class="muted">${a.run_id ? 'Continues the producing agent, or queues an instruction if it cannot resume.' : a.study ? 'Queues an instruction for this study’s next agent.' : 'Queues an instruction in the Lab inbox.'}</small></div>`;
+    return a.question?form:html`<details class="output-instruction"><summary>Instruct an agent</summary>${form}</details>`;
   };
 
   /** one artifact, whole: where it came from, what it is, what it asks */

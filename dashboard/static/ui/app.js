@@ -22,6 +22,7 @@
       { title: 'Machines', sub: 'Page', run: () => NL.go('labs') },
       { title: 'History', sub: 'Page', run: () => NL.go('history') },
       { title: 'New study', sub: 'Page', run: () => NL.go('start') },
+      { title: 'ARLO guide', sub: 'Help', run: () => NL.openGuide() },
       { title: 'Documents', sub: 'Library', run: () => NL.go('library?view=documents') },
       { title: 'Settings', sub: 'Page', run: () => NL.go('settings') }];
     const list = all.filter(x => (x.title + ' ' + x.sub).toLowerCase().includes(q.trim().toLowerCase())).slice(0, 12);
@@ -150,11 +151,12 @@
         <button type="button" class="theme-switch" aria-label=${NL.themeNow()==='day'?'Switch to dark mode':'Switch to light mode'} title=${NL.themeNow()==='day'?'Switch to dark mode':'Switch to light mode'} onClick=${()=>NL.setPref('theme',NL.themeNow()==='day'?'night':'day')}>${NL.themeNow()==='day'?'◑ Dark':'◐ Light'}</button>
         <nav class="lab-nav" aria-label="Main navigation">${NAV.map(([path, title]) => html`<a href=${NL.focusHref(path,focus)}
           aria-current=${(GROUP[page] ?? page) === path ? 'page' : null}>${title}</a>`)}</nav>
-        <div class="lab-tools"><button type="button" class="iconbtn" onClick=${NL.openPalette} aria-label="Search" title="Search (Ctrl+K)"><${NL.Glyph} name="lens" size=${18} /></button>
+        <div class="lab-tools"><button type="button" class="iconbtn" onClick=${NL.openGuide} aria-label="Open ARLO guide" title="ARLO guide">?</button><button type="button" class="iconbtn" onClick=${NL.openPalette} aria-label="Search" title="Search (Ctrl+K)"><${NL.Glyph} name="lens" size=${18} /></button>
           <button type="button" class="needs-button" onClick=${() => NL.open(NL.InboxSheet, {}, { key: 'inbox' })}>Inbox${needs ? html`<span class="count">${needs}</span>` : null}</button>
           <a class="iconbtn" href="#/settings" aria-label="Settings" title="Settings"><${NL.Glyph} name="gear" size=${18} /></a>
           <${NL.Btn} kind="primary" onClick=${() => NL.go('start')}>New study</${NL.Btn}></div></header>
       <main ref=${main} id="main-content" class="stage" tabIndex="-1"><${NL.PausedBar} />
+        ${s.lab_info?.path?html`<${NL.Guide} key=${s.lab_info.path} lab=${s} home=${showLab}/>`:null}
         ${['home','world','study','workflow','library','artifacts','runs'].includes(page)?html`<${NL.WorkContext}/>`:null}
         ${connection === 'offline' || connection === 'reconnecting' ? html`<div class="connection-note" role="status">Reconnecting. Showing the last known state.</div>` : null}
         ${labSeen.current ? html`<div class="lab-mount" hidden=${!showLab}><${LabView} active=${showLab} /><${NL.LabDesk}/></div>` : null}

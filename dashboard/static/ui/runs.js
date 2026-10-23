@@ -465,7 +465,7 @@
         <div class="row">${s.lab_paused ? html`<${NL.Btn} onClick=${() => NL.pauseLab(false)}>Resume all</${NL.Btn}>` : nRun ? html`<${NL.Btn} kind="ghost" onClick=${() => NL.pauseLab(true)} title="Stops every agent; you can resume them">Pause all</${NL.Btn}>` : null}
           <${NL.Btn} kind="primary" icon="＋" onClick=${() => NL.openStart()}>Start task</${NL.Btn}></div></header>
       <div class="statline">
-        <span><b>${nRun}</b> dashboard runs active${caps.total ? html` · <a class="link" href="#/settings/autonomy" title="Change dashboard run limit">limit ${caps.total}</a>` : ''}</span><span><b>${all.filter(r => r.status === 'queued').length}</b> queued</span><span><b>${all.filter(needsAttention).length}</b> waiting for you</span><span><b>${terminals.length}</b> ${terminals.length === 1 ? 'terminal session' : 'terminal sessions'}</span>
+        <span><b>${x.slots_used??'—'}</b>${caps.total ? html` / <a class="link" href="#/settings/autonomy" title="Change task limit">${caps.total}</a>` : ''} task slots used</span><span><b>${x.active??nRun}</b> agents active</span><span><b>${all.filter(r => r.status === 'queued').length}</b> queued</span><span><b>${all.filter(needsAttention).length}</b> waiting for you</span><span><b>${terminals.length}</b> ${terminals.length === 1 ? 'terminal session' : 'terminal sessions'}</span>
         ${x.brake ? html`<span class="warn">⚠ daily limit reached: ${x.brake}</span>` : null}
         ${!NL.execOn(s) && !NL.DEMO ? html`<span class="warn">Starting agents from the dashboard is off. <a class="link" href="#/settings/autonomy">Turn it on</a></span>` : null}
       </div>

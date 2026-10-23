@@ -66,7 +66,7 @@
   </div>`;
 
   const RecordList = ({ data, loading, error, study, kind, search, selected, loadMore, reload }) => html`<aside class="split-left">
-    <p class="muted small">Notes, answers and retained sources.</p>
+    <p class="muted small">Retained papers, human notes and saved answers. Project files are under Documents.</p>
     ${error ? html`<${N.LoadState} error=${error} reload=${reload} stale=${!!data} />` : null}
     ${!data && loading ? html`<p role="status"><${N.Spinner}/> Loading records…</p>` : data?.rows?.length ? data.rows.map(record => html`
       <a class=${'shelf-doc' + (selected === record.id ? ' on' : '')} aria-current=${selected === record.id ? 'page' : null}

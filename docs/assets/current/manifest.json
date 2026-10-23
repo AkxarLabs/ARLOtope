@@ -1,5 +1,5 @@
 {
-  "updated": "2026-10-22",
+  "updated": "2026-10-23",
   "method": "Playwright CLI with Chrome, 1440x1000 viewport. Original Sakana test image retained.",
   "limits": "Screenshots demonstrate UI, not scientific findings or provider/SSH certification. Example records and paths are synthetic.",
   "images": [
@@ -9,10 +9,10 @@
         1440,
         1000
       ],
-      "bytes": 49134,
-      "sha256": "b727dc02316fe6a652a1a4e5c591e25f7a7f6f7810b030fdfe721f5d99edadf2",
-      "captured": "2026-10-22",
-      "source": "Current application in an isolated synthetic example Lab; no research agents or SSH sessions launched."
+      "bytes": 47508,
+      "sha256": "1d07562098a80e41731115a7ff75f361e86d6452daa53a3e2ef41ade5b40e151",
+      "captured": "2026-10-23",
+      "source": "Current local private preview. Guide capture used a disposable browser context; no agent launches, settings changes or approvals."
     },
     {
       "file": "agent-role-rows.png",
@@ -20,10 +20,10 @@
         1440,
         1000
       ],
-      "bytes": 113327,
-      "sha256": "1610137e84bd81f2378718c88d6088b9c7db63fe8f185e842d89712eea4848eb",
-      "captured": "2026-10-22",
-      "source": "Current application in an isolated synthetic example Lab; no research agents or SSH sessions launched."
+      "bytes": 104276,
+      "sha256": "72127b0870fad233ae484523d93b13da98b895c7448ffaccf8f3d38375ef6f52",
+      "captured": "2026-10-23",
+      "source": "Current local private preview. Guide capture used a disposable browser context; no agent launches, settings changes or approvals."
     },
     {
       "file": "agent-task-preview.webp",
@@ -59,15 +59,26 @@
       "source": "Current application in an isolated synthetic example Lab; no research agents or SSH sessions launched."
     },
     {
+      "file": "arlo-guide.webp",
+      "size": [
+        1440,
+        1000
+      ],
+      "bytes": 53538,
+      "sha256": "256325b507c4dccd65c76cf6b182315c811e1d4c116702ee55cc3063d49beeb4",
+      "captured": "2026-10-23",
+      "source": "Current local private preview. Guide capture used a disposable browser context; no agent launches, settings changes or approvals."
+    },
+    {
       "file": "artifact.webp",
       "size": [
         1440,
         1000
       ],
-      "bytes": 50258,
-      "sha256": "e68290d65bbb18dfee1d5a40c427f8d1880d413c4186f5706315893780e1a955",
-      "captured": "2026-10-22",
-      "source": "Current application in an isolated synthetic example Lab; no research agents or SSH sessions launched."
+      "bytes": 35390,
+      "sha256": "c2d47b76c94ac6b870b24beafee067b85790cd86cbc6eb7e966c0ddc76fb2b1c",
+      "captured": "2026-10-23",
+      "source": "Current local private preview. Guide capture used a disposable browser context; no agent launches, settings changes or approvals."
     },
     {
       "file": "assistant.webp",
@@ -383,10 +394,10 @@
         1440,
         1000
       ],
-      "bytes": 113988,
-      "sha256": "c98f1bb1695c5340e868d21d5e4ab1edaf7497ed8380745d85b7271744ae3659",
-      "captured": "2026-10-22",
-      "source": "Current application in an isolated synthetic example Lab; no research agents or SSH sessions launched."
+      "bytes": 119035,
+      "sha256": "58dc2737c10283193fb932adae8709161f0e8399fb8d317d43d07078b4b4725e",
+      "captured": "2026-10-23",
+      "source": "Current local private preview. Guide capture used a disposable browser context; no agent launches, settings changes or approvals."
     },
     {
       "file": "workflow-rooms.webp",
@@ -416,10 +427,10 @@
         1440,
         1000
       ],
-      "bytes": 124707,
-      "sha256": "6c3185fd65cabd46d7c80f1f5511e0d90a308db8751c742211142519d8fc0965",
-      "captured": "2026-10-22",
-      "source": "Current application in an isolated synthetic example Lab; no research agents or SSH sessions launched."
+      "bytes": 114084,
+      "sha256": "1802ea743954f0bf4c9710adf80a34e97d1309d8069aee7f19215673347a0206",
+      "captured": "2026-10-23",
+      "source": "Current local private preview. Guide capture used a disposable browser context; no agent launches, settings changes or approvals."
     }
   ]
 }
