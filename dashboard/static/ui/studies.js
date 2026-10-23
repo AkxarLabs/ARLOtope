@@ -381,7 +381,7 @@
         <${NL.Btn} disabled=${held} onClick=${() => cmd('run_smoke', 'Run a smoke test')}>Run a smoke test</${NL.Btn}>
         <${NL.Btn} disabled=${held} onClick=${() => cmd('request_run', 'Request a run')}>Request a run</${NL.Btn}></div></${NL.Section}>` : null}
       <${NL.Section} title="Requests"><p class="muted small" title="Requests do not launch agents, stop processes or change queue order.">Saved for the next agent inbox check.</p><div class="btn-grid">
-        <${NL.Btn} title="Ask an agent to focus on this study; queue order is unchanged." onClick=${() => cmd('prioritize', 'Priority')}>Request priority</${NL.Btn}>
+        <${NL.Btn} title="Leave an instruction for the agent’s next check-in; queue order is unchanged." onClick=${() => cmd('prioritize', 'Focus request')}>Ask agent to focus</${NL.Btn}>
         ${off ? html`<${NL.Btn} kind="primary" onClick=${() => NL.revive(it)}>Revive it</${NL.Btn}>` : html`
           <${NL.Btn} onClick=${() => cmd('park', 'Park', {}, { title: 'Request parking this study?', ok: 'Send request', body: 'An agent must read the request and record the study as parked. You can revive it later. Running processes are not stopped by this button.' })}>Request park</${NL.Btn}>
           <${NL.Btn} kind="danger" onClick=${() => cmd('kill', 'Kill', {}, { title: 'Request abandoning this direction?', ok: 'Send request', body: 'An agent must read the request, record why the direction ended, and mark the study killed. Its records remain, and you can revive it. Running processes are not stopped by this button.' })}>Request kill</${NL.Btn}>`}</div></${NL.Section}>

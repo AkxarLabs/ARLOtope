@@ -1,6 +1,6 @@
 # Tasks, agents and rooms
 
-Use **Workflow** to compose work, choose who performs it and decide which conversation each task uses. The same saved definition appears in **Flow**, **List** and **By room**. List shows every task, including workflows with branches or loops; Flow shows their connections. Open the selected workflow to change presets.
+Use **Workflow** to compose work, choose who performs it and decide which conversation each task uses. The same definition appears in **Flow**, **List** and **By room**. List shows every task, including workflows with branches or loops; Flow shows their connections. Select a task to change its skill or agent.
 
 ## Text definitions and agent designers
 
@@ -61,9 +61,16 @@ designer and custom task roles count normally. See [capacity](compute.md#agent-s
 
 ## Choose agents
 
-Open **Settings → Agents & models → Agent choices** to save named presets. A preset selects an agent and, when needed, a model or effort. Multiple presets may use one agent. For another compatible agent, choose **Connect ACP agent** or follow the setup page's **Connect another agent with ACP** link.
+Open **Settings → Agents & models → Agent choices** to save named agent configurations (presets).
+Each selects an agent and, when needed, a model or effort. Several saved choices may use the same
+tool. For another compatible agent, choose **Connect ACP agent** or follow the setup page's
+**Connect another agent with ACP** link.
 
 Enter a name, the ACP **Program**, and its **Arguments** (one per line). For `opencode acp`, the program is `opencode` and the argument is `acp`. **Check connection** tests the command before saving and does not send a model prompt. Then **Save agent** makes it available in task and role choices without changing the Lab default. **Model & advanced settings** contains model selection, negotiated sign-in methods and the internal preset ID. Sign in through the agent's own login first.
+
+Blank argument lines are ignored when checking or saving; spaces within an argument are preserved.
+Leaving unsaved agent settings asks whether to discard the changes. **Cancel** closes the agent form;
+other unsaved default or role choices still need **Save agent choices**.
 
 Connection checks allow 45 seconds for initialization. Retry a failed check after checking the command or completing sign-in. An executable check or ACP initialization is not proof of model access; that is checked when a task starts.
 

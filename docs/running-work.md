@@ -76,7 +76,7 @@ session cap. See [what counts as a slot](compute.md#agent-slots-and-experiment-j
 **View hold** or the study's **Controls** to release it. Checkpoint decisions can still be recorded
 while held, but starting the next task waits for release.
 
-**Request priority**, **Request park** and **Request kill** save instructions for an agent's next
+**Ask agent to focus**, **Request park** and **Request kill** save instructions for an agent's next
 inbox check. They do not start an idle agent, reorder the run queue, stop a process or immediately
 change the workflow state. **Pending instructions** shows them in the study's
 Overview and Controls, including before a project folder exists. The study list shows a pending
@@ -85,7 +85,7 @@ Use **Withdraw** to cancel a pending request. Inbox and History also keep these 
 
 | Action | Effect |
 |---|---|
-| Request priority | Asks an agent to give the study attention; does not change scheduler priority |
+| Ask agent to focus | Asks an agent to give the study attention; does not change scheduler priority |
 | Request park | Asks an agent to defer the study and record a `park` outcome |
 | Request kill | Asks an agent to abandon the direction and record its reason and a `kill` outcome |
 | Hold | Immediately blocks new managed agent launches for the study; existing work continues |

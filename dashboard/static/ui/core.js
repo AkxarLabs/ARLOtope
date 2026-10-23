@@ -244,6 +244,31 @@
     return r;
   };
 
+  // Shared protection for forms whose edits have not been saved.
+  const dirtyForms = new Map();
+  const hasUnsavedChanges = () => [...dirtyForms.values()].some(Boolean);
+  NL.useDirty = flag => {
+    const id = H.useRef(Symbol());
+    H.useLayoutEffect(() => { dirtyForms.set(id.current, !!flag); }, [!!flag]);
+    H.useEffect(() => () => { dirtyForms.delete(id.current); }, []);
+    return (value = false) => dirtyForms.set(id.current, !!value);
+  };
+  NL.confirmLeave = () => {
+    if (hasUnsavedChanges() && !window.confirm('You have unsaved changes. Leave without saving?')) return false;
+    dirtyForms.clear();
+    return true;
+  };
+  let savedRoute = location.hash;
+  window.addEventListener('hashchange', e => {
+    if (location.hash === savedRoute) return;
+    if (NL.confirmLeave()) { savedRoute = location.hash; return; }
+    e.stopImmediatePropagation();
+    history.replaceState(history.state, '', savedRoute || '#/');
+  }, true);
+  window.addEventListener('beforeunload', e => {
+    if (hasUnsavedChanges()) { e.preventDefault(); e.returnValue = ''; }
+  });
+
   /* ── preferences ───────────────────────────────────────────────────────── */
   const PREF_DEFAULTS = { theme: 'auto', motion: true, labels: false, notify: false, density: 'comfortable',
     cast: { mode: 'backend', one: 'newt', claude: 'newt', codex: 'human', opencode: 'robot' } };   // who plays the agents in the world

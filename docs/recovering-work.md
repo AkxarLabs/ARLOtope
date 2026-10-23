@@ -118,3 +118,19 @@ Workflow movement comes from the accepted journal outcome, not that footer. If t
 outcome, the assigned task stays unfinished. Required-output checks test the configured contract;
 they do not establish that a scientific conclusion is correct. See [Monitoring](monitoring.md) and
 [Research workflow limits](research-limits.md).
+
+## Study setup and attachment
+
+**Retry** on starter materials rereads the saved draft and keeps typed details. It does not repeat
+an upload or launch another analysis. If an upload response was lost, reload the materials before
+uploading again: the first upload may have succeeded. Creation waits until materials are readable.
+The form accepts 5 MB per file and 20 MB per draft.
+
+If the success screen cannot load a newly created study, use **Retry**. This rereads the study
+rather than creating another one. For GitHub, **Choose repository** lists up to 50 accessible
+repositories; type an exact name if yours is not shown.
+
+An attachment conflict names the folder and its recorded Lab or project identity. Open its owning
+Lab or choose a different folder. If identity files disagree, restore matching records from a known
+backup. Do not delete identity files to bypass ownership checks. Failed identity validation leaves
+existing registration records unchanged and creates no study. See [project identity](knowledge.md#what-to-keep-in-git).

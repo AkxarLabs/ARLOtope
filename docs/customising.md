@@ -34,6 +34,9 @@ outcomes, including instructions-only tasks; it does not need an ideation, exper
 
 Shared changes are not installed by an agent's recommendation. Review the publication summary, especially changes that loosen a checkpoint. **Change history** can undo the latest publication when it does not conflict with later edits.
 
+The map inspector edits tasks in the selected workflow. **More settings → Task defaults** edits
+shared definitions used by workflows that have not overridden them. Use the map for ordinary task edits.
+
 Removing a connection resets conversation sources that are no longer upstream. Deleting a task
 also removes routes and checkpoint placements or destinations that refer to it. Undo restores the
 local task edit; the publication review shows the resulting definition changes before applying them.
@@ -50,7 +53,7 @@ For a single study, its **Instructions** tab saves additional step or procedure 
 
 ## Reuse a method
 
-A preset is an ordinary skill or skill variant selected by a task. This applies equally to collecting
+A method is an ordinary skill or skill variant selected by a task. This applies equally to collecting
 data, reviewing evidence, coding, writing or another method. A workflow supplies its default choices;
 a study can select a variant without changing that workflow for everyone else.
 

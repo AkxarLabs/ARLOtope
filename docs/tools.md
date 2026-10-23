@@ -275,7 +275,20 @@ uv run --with pyyaml python tools/spawn_project.py --slug <slug> --title "<title
   --project-type ml [--domain econ] [--overlay compete] [--run-smoke] [--skip-guard]
 ```
 
-The deterministic half of `/spawn-project`: copies `templates/project/` → `<projects_root>/<slug>` with the four placeholders substituted as **UTF-8, no BOM** (`hub_path` forward-slashed so `control.yaml` stays valid YAML on Windows — a real failure mode a hand-copy hits), drops the hub-side runtime cruft (`.pytest_cache`/`.bus`/`__pycache__`/stale `runs/` dirs), applies the project-TYPE card + `control.yaml` `project_type` + optional domain profile (`--domain` → `DOMAIN.md`) + optional target-driven overlay (`--overlay compete`), and copies `lab/SYSTEM.md` if present. First it asks the kernel whether the study stands at a step that offers `/spawn-project` (in the research workflow, the step past the approved proposal; `--skip-guard` skips this), and it **refuses** to overwrite a slug with commits or a non-empty `runs/`. With `--run-smoke` it also `uv sync`s, runs the smoke + tests (project-local basetemp) + `check_project.py`, and commits **only if all green** (never a red scaffold). It records the project's path with the kernel. The judgment steps — fill `PLAN.md` from the proposal, set budgets, report the outcome — stay in the skill.
+This tool creates the project scaffold for `/spawn-project`. It:
+
+- Copies `templates/project/` into `<projects_root>/<slug>`, fills placeholders as UTF-8 without a BOM,
+  and removes template caches and runtime records. Hub paths use forward slashes so YAML works on Windows.
+- Adds the project type, `control.yaml` setting and any selected domain or target-driven overlay.
+  It copies `lab/SYSTEM.md` when present.
+- Checks that the current study step offers `/spawn-project`, unless `--skip-guard` was supplied.
+  It refuses to overwrite a project with commits or a non-empty `runs/` directory.
+- With `--run-smoke`, installs the project environment through `uv sync`, runs its smoke test,
+  tests and readiness check, then commits only if they all pass.
+- Registers the project path with the kernel.
+
+The skill handles the research choices: fill `PLAN.md` from the proposal, set the agreed budgets,
+and report the workflow outcome.
 
 ### `role_sync.py` — render backend-native subagent role files
 

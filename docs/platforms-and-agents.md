@@ -7,13 +7,14 @@ Each agent needs its own installation, account and model access.
 ## Set up an agent
 
 Open **Settings → Agents & models**. Install or sign in through the agent’s own flow, then choose
-**Check again**. For a saved harness/model combination, choose **Add preset**, keep the preset and
-save the agent choices. A role assignment chooses which preset new tasks use; it does not keep an
-agent running or change a task’s conversation history.
+**Check again**. Choose **Add agent preset** for a named configuration of an installed agent, or
+**Connect ACP agent** for another compatible tool. Enter its name and settings, use **Check connection**,
+then **Save agent**. Adding one leaves the Lab default unchanged. A role assignment chooses which
+saved agent new tasks use; it does not keep an agent running or change its conversation history.
 
-![Agent presets and installed harnesses in Settings](assets/current/agent-presets.webp)
+![Connect and check an agent before saving](assets/current/acp-connect.png)
 
-**Test** checks an executable; an ACP preset also negotiates the protocol. Neither establishes
+**Check connection**, or **Test** on a saved agent, checks an executable; ACP also negotiates the protocol. Neither establishes
 that your account can use a requested model. Leave the model blank to use the selected agent’s
 settings, or choose a model available to that account. See [agent workflows](agent-workflows.md).
 

@@ -8,7 +8,7 @@
 (function () {
   'use strict';
   const NL = window.NL;
-  const { html, useState, useEffect, useMemo, cls } = NL;
+  const { html, useState, useEffect, useMemo, cls, useDirty, confirmLeave: leaveOk } = NL;
 
   /* ── data: GET /api/compose, read again after every edit ─────────────────── */
   const C = { d: null, error: '', read: 0, listeners: new Set() };
@@ -63,38 +63,6 @@
     return say ? html`<b>${say}</b> <span class="mono muted small">${path}</span>` : html`<b>${path.split('/').pop()}</b> <span class="mono muted small">${path.split('/').slice(0, -1).join('/')}</span>`;
   };
 
-  /* ── unsaved text: every Compose form says whether it holds edits not yet saved to the draft; leaving the
-     page (another route, a tab of the same item, closing the browser tab) asks first ───────────────────── */
-  const DIRTY = new Map();
-  let dirtySeq = 0;
-  const anyDirty = () => [...DIRTY.values()].some(Boolean);
-  /** mark the calling form dirty (true) or clean; it is forgotten when the form goes away */
-  const useDirty = flag => {
-    const id = NL.useRef(null);
-    if (id.current == null) id.current = ++dirtySeq;
-    useEffect(() => { DIRTY.set(id.current, !!flag); }, [!!flag]);
-    useEffect(() => () => { DIRTY.delete(id.current); }, []);
-  };
-  const LEAVE = 'You have unsaved changes. Leave without saving?';
-  /** true when it is fine to leave: nothing unsaved, or the PI said to drop it */
-  const leaveOk = () => { if (!anyDirty()) return true; if (!window.confirm(LEAVE)) return false; DIRTY.clear(); return true; };
-  /** while Compose is open: guard route changes and closing the tab */
-  const useLeaveGuard = () => {
-    useEffect(() => {
-      let last = location.hash;
-      // capture, so it runs before the router's own hashchange listener and can stop it
-      const onHash = e => {
-        if (location.hash === last) return;
-        if (leaveOk()) { last = location.hash; return; }
-        e.stopImmediatePropagation();
-        history.replaceState(history.state, '', last || '#/');
-      };
-      const onUnload = e => { if (anyDirty()) { e.preventDefault(); e.returnValue = LEAVE; return LEAVE; } };
-      window.addEventListener('hashchange', onHash, true);
-      window.addEventListener('beforeunload', onUnload);
-      return () => { window.removeEventListener('hashchange', onHash, true); window.removeEventListener('beforeunload', onUnload); };
-    }, []);
-  };
   /** a tab switch inside one item also drops what the open tab holds */
   const guardTab = set => v => { if (leaveOk()) set(v); };
 
@@ -120,12 +88,12 @@
   NL.ComposePage = ({ args, query }) => {
     const d = useCompose();
     const where = args[0] || '', name = args[1] || '';
-    useLeaveGuard();
+
     if (!d) return html`<div class="page"><${NL.LoadState} error=${C.error} reload=${reload} /></div>`;
     if (d.error && !d.steps) return html`<div class="compose"><${Nav} d=${{ ...d, steps: [], workflows: [], procedures: {}, roles: [], rooms: [], rules: {}, checks: [], types: [] }} where="" />
-      <main class="cmp-main"><${DemoNote} /><${DraftBar} d=${d} /><div class="cmp-page"><div class="kicker">Workflow</div><h1>The workflow can't be read</h1>
+      <section class="cmp-main"><${DemoNote} /><${DraftBar} d=${d} /><div class="cmp-page"><div class="kicker">Workflow</div><h1>The workflow can't be read</h1>
         <div class="note note-warn">${d.error}</div><p class="muted">Fix the file below (or a workflow's, under workflow/workflows/), or discard the draft.</p>
-        <${FileEditor} path="workflow/steps.yaml" /></div></main></div>`;
+        <${FileEditor} path="workflow/steps.yaml" /></div></section></div>`;
     let body;
     if (!where || where === 'map') body = html`<${MapPage} d=${d} query=${query||{}} />`;
     else if (where === 'instruments') body = html`<div class="cmp-page"><header class="cmp-head"><div class="grow"><div class="kicker">Workflow</div><h1>Instruments</h1>
@@ -144,7 +112,7 @@
     }
     return html`<div class="compose">
       <${Nav} d=${d} where=${where} />
-      <main class="cmp-main"><${DemoNote} />${C.error ? html`<${NL.LoadState} error=${C.error} reload=${reload} stale />` : null}<${DraftBar} d=${d} />${body}</main></div>`;
+      <section class="cmp-main"><${DemoNote} />${C.error ? html`<${NL.LoadState} error=${C.error} reload=${reload} stale />` : null}<${DraftBar} d=${d} />${body}</section></div>`;
   };
   /** the demo reads the lab like any page; NL.api refuses every write there (with a toast) */
   const DemoNote = () => NL.DEMO ? html`<div class="cmp-demo" role="note"><${NL.Icon} name="alert" /> Demo: look around. Nothing you change here is saved.</div>` : null;
@@ -292,14 +260,14 @@
       <span class="muted small">Shared workflow · ${first?'Lab default · ':''}${NL.plural(n||0,'active study','active studies')}</span><${NL.Tags} value=${w.tags||[]}/></div>
       ${ro?null:html`<${NL.Btn} small onClick=${()=>NL.open(NewWorkflow,{like:w.id,onMade:onCopy},{kind:'dialog',key:'wf-new'})}>Make a copy</${NL.Btn}>`}</header>
       ${ro?null:html`<${VisualComposition} d=${d} w=${w}/>`}
-      <details class="process-step-details"><summary>Step and checkpoint details</summary><ol class="process-steps">${steps.map((st,i)=>html`<li>
+      ${ro?html`<details class="process-step-details"><summary>Task summary</summary><ol class="process-steps">${steps.map((st,i)=>html`<li>
         ${checkpoints.filter(c=>c.before===st).map(c=>html`<${CheckpointRow} key=${c.id} d=${d} w=${w} c=${c} ro=${ro} />`)}
-        <div class="process-step"><span class="step-number">${String(i+1).padStart(2,'0')}</span><div class="grow"><button type="button" class="step-title" disabled=${ro} onClick=${()=>NL.open(StationSheet,{d,w,st},{key:'station'})}>${stepOf(d,st).label||st}</button>
+        <div class="process-step"><span class="step-number">${String(i+1).padStart(2,'0')}</span><div class="grow"><b>${stepOf(d,st).label||st}</b>
           <p>${offers(d,st,w).map(p=>procTitle(d,p)).join(' · ')||'No procedure selected'}</p>
           ${Object.entries((w.routes||{})[st]||{}).map(([outcome,target])=>html`<span class="process-route">${outcome} → ${target==='ask'?'Researcher decides':stateLabel(d,target)}</span>`)}</div>
-          ${ro?null:html`<button type="button" class="link small" onClick=${()=>NL.open(StationSheet,{d,w,st},{key:'station'})}>Edit step</button>`}</div>
+          </div>
         ${checkpoints.filter(c=>c.during===st).map(c=>html`<${CheckpointRow} key=${c.id} d=${d} w=${w} c=${c} ro=${ro} />`)}
-      </li>`)}</ol></details>
+      </li>`)}</ol></details>`:null}
       ${ro?null:html`<footer class="process-definition-foot"><${NL.Btn} small onClick=${()=>openCp(d,w,null,steps.length>1?{before:steps[1]}:{during:steps[0]})}>Add checkpoint</${NL.Btn}>
         <${NL.Btn} small onClick=${()=>NL.open(AboutWorkflow,{w},{kind:'dialog'})}>Workflow details</${NL.Btn}>
         <details><summary>Workflow settings</summary><div class="stack">${!w.nodes?html`<button type="button" class="link small" onClick=${()=>NL.open(StepsEditor,{w},{kind:'dialog',key:'wf-steps'})}>Edit ordered steps</button>`:null}${first?null:html`<button type="button" class="link small" onClick=${()=>edit({op:'workflow',id:w.id,default:true})}>Use as default</button>`}
@@ -320,43 +288,6 @@
       ${x.notes ? html`<div class="voice"><span class="voice-who">the designer's notes</span><${NL.Markdown} text=${x.notes} /></div>` : null}
       <details class="more"><summary>Its files (${(x.files || []).length})</summary><ul class="mono small">${(x.files || []).map(f => html`<li>${f}</li>`)}</ul></details>
       <p class="muted small">Taking it puts it in your draft; Review shows every change and checks the lab still reads consistently before anything is published.</p>
-    </${NL.Sheet}>`;
-  };
-
-  /** a station: who does the work at that step in this workflow (or a variant), where each outcome leads, and the
-   *  checkpoints on it */
-  const StationSheet = ({ d: d0, w: w0, st, onClose }) => {
-    const d = useCompose() || d0;                      // live: an edit here shows here at once
-    const w = (d.workflows || []).find(y => y.id === w0.id) || w0;
-    const x = stepOf(d, st), room = (d.rooms || []).find(r => r.id === x.room) || {};
-    const own = x.do, does = doesIn(d, w, st), P = d.procedures || {};
-    const family = own ? [own, ...((P[own] || {}).variants || [])] : [];
-    const routes = (w.routes || {})[st] || {};
-    const notes = (P[does] || {}).outcome_notes || {};
-    const extra = [...new Set([...((P[does] || {}).outcomes || []), ...Object.keys(routes)])].filter(o => !['done', 'park', 'kill'].includes(o));
-    const next = (w.path || [])[(w.path || []).indexOf(st) + 1];
-    const swap = v => edit({ op: 'workflow', id: w.id, fields: { use: { ...(w.use || {}), [own]: v === own ? '' : v } } }, SAVED);
-    const route = (o, to) => edit({ op: 'route', workflow: w.id, step: st, outcome: o, to: to || null }, SAVED);
-    const targets = [{ value: '', label: 'You decide, each time' }, ...(w.path || []).map(y => ({ value: y, label: stateLabel(d, y) })),
-      ...(d.steps || []).filter(y => y.shelf).map(y => ({ value: y.id, label: y.label || y.id }))];
-    return html`<${NL.Sheet} kicker=${(w.title || w.id) + ' · a step'} title=${x.label || st} onClose=${onClose}
-      sub=${html`stands in <a class="link" href=${href('room', room.id || '')} onClick=${onClose}>${room.title || x.room || 'no room'}</a> · <a class="link" href=${href('step', st)} onClick=${onClose}>the step itself</a>`}>
-      <${NL.Section} title="Who does the work">${own ? html`
-        <a class="cp-line" href=${href('procedure', does)} onClick=${onClose}><span class="start-g"><${NL.Glyph} name=${NL.procGlyph ? NL.procGlyph(does) : 'spark'} size=${17} /></span>
-          <span class="grow"><b>${procTitle(d, does)}</b><small class="muted">${does !== own ? `a variant of ${procTitle(d, own)}, in this workflow` : (P[own] || {}).does || ''}</small></span><${NL.Icon} name="chevron" /></a>
-        ${family.length > 1 ? html`<${NL.Field} label="In this workflow, use"><${NL.Select} value=${does} onChange=${swap} options=${family.map(v => ({ value: v, label: procTitle(d, v) + (v === own ? ' · the step’s own' : '') }))} /></${NL.Field}>`
-          : html`<p class="muted small">To do it differently here, make a variant of the procedure, then pick it here.</p>`}`
-        : html`<p class="muted small">Nothing runs here by itself: a study waits at this step until it is moved. Give the step a procedure under <a class="link" href=${href('step', st)} onClick=${onClose}>Steps</a>.</p>`}
-        ${(x.also || []).length ? html`<p class="muted small">Also offered here: ${x.also.map(p => procTitle(d, p)).join(', ')}.</p>` : null}</${NL.Section}>
-      <${NL.Section} title="Where it goes next">
-        <p class="muted small"><b>done</b> → ${next ? stateLabel(d, next) : 'the study is finished'} · <b>park</b> and <b>kill</b> put it on a shelf.</p>
-        ${extra.map(o => html`<div class="row route-row"><span class="grow"><span class="mono">${o}</span>${notes[o] ? html` <span class="muted small">· ${notes[o]}</span>` : null}</span>
-          <${NL.Select} value=${routes[o] && routes[o] !== 'ask' ? routes[o] : ''} onChange=${v => route(o, v)} options=${targets} /></div>`)}
-        ${!extra.length && does ? html`<p class="muted small">${procTitle(d, does)} reports no other outcomes. A procedure lists the ones it can report under its About.</p>` : null}</${NL.Section}>
-      <${NL.Section} title="Checkpoints here">${(w.checkpoints || []).filter(c => c.before === st || c.during === st).map(c => html`<button type="button" class="cp-line" onClick=${() => { onClose(); openCp(d, w, c); }}>
-          <${NL.Seal} state="waiting" size=${24} /><span class="grow"><b>${c.title || c.id}</b><small class="muted">${c.before ? 'before it starts' : 'during it, at ' + (c.at || 'a point the agent names')}</small></span></button>`)}
-        <div class="row">${st !== (w.path || [])[0] ? html`<${NL.Btn} small onClick=${() => { onClose(); openCp(d, w, null, { before: st }); }}><${NL.Glyph} name="plus" size=${14} /> Before it starts</${NL.Btn}>` : null}
-          <${NL.Btn} small onClick=${() => { onClose(); openCp(d, w, null, { during: st }); }}><${NL.Glyph} name="plus" size=${14} /> At a point during it</${NL.Btn}></div></${NL.Section}>
     </${NL.Sheet}>`;
   };
 
@@ -720,7 +651,7 @@
     const cps = (d.workflows || []).flatMap(w => (w.checkpoints || []).filter(c => (c.before || c.during) === name).map(c => ({ ...c, wf: w })));
     const n = studiesAt(d, name), on = onWorkflows(d, name);
     return html`<div class="cmp-page">
-      <${ItemHead} k=${KIND_OF.step} name=${name} title=${x.label || name} sub=${x.shelf ? 'A shelf: studies that are parked or killed rest here, until you bring one back.' : `On ${on.map(w => w.title || w.id).join(', ') || 'no workflow yet. Add it to one from the Map'}`}
+      <${ItemHead} k=${KIND_OF.step} name=${name} title=${x.label || name} sub=${x.shelf ? 'A shelf: studies that are parked or killed rest here, until you bring one back.' : `Shared default · Used by ${on.map(w => w.title || w.id).join(', ') || 'no workflows'}`}
         actions=${x.shelf ? null : html`<${DeleteBtn} kind="step" name=${name} label=${'the step ' + (x.label || name)} body=${`It leaves every workflow, with its routes and the checkpoints on it.${n ? ` ${NL.plural(n, 'study', 'studies')} stand${n === 1 ? 's' : ''} here now. Review says so before you publish.` : ''}`} />`} />
       <${NL.Tabs} tabs=${[{ id: 'about', label: 'About' }, ...(x.shelf ? [] : [{ id: 'instructions', label: 'Your instructions' }])]} value=${tab} onChange=${setTab} />
       <div class="tabpane">${tab === 'about' ? html`<${StepAbout} key=${JSON.stringify(x)} d=${d} x=${x} cps=${cps} />` : html`<div class="cmp-narrow">
