@@ -24,13 +24,14 @@ import pytest
 
 # tests/ lives directly under the repo root.
 REPO = Path(__file__).resolve().parents[1]
+sys.path.insert(0, str(REPO / 'tools'))
 
 # a supervisor that exits with work left starts its own scheduler when none is running (the dashboard
 # was closed) — never inside the test suite, where each test drives the scheduler itself
-os.environ.setdefault("NEWTS_NO_AUTOTICKER", "1")
+os.environ.setdefault("ARLOTOPE_NO_AUTOTICKER", "1")
 # the suite runs under `uv run --with …` (a throwaway env) but lives shorter than it: keep this interpreter
-# for the processes it starts instead of building the durable ~/.newts/py one
-os.environ.setdefault("NEWTS_KEEP_PYTHON", "1")
+# for the processes it starts instead of building the durable ~/.arlotope/py one
+os.environ.setdefault("ARLOTOPE_KEEP_PYTHON", "1")
 
 
 def load(name: str):
@@ -193,7 +194,7 @@ def hub(tmp_path) -> FakeHub:
 @pytest.fixture(autouse=True)
 def isolated_user_state(tmp_path, monkeypatch):
     """Fixtures must not register simulated projects or machines in the user's real state."""
-    monkeypatch.setenv('NEWTS_HOME', str(tmp_path/'newts-user-state'))
+    monkeypatch.setenv('ARLOTOPE_HOME', str(tmp_path/'arlotope-user-state'))
 
 
 @pytest.fixture

@@ -1,4 +1,4 @@
-/* Newts' Lab — studies. The Ledger (every study as a row with its path drawn as a metro strip) and the
+/* ARLOtope — studies. The Ledger (every study as a row with its path drawn as a metro strip) and the
    Dossier (one study: its path, what waits for you, the action orb — its step's procedures as buttons — and
    tabs for its overview, documents, agents, instruments, instructions and fate). Both sit in a glass column
    on the left; the world keeps the rest of the screen and flies to the study's room. Also the paper viewer
@@ -12,15 +12,17 @@
   NL.nextFor = (s, it) => {
     if (!it) return null;
     const live = NL.runsOf(s, it.id).find(r => NL.RUN_ACTIVE.has(r.status) || r.status === 'queued' || r.status === 'waiting_input');
-    if (live) return { label: live.status === 'waiting_input' ? 'Answer its question' : 'Watch the agent', glyph: live.status === 'waiting_input' ? 'chat' : 'agents', run: () => NL.openRun(live.run_id), live };
+    if (live) return { label: live.status === 'waiting_input' ? 'Answer its question' : live.status==='queued'?'View queued task':'Show in lab', glyph: live.status === 'waiting_input' ? 'chat' : 'agents', run: () => live.status==='waiting_input'||live.status==='queued'?NL.openRun(live.run_id):NL.followAgent(live.run_id), live };
     const w = (it.waiting || [])[0];
     if (w) { const c = NL.checkpoint(w, it) || { title: w }; return { label: `Review: ${c.title}`, glyph: 'diamond', run: () => NL.openCheckpoint(it.id, w), checkpoint: w }; }
+    if (s.holds?.[it.id]) return { label: 'View hold', glyph: 'pause', run: () => NL.go('study/' + it.id + '/controls') };
+    const unfinished=NL.runsOf(s,it.id).find(r=>r.needs_followup);
+    if(unfinished)return {label:'Continue task',glyph:'loop',run:()=>NL.openRun(unfinished.run_id)};
     if(it.runnable?.length)return {label:'Run ready tasks',glyph:'play',run:()=>NL.act('/api/workflow/run',{study:it.id,retry:true},'Ready tasks queued')};
-    if (it.project_mode === 'attached' && it.state === NL.stepsOf(it)[0] && !it.finished && !NL.isShelved(it.state)) return { label: 'Work on this project', glyph: 'chat', run: () => NL.openAsk('', it.id) };
     const skill = NL.nextSkill(it);
     if (!skill) return NL.isDone(it.state) ? null : NL.isShelved(it.state) ? { label: 'Revive it', glyph: 'loop', run: () => NL.revive(it) } : null;
     if (((s.skills || {})[skill] || {}).level === 'project' && !it.has_project) return null;
-    return { label: NL.procTitle(skill), glyph: NL.procGlyph(skill), skill, run: () => NL.launch({ skill, target: it.id }) };
+    return { label: 'Start task', task:NL.taskLabel(it), method:NL.procTitle(skill), glyph:'play', skill, run: () => NL.launch({ skill, target: it.id }) };
   };
 
   /** a study's next step, said plainly: a procedure's title in place of its slug ("/experiment …" too) */
@@ -42,20 +44,23 @@
     const n = runs.filter(r => NL.RUN_ACTIVE.has(r.status)).length;
     if (n) return ['live', NL.plural(n, 'agent') + ' at work'];
     if (runs.some(r=>r.status==='queued')) return ['live','queued'];
+    if (runs.some(r=>r.needs_followup)) return ['warm','Task unfinished'];
     if (NL.isShelved(it.state)) return ['muted', NL.taskLabel(it)];
     if (NL.isDone(it.state)) return ['ok', 'done'];
     return ['', 'idle'];
   };
+
+  const pendingFor = it => (it.directives || []).filter(d => ['pending', 'seen'].includes(d.state));
 
   const LedgerRow = ({ it }) => {
     const s = NL.useLab();
     const [tone, word] = statusOf(s, it);
     const nx = NL.nextFor(s, it);
     return html`<article class=${cls('lrow', 'st-' + (tone || 'idle'))}>
-      <a class="lrow-main" href=${'#/study/' + it.id}>
-        <span class="lrow-top"><b class="clip">${it.title || it.id}</b><span class=${cls('lrow-st', tone)}>${tone === 'live' ? html`<i class="dot-live"></i>` : null}${word}</span></span>
+      <div class="lrow-main">
+        <span class="lrow-top"><a class="clip" href=${'#/study/' + it.id}><b>${it.title || it.id}</b></a><span class=${cls('lrow-st', tone)}>${tone === 'live' ? html`<i class="dot-live"></i>` : null}${word}</span></span>
         <${NL.Tags} value=${it.tags||[]}/><${NL.Metro} it=${it} compact />
-        <span class="lrow-sub muted small">${NL.workflowOf(it).title || ''} · ${NL.taskLabel(it)} · ${(u => u ? NL.ago(u) || NL.when(u) : '')(lastTouched(s, it))}</span></a>
+        <span class="lrow-sub muted small">${NL.workflowOf(it).title || ''} · ${NL.taskLabel(it)} · ${(u => u ? NL.ago(u) || NL.when(u) : '')(lastTouched(s, it))}${pendingFor(it).length ? ' · ' + NL.plural(pendingFor(it).length, 'pending instruction') : ''}</span></div>
       <div class="lrow-act">${nx ? html`<${NL.Btn} small kind=${nx.checkpoint ? 'primary' : ''} onClick=${nx.run}>${nx.label}</${NL.Btn}>` : null}
 </div></article>`;
   };
@@ -65,10 +70,12 @@
     useEffect(() => { if (query && query.campaign) NL.openCampaign(query.campaign); }, [query && query.campaign]);
     const camps = NL.campaignsOf(s).filter(c => !['done', 'stopped'].includes(c.status) || (Date.now() - new Date(c.created)) < 3 * 86400e3);
     const [f, setF] = useState(NL.ls.get('nl-ledger-f', 'all'));
-    const [q, setQ] = useState(''), [tag,setTag]=useState(query?.tag||'');
+    const [q, setQ] = useState('');
+    const tag = query?.tag || '';
+    const setTag = value => { const search = NL.qs({ ...query, tag: value || null }); NL.go('studies' + (search ? '?' + search : '')); };
     const setFilter = v => { setF(v); NL.ls.set('nl-ledger-f', v); };
     const all = (s.items || []).filter(i => (!tag||(i.tags||[]).includes(tag))&&(!q || (i.title+' '+i.id+' '+(i.tags||[]).join(' ')).toLowerCase().includes(q.toLowerCase())));
-    const FILTERS = [['all', 'All', () => true], ['you', 'For you', i => statusOf(s, i)[0] === 'warm' || statusOf(s, i)[0] === 'bad'],
+    const FILTERS = [['all', 'All', () => true], ['you', 'Inbox', i => statusOf(s, i)[0] === 'warm' || statusOf(s, i)[0] === 'bad'],
       ['work', 'At work', i => statusOf(s, i)[0] === 'live'], ['idle', 'Idle', i => statusOf(s, i)[0] === ''],
       ...NL.WORKFLOWS.length > 1 ? NL.WORKFLOWS.map(w => [w.id, w.title || w.id, i => NL.workflowOf(i).id === w.id]) : [],
       ['done', 'Done & set aside', i => NL.isTerminal(i.state)]];
@@ -91,22 +98,23 @@
   const ActionOrb = ({ it }) => {
     const s = NL.useLab();
     const nx = NL.nextFor(s, it);
+    const held = !!s.holds?.[it.id];
     const [open, setOpen] = useState(false);
-    const procs = (NL.PROCS_FOR_STATE[it.state] || []).filter(p => p!=='discuss'&&(s.skills || {})[p] && (!nx || p !== nx.skill));
+    const procs = NL.proceduresFor(it).filter(p => p!=='discuss'&&(s.skills || {})[p] && (!nx || p !== nx.skill));
     const can = p => ((s.skills || {})[p] || {}).level !== 'project' || it.has_project;
     const isLoop = p => (NL.PROC[p] || {}).kind === 'driver' && (NL.PROC[p] || {}).level === 'project';
     const run = p => isLoop(p) ? NL.openLoop(it.id) : NL.launch({ skill: p, target: it.id });
     return html`<div class="action-orb">
-      ${nx ? html`<button type="button" class=${cls('pill-act', nx.checkpoint && 'warm')} onClick=${nx.run}><${NL.Glyph} name=${nx.glyph || 'play'} size=${18} /><span>${nx.label}</span></button>` : null}
-      ${procs.filter(can).slice(0, 5).map(p => html`<button type="button" class="round-act" title=${`${NL.procTitle(p)}${isLoop(p) ? ' (overnight)' : ''}: ${(NL.PROC[p] || {}).does || ''}`} onClick=${() => run(p)}>
-        <${NL.Glyph} name=${isLoop(p) ? 'moon' : NL.procGlyph(p)} size=${17} /><span class="round-l">${isLoop(p) ? 'Run overnight' : NL.procTitle(p)}</span></button>`)}
-      <button type="button" class="round-act" title="Think out loud with an agent. It changes nothing." onClick=${() => NL.launch({ skill: 'discuss', target: it.id })}><${NL.Glyph} name="chat" size=${17} /><span class="round-l">Talk it through</span></button>
-      <button type="button" class="round-act" title="Give it an instruction in your own words" onClick=${() => NL.openAsk('', it.id)}><${NL.Glyph} name="spark" size=${17} /><span class="round-l">Instruct</span></button>
-      <button type="button" class="round-act" title="More" onClick=${() => setOpen(!open)}>⋯</button>
-      ${open ? html`<div class="orb-menu glass"><button type="button" onClick=${() => { setOpen(false); NL.openStart({ intent: 'study', target: it.id }); }}>Run something else, with options…</button>
+      ${nx ? html`<button type="button" class=${cls('pill-act', nx.checkpoint && 'warm')} aria-label=${nx.task?'Start task: '+nx.task:nx.label} onClick=${nx.run}><${NL.Glyph} name=${nx.glyph || 'play'} size=${18} /><span class="action-copy">${nx.task||nx.label}${nx.method?html`<small>${nx.method}</small>`:null}</span></button>` : null}
+      <button type="button" class="link small" onClick=${()=>NL.openTaskInstructions(it)}>View instructions</button>
+      <${NL.Btn} small disabled=${held} onClick=${() => NL.openAsk('', it.id)}>Ask agent</${NL.Btn}>
+      <button type="button" class="btn btn-sm" aria-expanded=${open} aria-controls=${it.id+'-actions'} onClick=${() => setOpen(!open)}>More actions</button>
+      ${open ? html`<div class="orb-menu glass" id=${it.id+'-actions'} onKeyDown=${e=>{if(e.key==='Escape'){setOpen(false);e.currentTarget.previousElementSibling?.focus()}}}>${procs.filter(can).map(p=>html`<button type="button" disabled=${held} onClick=${()=>{setOpen(false);run(p)}}>${isLoop(p)?'Run overnight':NL.procTitle(p)}</button>`)}
+        ${s.skills?.discuss?html`<button type="button" disabled=${held} onClick=${()=>{setOpen(false);NL.launch({skill:'discuss',target:it.id})}}>Talk it through</button>`:null}
+        <button type="button" disabled=${held} onClick=${() => { setOpen(false); NL.openStart({ intent: 'study', target: it.id }); }}>Run a procedure…</button>
         <button type="button" onClick=${() => { setOpen(false); NL.openNote(it.id); }}>Add note</button>
-        <button type="button" onClick=${() => { setOpen(false); NL.go(`study/${it.id}/fate`); }}>Park, kill or hold it…</button>
-        <span class="mono small muted">newts start ${nx && nx.skill ? nx.skill : '<procedure>'} ${it.id}</span></div>` : null}</div>`;
+        <button type="button" onClick=${() => { setOpen(false); NL.go(`study/${it.id}/controls`); }}>Study controls…</button>
+        </div>` : null}</div>`;
   };
 
   NL.StudyPage = ({ args }) => {
@@ -118,12 +126,12 @@
     const hold = (s.holds || {})[it.id];
     const setTab = t => NL.go(`study/${it.id}/${t}`);
     const wfs = NL.WORKFLOWS;
-    const tabs = [{ id: 'overview', label: 'Overview' }, { id: 'docs', label: 'Documents' }, { id: 'runs', label: 'Agents', count: runs.length || null },
+    const tabs = [{ id: 'overview', label: 'Overview' }, { id: 'docs', label: 'Documents' }, { id: 'runs', label: 'Agents', count: runs.length || null },{id:'history',label:'History'},
       ...(it.has_project ? [{ id: 'experiments', label: 'Experiments', count: (it.inflight || []).length || null }] : []),
       ...(it.has_paper || it.paper ? [{ id: 'paper', label: 'Paper' }] : []),
       { id: 'panels', label: 'Instruments' },
       { id: 'instructions', label: 'Instructions', count: Object.keys(((((s.workflow || {}).study_custom || {})[it.id]) || {}).procedures || {}).length || null },
-      { id: 'fate', label: 'Controls' }];
+      { id: 'controls', label: 'Controls' }];
     return html`<div class="dossier">
       <header class="dossier-head">
         <div class="crumbs"><a class="link" href="#/studies">Studies</a> ›</div>
@@ -133,23 +141,27 @@
         <h1>${it.title || it.id}</h1>
         ${it.remote_project?html`<p class="muted small">${it.machine} · ${it.remote_project.path} · <button class="link" onClick=${()=>NL.openMachineSetup(it.machine)}>Connection</button></p>`:null}
         <${NL.StudyTags} it=${it}/><${NL.Metro} it=${it} />
+        <p class="study-position"><span class="muted">Workflow position</span> · <b>${NL.taskLabel(it)}</b></p>
+        <details class="study-workflow-map"><summary>Workflow map</summary><${NL.WorkflowOverview} workflow=${NL.workflowOf(it)} ready=${it.runnable||[]} completed=${it.completed_steps||[]}/></details>
         ${(it.slipped || []).map(x => html`<div class="banner banner-bad"><${NL.Glyph} name="diamond" size=${18} /><span class="grow"><b>Went past “${(NL.checkpoint(x.id, it) || {}).title || x.id}” without your approval.</b> <span class="muted">${x.why}</span></span>
           <${NL.Btn} small onClick=${() => NL.openCheckpoint(it.id, x.id)}>Review</${NL.Btn}></div>`)}
         ${(it.waiting || []).map(w => { const c = NL.checkpoint(w, it) || { title: w }; return html`<div class="banner banner-warm"><${NL.Seal} state="waiting" size=${30} /><span class="grow"><b>Waiting for you: ${c.title}</b><span class="muted small">${c.means ? ' · ' + c.means : ''}</span></span>
           <${NL.Btn} small kind="primary" onClick=${() => NL.openCheckpoint(it.id, w)}>Review</${NL.Btn}></div>`; })}
-        ${hold ? html`<div class="banner"><${NL.Glyph} name="pause" size=${18} /><span class="grow"><b>On hold</b> <span class="muted small">· nothing new starts for it${hold.reason ? ': ' + hold.reason : ''} (${hold.by})</span></span>
+        ${hold ? html`<div class="banner"><${NL.Glyph} name="pause" size=${18} /><span class="grow"><b>On hold</b> <span class="muted small">· new agents cannot start${hold.reason && hold.reason !== 'held by the PI' ? ': ' + hold.reason : ''}</span></span>
           <${NL.Btn} small onClick=${() => NL.act('/api/study/hold', { study: it.id, hold: false }, 'Released')}>Release</${NL.Btn}></div>` : null}
         <${ActionOrb} key=${it.id} it=${it} /></header>
-      <${NL.Tabs} tabs=${tabs} value=${tab} onChange=${setTab} />
+      <div class="study-tabs"><${NL.Tabs} tabs=${tabs} value=${tab} onChange=${setTab} /></div>
+      <div class="study-mobile-nav"><${NL.Select} ariaLabel="Study section" value=${tab} onChange=${setTab} options=${tabs.map(t=>({value:t.id,label:t.label+(t.count?' · '+t.count:'')}))}/></div>
       <div class="tabpane">
         ${tab === 'overview' ? html`<${Overview} key=${it.id} it=${it} />` : null}
         ${tab === 'docs' ? html`<${Documents} key=${it.id} it=${it} rel=${args.slice(2).join('/')} />` : null}
         ${tab === 'runs' ? html`<details class="study-agent-settings"><summary>Agent choices for this study</summary><${NL.AgentAssignments} key=${it.id} study=${it.id} compact/></details><div class="runlist">${runs.length ? runs.slice().sort((a, b) => (b.created || '').localeCompare(a.created || '')).map(r => html`<${NL.RunRow} key=${r.run_id} r=${r} />`) : html`<${NL.Empty}>No agents have worked on it yet.</${NL.Empty}>`}</div>` : null}
+        ${tab==='history'?html`<${WorkflowHistory} key=${it.id} it=${it}/>`:null}
         ${tab === 'experiments' ? html`<${Experiments} key=${it.id} it=${it} />` : null}
         ${tab === 'paper' ? html`<${PaperPane} key=${it.id} it=${it} />` : null}
         ${tab === 'panels' ? html`<${StudyPanels} key=${it.id} it=${it} />` : null}
         ${tab === 'instructions' ? html`<${NL.StudyInstructions} key=${it.id} it=${it} />` : null}
-        ${tab === 'fate' || tab === 'controls' ? html`<${Controls} key=${it.id} it=${it} />` : null}
+        ${tab === 'controls' ? html`<${Controls} key=${it.id} it=${it} />` : null}
       </div></div>`;
   };
 
@@ -181,34 +193,76 @@
       case 'remap': return 'steps renamed: ' + Object.entries(e.map || {}).map(([a, b]) => `${a} → ${b}`).join(', ');
       case 'flag': return `⚑ ${e.say}${e.acked ? ' (acknowledged)' : ''}`;
       case 'title': return 'renamed';
+      case 'task-reused': return `${NL.taskLabel(it,e.node)}: used existing work`;
+      case 'task-omitted': return `${NL.taskLabel(it,e.node)}: left out`;
+      case 'task-completed': return `${NL.taskLabel(it,e.node)}: completed`;
+      case 'task-routed': return `${NL.taskLabel(it,e.node)}: ${e.outcome||'routed'}`;
+      case 'entry-cancelled': return 'Run remaining tasks normally';
       default: return e.kind;
     }
   };
-  const Timeline = ({ it }) => {
-    const [evs, setEvs] = useState(null);
-    useEffect(() => { NL.get('/api/study/timeline?study=' + encodeURIComponent(it.id)).then(x => setEvs((x && x.events) || [])); }, [it.id, it.state, it.updated, JSON.stringify(it.waiting || [])]);
-    if (!evs) return html`<${NL.Spinner} />`;
+  const Timeline = ({ it, events }) => {
+    const [limit,setLimit]=useState(40);
+    const { data, error, reload } = NL.useGet(events?null:'/api/study/timeline?study=' + encodeURIComponent(it.id), JSON.stringify([it.state, it.updated, it.waiting]));
+    if (!events&&!data) return html`<${NL.LoadState} error=${error} reload=${reload} />`;
+    const evs = events||data.events||[];
     if (!evs.length) return html`<div class="muted small">Nothing recorded yet.</div>`;
-    return html`<ol class="timeline">${evs.slice().reverse().slice(0, 40).map(e => html`<li class=${cls('tl-' + e.kind, e.kind === 'flag' && !e.acked && 'tl-open')}>
+    return html`<ol class="timeline">${evs.slice().reverse().slice(0, limit).map(e => html`<li class=${cls('tl-' + e.kind, e.kind === 'flag' && !e.acked && 'tl-open')}>
       <span class="tl-when mono" title=${e.ts}>${NL.ago(e.ts)}</span>
       <span class="tl-what">${said(e, it)}${e.by && e.kind !== 'remap' ? html` <span class="muted small">· ${e.by.startsWith('run:') ? html`<a class="link" href=${'#/run/' + e.by.slice(4)}>${WHO(e.by)}</a>` : WHO(e.by)}</span>` : null}
-        ${e.note ? html`<div class="muted small tl-note">“${e.note}”</div>` : null}</span></li>`)}</ol>`;
+        ${e.note ? html`<div class="muted small tl-note">“${e.note}”</div>` : null}
+        ${e.refs?.length?html`<div class="mono small path-wrap">${e.refs.join(' · ')}</div>`:null}</span></li>`)}</ol>${evs.length>limit?html`<${NL.Btn} small onClick=${()=>setLimit(n=>n+40)}>Show earlier changes</${NL.Btn}>`:null}`;
+  };
+
+  const WorkflowHistory=({it})=>{
+    const s=NL.useLab(),read=NL.useGet('/api/study/history?study='+encodeURIComponent(it.id),JSON.stringify([it.state,it.updated,it.active_steps,it.waiting,NL.runsOf(s,it.id).map(r=>[r.run_id,r.status,r.attempt]),NL.artifactsOf(s).filter(a=>a.study===it.id).map(a=>a.id)])),data=read.data;
+    const [limit,setLimit]=useState(30),[saving,setSaving]=useState(false),[saved,setSaved]=useState(''),[error,setError]=useState('');
+    const save=async()=>{setSaving(true);setError('');try{const result=await NL.api('/api/study/history/save',{study:it.id});if(result.ok){NL.invalidateLibrary();setSaved(result.rel)}else setError(result.error)}finally{setSaving(false)}};
+    if(!data)return html`<${NL.LoadState} ...${read}/>`;
+    const groups=data.visits.slice().reverse(),run=id=>data.runs.find(r=>r.run_id===id);
+    const session=r=>html`<div class="workflow-session"><button class="link" type="button" onClick=${()=>NL.openRun(r.run_id)}>${r.label||r.run_id}</button><small>${r.backend} · ${NL.runStateLabel(r)}${r.attempt>1?' · '+r.attempt+' attempts':''}</small>
+      ${['running','starting','resuming','waiting_input'].includes(r.status)?html`<button class="link small" type="button" onClick=${()=>NL.followAgent(r.run_id)}>Show in lab</button>`:null}
+      ${(data.outputs||[]).filter(a=>a.run_id===r.run_id||a.about?.run===r.run_id).map(a=>html`<a class="link small" href=${'#/artifacts/'+a.id}>${a.title} ↗</a>`)}</div>`;
+    return html`<section class="workflow-history"><header class="row between"><h2>Workflow history</h2><${NL.Btn} small busy=${saving} onClick=${save}>Save history to study</${NL.Btn}></header>
+      <p class="muted small">Tasks, repeated passes and agent attempts. A finished agent turn does not by itself complete a task.</p>
+      ${read.error?html`<${NL.LoadState} error=${read.error} reload=${read.reload} stale/>`:null}${error?html`<p role="alert">${error}</p>`:null}
+      ${saved?html`<p role="status"><a class="link" href=${'#/library/study/'+it.id+'/'+saved+'?view=documents&study='+it.id}>Saved snapshot ↗</a> <span class="muted small">Refresh it here after more work.</span></p>`:null}
+      ${!groups.length?html`<p class="muted small">No task sessions recorded yet. Earlier workflow changes are below.</p>`:null}
+      ${groups.slice(0,limit).map(v=>html`<details class="workflow-visit"><summary><b>${NL.taskLabel(it,v.node)}</b> <span class="muted small">${v.workflow!==data.workflow?v.workflow+' · ':''}pass ${v.visit} · ${v.outcome?({ 'task-completed':'Done','task-reused':'Existing work','task-omitted':'Skipped at start','task-routed':v.outcome.outcome})[v.outcome.kind]:v.active?'In progress':'No outcome recorded'}</span></summary>
+        ${v.outcome?.note?html`<p>${v.outcome.note}</p>`:null}${v.outcome?.refs?.length?html`<p class="mono small path-wrap">${v.outcome.refs.join(' · ')}</p>`:null}
+        ${v.runs.map(run).filter(Boolean).map(session)}${!v.runs.length?html`<p class="muted small">No agent session recorded for this pass.</p>`:null}</details>`)}
+      ${groups.length>limit?html`<${NL.Btn} small onClick=${()=>setLimit(n=>n+30)}>Show earlier tasks</${NL.Btn}>`:null}
+      ${data.runs.some(r=>!r.workflow_node)?html`<details class="workflow-visit"><summary>Other study sessions</summary>${data.runs.filter(r=>!r.workflow_node).map(session)}</details>`:null}
+      <details class="workflow-visit"><summary>Decisions & changes</summary><${Timeline} it=${it} events=${data.events}/></details>
+      <details class="workflow-visit"><summary>Where records live</summary><p class="mono small path-wrap">${data.sources.journal}<br/>${data.sources.runs}</p><p class="muted small">${data.coverage}</p></details>
+    </section>`;
+  };
+
+  const PendingInstructions = ({ it }) => {
+    const pending = pendingFor(it);
+    return pending.length ? html`<${NL.Section} title="Pending instructions" count=${pending.length}>
+      <p class="muted small">Waiting for an agent's next inbox check.</p>
+      ${pending.map(d => html`<div class="note"><div>${d.text}</div><div class="row"><span class="muted small">${d.state === 'seen' ? 'Seen; awaiting action' : 'Pending'} · ${NL.hhmm(d.ts)}</span><span class="grow"></span>
+        <button type="button" class="link small" onClick=${() => NL.act('/api/withdraw', { target: it.id, id: d.id, ts: d.ts, scope: d.scope }, 'Withdrawn')}>Withdraw</button></div></div>`)}</${NL.Section}>` : null;
   };
 
   const Overview = ({ it }) => {
     const s = NL.useLab();
     const workers = NL.workersOf(s, it.id).filter(w => w.status !== 'done');
-    const pending = (it.directives || []).filter(d => d.state === 'pending');
     return html`<div class="cols">
       <div class="col-main"><${NL.DocReader} scope="study" slug=${it.id} rel="IDEA.md" bare fallback=${html`<${NL.Empty} icon="🌱" title="No idea write-up yet">
         This study has no <span class="mono">studies/${it.id}/IDEA.md</span>${it.has_project ? '; its project repo is under Documents' : ''}.</${NL.Empty}>`} /></div>
       <aside class="col-side"><${NL.StudyNotes} study=${it.id}/>
+        ${it.entry ? html`<${NL.Section} title="Starting choices"><p class="muted small">If a loop returns to a skipped task, it runs normally. Checkpoints still apply.</p>
+          ${Object.entries(it.entry.tasks).map(([id,c])=>html`<div class="small"><b>${NL.taskLabel(it,id)}</b> · ${c.action==='reuse'?'Use existing work':'Skipped at start'}${c.note?html`<p>${c.note}</p>`:null}${c.refs?.length?html`<p class="mono path-wrap">${c.refs.join(' · ')}</p>`:null}</div>`)}
+          ${!it.entry_cancelled?html`<${NL.Btn} small onClick=${()=>NL.act('/api/study/entry/cancel',{study:it.id},'Remaining tasks will run normally')}>Run remaining tasks normally</${NL.Btn}>`:html`<p class="muted small">Remaining tasks run normally.</p>`}
+        </${NL.Section}>`:null}
         ${it.active_steps?.length?html`<${NL.Section} title="Workflow tasks" count=${it.active_steps.length}>
           ${it.active_steps.map(t=>{const definition=s.workflow?.workflows?.find(w=>w.id===it.workflow)?.nodes?.[t.id],run=NL.runsOf(s,it.id).find(r=>r.run_id===t.run_id),waits=(it.task_waits||[]).filter(w=>w.at===t.id);return html`<div class="note"><b>${definition?.label||NL.STATE_LABEL[t.id]||t.id}</b><div class="muted small">${definition?.agent?.role||'general'} · visit ${t.visit}${run?' · '+run.status:''}</div>
-          ${run?html`<div class="row"><button class="link small" onClick=${()=>NL.openRun(run.run_id)}>Conversation</button><button class="link small" onClick=${()=>NL.followAgent(run.run_id)}>Follow in lab</button></div>`:null}
+          ${run?html`<div class="row">${(s.agents||[]).some(a=>a.run_id===run.run_id)?html`<button class="link small" onClick=${()=>NL.followAgent(run.run_id)}>Show in lab</button>`:null}<button class="link small" onClick=${()=>NL.openRun(run.run_id)}>Conversation</button></div>`:null}
           ${waits.map(w=>html`<button class="link small" onClick=${()=>NL.openCheckpoint(it.id,w.checkpoint)}>◆ ${w.title}</button>`)}</div>`})}
           ${it.blocked_reason?html`<p class="note note-warn">${it.blocked_reason}</p>`:null}
-          ${it.runnable?.length?html`<${NL.Btn} small onClick=${()=>NL.act('/api/workflow/run',{study:it.id,retry:true},'Ready tasks queued')}>Run ready tasks</${NL.Btn}>`:null}
+          ${it.runnable?.length?html`<${NL.Btn} small disabled=${!!s.holds?.[it.id]} onClick=${()=>NL.act('/api/workflow/run',{study:it.id,retry:true},'Ready tasks queued')}>Run ready tasks</${NL.Btn}>`:null}
         </${NL.Section}>`:null}
         <${NL.Section} title="Now">
           <div class="facts"><div><span>Step</span><b>${NL.taskLabel(it)}</b></div>
@@ -217,15 +271,14 @@
             ${it.best ? html`<div><span>Best so far</span><b class="mono">${typeof it.best === 'object' ? Object.entries(it.best).filter(([k]) => k !== 'run_id').map(([k, v]) => `${k} ${typeof v === 'number' ? (+v).toPrecision(4) : v}`).join(' · ') : it.best}</b></div>` : null}
             ${NL.checkpointsOf(it).map(c => html`<div><span>◆ ${c.title}</span><b class=${NL.approvedCp(it, c.id) ? 'live' : (it.waiting || []).includes(c.id) ? 'warn' : 'muted'}>${NL.approvedCp(it, c.id) ? 'approved' : (it.waiting || []).includes(c.id) ? 'waiting for you' : 'ahead'}</b></div>`)}
             ${it.loop_active ? html`<div><span>Loop</span><b class="live">running</b></div>` : null}</div></${NL.Section}>
-        ${workers.length ? html`<${NL.Section} title="Agents on it" count=${workers.length}>${workers.map(w => html`<button type="button" class="agent-chip wide" onClick=${() => NL.openWorker(w.worker_id)}><${NL.RoleDot} role=${w.role} /><span class="clip grow">${w.label || NL.roleOf(w.role).label}</span><span class="muted small">${w.in_tool ? '▸ ' + w.in_tool.tool : w.status}</span></button>`)}</${NL.Section}>` : null}
-        ${pending.length ? html`<${NL.Section} title="Notes waiting for an agent" count=${pending.length}>${pending.map(d => html`<div class="note"><div>${d.text}</div><div class="row"><span class="muted small">${NL.hhmm(d.ts)}</span><span class="grow"></span>
-          <button class="link small" onClick=${() => NL.act('/api/withdraw', { target: it.id, id: d.id, ts: d.ts }, 'Withdrawn')}>withdraw</button></div></div>`)}</${NL.Section}>` : null}
-        <${NL.Section} title="History"><${Timeline} it=${it} /></${NL.Section}>
+        ${workers.length ? html`<${NL.Section} title="Agents on it" count=${workers.length}>${workers.map(w => html`<button type="button" class="agent-chip wide" onClick=${() => NL.openWorker(w.worker_id)}><${NL.RoleDot} role=${w.role} /><span class="clip grow">${NL.agentTitle(w,s)}</span><span class="muted small">${w.in_tool ? '▸ ' + w.in_tool.tool : w.status}</span></button>`)}</${NL.Section}>` : null}
+        <${PendingInstructions} it=${it} />
+        <a class="link small" href=${'#/study/'+it.id+'/history'}>Workflow history →</a>
       </aside></div>`;
   };
 
   const Documents = ({ it, rel }) => {
-    const tree = NL.useLibTree();
+    const { tree, error, reload } = NL.useLibTree();
     const g = tree && (tree.groups || []).find(x => x.slug === it.id);
     const docs = g ? g.sections.flatMap(sec => sec.docs.map(d => ({ ...d, sec: sec.title }))) : [];
     const [sel, setSel] = useState(null);
@@ -235,7 +288,8 @@
     return html`<div class="page-split inner">
       <aside class="split-left"><a class="link small" href=${'#/library?'+NL.qs({view:'records',study:it.id})}>Notes, answers & sources →</a>${shown.length ? html`<div class="shelf-sec"><div class="shelf-sec-h">❏ Results (${shown.length})</div>${shown.map(a => html`<button type="button" class="shelf-doc" onClick=${() => NL.openArtifact(a.id)}>${a.title}${a.question && !a.answered ? ' · asks you' : ''}</button>`)}</div>` : null}
         ${records.next?html`<${NL.Btn} small busy=${records.loading} onClick=${records.loadMore}>Load older results</${NL.Btn}>`:null}${records.error?html`<p role="alert">${records.error}</p>`:null}
-        ${!tree ? html`<${NL.Spinner} />` : !docs.length ? html`<div class="muted small">No documents in the study or its project yet.</div>` :
+        ${!tree || error ? html`<${NL.LoadState} error=${error} reload=${reload} stale=${!!tree} />` : null}
+        ${!tree || error && !docs.length ? null : !docs.length ? html`<div class="muted small">No documents in the study or its project yet.</div>` :
         g.sections.map(sec => html`<div class="shelf-sec"><div class="shelf-sec-h">${sec.icon || ''} ${sec.title}</div>${sec.docs.map(d => html`<button type="button" class=${cls('shelf-doc', cur && cur.rel === d.rel && cur.scope === d.scope && 'on')} onClick=${() => setSel(d)}><${NL.DocName} d=${d} /></button>`)}</div>`)}</aside>
       <main class="split-right">${cur ? html`<${NL.DocReader} scope=${cur.scope} slug=${cur.slug} rel=${cur.rel} />` : null}</main></div>`;
   };
@@ -255,7 +309,7 @@
     </div><aside class="col-side"><${NL.Section} title="Look closer"><div class="stack">
       <${NL.Btn} onClick=${() => tool('status')}>Project status</${NL.Btn}><${NL.Btn} onClick=${() => tool('compare')}>Compare runs</${NL.Btn}>
       <${NL.Btn} onClick=${() => tool('show_config')}>Settings in force for this study</${NL.Btn}><${NL.Btn} onClick=${() => tool('inbox')}>Notes to its agents</${NL.Btn}></div></${NL.Section}>
-      <${NL.Section} title="Start"><div class="stack">${(NL.PROCS_FOR_STATE[it.state] || []).filter(p => (NL.getState().skills || {})[p]).map(p => {
+      <${NL.Section} title="Start"><div class="stack">${NL.proceduresFor(it).filter(p => (NL.getState().skills || {})[p]).map(p => {
         const brief = (NL.PROC[p] || {}).kind === 'driver' && (NL.PROC[p] || {}).level === 'project';   // a loop needs your approval first
         return html`<${NL.Btn} onClick=${() => brief ? NL.openLoop(it.id) : NL.launch({ skill: p, target: it.id })}>${NL.procTitle(p)}${brief ? '…' : ''}</${NL.Btn}>`; })}
         </div></${NL.Section}></aside></div>`;
@@ -266,9 +320,8 @@
 
   /* ── paper ─────────────────────────────────────────────────────────────── */
   const PaperPane = ({ it }) => {
-    const [figs, setFigs] = useState([]);
     const mt = (it.paper && it.paper.mtime) || '';
-    useEffect(() => { NL.get(`/api/figs?${NL.qs({ idea: it.id })}`).then(x => setFigs((x && x.figures) || [])); }, [it.id, mt]);
+    const g = NL.useGet(`/api/figs?${NL.qs({ idea: it.id })}`, mt), figs = (g.data || g.previous)?.figures || [];
     const src = `/api/paper?${NL.qs({ idea: it.id, t: mt })}`;
     return html`<div class="cols"><div class="col-main">${it.paper ? html`<iframe class="pdf" src=${src} title="the paper"></iframe>` : html`<${NL.Empty} icon="📜">No compiled paper yet (studies/${it.id}/paper/main.pdf).</${NL.Empty}>`}</div>
       <aside class="col-side"><${NL.Section} title="Paper"><div class="stack">${it.paper ? html`<a class="btn" href=${src} target="_blank" rel="noopener">Open the PDF ↗</a>` : null}
@@ -276,10 +329,11 @@
         <${NL.Btn} onClick=${() => NL.launch({ skill: 'make-figures', target: it.id })}>Rebuild figures</${NL.Btn}>
         <${NL.Btn} onClick=${() => NL.launch({ skill: 'critique-paper', target: it.id })}>Critique it</${NL.Btn}>
         ${(it.waiting || []).map(w => html`<${NL.Btn} kind="primary" onClick=${() => NL.openCheckpoint(it.id, w)}>◆ ${(NL.checkpoint(w, it) || {}).title || w}…</${NL.Btn}>`)}</div></${NL.Section}>
-        ${figs.length ? html`<${NL.Section} title="Figures" count=${figs.length}><div class="figs">${figs.map(f => /\.pdf$/i.test(f) ? html`<a class="link small" href=${`/api/figure?${NL.qs({ idea: it.id, name: f })}`} target="_blank">${f}</a>` :
+        ${figs.length || !g.data || g.error ? html`<${NL.Section} title="Figures" count=${g.data || g.previous ? figs.length : null}>
+          ${g.error || !g.data && !g.previous ? html`<${NL.LoadState} ...${g} stale=${!!g.previous} />` : null}
+          <div class="figs">${figs.map(f => /\.pdf$/i.test(f) ? html`<a class="link small" href=${`/api/figure?${NL.qs({ idea: it.id, name: f })}`} target="_blank">${f}</a>` :
           html`<a href=${`/api/figure?${NL.qs({ idea: it.id, name: f })}`} target="_blank" rel="noopener"><img src=${`/api/figure?${NL.qs({ idea: it.id, name: f, t: mt })}`} alt=${f} loading="lazy" /></a>`)}</div></${NL.Section}>` : null}</aside></div>`;
   };
-  NL.openPaper = slug => NL.go(`study/${slug}/paper`);
 
   NL.ClaimsSheet = ({ slug, onClose }) => {
     const [r, setR] = useState(null);
@@ -299,26 +353,19 @@
   };
   NL.openClaims = slug => NL.open(NL.ClaimsSheet, { slug }, { key: 'claims' });
 
-  /* ── fate: steering, checkpoints, hold, park/kill/revive ─────────────────── */
-  /* where a study set aside by `action` (park / kill) ends up: the shelf for it, and its room */
-  const shelfRoom = action => {
-    const shelves = Object.values(NL.STEPS).filter(x => x.shelf);
-    const st = shelves.find(x => String(x.id).startsWith(action)) || shelves[0];
-    const room = st && (NL.ROOMS.find(r => r.key === st.room || (r.states || []).includes(st.id)) || {});
-    return (room && (room.title || room.label)) || 'the room for studies set aside';
-  };
+  /* ── study controls: agent requests and immediate launch holds ────────── */
   const MODES = [{ value: 'execute', label: 'Follow the plan' }, { value: 'explore', label: 'Explore' }];   // as in Settings
   const Controls = ({ it }) => {
-    const [labMode, setLabMode] = useState(null);
+    const s = NL.useLab(), held = !!s.holds?.[it.id];
+    const config = NL.useGet(it.has_project ? '/api/lab/config' : null, it.id);
     const [picked, setPicked] = useState(null);
-    useEffect(() => { if (it.has_project) NL.get('/api/lab/config').then(x => setLabMode(((x && x.config) || {}).loop_mode || 'execute')); }, [it.id]);
     // the study's mode: the latest switch you sent it (not withdrawn or refused), else the lab's setting
     const sent = (it.directives || []).filter(x => x.action === 'set_mode' && x.args && x.args.mode && !['withdrawn', 'blocked'].includes(x.state)).slice(-1)[0];
-    const mode = picked || (sent && sent.args.mode) || it.loop_mode || labMode || 'execute';
+    const mode = picked || (sent && sent.args.mode) || it.loop_mode || config.data?.config?.loop_mode || 'execute';
     const cmd = async (action, label, args, confirm) => {
       if (confirm && !await NL.confirm({ ...confirm, ok: confirm.ok || label, danger: true })) return false;
       const launch = ['start_loop', 'stop_loop', 'run_smoke', 'request_run', 'analyze'].includes(action) && NL.execOn(NL.getState());
-      const r = await NL.act('/api/command', { target: it.id, action, args: args || {}, launch }, launch ? `${label}: started` : `${label}: its agent picks this up at its next safe point`);
+      const r = await NL.act('/api/command', { target: it.id, action, args: args || {}, launch }, `${label} requested`);
       if (r.launch && r.launch.run_id) NL.openRun(r.launch.run_id);
       return r.ok;
     };
@@ -326,26 +373,26 @@
     const off = NL.isShelved(it.state);
     return html`<div class="cols"><div class="col-main">
       ${it.has_project ? html`<${NL.Section} title="Loop and experiments">
-        <${NL.Field} label="Its research loop" hint="Follow the plan, or explore: widen the plan and reopen supporting decisions, within its checkpoints. A switch reaches the loop at its next safe point.">
-          <${NL.Seg} value=${mode} onChange=${setMode} options=${MODES} /></${NL.Field}>
+        ${config.data ? html`<${NL.Field} label="Its research loop" hint="Follow the plan, or explore: widen the plan and reopen supporting decisions, within its checkpoints. A switch reaches the loop at its next safe point.">
+          <${NL.Seg} value=${mode} onChange=${setMode} options=${MODES} /></${NL.Field}>` : html`<${NL.LoadState} ...${config} />`}
         <div class="btn-grid">
-        <${NL.Btn} onClick=${() => NL.openLoop(it.id)}>Run overnight: the research loop</${NL.Btn}>
+        <${NL.Btn} disabled=${held} onClick=${() => NL.openLoop(it.id)}>Run overnight: the research loop</${NL.Btn}>
         ${it.loop_active ? html`<${NL.Btn} kind="danger" onClick=${() => cmd('stop_loop', 'Stop the loop', {}, { title: 'Stop the loop?', body: 'Its agent stops the loop at its next safe point. You can start it again from here.' })}>Stop the loop</${NL.Btn}>` : null}
-        <${NL.Btn} onClick=${() => cmd('run_smoke', 'Run a smoke test')}>Run a smoke test</${NL.Btn}>
-        <${NL.Btn} onClick=${() => cmd('request_run', 'Request a run')}>Request a run</${NL.Btn}></div></${NL.Section}>` : null}
-      <${NL.Section} title="Priority and fate"><div class="btn-grid">
-        <${NL.Btn} onClick=${() => cmd('prioritize', 'Prioritize')}>Prioritize it</${NL.Btn}>
+        <${NL.Btn} disabled=${held} onClick=${() => cmd('run_smoke', 'Run a smoke test')}>Run a smoke test</${NL.Btn}>
+        <${NL.Btn} disabled=${held} onClick=${() => cmd('request_run', 'Request a run')}>Request a run</${NL.Btn}></div></${NL.Section}>` : null}
+      <${NL.Section} title="Requests"><p class="muted small" title="Requests do not launch agents, stop processes or change queue order.">Saved for the next agent inbox check.</p><div class="btn-grid">
+        <${NL.Btn} title="Leave an instruction for the agent’s next check-in; queue order is unchanged." onClick=${() => cmd('prioritize', 'Focus request')}>Ask agent to focus</${NL.Btn}>
         ${off ? html`<${NL.Btn} kind="primary" onClick=${() => NL.revive(it)}>Revive it</${NL.Btn}>` : html`
-          <${NL.Btn} onClick=${() => cmd('park', 'Park it', {}, { title: 'Set this study aside for now?', ok: 'Park it', body: `The agent pauses it at its next safe point and moves it to ${shelfRoom('park')}. You can revive it from there.` })}>Park it</${NL.Btn}>
-          <${NL.Btn} kind="danger" onClick=${() => cmd('kill', 'Stop it for good', {}, { title: 'Stop this study for good?', ok: 'Stop it for good', body: `The agent winds it down at its next safe point and moves it to ${shelfRoom('kill')}. You can revive it from there.` })}>Kill it</${NL.Btn}>`}</div></${NL.Section}>
+          <${NL.Btn} onClick=${() => cmd('park', 'Park', {}, { title: 'Request parking this study?', ok: 'Send request', body: 'An agent must read the request and record the study as parked. You can revive it later. Running processes are not stopped by this button.' })}>Request park</${NL.Btn}>
+          <${NL.Btn} kind="danger" onClick=${() => cmd('kill', 'Kill', {}, { title: 'Request abandoning this direction?', ok: 'Send request', body: 'An agent must read the request, record why the direction ended, and mark the study killed. Its records remain, and you can revive it. Running processes are not stopped by this button.' })}>Request kill</${NL.Btn}>`}</div></${NL.Section}>
     </div><aside class="col-side">
-      <${NL.Section} title="Its checkpoints"><div class="stack">${NL.checkpointsOf(it).map(c => html`<button type="button" class="cp-line" onClick=${() => NL.openCheckpoint(it.id, c.id)}>
+      <${PendingInstructions} it=${it} />
+      <${NL.Section} title="Checkpoints"><div class="stack">${NL.checkpointsOf(it).map(c => html`<button type="button" class="cp-line" onClick=${() => NL.openCheckpoint(it.id, c.id)}>
           <${NL.Seal} state=${NL.approvedCp(it, c.id) ? 'approved' : 'waiting'} size=${22} /><span class="grow"><b>${c.title}</b><small class="muted">${NL.cpWhere(c)}</small></span></button>`)}
-        ${!NL.checkpointsOf(it).length ? html`<span class="muted small">Its workflow has no checkpoints.</span>` : null}</div></${NL.Section}>
-      <${NL.Section} title="Hold"><div class="stack">${(NL.getState().holds || {})[it.id]
-          ? html`<${NL.Btn} onClick=${() => NL.act('/api/study/hold', { study: it.id, hold: false }, 'Released')}>Release it</${NL.Btn}>`
-          : html`<${NL.Btn} onClick=${() => NL.act('/api/study/hold', { study: it.id, hold: true, reason: 'held by the PI' }, 'On hold. Nothing new starts for it.')}>Hold it (nothing new starts)</${NL.Btn}>`}</div></${NL.Section}>
-      <${NL.Section} title="Elsewhere"><div class="stack">${it.project_dir ? html`<${NL.EditorLink} path=${it.project_dir} machine=${it.remote_project?it.machine:null}>Open the project repo ↗</${NL.EditorLink}>` : null}
-        <button class="link small" onClick=${() => NL.openNote(it.id)}>Add note</button></div></${NL.Section}></aside></div>`;
+        ${!NL.checkpointsOf(it).length ? html`<span class="muted small">No checkpoints.</span>` : null}</div></${NL.Section}>
+      <${NL.Section} title="Hold"><p class="muted small">Blocks new agent launches now. Existing work continues.</p><div class="stack">${(NL.getState().holds || {})[it.id]
+          ? html`<${NL.Btn} onClick=${() => NL.act('/api/study/hold', { study: it.id, hold: false }, 'Released')}>Release hold</${NL.Btn}>`
+          : html`<${NL.Btn} onClick=${() => NL.act('/api/study/hold', { study: it.id, hold: true }, 'On hold. Nothing new starts for it.')}>Hold study</${NL.Btn}>`}</div></${NL.Section}>
+      ${it.project_dir ? html`<${NL.EditorLink} path=${it.project_dir} machine=${it.remote_project?it.machine:null}>Open project ↗</${NL.EditorLink}>` : null}</aside></div>`;
   };
 })();

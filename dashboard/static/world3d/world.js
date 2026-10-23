@@ -1,20 +1,20 @@
-/* Newts' Lab — the world: the lab as an open-plan tabletop (three.js), drawn from the live lab.
+/* ARLOtope — the world: the lab as an open-plan tabletop (three.js), drawn from the live lab.
  *
  * The rooms are the workflow's, on plots round the PI's desk (world3d/layout.js), each in its own look
- * (a built-in world3d/rooms/<id>.js, the lab's lab/rooms3d/<id>.json, or plain). A room the workflow marks
- * `per_project` (the Lab) is one room PER LIVE PROJECT: a new project gets a new lab, built while
- * /spawn-project runs; its look can follow the project's type (lab/rooms3d/lab.<type>.json).
+ * (a built-in world3d/rooms/<id>.js, the lab's lab/rooms3d/<id>.json, or plain).
+ * Rooms come from the workflow definition and are shared by studies. By-machine view repeats them
+ * in connected spaces; agents use their task's room assignment.
  * Every agent at work (the snapshot's `agents`: a run's main agent, every subagent it spawned, and any session
  * no run accounts for) is a newt in its room, in its run's family colour, a subagent smaller. Each stands at the
  * furniture for the call it is in right now (a shelf to read, a bench to run an experiment, a whiteboard to brief
  * a subagent; model.standsOf), else at its station. A subagent walks out of its parent and back to it when it's
- * done. One asking the PI walks to the desk and raises a hand; a stalled one dozes. Studies are cards on their room's shelf; when a study
+ * done. Attention markers stay with the task; a stalled one dozes. Studies are cards on their room's shelf; when a study
  * moves on, a newt carries its card along the streets to the next room (and waits at a checkpoint's lantern for the
- * signature). Nothing on the table is written out: a name shows on hover, and in the tour (setLabels, tour).
+ * signature). Nothing on the table is written out: names appear on hover or through setLabels.
  *
- * Lab3D.createWorld(canvas, {lamp, reduced}) → the world contract scene.js wraps (sync, setPose, setLamp,
+ * Lab3D.createWorld(canvas, {lamp, reduced}) → the world contract lab-view.js uses (sync, setPose, setLamp,
  * setView, goRoom, focusProject, back, viewInfo, highlight, layout, setAmbient, followWorker/stopFollow/
- * following, setLabels, tour, on* callbacks). Nothing in here writes anything: clicks call back into the dashboard.
+ * following, setLabels, on* callbacks). Nothing in here writes anything: clicks call back into the dashboard.
  */
 (function () {
 'use strict';
@@ -23,7 +23,6 @@ const clamp = (v, a, b) => (v < a ? a : v > b ? b : v);
 const hash01 = s => { let h = 2166136261; for (let i = 0; i < (s || '').length; i++) { h ^= s.charCodeAt(i); h = Math.imul(h, 16777619); } return ((h >>> 0) % 100000) / 100000; };
 const ROLE_BADGE = { 'experiment-runner': '#3fb8a6', overseer: '#6f9be6', 'fresh-context-reviewer': '#9b84ea', 'ideation-critic': '#e57ab5',
   'scoping-advocate': '#e0a346', 'general-purpose': '#9aa7ad', orchestrator: '#e0b44e' };
-const ACTIVE = new Set(['starting', 'running', 'resuming']);
 const WALK = 3.0, STREET = 3.4, PLAZA = 13, ROOMSCALE = 1.15, SUB_SCALE = 0.62;
 function three() { return window.THREE ? Promise.resolve(window.THREE) : new Promise(r => addEventListener('three:ready', () => r(window.THREE), { once: true })); }
 const esc = s => String(s ?? '').replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
@@ -43,14 +42,14 @@ L.createWorld = async function createWorld(canvas, opts) {
   let destroyed = false, active = true; const listeners = [];
   const listen = (target, event, fn, options) => { target.addEventListener(event, fn, options); listeners.push(() => target.removeEventListener(event, fn, options)); };
   const motion = () => reduced ? 'reduced' : ambient ? 'full' : 'still';
-  let snap = null, labels = false, glowAll = false, touring = null, pose = 'idle', highlightRole = null, followKey = null, view = { level: 'WORLD', room: null, label: '' };
-  let onCheckpoint = null, onLab = null, onArtifact = null, onItem = null, onInbox = null, onWorker = null, onRun = null, onNewt = null, onView = null, onFollow = null;
-  let staticSig = '', W = null;                 // the built table: rooms, streets, lanterns, hub
-  const actors = new Map(), cards = new Map(), pickables = new Set();
+  let snap = null, labels = false, pose = 'idle', highlightRole = null, followKey = null, view = { level: 'WORLD', room: null, label: '' };
+  let onCheckpoint = null, onArtifact = null, onItem = null, onInbox = null, onWorker = null, onRun = null, onNewt = null, onView = null, onFollow = null;
+  let staticSig = '', W = null, selectedKey = null; // the built table and current inspector selection
+  const actors = new Map(), cards = new Map(), pickables = new Set(), resting = new Map();
   let settled = false;
   const knownRooms = new Set();
 
-  // ── what the table holds: the workflow's rooms, a lab per live project ───────────────────────────
+  // ── what the table holds: the workflow's shared rooms ─────────────────────────────────────────
   const M = L.model, wfOf = M.wfOf, procsOf = M.procsOf, roomList = M.roomList;
   function plainSpec(id, procs) {
     const n = Math.max(1, procs.length), w = Math.max(7, 2.4 * n + 2), stations = {}, props = [];
@@ -67,7 +66,7 @@ L.createWorld = async function createWorld(canvas, opts) {
   // ── building the table (again whenever its rooms or their definitions change) ───────────────────
   function buildStatic(s) {
     const wf = wfOf(s), list = roomList(s);
-    const sig = JSON.stringify([s.world_view,s.room_designs, list.map(r => [r.id,r.machine,r.machineName,r.sourceId,r.lobby, r.place, r.facing, r.type, r.building, r.empty, r.title, r.kicker]), (wf.workflows || []).map(w => [w.id, w.path || w.steps, w.nodes, (w.checkpoints || []).map(c => [c.id, c.before, c.during])])]);
+    const sig = JSON.stringify([s.world_view,s.room_designs, list.map(r => [r.id,r.machine,r.machineName,r.sourceId,r.lobby,r.place,r.facing,r.title,r.kicker]), (wf.workflows || []).map(w => [w.id, w.path || w.steps, w.nodes, (w.checkpoints || []).map(c => [c.id, c.before, c.during])])]);
     if (sig === staticSig && W) return false;
     staticSig = sig;
     const previousRooms=W?W.rooms:{};
@@ -91,12 +90,12 @@ L.createWorld = async function createWorld(canvas, opts) {
     const fillLight = new THREE.DirectionalLight(TH.fillColor, TH.fill ?? 0.4); fillLight.position.set(30, 18, -20); scene.add(fillLight);   // a soft pink-blue fill: no harsh shadow sides
     renderer.toneMappingExposure = TH.exposure;
     // where every room stands
-    const plan = M.placeRooms(list, wf);      // the plan, then the lab district
+    const plan = M.placeRooms(list, wf);
     const DIR = { s: [0, 1], n: [0, -1], e: [1, 0], w: [-1, 0] }, RY = { s: 0, n: Math.PI, e: Math.PI / 2, w: -Math.PI / 2 };
     const rooms = {};
     for (const r of list) {
-      const look = (r.type && L.rooms[`${r.base.id}.${r.type}`]) || L.rooms[r.base.id] || plainSpec(r.base.id, procsOf(wf, r.states, r.base.id));
-      const sp = scaled(look, r.study || r.empty ? ROOMSCALE * 1.05 : ROOMSCALE), p = plan[r.id], turned = p.facing === 'e' || p.facing === 'w';
+      const look = L.rooms[r.base.id] || plainSpec(r.base.id, procsOf(wf, r.states, r.base.id));
+      const sp = scaled(look, ROOMSCALE), p = plan[r.id], turned = p.facing === 'e' || p.facing === 'w';
       rooms[r.id] = { ...r, cell: p.cell, facing: p.facing, spec: sp, ry: RY[p.facing], dir: DIR[p.facing], ex: turned ? sp.size[1] : sp.size[0], ez: turned ? sp.size[0] : sp.size[1], procs: procsOf(wf, r.states, r.base.id) };
     }
     // the grid: columns as wide as their widest room, rows as deep as their deepest, streets between
@@ -198,7 +197,7 @@ L.createWorld = async function createWorld(canvas, opts) {
     const reused=new Set();
     for(const o of Object.values(rooms)){
       const old=previousRooms[o.id];
-      if(old&&old.renderTheme===theme&&old.building===o.building&&JSON.stringify(old.spec)===JSON.stringify(o.spec)&&JSON.stringify(old.extraProps)===JSON.stringify(o.extraProps)){
+      if(old&&old.renderTheme===theme&&JSON.stringify(old.spec)===JSON.stringify(o.spec)&&JSON.stringify(old.extraProps)===JSON.stringify(o.extraProps)){
         for(const key of ['g','floor','floorMat','floorBase','walls','rising'])o[key]=old[key];o.g.position.set(o.x,0,o.z);o.g.rotation.y=o.ry;group.add(o.g);pickables.add(o.floor);recolor(o.g);reused.add(o.id);
       }else buildRoom(o,group);
       o.renderTheme=theme;
@@ -214,7 +213,7 @@ L.createWorld = async function createWorld(canvas, opts) {
       const st = w.path || w.steps || [], at = c.during || (w.nodes ? c.before : st[st.indexOf(c.before) - 1]);
       const grouped = w.nodes?.[at]?.room;
       const candidates=Object.values(rooms).filter(o=>(o.machine||'local')===district.id);
-      const host = (grouped && candidates.find(o=>o.base.id===grouped)) || candidates.find(o => (o.states || []).includes(at) && !o.extra && !o.building) || candidates.find(o => (o.states || []).includes(at));
+      const host = (grouped && candidates.find(o=>o.base.id===grouped)) || candidates.find(o => (o.states || []).includes(at));
       if (!host) continue;
       const k = lit[host.id] = (lit[host.id] || 0) + 1, f = c.during ? 0.9 : 0.35, side = (k - 1) * 0.9 - 0.45;
       const dx = host.door[0] - host.street[0], dz = host.door[1] - host.street[1], len = Math.hypot(dx, dz) || 1;
@@ -226,27 +225,27 @@ L.createWorld = async function createWorld(canvas, opts) {
     }
     group.traverse(m => { if (m.isMesh && m.geometry && m.geometry.type === 'PlaneGeometry') m.castShadow = false; });
     W = { group, rooms, districts, bridgeZ, XS, ZS, colW, rowH, EXT, SPAN, hub, inbox, bigNewt, gates, sun, fireflies, glowLines, hubExits: Object.values(DIR).map(d => [d[0] * colW[0] / 2, d[1] * rowH[0] / 2]) };
-    buildNeighbours();
     fitCamera(true);
     return true;
   }
 
   // ── what agents made for you: a sheet pinned on a little board in the room the work happened in (amber when it
   // asks you something); opened artifacts come down. Click one to read it.
-  let sheetGroup = null, sheetSig = '';
+  let sheetGroup = null, sheetSig = ''; const sheets = new Map();
   function pinSheets(s) {
     if (!W) return;
     const runs = new Map(((s && s.runs) || []).map(r => [r.run_id, r]));
     const where = a => {
       const r = a.run_id && runs.get(a.run_id);
       if (r) { const rid = placeOfRun(s, r); if (W.rooms[rid]) return rid; }
-      const it = a.study && item(s, a.study), rid = it && (labOf(it) || roomOfItem(s, it));
+      const it = a.study && item(s, a.study), rid = it && roomOfItem(s, it);
       return rid && W.rooms[rid] ? rid : null;
     };
     const up = ((s && s.artifacts) || []).filter(a => !a.answered && (!a.seen || a.question)).slice(0, 30).map(a => ({ a, room: where(a) })).filter(x => x.room);
     const sig = JSON.stringify([staticSig, up.map(x => [x.a.id, x.room, !!x.a.question])]);
     if (sig === sheetSig && sheetGroup) return;
     sheetSig = sig;
+    sheets.clear();
     if (sheetGroup) { L.resources.release(sheetGroup); sheetGroup.traverse(o => pickables.delete(o)); }
     sheetGroup = new THREE.Group(); scene.add(sheetGroup);
     const byRoom = {};
@@ -260,36 +259,10 @@ L.createWorld = async function createWorld(canvas, opts) {
         const sh = K.group(K.box(0.34, 0.44, 0.02, a.question ? 'amber' : 'paper', 0, 0, 0, a.question ? { glow: true, gi: {day:0.25,night:0.8} } : null),
           K.sphere(0.045, a.question ? 'red' : 'teal', 0, 0.4, 0.03));
         sh.position.set(-0.55 + i * 0.37, 0.98 + (i % 2) * 0.06, 0.05); sh.rotation.z = (i % 2 ? -1 : 1) * 0.06;
-        sh.userData.pick = { kind: 'artifact', id: a.id }; board.add(sh); pickables.add(sh);
+        sh.userData.pick = { kind: 'artifact', id: a.id }; board.add(sh); pickables.add(sh); sheets.set(a.id,sh);
       });
       if (list.length > n) board.add(K.sphere(0.1, 'amber', 0.78, 1.32, 0.05, { glow: true }));
     }
-  }
-
-  // ── your other labs (this computer's and other machines', all in this one dashboard): small tables beyond the
-  // back edge, a bridge to each — its name, what waits on you there, how many agents are at work. Click to go.
-  let neighbours = [], nbGroup = null, nbSig = '';
-  function buildNeighbours() {
-    if (!W) return;
-    const sig = JSON.stringify([theme, W.EXT, neighbours.map(n => [n.key, n.needs, n.running, n.state])]);
-    if (sig === nbSig && nbGroup) return;
-    nbSig = sig;
-    if (nbGroup) { L.resources.release(nbGroup); nbGroup.traverse(o => pickables.delete(o)); }
-    nbGroup = new THREE.Group(); scene.add(nbGroup);
-    const list = neighbours.slice(0, 6), E = W.EXT, wide = E.x1 - E.x0, step = Math.min(22, (wide + 16) / Math.max(1, list.length));
-    list.forEach((nb, i) => {
-      const x = (E.x0 + E.x1) / 2 + (i - (list.length - 1) / 2) * step, z = E.z0 - 11;   // spread along the back edge
-      const g = new THREE.Group(); g.position.set(x, 0, z);
-      const off = nb.state !== 'here' && nb.state !== 'connected';
-      g.add(K.box(9, 0.3, 6, off ? '@tableSide' : '@table', 0, -0.3, 0), K.box(8.6, 1.0, 5.6, '@tableSide', 0, -1.3, 0));
-      [[-2.6, -1.2], [0, -1.4], [2.6, -1.1], [-1.4, 1.2], [1.6, 1.3]].forEach(([a, b], k) => g.add(K.box(2.0, 0.55 + (k % 2) * 0.2, 1.6, off ? 'plasterDark' : 'plaster', a, 0, b)));
-      for (let k = 0; k < Math.min(8, nb.running || 0); k++) g.add(K.sphere(0.22, 'teal', -3 + k * 0.85, 1.05, 2.3, { glow: true }));   // agents at work
-      if (nb.needs) { const f = K.group(K.cyl(0.05, 0.05, 2.2, 'woodDark', 0, 0, 0), K.box(0.9, 0.55, 0.05, 'amber', 0.47, 1.6, 0, { glow: true })); f.position.set(3.6, 0, -2.2); g.add(f); }
-      const bridge = K.box(1.4, 0.18, 11 - 3 - 1.6, '@table', 0, -0.12, 3 + (11 - 3 - 1.6) / 2 - 0.4); g.add(bridge);
-      g.userData.pick = { kind: 'otherlab', key: nb.key };
-      g.traverse(o => { if (o.isMesh) o.castShadow = false; });
-      nbGroup.add(g); pickables.add(g); nb._at = [x, z];
-    });
   }
 
   function buildRoom(o, group) {
@@ -302,25 +275,18 @@ L.createWorld = async function createWorld(canvas, opts) {
     const trim = { glow: sp.accent, gi: {day:0,night:0.55} };
     g.add(K.box(w, 0.05, 0.22, sp.accent, 0, 0.14, d / 2 - 0.11, trim));
     o.walls = [];
-    const wallH = o.building ? 0.5 : 1.5;
+    const wallH = 1.5;
     if(sp.shell)for(const s of sp.shell){const wall=K.box(...s.size,sp.wall||'plaster',s.at[0],.14+s.at[1]-s.size[1]/2,s.at[2]);wall.userData.physicsSolid=true;g.add(wall);}
     if (!sp.shell&&sp.walls !== false) for (const [lx, lz, len, nx, nz] of [[0, -d / 2, w, 0, -1], [-w / 2, 0, d, -1, 0], [w / 2, 0, d, 1, 0]]) {
-      const wall = K.box(nz ? len : 0.16, wallH, nz ? 0.16 : len, sp.wall || 'plaster', lx, 0.14, lz, o.building ? { alpha: 0.55 } : undefined); g.add(wall);
+      const wall = K.box(nz ? len : 0.16, wallH, nz ? 0.16 : len, sp.wall || 'plaster', lx, 0.14, lz); g.add(wall);
       const cap = K.box(nz ? len + 0.02 : 0.2, 0.06, nz ? 0.2 : len + 0.02, sp.accent, lx, 0.14 + wallH + 0.0, lz, trim); g.add(cap);
       o.walls.push({ wall, cap, n: [nx, nz], lx, lz, h: wallH });
     }
     const sign = K.sign(o.title, { h: 0.42 }); sign.position.set(0, 1.25, -d / 2 + 0.1); g.add(sign);
     if (knownRooms.size && !knownRooms.has(o.id) && !reduced) { g.scale.y = 0.02; o.rising = true; }   // a new room rises out of the table
     knownRooms.add(o.id);
-    if (o.building) {            // a lab going up: scaffolding, cones, crates, the furniture still to come
-      [[-w / 2 + 0.4, -d / 2 + 0.4], [w / 2 - 0.4, -d / 2 + 0.4], [-w / 2 + 0.4, d / 2 - 0.6], [w / 2 - 0.4, d / 2 - 0.6]].forEach(([x, z]) => g.add(K.box(0.12, 2.6, 0.12, 'ochre', x, 0.14, z)));
-      g.add(K.box(w, 0.1, 0.12, 'ochre', 0, 2.6, -d / 2 + 0.4)); for (let i = 0; i < 4; i++) g.add(K.cone(0.18, 0.45, 'amber', -w / 3 + i * w / 4.5, 0.14, d / 2 - 0.4));
-      g.add(K.at(K.build('crates', { n: 4 }), 0, 0.14, 0));
-      return;
-    }
     for (const p of (sp.props || []).concat(o.extraProps)) { const m = K.build(p.c, p.props); m.position.set(p.at[0], 0.14, p.at[1]); m.rotation.y = p.rot || 0; g.add(m); }
     g.add(K.box(Math.min(3.4, w * 0.4), 0.42, 0.5, 'woodLight', o.shelfAt[0] + Math.min(3.4, w * 0.4) / 2, 0.14, o.shelfAt[1]));
-    if (o.empty) { const s2 = K.sign('No projects yet — a lab is built for each one', { h: 0.28, font: 'italic 500 34px Newsreader, Georgia, serif' }); s2.position.set(0, 0.6, d / 2 - 0.05); g.add(s2); }
     const pl = new THREE.PointLight(0xffc98a, 18, 11, 1.5); pl.userData.labNightIntensity=18; pl.visible=theme==='night'; pl.position.set(0, 2.8, 0); g.add(pl);
   }
 
@@ -349,7 +315,7 @@ L.createWorld = async function createWorld(canvas, opts) {
   }
 
   // ── who should be where, from the snapshot ───────────────────────────────────────────────────────
-  const item = M.item, roomOfItem = (s, it) => M.roomOfItem(s, it, W.rooms), labOf = it => M.labOf(it, W.rooms);
+  const item = M.item, roomOfItem = (s, it) => M.roomOfItem(s, it, W.rooms);
   const placeOfRun = (s, r) => M.placeOfRun(s, r, W.rooms);
   const ACTS = M.ACTS;
   // calls come and go faster than a newt can walk: an agent keeps to what it is at for a moment before it walks off to
@@ -387,24 +353,19 @@ L.createWorld = async function createWorld(canvas, opts) {
     const deskSlot = () => { const k = queue++, th = Math.PI + (k - 3) * 0.42, x = 2.6 * Math.sin(th), z = -2.6 * Math.cos(th); return { room: 'hub', at: [x, z], ry: Math.atan2(-x, -z) }; };
     const list = s.agents || [];
     for (const ag of list) {
-      const p = M.placeAgent(s, ag, W.rooms), sub = !!ag.parent, kind = shownKind(ag.id, p.kind);
-      const target = p.desk ? deskSlot() : spot(p.room, ag.id, { kind, prefer: sub ? null : p.run?.workflow_node?'task:'+p.run.workflow_node:ag.skill, role: ag.role });
-      want.set(ag.id, { key: ag.id, kind: sub ? 'sub' : 'main', hue: Math.floor(hash01(rootOf(list, ag)) * 12) * 30,
+      const p = M.placeAgent(s, ag, W.rooms), sub = !!ag.parent, kind = s.room_preview ? p.kind : shownKind(ag.id, p.kind);
+      const prior=actors.get(ag.id)?.dest;
+      const staying=p.signal&&p.signal.id!=='queued'&&prior?.room===p.room;
+      const target = p.desk ? deskSlot() : staying ? prior : spot(p.room, ag.id, { kind, prefer: sub ? null : p.run?.workflow_node?'task:'+p.run.workflow_node:ag.skill, role: ag.role });
+      if(staying&&prior.spot)(used[p.room]=used[p.room]||new Set()).add(prior.spot);
+      want.set(ag.id, { key: ag.id, identity: ArloAgents.identity(s,ag), kind: sub ? 'sub' : 'main', hue: Math.floor(hash01(ArloAgents.identity(s,ArloAgents.root(s,ag))) * 12) * 30,
         badge: ROLE_BADGE[ag.role] || (sub ? ROLE_BADGE['general-purpose'] : ROLE_BADGE.orchestrator), scale: sub ? SUB_SCALE : 1,
-        parent: ag.parent, target, pose: p.pose, act: kind, agent: ag, run: p.run, room: p.room });
+        parent: ag.parent, target, pose: p.pose, act: p.signal ? null : kind, signal:p.signal, agent: ag, run: p.run, room: p.room });
     }
     for (const id of [...shown.keys()]) if (!want.has(id)) shown.delete(id);
     return want;
   }
-  /** an agent's family: its run, or the session it is part of (a subagent wears its root's colours) */
-  function rootOf(list, ag) {
-    if (ag.run_id) return ag.run_id;
-    let a = ag, seen = 0;
-    while (a.parent && seen++ < 8) { const p = list.find(x => x.id === a.parent); if (!p) break; a = p; }
-    return a.worker_id || a.id;
-  }
-
-  // ── actors: newts (or the cast you chose) walking to where they should be ────────────────────────
+  // ── actors: arlo (or the cast you chose) walking to where they should be ────────────────────────
   // the cast: one character for every agent, or one per tool (Claude, Codex, opencode) so you can tell them apart
   let cast = Object.assign({ mode: 'backend', one: 'newt', claude: 'newt', codex: 'human', opencode: 'robot' }, opts.cast || {});
   const characterOf = spec => {
@@ -414,8 +375,8 @@ L.createWorld = async function createWorld(canvas, opts) {
   };
   const body = (spec, detail) => {
     const previousDetail = K.detail; K.detail = detail || detailFor(null);
-    const n = L.makeCharacter ? L.makeCharacter(K, characterOf(spec), { color: spec.badge, hue: spec.hue, scale: spec.scale * 1.25, seed: spec.key })
-      : L.makeNewt(K, { color: spec.badge, hue: spec.hue, scale: spec.scale * 1.25, seed: spec.key });
+    const n = L.makeCharacter ? L.makeCharacter(K, characterOf(spec), { color: spec.badge, hue: spec.hue, scale: spec.scale * 1.25, seed: spec.seed || spec.key })
+      : L.makeNewt(K, { color: spec.badge, hue: spec.hue, scale: spec.scale * 1.25, seed: spec.seed || spec.key });
     n.hit = new THREE.Mesh(K.geometry('BoxGeometry', 1.2, 1.8, 0.9), new THREE.MeshBasicMaterial()); n.hit.visible = false;
     n.hit.position.y = 0.85; n.hit.userData.pick = { kind: 'actor', key: spec.key }; n.group.add(n.hit); n.detail = K.detail; K.detail = previousDetail; L.resources.track(n.group); return n;
   };
@@ -445,17 +406,34 @@ L.createWorld = async function createWorld(canvas, opts) {
   function reconcile(s) {
     const want = desired(s);
     for (const [key, spec] of want) {
+      const family=spec.parent&&actors.get(spec.parent);if(family)spec.hue=family.spec.hue;
       let a = actors.get(key);
       if (!a) {
-        const parent = spec.parent && actors.get(spec.parent);
-        const from = parent ? { room: parent.room, at: parent.pos.slice() } : { room: 'hub', at: [0, 1.8] };
+        // Reuse the rig, position and animation when the next run owns the same conversation.
+        const previous = [...actors.values()].find(x => !x.courier && !want.has(x.key) && x.spec.identity === spec.identity);
+        if (previous) {
+          const old = previous.key; actors.delete(old); a = previous; a.key = key; actors.set(key,a);
+          a.n.group.userData.pick = a.n.hit.userData.pick = {kind:'actor',key};
+          if (shown.has(old)) { shown.set(key,shown.get(old)); shown.delete(old); }
+          if (hovered?.key === old) hovered = {kind:'actor',key};
+          if (selectedKey === old) selectedKey = key;
+          if (followKey === old) { followKey = key; if (onFollow) onFollow(spec.agent.id); }
+        }
+      }
+      if (!a) {
+        const parent = spec.parent && actors.get(spec.parent) || (spec.run?.context?.mode==='native-fork' && actors.get('run:'+spec.run.context.source_run));
+        const saved=resting.get(spec.identity);if(saved){spec.hue=saved.hue;spec.seed=saved.seed;resting.delete(spec.identity)}
+        const from = s.room_preview ? spec.target : parent ? { room: parent.room, at: parent.pos.slice() } : saved && (saved.room==='hub'||W.rooms[saved.room]) ? saved : { room: 'hub', at: [0, 1.8] };
         a = makeActor(spec, from); actors.set(key, a); sendTo(a, spec.target);
       } else if (a.leaving || !a.dest || a.dest.room !== spec.target.room || Math.hypot(a.dest.at[0] - spec.target.at[0], a.dest.at[1] - spec.target.at[1]) > 0.3) {
         a.leaving = false; sendTo(a, spec.target);
       }
+      // Learning a native session ID must not recolor a character partway through its first task.
+      spec.hue = a.spec.hue; spec.seed = a.spec.seed || a.spec.key;
       a.spec = spec;
     }
     for (const [key, a] of actors) if (!want.has(key) && !a.leaving && !a.courier) {
+      if(s.room_preview){L.resources.release(a.n.group);pickables.delete(a.n.hit||a.n.group);actors.delete(key);continue}
       a.leaving = true;
       const home = a.spec.kind === 'sub' && actors.get(a.spec.parent);
       if (a.spec.kind === 'sub') { if (home && !home.leaving) sendTo(a, { room: home.room, at: home.pos.slice(), ry: 0 }); else a.path = []; }
@@ -507,12 +485,11 @@ L.createWorld = async function createWorld(canvas, opts) {
   // ── the camera: the whole table, or one room; it keeps clear of the rail and the ask bar ──────────
   const cam = { az: 0, el: 0.92, r: 80, tx: 0, tz: 0 }, camT = { ...cam };
   let insets = { right: 0, left: 0, bottom: 0, top: 56, k: 0.5 };
-  const nbRoom = () => (neighbours.length ? 14 : 0);   // the back edge's other labs need a little more of the view
   function fitCamera(snapNow) {
     if (!W) return;
     const r = canvas.getBoundingClientRect(), wide = r.width - insets.right - insets.left, aspect = Math.max(0.3, wide / Math.max(1, r.height - insets.top - insets.bottom * insets.k)), base = W.SPAN * 3.5 * Math.max(1, 1.4 / aspect, 1.25 * r.height / Math.max(1, wide));   // (narrow screens: fit the width)
-    if (view.level === 'ROOM' && W.rooms[view.room]) { const o = W.rooms[view.room]; Object.assign(camT, { tx: o.x, tz: o.z, r: Math.max(o.spec.size[0], 10) * 2.0, az: Math.atan2(o.dir[0], o.dir[1]), el: 0.95 }); }
-    else Object.assign(camT, { tx: (W.EXT.x0 + W.EXT.x1) / 2, tz: (W.EXT.z0 - nbRoom() + W.EXT.z1) / 2 + 1, r: base * (1 + nbRoom() / Math.max(10, W.EXT.z1 - W.EXT.z0) * 0.75), el: 0.92, az: camT.az && view.level === 'WORLD' ? camT.az : 0 });
+    if (view.level === 'ROOM' && W.rooms[view.room]) { const o = W.rooms[view.room]; Object.assign(camT, { tx: o.x, tz: o.z, r: Math.max(...o.spec.size,10)*2*Math.max(1,1.25/aspect), az: Math.atan2(o.dir[0], o.dir[1]), el: 0.95 }); }
+    else Object.assign(camT, { tx: (W.EXT.x0 + W.EXT.x1) / 2, tz: (W.EXT.z0 + W.EXT.z1) / 2 + 1, r: base, el: 0.92, az: camT.az && view.level === 'WORLD' ? camT.az : 0 });
     if (snapNow || motion() !== 'full') Object.assign(cam, camT);
   }
   // the room the UI leaves the world: a column on the left (a lens), the instrument rail on the right
@@ -534,6 +511,21 @@ L.createWorld = async function createWorld(canvas, opts) {
   // ── input: drag to turn, wheel to zoom, hover to read, click to open ──────────────────────────────
   const ray = new THREE.Raycaster(), mouse = new THREE.Vector2();
   let drag = null, hovered = null;
+  const notes=L.annotations(THREE,scene);let guideSig='',relationSnapshot,relationKey,related=[],linkedOutputs=[];
+  function drawLinks() {
+    const source = actors.get(hovered?.kind === 'actor' ? hovered.key : selectedKey || followKey);
+    const key=(source?.key||'')+'|'+sheetSig;
+    if(relationSnapshot!==snap||relationKey!==key){
+      relationSnapshot=snap;relationKey=key;
+      related=source?.spec.agent?ArloAgents.peers(snap,source.spec.agent).map(a=>a.id):[];
+      linkedOutputs=source?.spec.agent?ArloAgents.outputs(snap,source.spec.agent).map(a=>a.id):[];
+    }
+    const peers=source&&!source.leaving?related.map(id=>actors.get(id)).filter(a=>a&&!a.leaving&&!a.courier):[];
+    const outputs=source&&!source.leaving?linkedOutputs.map(id=>sheets.get(id)).filter(Boolean):[];
+    const targets=[...peers.map(a=>({at:a.n.group.position,lift:1.25})),...outputs.map(o=>({at:o.getWorldPosition(new THREE.Vector3()),lift:.1}))];
+    if(source&&!source.leaving&&['question','permission'].includes(source.spec.signal?.id))targets.push({at:W.bigNewt.group.position,lift:.8,attention:true});
+    notes.links(source?.n.group.position,targets,theme==='night');
+  }
   function pickAt(x, y) {
     const r = canvas.getBoundingClientRect(); mouse.set((x - r.left) / r.width * 2 - 1, -((y - r.top) / r.height) * 2 + 1); ray.setFromCamera(mouse, camera);
     const hits = ray.intersectObjects([...pickables].filter(p => p.visible !== false || (p.userData.pick && p.userData.pick.kind === 'actor')), true);
@@ -545,25 +537,29 @@ L.createWorld = async function createWorld(canvas, opts) {
   listen(window, 'pointerup', e => { if (drag && !drag.moved && !blocked(e)) click(pickAt(e.clientX, e.clientY)); drag = null; });
   listen(window, 'pointermove', e => {
     if (drag) { const dx = e.clientX - drag.x, dy = e.clientY - drag.y; if (Math.abs(dx) + Math.abs(dy) > 4) drag.moved = true; camT.az = drag.az - dx * 0.006; camT.el = clamp(drag.el + dy * 0.004, 0.35, 1.35); kick(); }
-    if (blocked(e)) { tip.style.display = 'none'; canvas.style.cursor = ''; hovered = null; return; }
+    if (blocked(e)) { tip.style.display = 'none'; canvas.style.cursor = ''; hovered = null; kick(); return; }
     const was = hovered && (hovered.key || hovered.kind);
     hovered = pickAt(e.clientX, e.clientY); canvas.style.cursor = hovered ? 'pointer' : '';
     if (hovered && hovered.kind === 'actor' && hovered.key !== was) poke(hovered.key, false);
     if (hovered && hovered.kind === 'newt' && was !== 'newt' && W) { W.bigNewt.poke = performance.now() / 1000; kick(); }
     const html = hovered && describe(hovered);
+    kick();
     if (!html) { tip.style.display = 'none'; return; }
     tip.innerHTML = html; tip.style.display = 'block'; tip.style.left = Math.min(innerWidth - 330, e.clientX + 16) + 'px'; tip.style.top = (e.clientY + 14) + 'px';
   });
   listen(canvas, 'wheel', e => { e.preventDefault(); if (!W) return; camT.r = clamp(camT.r * (1 + Math.sign(e.deltaY) * 0.1), 9, W.SPAN * 4); kick(); }, { passive: false });
   listen(window, 'pointercancel', () => { drag = null; });
+  listen(canvas, 'pointerleave', () => {hovered=null;tip.style.display='none';kick()});
+  listen(canvas, 'blur', () => {hovered=null;tip.style.display='none';kick()});
   canvas.tabIndex = 0; canvas.setAttribute('aria-label', 'World: use arrow keys to select, Enter to open, Escape for the overview');
   let selected = -1;
   listen(canvas, 'keydown', e => {
     const choices = [...new Set([...pickables].map(o => o.userData.pick).filter(Boolean))];
-    if (e.key === 'Escape') { setViewState('WORLD'); tip.style.display = 'none'; kick(); }
+    if (e.key === 'Escape') { hovered=null;setViewState('WORLD'); tip.style.display = 'none'; kick(); }
     else if (e.key === 'Enter' && choices[selected]) { e.preventDefault(); click(choices[selected]); }
     else if (['ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown'].includes(e.key) && choices.length) {
       e.preventDefault(); selected = (selected + (e.key === 'ArrowLeft' || e.key === 'ArrowUp' ? -1 : 1) + choices.length) % choices.length;
+      hovered=choices[selected];kick();
       tip.innerHTML = describe(choices[selected]) || ''; tip.style.display = 'block'; tip.style.left = '16px'; tip.style.top = '80px';
     }
   });
@@ -581,7 +577,6 @@ L.createWorld = async function createWorld(canvas, opts) {
     if (p.kind === 'card' && onItem) return onItem(p.id);
     if (p.kind === 'hub' && onInbox) return onInbox();
     if (p.kind === 'newt' && onNewt) return onNewt();
-    if (p.kind === 'otherlab' && onLab) return onLab(p.key);
     if (p.kind === 'artifact' && onArtifact) return onArtifact(p.id);
     if (p.kind === 'checkpoint') { const it = ((snap && snap.items) || []).find(i => (i.waiting || []).includes(p.id)&&(snap.world_view!=='full'||(i.machine||'local')===p.machine));
       if (it && onCheckpoint) return onCheckpoint(it.id, p.id); if (it && onItem) return onItem(it.id); }
@@ -597,10 +592,11 @@ L.createWorld = async function createWorld(canvas, opts) {
   function doing(spec) {
     const ag = spec.agent, r = spec.run;
     if (!ag) return '';
+    if (spec.signal) return spec.signal.label;
     if (r && !ag.parent) {
       if (r.status === 'waiting_input') return '? ' + ((r.pending_question && (r.pending_question.question || r.pending_question.text)) || 'a question for you');
-      if (r.status === 'queued') return 'queued — starts when a slot frees';
-      if ((r.pending_permissions || []).length) return '✋ asks to ' + ((r.pending_permissions[0].tool) || 'do something') + ' — Needs you';
+      if (r.status === 'queued') return 'queued · starts when a slot frees';
+      if ((r.pending_permissions || []).length) return '✋ asks to ' + ((r.pending_permissions[0].tool) || 'do something') + ' · Needs you';
     }
     const d = ag.doing, act = d && ACTS[d.kind];          // (the sign of the call itself; where it stands may lag a moment)
     if (d) return `${act ? act[0] + ' ' : ''}${d.summary || d.tool || (act && act[1]) || ''}`;
@@ -609,16 +605,16 @@ L.createWorld = async function createWorld(canvas, opts) {
   function describe(p) {
     const s = snap || {};
     if (p.kind === 'artifact') { const a = ((snap && snap.artifacts) || []).find(x => x.id === p.id); return a ? `<b>${esc(a.title)}</b>${a.question ? `<small>${esc(a.question)}</small>` : ''}` : null; }
-    if (p.kind === 'otherlab') { const nb = neighbours.find(n => n.key === p.key); return nb ? `<b>${esc(nb.name)}</b>${nb.needs ? `<small>${nb.needs} need${nb.needs === 1 ? 's' : ''} you</small>` : ''}` : null; }
     if (p.kind === 'actor') {
       const a = actors.get(p.key); if (!a) return null;
       if (a.courier) { const it = item(s, a.courier); return `<b>Carrying “${esc(it ? it.title || it.id : a.courier)}”</b><small>to its next room</small>`; }
       const sp = a.spec, r = sp.run, ag = sp.agent || {};
       const on = r && (r.subject || (r.target !== 'hub' ? r.target : '')), it0 = on && item(s, on);
-      const who = ag.parent ? esc(ag.label || ag.role || 'subagent') : r ? `${esc((window.NL && NL.procTitle) ? NL.procTitle(r.skill || 'ask') : r.skill)}${it0 ? ' · ' + esc(it0.title || it0.id) : ''}`
+      const who = ag.display_label ? esc(ag.display_label) : ag.parent ? esc(ag.label || ag.role || 'subagent') : r ? `${esc(((s.workflow?.procedures||{})[r.skill]||{}).title || r.label || r.skill)}${it0 ? ' · ' + esc(it0.title || it0.id) : ''}`
         : `${esc(ag.role || 'agent')}${ag.interactive ? ' · your session' : ''}`;
       const kids = [...actors.values()].filter(x => x.spec.parent === sp.key && !x.leaving).length;
-      return `<b>${who}</b><small>${esc(NLclip(doing(sp), 90))}</small>${kids ? `<small>${kids} subagent${kids === 1 ? '' : 's'}</small>` : ''}`;
+      const peers=ArloAgents.peers(s,ag).length;
+      return `<b>${who}</b><small>${esc(NLclip(doing(sp), 90))}</small>${kids ? `<small>${kids} subagent${kids === 1 ? '' : 's'}</small>` : ''}${peers?`<small>${peers} other${peers===1?'':'s'} on this task</small>`:''}`;
     }
     if (p.kind === 'card') { const it = item(s, p.id); return it ? `<b>${esc(it.title || it.id)}</b><small>${(it.waiting || []).length ? '◆ waits for you' : esc((window.NL && NL.STATE_LABEL && NL.STATE_LABEL[it.state]) || it.state)}</small>` : null; }
     if (p.kind === 'room') { const o = W.rooms[p.id]; if (!o) return null; const n = [...actors.values()].filter(a => a.room === p.id && !a.leaving).length; return `<b>${esc(o.title)}</b>${n ? `<small>${n} at work</small>` : ''}`; }
@@ -634,7 +630,7 @@ L.createWorld = async function createWorld(canvas, opts) {
   // ── lenses and labels ─────────────────────────────────────────────────────────────────────────────
   const tmpV = new THREE.Vector3();
   function toScreen(x, y, z) { tmpV.set(x, y, z).project(camera); const r = canvas.getBoundingClientRect(); return [(tmpV.x + 1) / 2 * r.width + r.left, (1 - tmpV.y) / 2 * r.height + r.top, tmpV.z < 1]; }
-  /** what is drawn over the table: a "?" over each agent asking you; the rooms' names only when asked (the tour) */
+  /** what is drawn over the table: a "?" over each agent asking you; the rooms' names when requested */
   function overlays() {
     if (!W || !snap) return;
     const out = [];
@@ -648,10 +644,11 @@ L.createWorld = async function createWorld(canvas, opts) {
       if (vis && sy > insets.top + 30 && sy < (insets.cut || innerHeight)) out.push(`<div class="wl-room" style="left:${sx}px;top:${sy}px"><b>${esc(o.title)}</b></div>`);
     }
     for (const a of actors.values()) {
-      if (a.leaving || a.courier || a.path.length || (a.spec.pose !== 'wait' && a.spec.pose !== 'sleep')) continue;
+      if (a.leaving || a.courier || !a.spec.signal) continue;
       const h = a.n.group.position, [sx, sy, vis] = toScreen(h.x, 1.75 * a.spec.scale * 1.25 + 0.15, h.z);
-      if (vis) out.push(a.spec.pose === 'wait' ? `<div class="wl-bub ask icon" style="left:${sx}px;top:${sy}px">?</div>`
-        : `<div class="wl-zz" style="left:${sx}px;top:${sy}px"><i>z</i><i>z</i><i>z</i></div>`);
+      const signal=a.spec.signal;
+      const focused=hovered?.key===a.key||selectedKey===a.key||followKey===a.key;
+      if (vis) out.push(`<div class="wl-bub signal ${signal.pose==='wait'?'ask':''}" title="${esc(signal.label)}" style="left:${sx}px;top:${sy}px">${esc(signal.mark)}${focused?`<span>${esc(signal.label)}</span>`:''}</div>`);
     }
     const html = out.join(''); if (overlay.innerHTML !== html) overlay.innerHTML = html;
   }
@@ -691,12 +688,15 @@ L.createWorld = async function createWorld(canvas, opts) {
         const done = !a.path.length; if (motion() !== 'full' && a.leaving) a.fade = 1;
         if (a.leaving && done) a.fade = Math.min(1, a.fade + dt * 2.5); else if (!a.leaving) a.fade = Math.max(0, a.fade - dt * 4);
         if (a.courier && done) { a.leaving = true; const c = cards.get(a.courier); if (c && c.userData.carrier === key) c.userData.carrier = null; }
-        if (a.leaving && a.fade >= 1) { L.resources.release(a.n.group); pickables.delete(a.n.hit || a.n.group); actors.delete(key); continue; }
+        if (a.leaving && a.fade >= 1) {
+          if(!a.courier){resting.set(a.spec.identity,{room:a.room,at:a.pos.slice(),ry:a.ry,hue:a.spec.hue,seed:a.spec.seed||a.spec.key});if(resting.size>64)resting.delete(resting.keys().next().value)}
+          L.resources.release(a.n.group); pickables.delete(a.n.hit || a.n.group); actors.delete(key); continue;
+        }
         const g = a.n.group, sc = a.spec.scale * 1.25 * (1 - a.fade * 0.9);
         g.position.set(a.pos[0], a.y??0.14, a.pos[1]); g.rotation.y = a.ry; g.scale.setScalar(Math.max(0.01, sc));
         const pz = moving ? (a.courier ? 'carry' : 'walk') : a.spec.pose;
         const poked = a.poke != null && t - a.poke < 1.6 ? t - a.poke : null;
-        a.n.update(t, { pose: pz, moving, act: a.spec.act, poke: poked, hop: a.hop, contact:a.blocked,motion: motion(), distance: a.distance || 0, locomotion: locomotion(a.n.character) });
+        a.n.update(t, { pose: pz, moving, act: a.spec.act, role:a.spec.agent?.role, poke: poked, hop: a.hop, contact:a.blocked,motion: motion(), distance: a.distance || 0, locomotion: locomotion(a.n.character) });
       }
       // cards: carried, at a gate, or on their room's shelf
       const shelfN = {};
@@ -708,8 +708,7 @@ L.createWorld = async function createWorld(canvas, opts) {
         if (g && g.host === o) { const k = (shelfN['gate' + c.userData.gate] = (shelfN['gate' + c.userData.gate] || 0) + 1) - 1; c.position.set(g.pos[0], 0.3 + k * 0.1, g.pos[1]); c.rotation.y = motion() === 'full' ? t * 0.6 : o.ry; c.visible = true; continue; }
         const i = (shelfN[o.id] = (shelfN[o.id] || 0) + 1) - 1, perRow = Math.max(1, Math.floor(Math.min(3.4, o.spec.size[0] * 0.4) / 0.62));
         const [x, z] = o.toWorld(o.shelfAt[0] + 0.34 + (i % perRow) * 0.62, o.shelfAt[1]);
-        c.position.set(x, 0.62 + Math.floor(i / perRow) * 0.1 + (touring === 'studies' ? 0.25 + Math.sin(t * 3 + i) * 0.12 : 0), z); c.rotation.y = o.ry; c.visible = true;
-        c.scale.setScalar(touring === 'studies' ? 1.7 : 1);
+        c.position.set(x, 0.62 + Math.floor(i / perRow) * 0.1, z); c.rotation.y = o.ry; c.visible = true;
       }
       // the desk: one envelope per thing waiting; Newt poses by the lab's mood; checkpoint lanterns glow when someone waits
       const n = needs(snap).length;
@@ -725,7 +724,7 @@ L.createWorld = async function createWorld(canvas, opts) {
         if (W.glowLines[0]) W.glowLines[0].material.emissiveIntensity = 0.32 + Math.sin(t * 0.8) * 0.1;
       }
       for (const g of Object.values(W.gates)) {
-        const on = (waitingGates.has(g.g.id)&&(snap.world_view!=='full'||(snap.items||[]).some(it=>(it.waiting||[]).includes(g.g.id)&&(it.machine||'local')===g.machine))) || glowAll;
+        const on = (waitingGates.has(g.g.id)&&(snap.world_view!=='full'||(snap.items||[]).some(it=>(it.waiting||[]).includes(g.g.id)&&(it.machine||'local')===g.machine)));
         g.lamp.material.emissiveIntensity = on ? 1.7 + (motion() === 'full' ? Math.sin(t * 4.5) * 0.6 : 0) : 0.12;
         g.lamp.rotation.y = on && motion() === 'full' ? t * 0.8 : 0;
         if (g.arch.userData.sway && motion() === 'full') g.arch.userData.sway.rotation.z = on ? Math.sin(t * 1.6) * 0.06 : 0;
@@ -744,7 +743,7 @@ L.createWorld = async function createWorld(canvas, opts) {
         wl.wall.scale.y += (target - wl.wall.scale.y) * Math.min(1, k * 1.5); wl.wall.position.y = 0.14 + wl.h / 2 * wl.wall.scale.y; wl.cap.position.y = 0.14 + wl.h * wl.wall.scale.y + 0.03;
       }
       if (quiet) return;
-      renderer.render(scene, camera);
+      drawLinks();renderer.render(scene, camera);
       overlays();
     }
     if (!document.hidden && (motion() === 'full' || unsettled())) raf = requestAnimationFrame(frame);
@@ -779,18 +778,20 @@ L.createWorld = async function createWorld(canvas, opts) {
       listeners.splice(0).forEach(off => off());
         L.resources.release(scene); renderer.dispose();
       tip.remove(); overlay.remove();
-      actors.clear(); cards.clear(); pickables.clear();
+      actors.clear(); cards.clear(); pickables.clear();resting.clear();
     },
     setMotion(mode) { reduced = mode === 'reduced'; ambient = mode === 'full';
       if (motion() !== 'full') { for (const a of actors.values()) if (a.dest) sendTo(a, a.dest); if (W) for (const o of Object.values(W.rooms)) { o.rising = false; o.g.scale.y = 1; } }
       kick(); },
-    _debug: () => ({ W, actors, cards, snap, view, labels, click, pickAt, toScreen, step(sec, fps) { const f = fps || 20; for (let i = 0; i < sec * f; i++) frame(last + 1000 / f, true); } }),
+    _debug: () => ({ W, actors, cards, snap, view, labels, click, pickAt, toScreen,annotations:notes.inspect(), step(sec, fps) { const f = fps || 20; for (let i = 0; i < sec * f; i++) frame(last + 1000 / f, true); } }),
     async boot() { resize(); kick(); },
     async sync(s) {
       if (destroyed) return;const changed=snap&&snap.world_view!==s.world_view; snap = s;
       const rebuilt = buildStatic(s);
       refreshCast();
       reconcile(s); L.resources.track(scene);
+      const guideKey=JSON.stringify([staticSig,s.room_preview?.guides,s.room_preview?.room]);
+      if(guideKey!==guideSig){guideSig=guideKey;notes.guides(W,s.room_preview?.guides?s.room_preview.room:null,K)}
       if(changed)for(const a of actors.values())if(a.dest){a.pos=a.dest.at.slice();a.room=a.dest.room;a.path=[];a.ry=a.dest.ry||0}
       if ((!settled || rebuilt) && /[?&]settle\b/.test(location.search)) { settled = true; for (let i = 0; i < 900; i++) frame(last + 50, true); }   // screenshots: everyone in place (again after a rebuild: walks start over)
       kick();
@@ -813,7 +814,8 @@ L.createWorld = async function createWorld(canvas, opts) {
     },
     setView(m) { if (m === 'WORLD') setViewState('WORLD'); },
     goRoom(k) { if (W && W.rooms[k]) setViewState('ROOM', k); },
-    focusProject(id) { if (!W) return; const it = item(snap, id), rid = (it && (labOf(it) || roomOfItem(snap, it))) || null; if (rid) setViewState('ROOM', rid); },
+    focusProject(id) { if (!W) return; const it = item(snap, id), rid = (it && roomOfItem(snap, it)) || null; if (rid) setViewState('ROOM', rid); },
+    focusTask(study,task) {if(!W)return;const it=item(snap,study),room=it&&task&&M.roomForStep(snap,task,W.rooms,it.machine||'local',it.workflow);if(room)setViewState('ROOM',room);else this.focusProject(study)},
     back() { setViewState('WORLD'); },
     viewInfo() { return { level: view.level === 'ROOM' ? 'REGION' : 'WORLD', label: view.label }; },
     agentAnchor(id) {
@@ -824,37 +826,24 @@ L.createWorld = async function createWorld(canvas, opts) {
       return {x,y,width:canvas.clientWidth,height:canvas.clientHeight,visible};
     },
     highlight(role) { highlightRole = role || null; kick(); },
+    clearHover() { if(hovered){hovered=null;tip.style.display='none';kick()} },
+    selectAgent(id) {selectedKey=actors.has(id)?id:null;kick()},
     roomRect() { return null; }, band() { return null; },
     followWorker(id) {
       const ag = ((snap && snap.agents) || []).find(x => x.id === id || x.worker_id === id || (x.run_id === id && !x.parent));
       const key = ag ? ag.id : [...actors.keys()].find(k => k === 'run:' + id || k === 'w:' + id);
       if (key && actors.has(key)) { followKey = key; camT.r = 22; if (onFollow) onFollow(id); kick(); }
     },
-    stopFollow() { followKey = null; if (onFollow) onFollow(null); }, following() { return followKey; },
+    stopFollow() { followKey = null; if (onFollow) onFollow(null); kick(); }, following() { return followKey; },
     layout() {                         // the plan of the table, for the minimap
       if (!W) return null;
       const boxes = Object.values(W.rooms).map((o, i) => ({ key: o.id, x: o.x - o.ex / 2, y: o.z - o.ez / 2, w: o.ex, h: o.ez, label: o.title, n: i + 1 }));
       return { boxes, bbox: { x: W.EXT.x0, y: W.EXT.z0, w: W.EXT.x1 - W.EXT.x0, h: W.EXT.z1 - W.EXT.z0 }, room: view.room, level: view.level };
     },
     setAmbient(on) { ambient = !!on; if (!on) for (const a of actors.values()) if (a.dest) sendTo(a, a.dest); kick(); },
-    /** the rooms' names over the table (the tour shows them; otherwise a name is a hover away) */
+    /** Toggle room names. */
     setLabels(on) { labels = !!on; kick(); },
-    /** the tour: show one of the lab's concepts — 'rooms' · 'studies' · 'agents' · 'checkpoints' · 'desk' — or end (null) */
-    tour(what) {
-      if (!W) return;
-      labels = what === 'rooms'; glowAll = what === 'checkpoints'; touring = what || null;
-      const busiest = count => { let best = null, n = 0; for (const o of Object.values(W.rooms)) { const k = count(o); if (k > n) { n = k; best = o.id; } } return best; };
-      const room = what === 'studies' ? busiest(o => [...cards.values()].filter(c => c.userData.room === o.id).length)
-        : what === 'agents' ? busiest(o => [...actors.values()].filter(a => a.room === o.id && !a.leaving && !a.courier).length)
-        : what === 'checkpoints' ? (() => { const waiting = new Set(((snap && snap.items) || []).flatMap(i => i.waiting || [])), gs = Object.values(W.gates);
-            const g = gs.find(x => waiting.has(x.g.id)) || gs[0]; return g && g.host ? g.host.id : null; })() : null;
-      if (room) setViewState('ROOM', room);
-      else { setViewState('WORLD'); if (what === 'desk') Object.assign(camT, { tx: 0, tz: 0, r: Math.max(16, W.SPAN * 1.1), el: 0.9 }); }
-      kick();
-    },
-    /** your other labs: [{key, name, machine, needs, running, state}] — drawn as small tables past the back edge */
-    setNeighbours(list) { const had = neighbours.length; neighbours = (list || []).map(n => ({ ...n })); nbSig = ''; buildNeighbours(); if (!had !== !neighbours.length && view.level === 'WORLD') fitCamera(false); kick(); },
-    onLab(cb) { onLab = cb; }, onArtifact(cb) { onArtifact = cb; }, onCheckpoint(cb) { onCheckpoint = cb; },
+    onArtifact(cb) { onArtifact = cb; }, onCheckpoint(cb) { onCheckpoint = cb; },
     /** who plays the agents: {mode: 'one'|'backend', one, claude, codex, opencode} — swapped in place, mid-stride */
     setCast(c) {
       cast = Object.assign({}, cast, c || {});

@@ -4,7 +4,7 @@
     summary(before, after)       what a change does, in plain lines — every loosened or removed checkpoint first
     affected(hub, root)          what it does to the lab's studies: waits it ends or moves, approvals it outdates
     check_overlay(hub, folder)   a designer's draft (a folder holding some definition files, at the same paths)
-                                 laid over the live definition: (problems, summary). `newts check --design`.
+                                 laid over the live definition: (problems, summary). `arlo check --design`.
     lay(folder, dest, merge)     lay such a folder over a lab. A design replaces each file it holds; an extension
                                  (merge=True) adds — its steps and rooms join the lab's by id.
     extensions(hub)              the extensions a lab can add (extensions/<name>/ with an extension.yaml)
@@ -158,7 +158,7 @@ def orphans(hub, root: Path) -> list[str]:
         rows = studies.rows(hub)
     except Exception:  # noqa: BLE001
         return []
-    out = [f"Studies stand at `{s}`, which this definition no longer has — move them first (newts move <study> --to <step>)."
+    out = [f"Studies stand at `{s}`, which this definition no longer has — move them first (arlo move <study> --to <step>)."
            for s in sorted({r["state"] for r in rows if r.get("state") and r["state"] not in m["steps"]})]
     wfs = {w["id"] for w in m["workflows"]}
     out += [f"Studies follow the workflow `{w}`, which this definition no longer has — give them another first."
@@ -223,7 +223,7 @@ def check_overlay(hub, folder: Path, merge: bool = False) -> tuple[list[str], li
     hub, folder = Path(hub), Path(folder)
     if not design_files(folder):
         return ["it holds no definition files (workflow/…, .claude/skills/…)"], []
-    with tempfile.TemporaryDirectory(prefix="newts-design-") as tmp:
+    with tempfile.TemporaryDirectory(prefix="arlotope-design-") as tmp:
         t = Path(tmp)
         copy(hub, t)
         try:

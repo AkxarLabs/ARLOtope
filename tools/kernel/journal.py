@@ -13,7 +13,7 @@ Every line is an event {ts, study, kind, by, …}; `study` is a study's slug, or
     project    {path}                              where its project repository is
     remap      {map}  (study "lab")                steps were renamed: {old id: new id}
 
-`by` says who: pi · run:<id> · campaign:<name> · auto · cli · migration. Only the kernel writes here (the
+`by` says who: pi · run:<id> · campaign:<name> · auto · cli. Only the kernel writes here (the
 signature guard refuses everything else); the state of every study is a fold over these lines, and
 lab/REGISTRY.md is a view of that fold, written after every event. Extensions add kinds of their own, named
 `<extension>:<kind>`; the fold ignores what it doesn't know.
@@ -116,6 +116,8 @@ def fold(evs: list[dict], shelves=("parked", "killed")) -> dict[str, dict]:
                 for s in out.values():
                     s["step"] = mp.get(s["step"], s["step"])
                     s["was"] = mp.get(s["was"], s["was"])
+                    if s.get('entry'):
+                        s['entry'] = dict(s['entry'], tasks={mp.get(k, k): v for k, v in s['entry']['tasks'].items()})
                     if s["waiting"]:
                         s["waiting"] = dict(s["waiting"], at=mp.get(s["waiting"].get("at"), s["waiting"].get("at")),
                                             to=mp.get(s["waiting"].get("to"), s["waiting"].get("to")))
@@ -129,6 +131,10 @@ def fold(evs: list[dict], shelves=("parked", "killed")) -> dict[str, dict]:
         if k == "new":
             s.update(workflow=e.get("workflow") or s["workflow"], title=e.get("title") or s["title"],
                      step=e.get("step"), since=e.get("ts"), created=s["created"] or e.get("ts"), finished=False)
+            if e.get('entry'):
+                s['entry'] = e['entry']
+        elif k == 'entry-cancelled':
+            s['entry_cancelled'] = True
         elif k == "move":
             if e.get("to") in shelves and s["step"] not in shelves:
                 s["was"] = s["step"]

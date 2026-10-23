@@ -1,8 +1,7 @@
 {
-  "captured": "2026-10-17",
-  "source": "Real dashboard components in an isolated example Lab.",
-  "method": "Playwright with Chrome, 1440x1000 viewport; execution disabled.",
-  "limits": "Synthetic research records. Remote folder listing is illustrative. No agent or SSH connection launched.",
+  "updated": "2026-10-23",
+  "method": "Playwright CLI with Chrome, 1440x1000 viewport. Original Sakana test image retained.",
+  "limits": "Screenshots demonstrate UI, not scientific findings or provider/SSH certification. Example records and paths are synthetic.",
   "images": [
     {
       "file": "agent-presets.webp",
@@ -10,17 +9,32 @@
         1440,
         1000
       ],
-      "bytes": 51312,
-      "sha256": "3ccabd1f04221ea5f9b9849f15f60ed72496505f45e3fbce320bd1e853f03ffb"
+      "bytes": 47508,
+      "sha256": "1d07562098a80e41731115a7ff75f361e86d6452daa53a3e2ef41ade5b40e151",
+      "captured": "2026-10-23",
+      "source": "Current local private preview. Guide capture used a disposable browser context; no agent launches, settings changes or approvals."
     },
     {
-      "file": "agents-quota.webp",
+      "file": "agent-role-rows.png",
       "size": [
         1440,
         1000
       ],
-      "bytes": 49008,
-      "sha256": "2aceff40e4ae6b95ba0fdfcded2eb652fe47eb6a3697821cbccef84ac84eb094"
+      "bytes": 104276,
+      "sha256": "72127b0870fad233ae484523d93b13da98b895c7448ffaccf8f3d38375ef6f52",
+      "captured": "2026-10-23",
+      "source": "Current local private preview. Guide capture used a disposable browser context; no agent launches, settings changes or approvals."
+    },
+    {
+      "file": "agent-task-preview.webp",
+      "size": [
+        1440,
+        1000
+      ],
+      "bytes": 70068,
+      "sha256": "d6c44344e2af48b9de3ecf5b3b1be8a5a803cd711bf5654d6ae358d385f795b0",
+      "captured": "2026-10-22",
+      "source": "Current renderer and dashboard using synthetic browser-only agent telemetry; no model runs launched."
     },
     {
       "file": "agents-recovery.webp",
@@ -28,8 +42,10 @@
         1440,
         1000
       ],
-      "bytes": 50070,
-      "sha256": "13abf5e96286370827ccd1dcee5e6e01ebcd87d5b841433ef52fd18a97a81ed1"
+      "bytes": 57538,
+      "sha256": "9ca1906ce128a29424db8f01a7a333f4b349d6684d4f5b03acc2f51162ac3d86",
+      "captured": "2026-10-22",
+      "source": "Current application in an isolated synthetic example Lab; no research agents or SSH sessions launched."
     },
     {
       "file": "agents-run.webp",
@@ -37,8 +53,21 @@
         1440,
         1000
       ],
-      "bytes": 55424,
-      "sha256": "6a72d7c07bac360210b9eee20d783d3549f13350bfb3223ddf1436da67507a5c"
+      "bytes": 64000,
+      "sha256": "4ac750973972facea474eb806a1ca790513b6b8d74f1253b872005b69c461a01",
+      "captured": "2026-10-22",
+      "source": "Current application in an isolated synthetic example Lab; no research agents or SSH sessions launched."
+    },
+    {
+      "file": "arlo-guide.webp",
+      "size": [
+        1440,
+        1000
+      ],
+      "bytes": 53538,
+      "sha256": "256325b507c4dccd65c76cf6b182315c811e1d4c116702ee55cc3063d49beeb4",
+      "captured": "2026-10-23",
+      "source": "Current local private preview. Guide capture used a disposable browser context; no agent launches, settings changes or approvals."
     },
     {
       "file": "artifact.webp",
@@ -46,8 +75,10 @@
         1440,
         1000
       ],
-      "bytes": 55698,
-      "sha256": "1ac0897a4a989b72dee27e9e0afa9b3fb6590fdd5417a181a87ba6b6f4b24e53"
+      "bytes": 35390,
+      "sha256": "c2d47b76c94ac6b870b24beafee067b85790cd86cbc6eb7e966c0ddc76fb2b1c",
+      "captured": "2026-10-23",
+      "source": "Current local private preview. Guide capture used a disposable browser context; no agent launches, settings changes or approvals."
     },
     {
       "file": "assistant.webp",
@@ -55,8 +86,10 @@
         1440,
         1000
       ],
-      "bytes": 53068,
-      "sha256": "094a078fbc85dff44455992e07855e9adc263347de524238faed6433e96aef7c"
+      "bytes": 33474,
+      "sha256": "8cc54a016c899def7a50db67a7d26f2c09178761a1bd9a08d86fc0351c7ef08b",
+      "captured": "2026-10-22",
+      "source": "Current application in an isolated synthetic example Lab; no research agents or SSH sessions launched."
     },
     {
       "file": "checkpoint.webp",
@@ -64,8 +97,43 @@
         1440,
         1000
       ],
-      "bytes": 54104,
-      "sha256": "346128d55da25a5d72629635796d3466c36d09e000e65995078cd6740ef84bfd"
+      "bytes": 60890,
+      "sha256": "c989ccc3136085609b2c3462164371450dee1668df64ad4c23dbf8e86fab2c48",
+      "captured": "2026-10-22",
+      "source": "Current application in an isolated synthetic example Lab; no research agents or SSH sessions launched."
+    },
+    {
+      "file": "external-activity.png",
+      "size": [
+        1440,
+        1100
+      ],
+      "bytes": 156883,
+      "sha256": "541ab4897275fa215b3b2d2ceed3da9b49c69d708926f870e30f18e6a0c699c7",
+      "captured": "2026-10-20",
+      "source": "Original one-cycle Sakana Docker test; retained as historical evidence, before the rebrand."
+    },
+    {
+      "file": "external-phase.png",
+      "size": [
+        1440,
+        1000
+      ],
+      "bytes": 111333,
+      "sha256": "005d2a20e633e4576338ef336e5b281c4ff3d1e48c9d0b02467cea433c14cd0a",
+      "captured": "2026-10-22",
+      "source": "Current application in an isolated synthetic example Lab; no research agents or SSH sessions launched."
+    },
+    {
+      "file": "external-tools.png",
+      "size": [
+        1440,
+        1000
+      ],
+      "bytes": 115348,
+      "sha256": "50bcd64017f094e8dfe0de735d67e76b57979aa4bda05226349305d2aec5b974",
+      "captured": "2026-10-22",
+      "source": "Current application in an isolated synthetic example Lab; no research agents or SSH sessions launched."
     },
     {
       "file": "lab-dark.webp",
@@ -73,8 +141,10 @@
         1440,
         1000
       ],
-      "bytes": 90080,
-      "sha256": "e27a5a9a5fe86b942265eac95986a4d52cd000d42e8019c96012d6c60a47e6b8"
+      "bytes": 55170,
+      "sha256": "1299f9c1d29f0209e71fa78fb64fe1aad213b9d9d620174ba53a09e3e741b76b",
+      "captured": "2026-10-22",
+      "source": "Current application in an isolated synthetic example Lab; no research agents or SSH sessions launched."
     },
     {
       "file": "lab-light.webp",
@@ -82,8 +152,10 @@
         1440,
         1000
       ],
-      "bytes": 61390,
-      "sha256": "44e4d29e265542ac1a1222c54b243037ca9c3e7fd62102dd4778f0e9563f6d3c"
+      "bytes": 54396,
+      "sha256": "fb34840da202f78a5aab98e7231673036f851cc51babb245ae2303d3cc939aae",
+      "captured": "2026-10-22",
+      "source": "Current application in an isolated synthetic example Lab; no research agents or SSH sessions launched."
     },
     {
       "file": "library-documents.webp",
@@ -91,8 +163,10 @@
         1440,
         1000
       ],
-      "bytes": 36068,
-      "sha256": "2cfcbc0413498261f2f9f98b490e1f721360d6bbfba99cba0c7340a458ef196c"
+      "bytes": 40918,
+      "sha256": "fdff26047447a8500c2f3918919f9bd3fbf54ff957635ee26d59820a6c15fc55",
+      "captured": "2026-10-22",
+      "source": "Current application in an isolated synthetic example Lab; no research agents or SSH sessions launched."
     },
     {
       "file": "library-records.webp",
@@ -100,8 +174,21 @@
         1440,
         1000
       ],
-      "bytes": 48062,
-      "sha256": "4b95dc026d0cb5ae23872cf8e1c7c876431f2c5660974319afbf3d4aed15dad5"
+      "bytes": 30256,
+      "sha256": "48b2ffd1b2df6cdbe3ce4b21376683375f815ff4616aa1cb04730a47cf154e2d",
+      "captured": "2026-10-22",
+      "source": "Current application in an isolated synthetic example Lab; no research agents or SSH sessions launched."
+    },
+    {
+      "file": "library-study-scope.png",
+      "size": [
+        1440,
+        1000
+      ],
+      "bytes": 68388,
+      "sha256": "f0ec54911cc2d810d1f43052b4532c44af6f77942847e1a1556e7e35b8f39208",
+      "captured": "2026-10-22",
+      "source": "Current application in an isolated synthetic example Lab; no research agents or SSH sessions launched."
     },
     {
       "file": "machine-folder.webp",
@@ -109,8 +196,10 @@
         1440,
         1000
       ],
-      "bytes": 30908,
-      "sha256": "7327a9d11af39f7dd55cd47daa5aacf1379c611c27fa86804e1c487992f2356a"
+      "bytes": 35922,
+      "sha256": "2ae99f0f46035ed45e5ee63938ef235ad4c65ab9682b48d32f6bf2a6d8730791",
+      "captured": "2026-10-22",
+      "source": "Current application in an isolated synthetic example Lab; no research agents or SSH sessions launched."
     },
     {
       "file": "machines.webp",
@@ -118,8 +207,10 @@
         1440,
         1000
       ],
-      "bytes": 28364,
-      "sha256": "2db986c02240533ab38469f47dbfdb636c36eec0bfd0090f550b50659e77ae3e"
+      "bytes": 25460,
+      "sha256": "eff689cb4ab7c1038c31eed160004016a5cb3418077bf6f3abde921b6e23285e",
+      "captured": "2026-10-22",
+      "source": "Current application in an isolated synthetic example Lab; no research agents or SSH sessions launched."
     },
     {
       "file": "note.webp",
@@ -127,8 +218,32 @@
         1440,
         1000
       ],
-      "bytes": 30048,
-      "sha256": "f816d94f9711438c18ec05fe82061f378c6f60b9808129f80982a4fb75ceedab"
+      "bytes": 28342,
+      "sha256": "cb79f0237f07eeb2d12fc671c3219fe2178d109e40a8eadabf514ca0027288e9",
+      "captured": "2026-10-22",
+      "source": "Current application in an isolated synthetic example Lab; no research agents or SSH sessions launched."
+    },
+    {
+      "file": "project-files.png",
+      "size": [
+        1440,
+        1000
+      ],
+      "bytes": 88478,
+      "sha256": "e35091bb321f43d4aa03db8e726dc359839547583945e61fc8fa89eba9fcb9a2",
+      "captured": "2026-10-22",
+      "source": "Current application in an isolated synthetic example Lab; no research agents or SSH sessions launched."
+    },
+    {
+      "file": "room-activity-preview.webp",
+      "size": [
+        1440,
+        1000
+      ],
+      "bytes": 54502,
+      "sha256": "2ab7e2cb4b20e9489ca0faf1cf2a05139924cd69c1ae9c35153de5d3453ede73",
+      "captured": "2026-10-22",
+      "source": "Current renderer and dashboard using synthetic browser-only agent telemetry; no model runs launched."
     },
     {
       "file": "settings-limits.webp",
@@ -136,8 +251,10 @@
         1440,
         1000
       ],
-      "bytes": 66202,
-      "sha256": "350bdef557e7044bdac143c0029e56c5b8bf1d34a30145f98a69dc2b711613c9"
+      "bytes": 58790,
+      "sha256": "9c6f6055faf7881fecd9d61ec6ad362c224b4c2644a70b1f5f443490964cc578",
+      "captured": "2026-10-22",
+      "source": "Current application in an isolated synthetic example Lab; no research agents or SSH sessions launched."
     },
     {
       "file": "setup.webp",
@@ -145,8 +262,21 @@
         1440,
         1000
       ],
-      "bytes": 41050,
-      "sha256": "728c53434116d806bee22c5d52568e28548b6875219bced81da5c23559ad8c91"
+      "bytes": 36918,
+      "sha256": "fc856e6ea999db7e01845f170f09992d503ad1fd8fc1ab98b8ec5d51051da1ce",
+      "captured": "2026-10-22",
+      "source": "Current application in an isolated synthetic example Lab; no research agents or SSH sessions launched."
+    },
+    {
+      "file": "skills-import.png",
+      "size": [
+        1440,
+        1000
+      ],
+      "bytes": 137356,
+      "sha256": "255dd1555fd955f3ad14d9f5656b4425e04cff401bc2b567c7397499b56ff83c",
+      "captured": "2026-10-22",
+      "source": "Current application in an isolated synthetic example Lab; no research agents or SSH sessions launched."
     },
     {
       "file": "start-created.webp",
@@ -154,8 +284,10 @@
         1440,
         1000
       ],
-      "bytes": 25248,
-      "sha256": "f5ad4c5b2db94de0238d99a33da69f6f85926759a418497ccc4f709f631a1ac7"
+      "bytes": 35086,
+      "sha256": "9fedc732a2bdbee0c4e326a44031a7a2eea933948045dec7a637da34a014c3e6",
+      "captured": "2026-10-22",
+      "source": "Current application in an isolated synthetic example Lab; no research agents or SSH sessions launched."
     },
     {
       "file": "start-details.webp",
@@ -163,8 +295,10 @@
         1440,
         1000
       ],
-      "bytes": 41304,
-      "sha256": "64cbca297d6c349740e114b4552606f8920b9197ccdb44cd6dcd96c5b2fd9baa"
+      "bytes": 35916,
+      "sha256": "0b7b4df6b3565fe7885bce66e767fc62dad08356fb11f49933f5200b032a9668",
+      "captured": "2026-10-22",
+      "source": "Current application in an isolated synthetic example Lab; no research agents or SSH sessions launched."
     },
     {
       "file": "start-review.webp",
@@ -172,8 +306,10 @@
         1440,
         1000
       ],
-      "bytes": 40736,
-      "sha256": "b415fdab269df90d9a1e1cff149eda17853b1ffa35be2477830cb8990a56e4ef"
+      "bytes": 36850,
+      "sha256": "809ecc36e25681998ce4f54f5d76fea02a8a7418aaf05e444294f8b350cc6507",
+      "captured": "2026-10-22",
+      "source": "Current application in an isolated synthetic example Lab; no research agents or SSH sessions launched."
     },
     {
       "file": "start-task.webp",
@@ -181,8 +317,32 @@
         1440,
         1000
       ],
-      "bytes": 60082,
-      "sha256": "9ed98df443cbf8fc6f6521b413f17a20a6d5aa3bb1f8f37ee1fb9e8875093058"
+      "bytes": 41094,
+      "sha256": "8a7f5b0a34b33cee870fe76f486ecc753fdd21c6f93f5ce49ab2555a37321b3c",
+      "captured": "2026-10-22",
+      "source": "Current application in an isolated synthetic example Lab; no research agents or SSH sessions launched."
+    },
+    {
+      "file": "study-context.webp",
+      "size": [
+        1440,
+        1000
+      ],
+      "bytes": 42636,
+      "sha256": "a60fa790693d576d823ca4e69a6859b937bb25847aa6244e13fac10bfc30a6e4",
+      "captured": "2026-10-22",
+      "source": "Current local preview with a disposable study. No model runs or control requests launched for capture."
+    },
+    {
+      "file": "study-controls.webp",
+      "size": [
+        1440,
+        1000
+      ],
+      "bytes": 31326,
+      "sha256": "1cdc025f0c22d74161ce021b8d174bda69a73f590d0a1eec0575a868aa8214e8",
+      "captured": "2026-10-22",
+      "source": "Current local preview with a disposable study. No model runs or control requests launched for capture."
     },
     {
       "file": "study-overview.webp",
@@ -190,17 +350,54 @@
         1440,
         1000
       ],
-      "bytes": 58522,
-      "sha256": "e129a7e9861689f1f5ac88e3cf3f2f42d42eabfef69de80fc3245f1938ded655"
+      "bytes": 39142,
+      "sha256": "953b73f6673230535b1c0a283267f49eb43c73b2eadbcd50e38909c7b1f2876a",
+      "captured": "2026-10-22",
+      "source": "Current local preview with a disposable study. No model runs or control requests launched for capture."
     },
     {
-      "file": "workflow-map.webp",
+      "file": "study-workflow-history.png",
       "size": [
         1440,
         1000
       ],
-      "bytes": 55032,
-      "sha256": "ecca4441391b928383b328550b41409c14195ad8f05803779361736d3f0c3b45"
+      "bytes": 78307,
+      "sha256": "53d4e59329cf8e5816130304c25b2a573705eb2a31384e9d6ccc0408f0f0caf3",
+      "captured": "2026-10-22",
+      "source": "Current application in an isolated synthetic example Lab; no research agents or SSH sessions launched."
+    },
+    {
+      "file": "task-peer-links.webp",
+      "size": [
+        1440,
+        1000
+      ],
+      "bytes": 64366,
+      "sha256": "fe36b7c0c08c34dfd261c943f7b98944704032476110327ce9284f16c0325e44",
+      "captured": "2026-10-22",
+      "source": "Current renderer and dashboard using synthetic browser-only agent telemetry; no model runs launched."
+    },
+    {
+      "file": "task-unfinished.webp",
+      "size": [
+        1440,
+        1000
+      ],
+      "bytes": 41934,
+      "sha256": "a5bcdf78c5fcf0bb41d74221166cae9895c776a87d4104db855d1fa544114ad5",
+      "captured": "2026-10-22",
+      "source": "Current local preview with a disposable study. No model runs or control requests launched for capture."
+    },
+    {
+      "file": "workflow-editor.png",
+      "size": [
+        1440,
+        1000
+      ],
+      "bytes": 119035,
+      "sha256": "58dc2737c10283193fb932adae8709161f0e8399fb8d317d43d07078b4b4725e",
+      "captured": "2026-10-23",
+      "source": "Current local private preview. Guide capture used a disposable browser context; no agent launches, settings changes or approvals."
     },
     {
       "file": "workflow-rooms.webp",
@@ -208,17 +405,32 @@
         1440,
         1000
       ],
-      "bytes": 50862,
-      "sha256": "8a4392c47cb273a28c6d50db8c2f262ba34224e7e50b3e1d0cba5e0002dd5207"
+      "bytes": 49892,
+      "sha256": "155934dc55c232ad25c547ac2aa1726e5fe4695664d1921e6432bfa53bf23a82",
+      "captured": "2026-10-22",
+      "source": "Current application in an isolated synthetic example Lab; no research agents or SSH sessions launched."
     },
     {
-      "file": "workflow-task.webp",
+      "file": "workflow-start.png",
       "size": [
         1440,
         1000
       ],
-      "bytes": 60616,
-      "sha256": "4b29405a77a357b8b9901440e71d5ffcf1e89a4036c09a937a6e1f1aecef87ef"
+      "bytes": 73260,
+      "sha256": "6c75eae2419b686dfcc021782de38c94d16c978928b9ef7e5005049f368f32b4",
+      "captured": "2026-10-22",
+      "source": "Current application in an isolated synthetic example Lab; no research agents or SSH sessions launched."
+    },
+    {
+      "file": "workflow-task-grouped.png",
+      "size": [
+        1440,
+        1000
+      ],
+      "bytes": 114084,
+      "sha256": "1802ea743954f0bf4c9710adf80a34e97d1309d8069aee7f19215673347a0206",
+      "captured": "2026-10-23",
+      "source": "Current local private preview. Guide capture used a disposable browser context; no agent launches, settings changes or approvals."
     }
   ]
 }

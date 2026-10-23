@@ -1,4 +1,4 @@
-/* Newts' Lab — UI core: the live lab store, the API client, the router, preferences, toasts, layers.
+/* ARLOtope — UI core: the live lab store, the API client, the router, preferences, toasts, layers.
    No build step: Preact + hooks + htm are vendored UMD globals (static/vendor/preact/). Every UI file
    registers into window.NL. Components use `html\`...\`` (htm) instead of JSX. */
 (function () {
@@ -23,7 +23,7 @@
   };
   NL.ago = ts => {
     if (!ts) return '';
-    const t = Date.parse(ts.length <= 19 ? ts : ts); if (isNaN(t)) return '';
+    const t = Date.parse(ts); if (isNaN(t)) return '';
     const d = (Date.now() - t) / 1000;
     if (d < 60) return 'just now';
     if (d < 3600) return `${Math.round(d / 60)} min ago`;
@@ -42,7 +42,7 @@
      rooms and procedures — from workflow/ (the live snapshot's `workflow`; the generated workflow-default.js
      serves demo/static pages). applyWorkflow() refills these in place whenever the definition changes.
      A study stands at one step (item.state) of its workflow (item.workflow). */
-  NL.LIFECYCLE = []; NL.STATE_LABEL = {}; NL.ROOMS = []; NL.PROC = {}; NL.PROCS_FOR_STATE = {};
+  NL.LIFECYCLE = []; NL.STATE_LABEL = {}; NL.ROOMS = []; NL.PROC = {};
   NL.NEXT_FOR_STATE = {}; NL.WORKFLOWS = []; NL.STEPS = {}; NL.WF = {};
   let wfSig = '';
   // the subagent roles: labels from agent-roles/<role>.yaml (via the workflow), colours from the theme
@@ -62,7 +62,6 @@
     NL.ROOMS.splice(0, NL.ROOMS.length, ...(wf.rooms || []).map(r => ({ key: r.id, label: r.label, title: r.title, states: r.steps || [] })));
     NL.WORKFLOWS.splice(0, NL.WORKFLOWS.length, ...(wf.workflows || []).map(w => ({ ...w, steps: w.path || [] })));
     refill(NL.PROC, wf.procedures || {});
-    refill(NL.PROCS_FOR_STATE, Object.fromEntries(wf.steps.map(s => [s.id, [s.do, ...(s.also || [])].filter(Boolean)])));
     refill(NL.NEXT_FOR_STATE, Object.fromEntries(wf.steps.filter(s => s.do).map(s => [s.id, s.do])));
     for (const k of Object.keys(NL.ROLE)) if (k !== 'orchestrator') delete NL.ROLE[k];
     (wf.roles || []).forEach(r => { NL.ROLE[r] = { label: (wf.role_labels || {})[r] || r, color: ROLE_COLOR[r] || 'var(--ink-soft)' }; });
@@ -89,9 +88,6 @@
   NL.checkName = c => (c && typeof c === 'object') ? Object.keys(c)[0] : String(c);
   NL.checkLabel = c => { const n = NL.checkName(c), p = (c && typeof c === 'object') ? c[n] || {} : {};
     const ps = Object.entries(p).map(([k, v]) => `${k}=${v}`).join(', '); return ps ? `${n} (${ps})` : n; };
-  NL.APPROVER_WORD = { me: 'Only you', 'me-or-campaign': 'You, or a campaign you approved', auto: 'Automatically, when its checks pass', agent:'An independent agent' };
-  // where a step stands in the world (its room)
-  NL.wfStateRoom = () => Object.fromEntries(Object.values(NL.STEPS).filter(s => s.room).map(s => [s.id, s.room]));
   // the procedure that does a step's work for this study: its own swap, its workflow's, else the step's
   NL.doesFor = (it, st) => {
     const node=NL.workflowOf(it).nodes?.[st];
@@ -99,22 +95,16 @@
     if (!p) return null;
     return ((it && it.use) || {})[p] || (NL.workflowOf(it).use || {})[p] || p;
   };
+  NL.proceduresFor = it => {
+    const swaps=p=>it.use?.[p]||NL.workflowOf(it).use?.[p]||p;
+    return [...new Set([NL.doesFor(it,it.state),...(NL.STEPS[it.state]?.also||[]).map(swaps)].filter(Boolean))];
+  };
   // what a study should run next: its step's procedure — unless it waits for you, is shelved or finished
   NL.nextSkill = it => {
     if (typeof it === 'string') return NL.NEXT_FOR_STATE[it] || null;
     if (!it || it.finished || (it.waiting || []).length || it.asks || NL.isShelved(it.state)) return null;
     return NL.doesFor(it, it.state);
   };
-  // where an outcome reported at a step leads, in a study's workflow: a step, 'ask' (the PI), or null (it finishes)
-  NL.outcomeTarget = (it, st, outcome) => {
-    const w = NL.workflowOf(it), path = w.steps || [];
-    if (outcome === 'park') return 'parked';
-    if (outcome === 'kill') return 'killed';
-    if (outcome === 'done'&&w.nodes?.[st])return w.nodes[st].next||null;
-    if (outcome === 'done') { const i = path.indexOf(st); return i < 0 ? 'ask' : (path[i + 1] || null); }
-    return ((w.routes || {})[st] || {})[outcome] || 'ask';
-  };
-
   // run status → what the PI reads (one vocabulary everywhere)
   NL.RUN_WORD = {
     queued: 'Queued', starting: 'Starting', running: 'Running', resuming: 'Resuming', waiting_input: 'Waiting for you',
@@ -124,12 +114,13 @@
     completed: 'ok', failed: 'bad', timeout: 'bad', killed: 'muted' };
   NL.RUN_ACTIVE = new Set(['starting', 'running', 'resuming']);
   NL.RUN_DONE = new Set(['completed', 'failed', 'timeout', 'killed']);
-  NL.runTitle = r => {
+  NL.runWaiting = r => r.status === 'waiting_input' || NL.RUN_ACTIVE.has(r.status) && !!(r.pending_question || r.pending_questions?.length || r.pending_permissions?.length);
+  NL.runTitle = (r, s = NL.getState() || {}) => {
     if (!r) return '';
-    if (r.kind === 'ask' || r.skill === 'ask') return r.label || r.prompt_summary || 'Instruction';
-    const it = r.subject && NL.getState && (NL.getState().items || []).find(i => i.id === r.subject);
-    const what = r.skill && NL.PROC && NL.PROC[r.skill] ? NL.PROC[r.skill].title : (r.label || r.command || r.prompt_summary);
-    return what ? what + (it ? ' · ' + (it.title || it.id) : r.subject ? ' · ' + r.subject : '') : r.run_id;
+    const subject = r.subject || r.explains?.study, it = subject && (s.items || []).find(i => i.id === subject);
+    const what = r.kind === 'ask' || r.skill === 'ask' ? r.label || r.prompt_summary || 'Instruction'
+      : NL.PROC[r.skill]?.title || r.label || r.command || r.prompt_summary;
+    return what ? what + (it ? ' · ' + (it.title || it.id) : subject ? ' · ' + subject : '') : r.run_id;
   };
 
   NL.roleOf = r => NL.ROLE[r] || { label: r || 'Agent', color: 'var(--ink-soft)' };
@@ -152,8 +143,9 @@
   NL.useLab = () => { useSub(store.listeners); return store.state || {}; };
   NL.useConn = () => { useSub(store.listeners); return store.conn; };
 
-  NL.DEMO = location.search.includes('demo') && (window.__VIV_DEMO__ === true || location.protocol === 'file:');
-  NL.STATIC = location.search.includes('static');
+  const flags = new URLSearchParams(location.search);
+  NL.DEMO = flags.has('demo') && (window.__ARLOTOPE_DEMO__ === true || location.protocol === 'file:');
+  NL.STATIC = flags.has('static');
 
   let es = null, pollT = null, backoff = 15000;
   NL.connect = function connect() {
@@ -192,8 +184,39 @@
     if (NL.DEMO) { const x = NL.demoGet && NL.demoGet(path); return x || { error: 'not in the demo', demo: true }; }   // the demo's own lab, never the server's
     try {
       const r = await fetch(path, { credentials: 'same-origin' });
-      return await r.json().catch(() => ({ error: `server said ${r.status}` }));
+      const j = await r.json().catch(() => ({ error: `server said ${r.status}` }));
+      return !r.ok ? { error: (j && j.error) || `server said ${r.status}` } : j || { error: 'The server returned an empty response.' };
     } catch (e) { return { error: 'Could not reach the lab server.' }; }
+  };
+  /** Reads belong to a path/revision/retry. Null waits; previous holds successful data for this path only. */
+  NL.useGet = (path, revision) => {
+    const [attempt, reload] = H.useReducer(n => n + 1, 0);
+    const key = H.useMemo(() => ({}), [path, revision, attempt]);
+    const [result, setResult] = H.useState({});
+    const previous = H.useRef(null);
+    H.useEffect(() => {
+      if (!path) return;
+      let active = true;
+      NL.get(path).then(data => {
+        const error = data.error || (data.ok === false ? 'Could not load this item.' : null);
+        if (active) {
+          if (!error) previous.current = { path, data };
+          setResult({ key, data: error ? null : data, error });
+        }
+      });
+      return () => { active = false; };
+    }, [key]);
+    return { ...(result.key === key ? result : { data: null, error: null }), previous: previous.current?.path === path ? previous.current.data : null, reload };
+  };
+  // Poll after the previous read settles; cleanup and stale-data scope stay with useGet.
+  NL.usePoll = (path, interval) => {
+    const read = NL.useGet(path);
+    H.useEffect(() => {
+      if (!path || !read.data && !read.error) return;
+      const timer = setTimeout(read.reload, interval);
+      return () => clearTimeout(timer);
+    }, [path, read.key, interval]);
+    return read;
   };
   /** Run an API call with a toast for the outcome; returns the result. */
   NL.act = async (path, body, okMsg) => {
@@ -207,9 +230,9 @@
   NL.parseRoute = () => {
     const raw = (location.hash || '').replace(/^#\/?/, '');
     const [path, q] = raw.split('?');
-    const parts = path.split('/').filter(Boolean).map(decodeURIComponent);
-    const legacy = { terrarium: '', shelf: 'studies', gates: '', night: '', agents: 'runs', ledger: 'history' };
-    if (parts.length === 1 && parts[0] in legacy) return { page: legacy[parts[0]] || 'home', args: [], query: Object.fromEntries(new URLSearchParams(q || '')) };
+    let parts;
+    try { parts = path.split('/').filter(Boolean).map(decodeURIComponent); }
+    catch (_) { return { page: 'not-found', args: [], query: {}, error: 'This address has an invalid character escape. Check the link or return to the Lab.' }; }
     const query = Object.fromEntries(new URLSearchParams(q || ''));
     return { page: parts[0] || 'home', args: parts.slice(1), query };
   };
@@ -221,8 +244,33 @@
     return r;
   };
 
+  // Shared protection for forms whose edits have not been saved.
+  const dirtyForms = new Map();
+  const hasUnsavedChanges = () => [...dirtyForms.values()].some(Boolean);
+  NL.useDirty = flag => {
+    const id = H.useRef(Symbol());
+    H.useLayoutEffect(() => { dirtyForms.set(id.current, !!flag); }, [!!flag]);
+    H.useEffect(() => () => { dirtyForms.delete(id.current); }, []);
+    return (value = false) => dirtyForms.set(id.current, !!value);
+  };
+  NL.confirmLeave = () => {
+    if (hasUnsavedChanges() && !window.confirm('You have unsaved changes. Leave without saving?')) return false;
+    dirtyForms.clear();
+    return true;
+  };
+  let savedRoute = location.hash;
+  window.addEventListener('hashchange', e => {
+    if (location.hash === savedRoute) return;
+    if (NL.confirmLeave()) { savedRoute = location.hash; return; }
+    e.stopImmediatePropagation();
+    history.replaceState(history.state, '', savedRoute || '#/');
+  }, true);
+  window.addEventListener('beforeunload', e => {
+    if (hasUnsavedChanges()) { e.preventDefault(); e.returnValue = ''; }
+  });
+
   /* ── preferences ───────────────────────────────────────────────────────── */
-  const PREF_DEFAULTS = { theme: 'auto', motion: true, rail: true, notify: false, density: 'comfortable', narrate: false,
+  const PREF_DEFAULTS = { theme: 'auto', motion: true, labels: false, notify: false, density: 'comfortable',
     cast: { mode: 'backend', one: 'newt', claude: 'newt', codex: 'human', opencode: 'robot' } };   // who plays the agents in the world
   const prefs = Object.assign({}, PREF_DEFAULTS, ls.get('nl-prefs', {}));
   // carry over the old dashboard's choices once
@@ -265,9 +313,10 @@
   const bump = () => layers.listeners.forEach(f => f());
   NL.open = (Comp, props, opts) => {
     const key = opts && opts.key;
-    if (key) { const hit = layers.list.find(l => l.key === key); if (hit) { hit.props = props || {}; bump(); return hit.id; } }
+    const hit=layers.list.find(l=>key&&l.key===key||opts?.slot&&l.slot===opts.slot);
+    if(hit){hit.Comp=Comp;hit.key=key;hit.props=props||{};bump();return hit.id}
     const id = ++layers.n;
-    layers.list = [...layers.list, { id, Comp, props: props || {}, key, opener: document.activeElement, kind: (opts && opts.kind) || 'sheet' }];
+    layers.list = [...layers.list, { id, Comp, props: props || {}, key, slot:opts?.slot,opener: document.activeElement, kind: (opts && opts.kind) || 'sheet' }];
     bump();
     return id;
   };
@@ -294,17 +343,32 @@
   NL.execOn = s => { const x = NL.exec(s); return !!(x.available !== false && x.enabled); };
   NL.runs = (s, pred) => ((s && s.runs) || []).filter(pred || (() => true));
   NL.run = (s, id) => ((s && s.runs) || []).find(r => r.run_id === id);
+  NL.agentTitle = (a, s = NL.getState() || {}) => {
+    if (a.parent || a.is_subagent) return a.label || a.description || NL.roleOf(a.role).label;
+    const r = NL.run(s, a.run_id);
+    return r ? NL.runTitle(r, s) : NL.PROC[a.skill || a.role]?.title || a.label || NL.roleOf(a.role).label;
+  };
+  NL.displayAgents = s => (s.agents || []).map(a => ({ ...a, display_label: NL.agentTitle(a,s) }));
+  NL.attSubject = (a, s = NL.getState() || {}) => {
+    const r = NL.run(s, a.run_id), id = a.idea || a.detail?.study || r?.subject || r?.explains?.study;
+    return id && id !== 'hub' ? NL.item(s, id)?.title || id : 'Lab';
+  };
+  NL.workRuns = s => {
+    const waiting = new Set(NL.needsYou(s).map(a => a.run_id).filter(Boolean));
+    return NL.runs(s, r => (NL.RUN_ACTIVE.has(r.status) || r.status === 'queued' || r.status === 'waiting_input') && !(NL.runWaiting(r) && waiting.has(r.run_id)));
+  };
   NL.runsOf = (s, slug) => NL.runs(s, r => r.target === slug || r.subject === slug || r.explains?.study === slug);
   /** an activity of the tracer's vocabulary → [sign, words] (the world's, so the two read alike) */
-  const ACTIVITY = {read:['▤','reading'],search:['⌕','searching'],edit:['✎','editing'],run:['⚗','running an experiment'],bash:['›','at the terminal'],git:['⑂','committing'],spawn:['⇢','briefing a subagent'],ask:['?','asking you'],plan:['☰','planning'],skill:['✦','following a procedure'],mcp:['⚙','using a tool']};
-  NL.activity = kind => ACTIVITY[kind] || ['•','working'];
+  NL.activity = kind => ArloAgents.activities[kind] || ['•','working'];
   NL.workersOf = (s, slug) => ((s && s.workers) || []).filter(w => w.project === slug || w.idea === slug);
   NL.needsYou = s => ((s && s.attention) || []).filter(a => a.sev !== 'info');
+  NL.agentReady = s => NL.backends(s).some(b => b.found && b.logged_in !== false);
   NL.backends = s => { const c = (NL.exec(s).clis) || {}; return ['claude', 'codex', 'opencode', 'acp'].map(b => ({ id: b, ...(c[b] || {}) })); };
 
   /* ── launching (every "start" button ends here) ────────────────────────── */
   NL.launch = async (body, opts) => {
     const s = NL.getState();
+    if (s?.holds?.[body.target]) { NL.toast('This study is on hold. Release it from its study page to start new agents.', 'warn'); return null; }
     if (!NL.execOn(s)) {
       const on = await NL.confirm({ title: 'Let this dashboard start agents?', ok: 'Allow',
         body: 'Agents will run on this computer using your own login. You can turn this off in Settings, under Limits & permissions.' });

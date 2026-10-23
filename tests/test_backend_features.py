@@ -84,8 +84,8 @@ def test_starter_records_roles_and_published_explanations_use_every_adapter(hub,
     finish(review['run_id'])
 
     page=project/'explanation.html';page.write_text('<!doctype html><h1>Mechanism review</h1><p>No measurements claimed.</p>')
-    env={**os.environ,'NEWTS_HUB':str(hub.root),'NEWTS_RUN_ID':review['run_id'],'NEWTS_RUN_SUBJECT':slug}
-    env['NEWTS_RUN_DIR']=str(rd)
+    env={**os.environ,'ARLOTOPE_HUB':str(hub.root),'ARLOTOPE_RUN_ID':review['run_id'],'ARLOTOPE_RUN_SUBJECT':slug}
+    env['ARLOTOPE_RUN_DIR']=str(rd)
     executor.profile.run_env(review,env)
     footer=subprocess.run([sys.executable,str(executor.profile.bus_script(hub.root,'project',project)),
         'emit','run_report','--data','summary=Reviewed the materials.'],cwd=project,env=env,capture_output=True,text=True,timeout=15)

@@ -27,14 +27,14 @@ def test_parallel_visits_join_and_no_cross_branch_completion(hub,monkeypatch):
     assert set(k.studies.study(hub.root,'study')['runnable'])=={'analysis','writing'}
     with pytest.raises(k.studies.StudyError,match='Several tasks'):
         k.studies.move(hub.root,'study','done')
-    monkeypatch.setenv('NEWTS_RUN_SUBJECT','study');monkeypatch.setenv('NEWTS_RUN_NODE','analysis')
+    monkeypatch.setenv('ARLOTOPE_RUN_SUBJECT','study');monkeypatch.setenv('ARLOTOPE_RUN_NODE','analysis')
     k.studies.move(hub.root,'study','done')
     s=k.studies.study(hub.root,'study')
     assert s['runnable']==['writing'] and s['joins']=={'final':['analysis']}
-    monkeypatch.setenv('NEWTS_RUN_NODE','writing')
+    monkeypatch.setenv('ARLOTOPE_RUN_NODE','writing')
     k.studies.move(hub.root,'study','done')
     assert k.studies.study(hub.root,'study')['runnable']==['final']
-    monkeypatch.setenv('NEWTS_RUN_NODE','final')
+    monkeypatch.setenv('ARLOTOPE_RUN_NODE','final')
     assert k.studies.move(hub.root,'study','done')['finished']
 
 
@@ -56,7 +56,7 @@ def test_graph_definition_roundtrip_and_ambiguous_continuation(hub):
     ns=[{'id':'a','next':['b','c']},{'id':'b','next':[],'context':{'mode':'continue','from':'a'}},
         {'id':'c','next':[],'context':{'mode':'continue','from':'a'}}]
     assert any('only one branch' in p for p in validate(ns))
-    ns[2]['context']['mode']='fork'
+    ns[2]['context']['mode']='native-fork'
     assert validate(ns)==[]
 
 
@@ -90,7 +90,7 @@ def test_context_continuation_resumes_and_prevents_duplicate_ownership(hub):
     manifest.write_manifest(path.with_name('child.json'),{**source,'run_id':'child','status':'queued'})
     with pytest.raises(executor.SpecError,match='active work'):
         contexts.prepare(lab,{'mode':'continue','run_id':'source'},'codex',lab.hub,'Another task')
-    text,fork=contexts.prepare(lab,{'mode':'fork','run_id':'source'},'opencode',lab.hub,'Independent work',['results.json'])
+    text,fork=contexts.prepare(lab,{'mode':'fresh','handoff':True,'run_id':'source'},'opencode',lab.hub,'Independent work',['results.json'])
     assert 'not an exact conversation clone' in text and 'results.json' in text and 'session_id' not in fork
 
 
@@ -153,6 +153,26 @@ def test_room_draft_is_private_until_applied(hub,monkeypatch):
     assert (hub.lab/'rooms/study/room.json').is_file()
 
 
+def test_room_module_is_data_for_the_isolated_renderer(hub, monkeypatch):
+    monkeypatch.syspath_prepend(str(REPO / 'dashboard'))
+    api = load('dashboard/room_design')
+    monkeypatch.setattr(api.ctx, 'HUB', hub.root)
+    monkeypatch.setattr(api.ctx, 'LAB', hub.lab)
+    created, code = api.op({'action': 'create', 'room': 'study'})
+    assert code == 200
+    folder = hub.lab / '.bus/room-drafts' / created['id']
+    source = 'export default L => L.defineComponent("custom", () => null);'
+    (folder / 'extra.js').write_text(source, encoding='utf-8')
+    draft, code = api.get({'id': created['id']})
+    assert code == 200 and draft['module_src'] == source
+    assert 'study' not in api.R.read(hub.root)
+    assert api.op({'action': 'apply', 'id': created['id'], 'confirm': True})[1] == 200
+    applied = api.R.read(hub.root)['study']
+    assert applied['module_src'] == source and applied['revision'] == draft['revision']
+    (folder / 'extra.js').write_text(source + '\n// revised', encoding='utf-8')
+    assert api.get({'id': created['id']})[0]['revision'] != draft['revision']
+
+
 def test_native_graph_execution_resumes_one_branch_and_hands_off_the_other(hub, monkeypatch):
     import sys
     import time
@@ -163,7 +183,7 @@ def test_native_graph_execution_resumes_one_branch_and_hands_off_the_other(hub, 
     definition = k.define.read(hub.root)
     ns = definition['workflows'][0]['nodes']
     ns['analysis']['context'] = {'mode': 'continue', 'from': 'seed'}
-    ns['writing']['context'] = {'mode': 'fork', 'from': 'seed'}
+    ns['writing']['context'] = {'mode': 'fresh', 'handoff': True, 'from': 'seed'}
     for sid, node in ns.items():
         node['outputs'] = [sid + '.md']
     k.define.write(hub.root, definition)
@@ -192,6 +212,19 @@ def test_native_graph_execution_resumes_one_branch_and_hands_off_the_other(hub, 
     assert call['argv'][call['argv'].index('--resume') + 1] == runs['seed']['session_id']
     pre = (executor.run_dir(lab.agents_dir(lab.hub), runs['writing']['run_id']) / 'preamble.md').read_text(encoding='utf-8')
     assert 'Independently assess' in pre
+    history = k.journal.events(hub.root, 'study')
+    final = runs['final']
+    executor.reply(lab, final['run_id'], 'Revise the retained output; do not restart research.')
+    deadline = time.monotonic() + 45
+    while time.monotonic() < deadline:
+        executor.tick(lab)
+        revised = executor.find_run(lab, final['run_id'])[3]
+        if revised['status'] == 'completed' and revised.get('attempt') == 2:
+            break
+        time.sleep(.25)
+    assert revised['status'] == 'completed' and revised['task_followup'], revised
+    assert revised['session_id'] == final['session_id']
+    assert k.journal.events(hub.root, 'study') == history
 
 
 def test_queued_task_is_rechecked_and_duplicate_report_is_idempotent(hub, monkeypatch):
@@ -200,13 +233,55 @@ def test_queued_task_is_rechecked_and_duplicate_report_is_idempotent(hub, monkey
     bind(hub.root, 'study', 'seed', 'first')
     manifest = {'subject': 'study', 'workflow_node': 'seed', 'workflow_visit': 1, 'run_id': 'first'}
     begin_run(hub.root, manifest)
-    monkeypatch.setenv('NEWTS_RUN_SUBJECT', 'study')
-    monkeypatch.setenv('NEWTS_RUN_NODE', 'seed')
-    monkeypatch.setenv('NEWTS_RUN_ID', 'first')
+    monkeypatch.setenv('ARLOTOPE_RUN_SUBJECT', 'study')
+    monkeypatch.setenv('ARLOTOPE_RUN_NODE', 'seed')
+    monkeypatch.setenv('ARLOTOPE_RUN_ID', 'first')
     k.studies.move(hub.root, 'study', 'done')
     assert k.studies.move(hub.root, 'study', 'done')['moved'] is False
     with pytest.raises(k.studies.StudyError, match='no longer active'):
         begin_run(hub.root, manifest)
+
+
+def test_completed_task_reply_can_revise_output_without_reopening_workflow(hub, monkeypatch):
+    k = graph(hub)
+    from kernel.branches import bind, begin_run
+    definition = k.define.read(hub.root)
+    definition['workflows'][0].update(path=['seed'], nodes={'seed': {'procedure': None, 'next': []}})
+    k.define.write(hub.root, definition)
+    bind(hub.root, 'study', 'seed', 'first')
+    m = {'subject': 'study', 'workflow_node': 'seed', 'workflow_visit': 1, 'run_id': 'first',
+         'session_id': 'saved-session', 'resume': {'mode': 'reply', 'text': 'Correct the summary.'}}
+    monkeypatch.setenv('ARLOTOPE_RUN_SUBJECT', 'study')
+    monkeypatch.setenv('ARLOTOPE_RUN_NODE', 'seed')
+    monkeypatch.setenv('ARLOTOPE_RUN_ID', 'first')
+    assert k.studies.move(hub.root, 'study', 'done')['finished']
+    before = k.journal.events(hub.root, 'study')
+    assert begin_run(hub.root, m) is True
+    assert k.studies.move(hub.root, 'study', 'done')['moved'] is False
+    assert k.journal.events(hub.root, 'study') == before
+    for changes in ({'workflow_visit': 2}, {'run_id': 'other'}, {'session_id': None},
+                    {'resume': {'mode': 'continue'}}):
+        with pytest.raises(k.studies.StudyError, match='finished'):
+            begin_run(hub.root, dict(m, **changes))
+
+
+def test_completed_task_feedback_does_not_launch_ready_successors(hub, monkeypatch):
+    k = graph(hub)
+    from kernel.branches import bind, begin_run
+    import executor
+    import lab_profile
+    bind(hub.root, 'study', 'seed', 'first')
+    monkeypatch.setenv('ARLOTOPE_RUN_SUBJECT', 'study')
+    monkeypatch.setenv('ARLOTOPE_RUN_NODE', 'seed')
+    monkeypatch.setenv('ARLOTOPE_RUN_ID', 'first')
+    k.studies.move(hub.root, 'study', 'done')
+    m = {'subject': 'study', 'workflow_node': 'seed', 'workflow_visit': 1, 'run_id': 'first',
+         'session_id': 'saved-session', 'resume': {'mode': 'reply', 'text': 'Correct the summary.'},
+         'status': 'completed'}
+    m['task_followup'] = bool(begin_run(hub.root, m))
+    monkeypatch.setattr(lab_profile, 'start_graph', lambda *_args, **_kw: pytest.fail('Feedback launched new work.'))
+    assert lab_profile.next_command(executor.Lab(hub.root), m) == (True, None)
+    assert set(k.studies.study(hub.root, 'study')['runnable']) == {'analysis', 'writing'}
 
 
 def test_assistant_uses_one_native_session_and_refreshes_authoritative_facts(hub, monkeypatch):
@@ -252,7 +327,7 @@ def test_assistant_uses_one_native_session_and_refreshes_authoritative_facts(hub
     import os, subprocess
     for name in ('all_runs', 'study_status', 'published_results'):
         result = subprocess.run(facts['tools'][name], cwd=hub.root, capture_output=True, text=True,
-                                env={**os.environ, 'NEWTS_HUB': str(hub.root)}, timeout=15)
+                                env={**os.environ, 'ARLOTOPE_HUB': str(hub.root)}, timeout=15)
         assert result.returncode == 0, (name, result.stdout, result.stderr)
 
 
@@ -280,11 +355,11 @@ def test_loop_context_is_bound_to_the_exact_incoming_visit(hub, monkeypatch):
     ns['seed']['next'] = ['analysis']
     ns['analysis']['next'] = ['seed']
     k.define.write(hub.root, d)
-    monkeypatch.setenv('NEWTS_RUN_SUBJECT', 'study')
+    monkeypatch.setenv('ARLOTOPE_RUN_SUBJECT', 'study')
     for sid, rid in [('seed', 'plan-1'), ('analysis', 'analysis-1'), ('seed', 'plan-2')]:
         bind(hub.root, 'study', sid, rid)
-        monkeypatch.setenv('NEWTS_RUN_NODE', sid)
-        monkeypatch.setenv('NEWTS_RUN_ID', rid)
+        monkeypatch.setenv('ARLOTOPE_RUN_NODE', sid)
+        monkeypatch.setenv('ARLOTOPE_RUN_ID', rid)
         k.studies.move(hub.root, 'study', 'done')
     token = k.studies.study(hub.root, 'study')['active_steps'][0]
     assert token['id'] == 'analysis' and token['visit'] == 2
@@ -301,8 +376,10 @@ def test_revoked_checkpoint_refuses_an_already_queued_task(hub):
     k.checkpoints.decide(hub.root, 'study', 'start', by='pi', via='cli')
     bind(hub.root, 'study', 'seed', 'queued')
     k.checkpoints.decide(hub.root, 'study', 'start', decision='revoked', by='pi', via='cli')
-    with pytest.raises(k.studies.StudyError, match='checkpoint'):
-        begin_run(hub.root, {'subject': 'study', 'workflow_node': 'seed', 'workflow_visit': 1, 'run_id': 'queued'})
+    for resume in ({}, {'session_id': 'saved-session', 'resume': {'mode': 'reply', 'text': 'Continue.'}}):
+        with pytest.raises(k.studies.StudyError, match='checkpoint'):
+            begin_run(hub.root, {'subject': 'study', 'workflow_node': 'seed', 'workflow_visit': 1,
+                                 'run_id': 'queued', **resume})
 
 
 def test_graph_rename_preserves_active_branches(hub, tmp_path):

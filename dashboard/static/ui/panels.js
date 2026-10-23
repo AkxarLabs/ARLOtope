@@ -18,28 +18,58 @@
 
   /* the demo lab draws its panels from the shipped files directly (it never asks the server) */
   const kit = { css: null, js: null };
+  const demoText = async path => {
+    const r = await fetch(path);
+    if (!r.ok) throw Error('Could not load the demonstration instrument.');
+    return r.text();
+  };
   const demoView = async id => {
-    if (kit.css == null) { kit.css = await fetch('static/panels/panelkit.css').then(r => r.text()).catch(() => ''); kit.js = await fetch('static/panels/panelkit.js').then(r => r.text()).catch(() => ''); }
-    const view = await fetch(`static/panels/shipped/${id}/view.html`).then(r => r.ok ? r.text() : '').catch(() => '');
+    if (kit.css == null) {
+      const [css, js] = await Promise.all(['panelkit.css', 'panelkit.js'].map(name => demoText('static/panels/' + name)));
+      kit.css = css; kit.js = js;
+    }
+    const view = await demoText(`static/panels/shipped/${id}/view.html`);
     return `<!doctype html><html><head><meta charset="utf-8"><meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'unsafe-inline'; style-src 'unsafe-inline'; img-src data:; connect-src 'none'">`
       + `<style>${kit.css}</style><script>${kit.js}</script></head><body>${view}</body></html>`;
   };
 
   /* ── the frame: one sandboxed iframe, fed by postMessage ───────────────────────────────────────── */
-  NL.PanelFrame = ({ id, study, design, onSummary, minHeight }) => {
+  const PanelFrame = ({ id, study, design, onSummary, minHeight }) => {
     const ref = useRef();
-    const [doc, setDoc] = useState(null);
+    const [attempt, retry] = NL.useReducer(n => n + 1, 0);
+    const view = NL.useGet(NL.DEMO ? null : `/api/panel/view?${NL.qs({ id, design: design ? 1 : '' })}`);
+    const [demo, setDemo] = useState({});
     const [data, setData] = useState(null);
+    const [dataError, setDataError] = useState('');
+    const [pollAttempt, retryData] = NL.useReducer(n => n + 1, 0);
     const [h, setH] = useState(minHeight || 220);
     const lamp = NL.usePrefs().theme;
     useEffect(() => {
+      if (onSummary) onSummary('');
+      if (!NL.DEMO) return;
       let off = false;
-      (NL.DEMO ? demoView(id).then(html => ({ ok: true, html })) : NL.get(`/api/panel/view?${NL.qs({ id, design: design ? 1 : '' })}`))
-        .then(x => { if (!off) setDoc(x && x.ok ? x.html : `<p style="font:13px sans-serif;color:#999">${(x && x.error) || 'no view to show'}</p>`); });
+      setDemo({});
+      demoView(id).then(html => { if (!off) setDemo({ data: { html } }); })
+        .catch(() => { if (!off) setDemo({ error: 'Could not load the demonstration instrument.' }); });
       return () => { off = true; };
-    }, [id, design]);
-    const pull = () => NL.get(`/api/panel/data?${NL.qs({ id, study })}`).then(setData);
-    useEffect(() => { if (design) return undefined; pull(); const t = setInterval(pull, 30000); return () => clearInterval(t); }, [id, study, design]);
+    }, [attempt]);
+    const current = NL.DEMO ? demo : view;
+    const doc = typeof current.data?.html === 'string' ? current.data.html : null;
+    const viewError = current.error || (current.data && doc == null ? 'The instrument returned no view.' : '');
+    useEffect(() => {
+      if (design) return;
+      let active = true, timer;
+      const pull = async () => {
+        const result = await NL.get(`/api/panel/data?${NL.qs({ id, study })}`);
+        if (!active) return;
+        // A collector error can accompany valid last-good data; a transport error cannot replace it.
+        if (result.ok) { setData(result); setDataError(''); }
+        else setDataError(result.error || 'Could not load instrument data.');
+        timer = setTimeout(pull, 30000);
+      };
+      pull();
+      return () => { active = false; clearTimeout(timer); };
+    }, [pollAttempt]);
     const post = () => { const w = ref.current && ref.current.contentWindow; if (w && data) w.postMessage({ pk: 1, type: 'data', data: data.data || {}, theme: themeVars(), context: { study: study || null } }, '*'); };
     useEffect(post, [data, lamp, doc]);
     useEffect(() => {
@@ -58,14 +88,17 @@
       };
       window.addEventListener('message', f);
       return () => window.removeEventListener('message', f);
-    }, [data, doc]);
-    return html`<div class="pframe-body">${doc == null ? html`<div class="pad"><${NL.Spinner} /></div>`
+    }, [data, doc, onSummary, minHeight]);
+    return html`<div class="pframe-body">${doc == null ? html`<div class="pad"><${NL.LoadState} error=${viewError} reload=${NL.DEMO ? retry : view.reload} /></div>`
       : html`<iframe ref=${ref} class="pframe-ifr" sandbox="allow-scripts" srcdoc=${doc} style=${{ height: h + 'px' }} title="panel" onLoad=${post}></iframe>`}
+      ${dataError ? html`<div class="pframe-problem" role="alert">${dataError} ${data ? 'Last loaded data is shown.' : ''} <${NL.Btn} small onClick=${retryData}>Retry data</${NL.Btn}></div>` : null}
       ${data && data.error ? html`<div class=${cls('pframe-problem', data.stale && 'stale')}>${data.stale ? 'showing the last good data: ' : ''}${data.error}</div>` : null}</div>`;
   };
+  // A new selection owns a new frame, height, summary and polling lifetime.
+  NL.PanelFrame = props => html`<${PanelFrame} key=${JSON.stringify([props.id, props.study || null, !!props.design])} ...${props} />`;
 
   const led = p => p.problem ? 'bad' : p.alerts ? 'warm' : p.stale ? 'off' : 'live';
-  const PLACES = [{ value: 'home', label: 'Overview', hint: 'a reading in your overview' },
+  const PLACES = [{ value: 'home', label: 'Lab', hint: 'on the Lab page, below the rooms' },
     { value: 'studies', label: 'On every study', hint: 'in each study’s dossier, for that study' }];
 
   /* ── the panel sheet: an instrument, full size ─────────────────────────────────────────────────── */
@@ -74,8 +107,7 @@
     const p = NL.panelsOf(s).find(x => x.id === id) || { id, title: id };
     const [sum, setSum] = useState(null);
     const [menu, setMenu] = useState(false);
-    const [detail, setDetail] = useState(null);
-    useEffect(() => { if (!NL.DEMO) NL.get(`/api/panel?${NL.qs({ id })}`).then(setDetail); }, [id, p.needs_approval]);
+    const g = NL.useGet(NL.DEMO ? null : `/api/panel?${NL.qs({ id })}`, p.needs_approval), detail = g.data;
     const pin = async places => NL.act('/api/panel/pin', { id, pinned: places }, 'Pinned');
     const pinned = [...new Set((p.pinned || []).map(place => place === 'dock' ? 'home' : place))];
     const it = study && NL.item(s, study);
@@ -92,18 +124,18 @@
         <label class="check"><input type="checkbox" checked=${!!p.may_hold} onChange=${e => NL.act('/api/panel/pin', { id, may_hold: e.target.checked }, e.target.checked ? 'Its alerts may hold a study' : 'Its alerts only tell you')} /><span><b>Its alerts may hold a study</b> <small class="muted">nothing new starts for that study until you release it</small></span></label>
           <${NL.Btn} small onClick=${() => NL.act('/api/panel/collect', { id, study }, 'Gathered')}>Gather now</${NL.Btn}>
           <${NL.Btn} small kind="ghost" onClick=${async () => { await NL.act('/api/panel/archive', { id, archived: !p.archived }); onClose(); }}>${p.archived ? 'Back to the cabinet' : 'Archive'}</${NL.Btn}></div>
-        <div class="muted small mono">newts panel ${id}${study ? ' --study ' + study : ''}</div></div>` : null}
+        <div class="muted small mono">arlo panel ${id}${study ? ' --study ' + study : ''}</div></div>` : null}
       <div class="sheet-body inst-body">
-        ${p.needs_approval ? html`<${CollectorApproval} p=${p} detail=${detail} />` : html`<${NL.PanelFrame} id=${id} study=${study} onSummary=${setSum} />`}
+        ${p.needs_approval ? (detail ? html`<${CollectorApproval} p=${p} detail=${detail} reload=${g.reload} />` : html`<${NL.LoadState} ...${g} />`) : html`<${NL.PanelFrame} id=${id} study=${study} onSummary=${setSum} />`}
         ${detail && detail.collector && !p.needs_approval ? html`<details class="inst-code"><summary>Its collector · ${detail.collector.name}${detail.panel && detail.panel.origin === 'shipped' ? ' (shipped with the lab)' : ' (approved)'}</summary><pre class="plain">${detail.collector.code}</pre></details>` : null}
       </div></aside>`;
   };
   NL.openPanel = (id, study) => NL.open(NL.PanelSheet, { id, study }, { key: 'panel:' + id + ':' + (study || '') });
 
-  const CollectorApproval = ({ p, detail }) => html`<div class="workbench-approve">
+  const CollectorApproval = ({ p, detail, reload }) => !detail.collector ? html`<${NL.LoadState} error="Collector code is unavailable. Reload before approving." reload=${reload} />` : html`<div class="workbench-approve">
     <p><b>Its collector is code.</b> It runs on this machine, as you, every ${p.every || '5m'}, so it runs only once you approve this version of it.</p>
-    ${detail && detail.collector ? html`<pre class="plain codewell">${detail.collector.code}</pre>` : html`<${NL.Spinner} />`}
-    <div class="row end"><${NL.HoldButton} onHold=${() => NL.act('/api/panel/approve', { id: p.id, confirm: true }, 'Approved. Gathering now.')} sub="hold to approve the code">Let it run</${NL.HoldButton}></div></div>`;
+    <pre class="plain codewell">${detail.collector.code}</pre>
+    <div class="row end"><${NL.HoldButton} onHold=${async () => { const r = await NL.act('/api/panel/approve', { id: p.id, sha: detail.collector.sha, confirm: true }, 'Approved. Gathering now.'); if (!r.ok) reload(); return r; }} sub="hold to approve the code">Let it run</${NL.HoldButton}></div></div>`;
 
   /* ── the Cabinet: every panel ever made ─────────────────────────────────────────────────────────── */
   const SRC = { collector: 'code', files: 'files', events: 'events', runs: 'runs', registry: 'studies' };

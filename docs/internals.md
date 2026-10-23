@@ -4,6 +4,13 @@ The Lab uses plain files, a Python server and a browser interface. There is one 
 dashboard tasks, workflow tasks, gate reviewers, the workspace assistant and visual summaries.
 For everyday use, see [The dashboard](dashboard.md).
 
+Launcher probes connect directly to loopback without system proxy discovery. Public static files
+use ETags and revalidate on each load; unchanged files return 304. The session page and API responses
+remain uncached. The renderer's sandbox and content policy are unchanged.
+
+The dashboard and project worker share a local HTTP server that binds without reverse DNS. Its
+server name is the bound address. SSH hints also use the local hostname without resolving it.
+
 ## Records and identity
 
 | Record | Purpose |
@@ -14,16 +21,16 @@ For everyday use, see [The dashboard](dashboard.md).
 | `studies/<study>/` | Study brief, process overrides, materials and research documents |
 | `lab/.bus/` and project `.bus/` | Signals, run manifests, transcripts, interaction inboxes and scheduler state |
 | `lab/records/` | Lab-wide shared records |
-| `<project>/.newts/knowledge/` | Project-local documents, sources, notes, answers, outputs and logs |
-| `<project>/.newts/project.json` | Stable project identity and its relative knowledge directory |
+| `<project>/.arlotope/knowledge/` | Project-local documents, sources, notes, answers, outputs and logs |
+| `<project>/.arlotope/project.json` | Stable project identity and its relative knowledge directory |
 | `lab/identity.json` | Lab identity and execution owner used when attaching projects |
 
 The journal is append-only; other state files have their own update rules. The bus is a signal and
 transport layer, not an alternative source of approvals. A `run_report` is an agent's summary;
 accepted workflow outcomes come from the kernel journal.
 
-`tools/project_identity.py` maintains a small per-user discovery index under `~/.newts/` (or
-`NEWTS_HOME`). It supports finding attached projects without an account service or a filesystem-wide
+`tools/project_identity.py` maintains a small per-user discovery index under `~/.arlotope/` (or
+`ARLOTOPE_HOME`). It supports finding attached projects without an account service or a filesystem-wide
 scan. Project ownership prevents an accidental second Lab attachment; it is not a multi-user
 authorization system.
 
@@ -149,13 +156,27 @@ engine or style-pack runtime in Lab. `dashboard/room_design.py` and `tools/room_
 private room drafts and reviewed application through that same renderer. Optional `extra.js`
 geometry stays beside its room definition. See [Room design](room-design.md).
 
+`agent-view.js` shares activity labels, task-peer grouping, attention causes and scoped native-session
+identity between the dashboard and isolated renderer. It projects existing records without writing
+workflow or execution state. `world3d/annotations.js` owns pooled dotted links and room clearance aids.
+
+`ui/focus.js` carries viewing IDs in the URL and current tab, scoped to the Lab. It derives labels
+from the snapshot and sends focus to the world; it is not another task store. Readers opt into the
+existing overlay manager's `inspector` slot. Recent form drafts use a bounded, Lab-scoped tab-memory
+cache in `components.js`; no transcript, draft database or browser-storage dependency is added.
+
+`world3d/model.js` maps a run/task to a room, folds furniture `uses`/`stands` into activity spots,
+and supplies coarse within-room paths. `world.js` reserves spots, smooths activity changes and routes
+actors through doors and streets. `newt.js` supplies the shared activity/pose animator; `characters.js`
+uses it for the three available rigs. These are projections of records, not another workflow engine.
+
 `dashboard/assistant.py` assembles current workspace facts and routes one ordinary executor
 conversation. Users choose its study, run or document focus and can start a fresh session. It has no
 separate model runtime. Visual summaries are separate scoped explanation runs, saved as artifacts.
 
 ## Demo mode and dependencies
 
-`newts.py --demo`, opened with `/?demo`, provides synthetic studies, agents and outputs for interface
+`arlo.py --demo`, opened with `/?demo`, provides synthetic studies, agents and outputs for interface
 inspection. Demo browser actions are intercepted rather than launching real work.
 
 Vendored browser libraries and their licences live in `static/vendor/`: Three.js, Preact, htm,

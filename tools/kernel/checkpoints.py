@@ -40,7 +40,7 @@ def find(hub, slug: str, cid: str) -> dict:
 def project_dir(hub, slug: str) -> Path | None:
     """The study's project repository: where the journal says, else <projects_root>/<slug> when it exists."""
     s = studies.study(hub, slug) or {}
-    if str(s.get('project') or '').startswith('newts+ssh://'):
+    if str(s.get('project') or '').startswith('arlotope+ssh://'):
         return None
     if s.get("project"):
         p = Path(s["project"])
@@ -52,31 +52,40 @@ def project_dir(hub, slug: str) -> Path | None:
 
 
 def _fill(hub: Path, slug: str, rel: str) -> Path | None:
-    pdir = project_dir(hub, slug)
-    if "{project}" in rel and not pdir:
-        return None
-    s = rel.replace("{study}", slug).replace("{project}", pdir.as_posix() if pdir else "")
-    p = Path(s)
+    if "{project}" in rel:
+        pdir = project_dir(hub, slug)
+        if not pdir:
+            return None
+        rel = rel.replace("{project}", pdir.as_posix())
+    p = Path(rel.replace("{study}", slug))
     return p if p.is_absolute() else Path(hub) / p
 
 
 def evidence(hub, slug: str, cp: dict) -> list[dict]:
+    import remote_projects as remote
+
+    refs = [str(rel) for rel in cp.get("evidence") or []]
+    needs_project = any('{project}' in rel for rel in refs)
+    location = remote.project(hub, slug) if needs_project else None
+    pdir = project_dir(hub, slug) if needs_project and not location else None
+    paths = [rel[len('{project}/'):].replace('{study}', slug) for rel in refs
+             if location and rel.startswith('{project}/')]
+    states = {}
+    if paths:
+        try:
+            states = remote.file_states(hub, slug, paths)
+        except remote.RemoteError:
+            pass  # an unavailable worker leaves evidence visible, marked missing
     out = []
-    for rel in cp.get("evidence") or []:
-        import remote_projects as remote
-        location = remote.project(hub, slug)
-        if location and str(rel).startswith('{project}/'):
-            path = str(rel).replace('{project}/','',1).replace('{study}',slug)
-            try:
-                exists = remote.file_states(hub, slug, [path]).get(path) is not None
-            except remote.RemoteError:
-                exists = False
+    for rel in refs:
+        if location and rel.startswith('{project}/'):
+            path = rel[len('{project}/'):].replace('{study}', slug)
             out.append({'path':remote.uri(location['machine'],location['path'].rstrip('/')+'/'+path),
-                        'name':path,'exists':exists,'dir':False,'remote':True})
+                        'name':path,'exists':states.get(path) is not None,'dir':False,'remote':True})
             continue
-        p = _fill(Path(hub), slug, str(rel))
-        if p is None:
+        if '{project}' in rel and not pdir:
             continue
+        p = _fill(Path(hub), slug, rel.replace('{project}', pdir.as_posix()) if pdir else rel)
         try:
             shown = p.resolve().relative_to(Path(hub).resolve()).as_posix()
         except ValueError:
@@ -121,7 +130,7 @@ def run_checks(hub, slug: str, cp: dict, timeout: float = 600, names: list | Non
             continue
         try:
             r = subprocess.run(cmd, cwd=str(hub), capture_output=True, text=True, timeout=timeout,
-                               encoding="utf-8", errors="replace", env=dict(os.environ, NEWTS_HUB=str(hub.resolve())))
+                               encoding="utf-8", errors="replace", env=dict(os.environ, ARLOTOPE_HUB=str(hub.resolve())))
             res[name] = {"code": r.returncode, "out": ((r.stdout or "") + (r.stderr or "")).strip()[-1200:]}
         except (OSError, subprocess.TimeoutExpired) as e:
             res[name] = {"code": 124, "out": str(e)[:300]}
@@ -160,7 +169,7 @@ def readiness(hub, slug: str, cid: str) -> dict:
             "evidence": evidence(hub, slug, cp), "checks": checks, "checked_at": cached.get("ts")}
 
 
-VIAS = ("dashboard", "cli", "keeper", "kernel", "migration")
+VIAS = ("dashboard", "cli", "keeper", "kernel")
 
 
 def decide(hub, slug: str, cid: str, decision: str = "approved", by: str = "pi", via: str = "dashboard",

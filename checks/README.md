@@ -4,7 +4,7 @@ A **check** turns one of the lab's rules (`workflow/rules.yaml`) from prose into
 skip: it reads the lab's files and exits **0 = OK · 1 = BLOCKED · 2 = WARN**. The skills call checks at
 the moments that need them, and a workflow's checkpoints name them (`checks:` to approve, `watch:` to
 flag work done past them). Where a study may move, and whether a checkpoint is approved, are the kernel's
-(`newts move`, `newts approved`), not a check's.
+(`arlo move`, `arlo approved`), not a check's.
 
 A check takes one of two forms:
 
@@ -34,5 +34,5 @@ A check takes one of two forms:
 | `audit_eval_discipline.py` | tuned on validation, reported on held-out test | the same |
 
 **Adding a rule with a check:** add the rule to `workflow/rules.yaml` (with `checks: [<name>]`), drop the
-check here, call it from the skills that need it, and run `newts docs`. A lab that
+check here, call it from the skills that need it, and run `arlo docs`. A lab that
 does not use a method (say, `decisions.md`) can delete its check and the calls to it.

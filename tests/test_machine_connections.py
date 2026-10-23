@@ -19,7 +19,7 @@ def connection(hub, tmp_path, monkeypatch):
     monkeypatch.syspath_prepend(str(REPO / 'tools'))
     machines = importlib.import_module('machines')
     setup = importlib.import_module('project_machines')
-    monkeypatch.setenv('NEWTS_HOME', str(tmp_path / 'home'))
+    monkeypatch.setenv('ARLOTOPE_HOME', str(tmp_path / 'home'))
     monkeypatch.setattr(machines.ctx, 'HUB', hub.root)
     monkeypatch.setattr(machines.ctx, 'LAB', hub.lab)
     monkeypatch.setattr(setup, 'CONNS', {})
@@ -85,7 +85,7 @@ def test_network_bootstrap_retries_but_authentication_does_not(connection, monke
     conn=setup.ProjectConn(machine)
     monkeypatch.setattr(conn,'alive',lambda **_:False)
     monkeypatch.setattr(machines.Conn,'connect',lambda *args:{'ok':True,'state':'connected'})
-    packet={'newts_worker_session':True,'build':conn.build,'uid':'1001','pid':123,'cookie':'worker=test','port':conn.rport}
+    packet={'arlotope_worker_session':True,'build':conn.build,'uid':'1001','pid':123,'cookie':'worker=test','port':conn.rport}
     calls=[];delays=[]
     responses=[subprocess.CompletedProcess([],255,b'',b'Connection timed out'),subprocess.CompletedProcess([],0,json.dumps(packet).encode(),b'')]
     def run(*_,**__):calls.append(1);return responses.pop(0)
@@ -127,7 +127,7 @@ def test_worker_build_has_its_own_port_and_old_build_is_refused(connection, monk
         def __init__(self, *_, **__): pass
         def request(self, *_): pass
         def getresponse(self): return self
-        def read(self): return json.dumps({'app':'newts-worker','protocol':1,'build':first.build}).encode()
+        def read(self): return json.dumps({'app':'arlotope-worker','protocol':1,'build':first.build}).encode()
         def close(self): pass
     monkeypatch.setattr('http.client.HTTPConnection', HTTP)
     assert second.alive() is False
@@ -136,7 +136,7 @@ def test_worker_build_has_its_own_port_and_old_build_is_refused(connection, monk
 def test_session_only_comes_from_bootstrap_and_matches_account(connection, monkeypatch):
     _, setup, machine = connection
     conn=setup.ProjectConn(machine)
-    packet={'newts_worker_session':True,'build':conn.build,'uid':'1001','pid':123,
+    packet={'arlotope_worker_session':True,'build':conn.build,'uid':'1001','pid':123,
             'cookie':'worker=test-only','port':conn.rport}
     assert conn._session(json.dumps(packet).encode())
     assert conn.remote_uid == '1001'
@@ -144,7 +144,7 @@ def test_session_only_comes_from_bootstrap_and_matches_account(connection, monke
         def __init__(self,*_,**__): pass
         def request(self,*_): pass
         def getresponse(self): return self
-        def read(self): return json.dumps({'app':'newts-worker','protocol':1,'build':conn.build,'uid':'1002'}).encode()
+        def read(self): return json.dumps({'app':'arlotope-worker','protocol':1,'build':conn.build,'uid':'1002'}).encode()
         def close(self): pass
     monkeypatch.setattr('http.client.HTTPConnection',HTTP)
     assert not conn.alive()
@@ -154,7 +154,7 @@ def test_session_only_comes_from_bootstrap_and_matches_account(connection, monke
 def test_restarted_worker_rotates_session_and_reauthenticates(connection, monkeypatch):
     machines, setup, machine = connection
     conn=setup.ProjectConn(machine)
-    packet={'newts_worker_session':True,'build':conn.build,'uid':'1001','pid':123,
+    packet={'arlotope_worker_session':True,'build':conn.build,'uid':'1001','pid':123,
             'cookie':'worker=old','port':conn.rport}
     conn._session(json.dumps(packet).encode())
     replacement={**packet,'pid':456,'cookie':'worker=new'}
@@ -162,7 +162,7 @@ def test_restarted_worker_rotates_session_and_reauthenticates(connection, monkey
         def __init__(self,*_,**__): pass
         def request(self,*_): pass
         def getresponse(self): return self
-        def read(self): return json.dumps({'app':'newts-worker','protocol':1,**replacement}).encode()
+        def read(self): return json.dumps({'app':'arlotope-worker','protocol':1,**replacement}).encode()
         def close(self): pass
     monkeypatch.setattr('http.client.HTTPConnection',HTTP)
     assert not conn.alive()
@@ -192,14 +192,14 @@ def test_background_worker_refuses_a_foreign_account(connection, monkeypatch):
         def __init__(self,*_,**__): pass
         def request(self,*_): pass
         def getresponse(self): return self
-        def read(self): return json.dumps({'app':'newts-worker','protocol':1,'build':'worker','uid':'1002'}).encode()
+        def read(self): return json.dumps({'app':'arlotope-worker','protocol':1,'build':'worker','uid':'1002'}).encode()
     monkeypatch.setattr('http.client.HTTPConnection',HTTP)
     with pytest.raises(ValueError,match='another account'):
         project_worker.main()
 
 
 def test_interactive_helper_hides_cookie_but_records_readiness(tmp_path):
-    packet={'newts_worker_session':True,'cookie':'worker=fixture-secret','uid':'1001'}
+    packet={'arlotope_worker_session':True,'cookie':'worker=fixture-secret','uid':'1001'}
     spec={'argv':[sys.executable,'-u','-c','import json;print('+repr(json.dumps(packet))+');print("Connected")'],
           'pidfile':str(tmp_path/'ssh.pid'),'sessionfile':str(tmp_path/'session.json')}
     path=tmp_path/'setup.json';path.write_text(json.dumps(spec))

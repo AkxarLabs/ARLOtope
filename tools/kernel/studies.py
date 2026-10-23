@@ -12,7 +12,7 @@ A move is refused when it isn't legal, and waits when a checkpoint on the way is
 where it is, the journal says what it waits for, and the PI's approval moves it on. Everything here goes
 through the journal (kernel/journal.py); lab/REGISTRY.md is rewritten from it after every change.
 
-Who acts: `by` is pi | cli | run:<id> | campaign:<name> | auto | migration. Inside an agent run ($NEWTS_RUN_ID)
+Who acts: `by` is pi | cli | run:<id> | campaign:<name> | auto. Inside an agent run ($ARLOTOPE_RUN_ID)
 the PI's actions — approving, moving a study anywhere, changing its workflow — are refused.
 """
 
@@ -31,11 +31,11 @@ class StudyError(ValueError):
 
 
 def in_agent_run() -> bool:
-    return bool(os.environ.get("NEWTS_RUN_ID"))
+    return bool(os.environ.get("ARLOTOPE_RUN_ID"))
 
 
 def actor(default: str = "cli") -> str:
-    rid = os.environ.get("NEWTS_RUN_ID")
+    rid = os.environ.get("ARLOTOPE_RUN_ID")
     return f"run:{rid}" if rid else default
 
 
@@ -47,15 +47,7 @@ def _pi(by: str, via: str = "") -> None:
 
 
 # ── reading ──────────────────────────────────────────────────────────────────────────────────────
-def ensure(hub) -> None:
-    """A lab with a registry but no journal yet (made before the journal existed) gets one, once."""
-    if not journal.path(hub).exists() and (Path(hub) / "lab" / "REGISTRY.md").is_file():
-        from . import migrate  # noqa: PLC0415
-        migrate.journal_from_registry(hub)
-
-
 def all_studies(hub) -> dict[str, dict]:
-    ensure(hub)
     st = journal.fold(journal.events(hub), tuple(model.SHELF_LABEL))
     wids = {w["id"] for w in model.workflows(hub)}
     default = model.default_workflow(hub)
@@ -65,7 +57,7 @@ def all_studies(hub) -> dict[str, dict]:
     from . import branches
     evs = journal.events(hub)
     for slug, s in list(st.items()):
-        if model.workflow(s['workflow'], hub).get('nodes'):
+        if model.workflow(s['workflow'], hub).get('nodes') or s.get('entry'):
             st[slug] = branches.fold(hub, s, evs)
     return st
 
@@ -131,7 +123,7 @@ def rows(hub) -> list[dict]:
                     "project": s["project"] or "", "updated": (s["since"] or s["updated"] or "")[:10],
                     "next": _next_text(hub, s), "finished": s["finished"], "waiting": s["waiting"], "use": s["use"], "was": s["was"],
                     "touched": s["updated"] or "", "tags": study_tags(hub, s['id'])})
-        for key in ('active_steps', 'runnable', 'task_waits', 'completed_steps', 'joins', 'blocked_reason'):
+        for key in ('active_steps', 'runnable', 'task_waits', 'completed_steps', 'joins', 'blocked_reason', 'entry', 'entry_cancelled'):
             if key in s:
                 out[-1][key] = s[key]
     return out
@@ -140,7 +132,7 @@ def rows(hub) -> list[dict]:
 REGISTRY_HEAD = """# Lab Registry
 
 Where every study stands. **Generated** from `lab/journal.jsonl` after every change — never edit it by hand:
-studies move with `newts move <study> <outcome>` (or in the dashboard), and `newts status` shows the same.
+studies move with `arlo move <study> <outcome>` (or in the dashboard), and `arlo status` shows the same.
 
 | ID | Title | Step | Workflow | Project | Updated | Next |
 |----|-------|------|----------|---------|---------|------|
@@ -164,7 +156,7 @@ def _bus(hub, kind: str, slug: str, detail: str, **data) -> None:
         bus = Path(hub) / "lab" / ".bus"
         bus.mkdir(parents=True, exist_ok=True)
         line = json.dumps({"ts": journal.now(), "source": "hub", "kind": kind, "idea": slug, "run_id":
-                           os.environ.get("NEWTS_RUN_ID"), "detail": detail, "data": data}) + "\n"
+                           os.environ.get("ARLOTOPE_RUN_ID"), "detail": detail, "data": data}) + "\n"
         with (bus / "events.jsonl").open("a", encoding="utf-8") as f:
             f.write(line)
     except OSError:
@@ -179,10 +171,10 @@ def _record(hub, slug: str, kind: str, by: str, **fields) -> dict:
 
 # ── acting ───────────────────────────────────────────────────────────────────────────────────────
 def new(hub, slug: str, title: str = "", workflow: str | None = None, at: str | None = None,
-        by: str | None = None) -> dict:
+        by: str | None = None, entry=None) -> dict:
     """File a study. Slugs are never reused — a killed or parked one keeps its record."""
     by = by or actor()
-    if os.environ.get('NEWTS_GATE_JUDGE'):
+    if os.environ.get('ARLOTOPE_GATE_JUDGE'):
         raise StudyError('Return the gate verdict. Only the engine applies its decision.')
     if not model.SLUG.match(slug or ""):
         raise StudyError(f"bad study slug {slug!r} (lowercase letters, digits, - . _)")
@@ -191,6 +183,12 @@ def new(hub, slug: str, title: str = "", workflow: str | None = None, at: str | 
     w = model.workflow(workflow, hub)
     if workflow and w["id"] != workflow:
         raise StudyError(f"no workflow {workflow!r}")
+    if entry:
+        _pi(by)
+        from .entry import prepare
+        entry = prepare(hub, w, entry)
+        if at:
+            raise StudyError('Use the starting plan or a direct placement, not both.')
     first = at or w["path"][0]
     if first not in w["path"]:
         raise StudyError(f"{first!r} is not a step of the {w['id']} workflow")
@@ -198,7 +196,7 @@ def new(hub, slug: str, title: str = "", workflow: str | None = None, at: str | 
     if passed and str(by).startswith("run:"):
         raise StudyError(f"filing {slug} at {first} would pass {passed[0]['title']} — only the PI places a study "
                          "past a checkpoint (file it at the start, and ask)")
-    ev = _record(hub, slug, "new", by, workflow=w["id"], title=title.strip()[:200], step=first)
+    ev = _record(hub, slug, "new", by, workflow=w["id"], title=title.strip()[:200], step=first, entry=entry)
     _bus(hub, "state_change", slug, f"filed at {first}")
     return ev
 
@@ -281,7 +279,7 @@ def reconcile(hub, by: str = "pi") -> list[dict]:
     for it, and a wait whose destination step is gone stays for the PI to move. → [{study, checkpoint, result}]"""
     out = []
     for slug, s in all_studies(hub).items():
-        if model.workflow(s['workflow'], hub).get('nodes'):
+        if s.get('active_steps') is not None:
             continue  # Task waits are derived independently; never reset other active branches.
         w = s.get("waiting") or {}
         cid, to = w.get("checkpoint"), w.get("to")
@@ -307,18 +305,18 @@ def outcomes_at(hub, s: dict) -> list[str]:
 def move(hub, slug: str, outcome: str, note: str = "", by: str | None = None) -> dict:
     """Report an outcome for a study. → {moved, step} | {moved: False, waiting: <checkpoint>|"pi"} | {finished}.
     Raises StudyError when the outcome isn't one this study can report here."""
-    if os.environ.get('NEWTS_GATE_JUDGE'):
+    if os.environ.get('ARLOTOPE_GATE_JUDGE'):
         raise StudyError('Return the gate verdict. Only the engine applies its decision.')
     by = by or actor()
     s = study(hub, slug)
     if not s:
-        raise StudyError(f"no study {slug!r} (file it first: newts new {slug} --title …)")
-    if model.workflow(s['workflow'], hub).get('nodes'):
+        raise StudyError(f"no study {slug!r} (file it first: arlo new {slug} --title …)")
+    if s.get('active_steps') is not None:
         from . import branches
         return branches.move(hub, s, outcome, note, by)
     here = model.step(s["step"], hub)
     if not here:
-        raise StudyError(f"{slug} is at {s['step']!r}, which is no longer a step — the PI moves it (newts move {slug} --to <step>)")
+        raise StudyError(f"{slug} is at {s['step']!r}, which is no longer a step — the PI moves it (arlo move {slug} --to <step>)")
     if here["shelf"]:
         raise StudyError(f"{slug} is {here['label'].lower()} — only the PI brings it back")
     if s["finished"]:
@@ -379,7 +377,7 @@ def move_to(hub, slug: str, to: str, note: str = "", by: str = "pi") -> dict:
 def resume(hub, slug: str, by: str) -> dict | None:
     """After an approval: carry a waiting study's move through if nothing else on the way waits."""
     s = study(hub, slug)
-    if s and model.workflow(s['workflow'], hub).get('nodes'):
+    if s and s.get('active_steps') is not None:
         return {'moved': bool(s['runnable']), 'step': s['step'], 'runnable': s['runnable']}
     w = (s or {}).get("waiting")
     if not s or not w or not w.get("to") or not w.get("checkpoint"):

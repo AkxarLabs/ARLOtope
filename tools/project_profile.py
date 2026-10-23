@@ -4,13 +4,13 @@ No research kernel, registry, approvals or scheduler live here. The controller s
 """
 from pathlib import Path
 
-GUARD = TRACER = Path('/__newts_no_controller_hook__')
+GUARD = TRACER = Path('/__arlotope_no_controller_hook__')
 
 
 class WorkerLab:
     def __init__(self, project, config, owner):
         self.hub = Path(project)
-        self.bus = self.hub / '.bus' / 'newts' / owner
+        self.bus = self.hub / '.bus' / 'arlotope' / owner
         self.lab = self.bus
         self._prog = config
         self.runs_ledger = self.bus / 'runs.jsonl'
@@ -35,9 +35,9 @@ def flag_runs(hub, runs):
 
 def run_env(manifest, env):
     if manifest.get('judge'):
-        env['NEWTS_GATE_JUDGE'] = '1'
-    env['NEWTS_WORKER_OWNER'] = manifest['remote_owner']
-    env['NEWTS_WORKER_RUNTIME'] = manifest['worker_runtime']
+        env['ARLOTOPE_GATE_JUDGE'] = '1'
+    env['ARLOTOPE_WORKER_OWNER'] = manifest['remote_owner']
+    env['ARLOTOPE_WORKER_RUNTIME'] = manifest['worker_runtime']
 
 
 def watch_start(lab, manifest, workdir):

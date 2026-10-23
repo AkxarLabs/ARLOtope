@@ -51,8 +51,14 @@ jobs:
       - uses: astral-sh/setup-uv@v5
         with:
           enable-cache: true
+      - name: Dashboard startup smoke
+        env:
+          ARLOTOPE_HOME: ${{ runner.temp }}/arlotope-test-home
+        run: uv run --with pyyaml --with pytest python -m pytest tests/test_remote.py::test_foreground_custom_port_has_status_and_can_be_stopped tests/test_serve.py::test_local_servers_bind_without_dns_and_own_their_port -vv -s
       - name: Hub trust-tools regression suite (hermetic)
-        run: uv run --with pyyaml --with pytest python -m pytest tests/ -q
+        env:
+          ARLOTOPE_HOME: ${{ runner.temp }}/arlotope-test-home
+        run: uv run --with pyyaml --with pytest python -m pytest tests/ -vv -s -o faulthandler_timeout=90
 
   template-smoke:
     strategy:

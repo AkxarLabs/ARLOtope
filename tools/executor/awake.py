@@ -62,14 +62,14 @@ def hold(reason: str) -> bool:
         try:
             if os.name == "nt":
                 stop = threading.Event()
-                t = threading.Thread(target=_win_thread, args=(stop,), name="newts-keep-awake", daemon=True)
+                t = threading.Thread(target=_win_thread, args=(stop,), name="arlotope-keep-awake", daemon=True)
                 t.start()
                 _state.update(thread=t, stop=stop)
             elif sys.platform == "darwin":
                 _state["proc"] = subprocess.Popen(["caffeinate", "-i", "-w", str(os.getpid())],
                                                   stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
             else:
-                _state["proc"] = subprocess.Popen(["systemd-inhibit", "--what=sleep", "--who=Newts' Lab",
+                _state["proc"] = subprocess.Popen(["systemd-inhibit", "--what=sleep", "--who=ARLOtope",
                                                    f"--why={reason[:80]}", "--mode=block", "sleep", "infinity"],
                                                   stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
         except OSError:

@@ -40,19 +40,13 @@
   </div>`;
 
   N.StudyNotes = ({ study }) => {
-    const [data, setData] = useState(null);
-    useEffect(() => {
-      let active = true;
-      const load = async () => {
-        try { const result = await N.get('/api/knowledge?' + N.qs({ study, kind: 'note' })); if (active) setData(result); }
-        catch (error) { if (active) setData({ error: error.message || 'Could not read notes.' }); }
-      };
-      setData(null); load(); window.addEventListener('nl-knowledge', load);
-      return () => { active = false; window.removeEventListener('nl-knowledge', load); };
-    }, [study]);
+    const [revision, refresh] = N.useReducer(n => n + 1, 0);
+    const read = N.useGet('/api/knowledge?' + N.qs({ study, kind: 'note' }), revision), data = read.data || read.previous;
+    useEffect(() => { window.addEventListener('nl-knowledge', refresh); return () => window.removeEventListener('nl-knowledge', refresh); }, []);
     return html`<section class="study-notes"><header class="row"><h3 class="grow">Notes</h3>
       <button type="button" class="link small" onClick=${() => N.openNote(study)}>Add note</button></header>
-      ${!data ? html`<p role="status" class="muted small">Loading notes…</p>` : data.error ? html`<p role="alert" class="muted small">${data.error}</p>` : (data.rows || []).slice(0, 4).map(record => html`
+      ${!data || read.error ? html`<${N.LoadState} ...${read} stale=${!!read.previous} />` : null}
+      ${(data?.rows || []).slice(0, 4).map(record => html`
         <a class="desk-entry" href=${recordsHref(study, { kind: 'note', record: record.id })}><b>${record.title}</b>
           <small>${record.acknowledge ? acknowledgement(record) : 'Human note'}</small></a>`)}
       <a class="link small" href=${recordsHref(study)}>Notes, answers & sources →</a>
@@ -63,9 +57,7 @@
     <p>Answer delivery needs attention. Saved answers will retry delivery.</p><ul>${warnings.map(warning => html`<li>${warning}</li>`)}</ul>
   </div>` : null;
 
-  const Toolbar = ({ lab, study, kind, search, navigate }) => html`<div class="knowledge-toolbar">
-    <${N.Field} label="Project / study"><${N.Select} value=${study} onChange=${value => navigate({ study: value })}
-      options=${[{ value: '', label: 'Lab-wide' }, ...(lab.items || []).map(item => ({ value: item.id, label: item.title || item.id }))]}/></${N.Field}>
+  const Toolbar = ({ study, kind, search, navigate }) => html`<div class="knowledge-toolbar">
     <${N.Field} label="Kind"><${N.Select} value=${kind} onChange=${value => navigate({ kind: value })}
       options=${[{ value: '', label: 'All records' }, ...Object.entries(labels).map(([value, label]) => ({ value, label }))]}/></${N.Field}>
     <${N.Field} label="Search records"><${N.Input} value=${search} onInput=${value => navigate({ q: value })} placeholder="Search text or tags…"/></${N.Field}>
@@ -73,9 +65,9 @@
     <${N.Btn} onClick=${() => N.openAssistant({ initialStudy: study, initialScope: true })}>Ask</${N.Btn}>
   </div>`;
 
-  const RecordList = ({ data, loading, error, study, kind, search, selected, loadMore }) => html`<aside class="split-left">
-    <p class="muted small">Notes, answers and retained sources.</p>
-    ${error ? html`<p role="alert" class="note note-warn">${error}</p>` : null}
+  const RecordList = ({ data, loading, error, study, kind, search, selected, loadMore, reload }) => html`<aside class="split-left">
+    <p class="muted small">Retained papers, human notes and saved answers. Project files are under Documents.</p>
+    ${error ? html`<${N.LoadState} error=${error} reload=${reload} stale=${!!data} />` : null}
     ${!data && loading ? html`<p role="status"><${N.Spinner}/> Loading records…</p>` : data?.rows?.length ? data.rows.map(record => html`
       <a class=${'shelf-doc' + (selected === record.id ? ' on' : '')} aria-current=${selected === record.id ? 'page' : null}
         href=${recordsHref(study, { kind, q: search, record: record.id })}>
@@ -100,20 +92,20 @@
   const RecordReader = ({ selected, state, study, back, retry }) => html`<main class="split-right">
     ${selected ? html`<a class="link documents-back" href=${back}>← All records</a>` : null}
     ${!selected ? html`<${N.Empty} title="Pick a record">Questions and answers are saved separately from their source documents.</${N.Empty}>`
-      : state.record ? html`${state.error ? html`<p role="alert" class="note note-warn">${state.error} Showing the last saved copy.</p>` : null}<${RecordBody} record=${state.record} study=${study}/>`
+      : state.record ? html`${state.error ? html`<${N.LoadState} error=${state.error} reload=${retry} stale />` : null}<${RecordBody} record=${state.record} study=${study}/>`
       : state.error ? html`<div class="reader"><p role="alert" class="note note-warn">${state.error}</p><${N.Btn} onClick=${retry}>Try again</${N.Btn}></div>`
       : html`<div class="reader" role="status"><${N.Spinner}/> Loading record…</div>`}
   </main>`;
 
   N.KnowledgePage = ({ query = {} }) => {
-    const lab = N.useLab(), study = query.study || '', kind = query.kind || '', search = query.q || '', selected = query.record || '';
+    const study = query.study || '', kind = query.kind || '', search = query.q || '', selected = query.record || '';
     const [listing, setListing] = useState({ data: null, loading: true, error: '' });
     const [reader, setReader] = useState({ record: null, error: '' }), [retry, setRetry] = useState(0);
     const listGeneration = useRef(0), listBusy = useRef(false);
     const navigate = patch => N.go('library?' + N.qs({ view: 'records', study, kind, q: search, ...patch }));
     const loadList = async (offset = 0) => {
       if (offset && listBusy.current) return;
-      const generation = listGeneration.current;
+      const generation = ++listGeneration.current;
       listBusy.current = true; setListing(old => ({ ...old, loading: true }));
       try {
         const result = await N.get('/api/knowledge?' + N.qs({ study, kind, query: search, offset }));
@@ -146,11 +138,11 @@
       load(); const timer = setInterval(load, 5000); window.addEventListener('nl-knowledge', load);
       return () => { active = false; clearInterval(timer); window.removeEventListener('nl-knowledge', load); };
     }, [study, selected, retry]);
-    return html`<div class="library-workspace"><${N.LibraryNav} active="records"/>
-      <${Toolbar} lab=${lab} study=${study} kind=${kind} search=${search} navigate=${navigate}/>
+    return html`<div class="library-workspace"><${N.LibraryNav} active="records" study=${study}/>
+      <${Toolbar} study=${study} kind=${kind} search=${search} navigate=${navigate}/>
       <${Warnings} warnings=${listing.data?.warnings}/>
       <div class=${'page page-split document-library' + (selected ? ' has-selection' : '')}>
-        <${RecordList} ...${listing} study=${study} kind=${kind} search=${search} selected=${selected} loadMore=${() => loadList(listing.data.next)}/>
+        <${RecordList} ...${listing} study=${study} kind=${kind} search=${search} selected=${selected} reload=${() => loadList()} loadMore=${() => loadList(listing.data.next)}/>
         <${RecordReader} selected=${selected} state=${reader} study=${study} back=${recordsHref(study, { kind, q: search })} retry=${() => setRetry(value => value + 1)}/>
       </div></div>`;
   };

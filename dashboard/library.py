@@ -152,6 +152,9 @@ def _study_group(slug: str, row: dict | None) -> dict | None:
                 'rel':r['rel'],'title':r['title'],'kind':r['kind'],'mtime':r['mtime']} for r in records]})
     except (OSError,ValueError):
         pass  # Remote availability is reported by the Records view; other documents remain usable.
+    history=_lib_glob(sdir/'history','workflow.*')
+    if history:
+        secs.append({'title':'Workflow history','docs':_lib_docs('study',slug,sdir,history)})
     if not any(s["docs"] for s in secs):
         return None
     return {"kind": "study", "key": f"study:{slug}", "slug": slug,

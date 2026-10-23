@@ -1,4 +1,4 @@
-"""Labs on this computer (list / open / create / forget — ~/.newts/labs.json, NEWTS_HOME overrides), the
+"""Labs on this computer (list / open / create / forget — ~/.arlotope/labs.json, ARLOTOPE_HOME overrides), the
 consoles for a CLI's own sign-in or install, and stopping the server.
 """
 
@@ -17,7 +17,7 @@ executor = sources.executor   # tools/executor, or None
 
 
 def _labs_file() -> Path:
-    home = Path(os.environ.get("NEWTS_HOME") or (Path.home() / ".newts"))
+    home = Path(os.environ.get("ARLOTOPE_HOME") or (Path.home() / ".arlotope"))
     return home / "labs.json"
 
 
@@ -89,8 +89,9 @@ def labs_open(body: dict) -> tuple[dict, int]:
         hub = hub.resolve()
     except OSError:
         return {"error": f"can't read {raw}"}, 400
-    if not (hub / "lab").is_dir() or not (hub / "lab" / "config.yaml").exists():
-        return {"error": f"{hub} is not a Newts' Lab (no lab/config.yaml there)"}, 400
+    from labfiles import ensure_config
+    if not (hub / "lab").is_dir() or not ensure_config(hub).exists():
+        return {"error": f"{hub} is not a ARLOtope (no lab/config.yaml there)"}, 400
     ctx.set_remote(None)
     ctx.switch_hub(hub)
     remember_lab(hub)
@@ -133,7 +134,13 @@ def terminal_open(body: dict) -> tuple[dict, int]:
     ctx.tool("labfiles")   # tools/ on sys.path for the imports below
     import terminal   # noqa: E402
     if purpose == "shell":
-        res = terminal.open_terminal("echo Newts' Lab — this is your lab folder", ctx.HUB)
+        res = terminal.open_terminal("echo ARLOtope — this is your lab folder", ctx.HUB)
+    elif purpose == 'login' and backend == 'github':
+        import term
+        argv, err = term.command_for(purpose, backend)
+        if err:
+            return {'error': err}, 400
+        res = terminal.open_terminal(argv, ctx.HUB)
     elif purpose in ("login", "install"):
         if backend not in sources.executor.backends.BACKENDS if sources.executor else ("claude", "codex", "opencode"):
             return {"error": "unknown backend"}, 400

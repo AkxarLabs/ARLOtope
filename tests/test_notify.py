@@ -19,11 +19,11 @@ from test_executor import _queue, setup  # noqa: E402
 def test_what_needs_you_is_sent_once_with_a_link(hub, inbox):
     base, got = inbox
     lab = setup(hub)
-    (hub.lab / ".env.local").write_text(f"S2_API_KEY=k\nNEWTS_NOTIFY_NTFY={base}/my-topic\n"
-                                        f"NEWTS_NOTIFY_WEBHOOK={base}/hook\nNEWTS_NOTIFY_LINK=http://pc:8787\n",
+    (hub.lab / ".env.local").write_text(f"S2_API_KEY=k\nARLOTOPE_NOTIFY_NTFY={base}/my-topic\n"
+                                        f"ARLOTOPE_NOTIFY_WEBHOOK={base}/hook\nARLOTOPE_NOTIFY_LINK=http://pc:8787\n",
                                         encoding="utf-8")
     assert notify.config(lab) == {"ntfy": f"{base}/my-topic", "webhook": f"{base}/hook", "link": "http://pc:8787"}
-    assert "NEWTS_NOTIFY_NTFY" not in _env_local(lab) and _env_local(lab)["S2_API_KEY"] == "k"   # never to agents
+    assert "ARLOTOPE_NOTIFY_NTFY" not in _env_local(lab) and _env_local(lab)["S2_API_KEY"] == "k"   # never to agents
     rid = _queue(lab, 1)[0]
     _t, _w, path, m = executor.find_run(lab, rid)
     manifest.transition(lab, path, m, "waiting_input", by="test", transport="live", pending_question={
@@ -44,5 +44,5 @@ def test_nothing_is_sent_without_a_destination_or_for_info_items(hub, inbox):
     _t, _w, path, m = executor.find_run(lab, rid)
     manifest.transition(lab, path, m, "completed", by="test", finished=manifest.now())
     assert notify.check(lab, force=True) == []                      # not configured
-    (hub.lab / ".env.local").write_text(f"NEWTS_NOTIFY_NTFY={base}/t\n", encoding="utf-8")
+    (hub.lab / ".env.local").write_text(f"ARLOTOPE_NOTIFY_NTFY={base}/t\n", encoding="utf-8")
     assert notify.check(lab, force=True) == [] and not got         # a finished run is not "needs you"

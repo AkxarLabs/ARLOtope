@@ -1,4 +1,4 @@
-"""Newts' Lab executor — launch, supervise, pause/answer, resume, and stop headless agent runs.
+"""ARLOtope executor — launch, supervise, pause/answer, resume, and stop headless agent runs.
 
 The dashboard is one client of this package; `tools/executor_cli.py` is another. Deleting
 dashboard/ changes nothing here.

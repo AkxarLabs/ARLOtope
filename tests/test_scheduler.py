@@ -44,9 +44,8 @@ def proj(tmp_path, monkeypatch):
         w.chmod(0o755)
     monkeypatch.setenv("PATH", f"{fake}{os.pathsep}{os.environ['PATH']}")
     monkeypatch.setenv("FAKE_SLURM_DIR", str(tmp_path / "slurm"))
-    monkeypatch.setenv("AUTOSCIENTIST_SLOT_HELD", "1")      # the slot ledger is tested elsewhere
-    monkeypatch.setenv("NEWTS_SCHED_POLL", "0.3")
-    monkeypatch.delenv("NEWTS_SCHEDULER", raising=False)
+    monkeypatch.setenv("ARLOTOPE_SCHED_POLL", "0.3")
+    monkeypatch.delenv("ARLOTOPE_SCHEDULER", raising=False)
     return hub, pdir
 
 
@@ -158,7 +157,7 @@ def test_config_merge_and_custom_state_parsing(proj, monkeypatch):
     sc = sch.config({"hub_path": str(hub), "compute": {"scheduler": {"slurm": {"gpus_per_run": 4}}}})
     assert sc["kind"] == "slurm" and sc["slurm"]["gpus_per_run"] == 4 and sc["slurm"]["partition"] == "gpu"
     assert sch.wants(sc, "PILOT") and not sch.wants(sc, "SMOKE")
-    monkeypatch.setenv("NEWTS_SCHEDULER", "local")
+    monkeypatch.setenv("ARLOTOPE_SCHEDULER", "local")
     assert not sch.wants(sch.config({"hub_path": str(hub)}), "FULL")
     # This checks empty state output, independent of the host's shell utilities.
     monkeypatch.setattr(sch, "_sh", lambda cmd, timeout=60: subprocess.CompletedProcess(cmd, 0, "", ""))

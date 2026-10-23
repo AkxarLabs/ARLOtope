@@ -57,7 +57,7 @@ def test_publication_keeps_producer_source_and_study(hub,tmp_path,monkeypatch):
     lab=configured(hub);source=enqueue(lab,RunSpec('',prompt='Inspect evidence.'))
     result=evidence.start(lab,source['run_id'])
     page=tmp_path/'summary.html';page.write_text('<h1>Evidence</h1>')
-    monkeypatch.setenv('NEWTS_RUN_ID',result['run_id'])
+    monkeypatch.setenv('ARLOTOPE_RUN_ID',result['run_id'])
     art=load('artifact').publish('Explanation',str(page),h=hub.root,study='study-a',about=source['run_id'])
     assert art['run_id']==result['run_id'] and art['about']['run']==source['run_id'] and art['study']=='study-a'
 

@@ -1,4 +1,6 @@
-# Newts' Lab
+# ARLOtope
+
+<img src="docs/assets/brand/arlotope-wordmark.png" alt="ARLOtope" width="440">
 
 A local research workspace for scientists working with coding agents. Bring a question or an existing
 project, work with your own tools, and keep a clear record of methods, evidence and decisions.
@@ -7,22 +9,35 @@ Licensed under [AGPL-3.0-only](LICENSE). Commercial use is allowed, with the lic
 requirements. Reusable templates retain MIT terms; third-party components retain their own licenses.
 See [licensing](docs/licensing.md).
 
-![Newts’ Lab visual workspace](docs/assets/current/lab-light.webp)
+![ARLOtope visual workspace](docs/assets/current/lab-light.webp)
 
 *Current interface with demonstration data.*
 
 ## Start
 
-Install [uv](https://docs.astral.sh/uv/) and Git, then clone this repository or use it as a template.
-Double-click **Start Newts Lab.cmd** on Windows or **start-newts.command** on macOS, or run:
+Install [uv](https://docs.astral.sh/uv/) and Git, then clone and launch:
 
 ```bash
-uv run --with pyyaml python newts.py
+git clone https://github.com/AkxarLabs/ARLOtope.git
+cd ARLOtope
+uv run --with pyyaml python arlo.py
 ```
 
-The local dashboard opens in your browser. **New study** guides you through:
+Or double-click **Start ARLOtope.cmd** on Windows or **start-arlotope.command** on macOS.
+No template setup, package installation step or frontend build is needed. Each clone can be its
+own Lab. First use creates private `lab/config.yaml` from the shipped defaults; it never replaces
+existing settings. Agent tools still need their own installation and sign-in.
 
-1. A research question, an existing project on this or a connected machine, or a public GitHub `owner/repository`.
+For a short terminal command, use `./arlo` on macOS/Linux or `.\arlo.cmd` on Windows.
+Add this folder to your PATH to use `arlo` from elsewhere. For example, `arlo status`
+shows your studies and `arlo --stop` stops the dashboard.
+
+The local dashboard opens in your browser.
+
+The first-visit ARLO guide shows agent setup, workflows and the visual workspace. Reopen it with
+**?** in the header. You can skip it and use **New study** directly:
+
+1. A research question, an existing project on this or a connected machine, or a GitHub `owner/repository`. Private repositories use the connected GitHub account.
 2. A research goal and workflow. Optionally upload a brief or supporting files and ask an agent to suggest details.
 3. Review, then create the study. A GitHub clone downloads source without installing or running it.
 
@@ -30,6 +45,10 @@ Attach existing work without moving files, replacing its package manager, or add
 Connect Claude Code, Codex, opencode or an [ACP agent](docs/acp.md) when you want an agent's help.
 Use the CLI's own sign-in. Projects can stay on [remote machines](docs/remote-projects.md) without
 installing another full Lab there.
+
+Build your own workflow with tasks, skills, roles and gates. **Workflow → Skills → Import folder**
+reuses an existing `SKILL.md` folder, including its references and scripts. Selected skills are copied
+into each project's `.agents/skills/`; existing project skills are preserved. See [reusing skills](docs/skills.md#reuse-a-skill).
 Creating a study does not start an agent or approve a checkpoint.
 Use **Browse** to choose project folders. Uploaded materials stay with the study and are available to its agents.
 **Library → Notes & sources** keeps human notes, saved workspace answers and retained papers with
@@ -64,13 +83,19 @@ journal. Code and experiments stay in project repositories, which may live anywh
 dashboard needs no frontend build. Agents can also read `AGENTS.md` and follow procedures directly;
 the CLI and executor are available independently.
 
+The checkout holds the application and this Lab's local records. Git ignores `studies/` and
+private `lab/` state, including settings, notes, transcripts and published outputs. Project code
+stays in its own repository, outside the checkout by default. **Ignored does not mean backed up:**
+save `lab/`, `studies/` and your project repositories separately. See [storage and backups](docs/projects.md#storage-updates-and-backups).
+Reusable project scaffolds are optional; attaching or cloning an existing project does not apply one.
+
 ```bash
 # Attach a repository without scaffolding it
 uv run --with pyyaml python tools/research_start.py --title "My study" \
   --question "What would I like to understand?" --local /absolute/path/to/project
 
 # Inspect the lab from a terminal
-uv run --with pyyaml python newts.py status
+uv run --with pyyaml python arlo.py status
 ```
 
 For an agent session, start your installed harness in the lab and use `/discuss`, `/ideate`, `/adopt`
@@ -86,12 +111,14 @@ handoff. See [recovery](docs/recovering-work.md) for limits, retries and what is
 
 ## Documentation
 
+[Public beta candidate notes](RELEASE_NOTES.md) describe the included features and known limits.
+
 [Getting started](docs/getting-started.md) · [Research-first tour](docs/research-first.md) ·
 [Customizing research](docs/customising.md) · [Workflow format](docs/workflow.md) ·
 [Configuration](docs/configuration.md) · [Compute](docs/compute.md) ·
 [Background work](docs/autonomy.md) · [Notes & sources](docs/knowledge.md) · [Contributing](CONTRIBUTING.md)
 
-The [documentation website](https://akxarlabs.github.io/newts-lab/) is built from `docs/` with
+The [documentation website](https://akxarlabs.github.io/ARLOtope/) is built from `docs/` with
 `properdocs.yml`. Historical implementation plans stay in the repository and are excluded from the
 public site. Build it locally with `uv run --with properdocs --with mkdocs-material properdocs build --strict`.
 

@@ -26,7 +26,7 @@ Behaviour is picked by env FAKE_MODE:
              subagents, else complete (/propose adds a gate1 footer); FAKE_PACE=<s> paces the lines
 Optional env FAKE_REPORT='{"next": ..., "needs_pi": ..., "summary": ...}' makes the "agent" emit the
 run_report footer on the run's bus, as the preamble instructs.
-Every invocation appends {argv, stdin, cwd, env subset} to $NEWTS_RUN_DIR/fake_calls.jsonl.
+Every invocation appends {argv, stdin, cwd, env subset} to $ARLOTOPE_RUN_DIR/fake_calls.jsonl.
 `--version` says FAKE_VERSION (default 9.9.9 — a CLI whose stream carries every subagent).
 """
 
@@ -176,12 +176,12 @@ def main() -> int:
         except (OSError, ValueError):
             stdin_text = ""
     prompt = pos[0] if pos else stdin_text
-    run_dir = os.environ.get("NEWTS_RUN_DIR")
+    run_dir = os.environ.get("ARLOTOPE_RUN_DIR")
     if run_dir:
         with Path(run_dir, "fake_calls.jsonl").open("a", encoding="utf-8") as f:
             f.write(json.dumps({"argv": argv, "stdin": stdin_text, "cwd": os.getcwd(),
                                 "env": {k: v for k, v in os.environ.items()
-                                        if k.startswith(("AUTOSCIENTIST_", "NEWTS_", "CLAUDE_CODE_"))}}) + "\n")
+                                        if k.startswith(("ARLOTOPE_", "CLAUDE_CODE_"))}}) + "\n")
     resume = (opts.get("--resume") or [None])[0]
     sid = resume or (opts.get("--session-id") or [None])[0] or str(uuid.uuid4())
     settings = (opts.get("--settings") or [None])[0]
@@ -207,14 +207,14 @@ def main() -> int:
 
     def report():
         rep = os.environ.get("FAKE_REPORT")
-        if rep and os.environ.get("NEWTS_RUN_ID"):
+        if rep and os.environ.get("ARLOTOPE_RUN_ID"):
             d = json.loads(rep)
-            hub = Path(os.environ["NEWTS_HUB"])
+            hub = Path(os.environ["ARLOTOPE_HUB"])
             bus = hub / "lab" / ".bus" if Path(os.getcwd()).resolve() == hub.resolve() else Path(os.getcwd()) / ".bus"
             bus.mkdir(parents=True, exist_ok=True)
             with (bus / "events.jsonl").open("a", encoding="utf-8") as f:
                 f.write(json.dumps({"ts": time.strftime("%Y-%m-%dT%H:%M:%S"), "source": "x", "kind": "run_report",
-                                    "run_id": os.environ["NEWTS_RUN_ID"], "data": d}) + "\n")
+                                    "run_id": os.environ["ARLOTOPE_RUN_ID"], "data": d}) + "\n")
 
     def result(text: str, rc: int = 0):
         out({"type": "result", "subtype": "success" if rc == 0 else "error", "is_error": rc != 0,
@@ -296,12 +296,12 @@ def main() -> int:
                  "result": f"Claude AI usage limit reached|{int(time.time()) + 90}"})
             return 1
         final = "FINAL CYCLE" in pre
-        hub = Path(os.environ.get("NEWTS_HUB", "."))
-        if not final and os.environ.get("NEWTS_RUN_ID"):
+        hub = Path(os.environ.get("ARLOTOPE_HUB", "."))
+        if not final and os.environ.get("ARLOTOPE_RUN_ID"):
             with (hub / "lab" / ".bus" / "events.jsonl").open("a", encoding="utf-8") as f:
                 for skill, target in ((("ideate", "hub"),) if n == 1 else (("lab-status", "hub"),)):
                     f.write(json.dumps({"ts": time.strftime("%Y-%m-%dT%H:%M:%S") + f".{n}{skill}", "source": "x",
-                                        "kind": "campaign_dispatch", "run_id": os.environ["NEWTS_RUN_ID"],
+                                        "kind": "campaign_dispatch", "run_id": os.environ["ARLOTOPE_RUN_ID"],
                                         "data": {"skill": skill, "target": target}}) + "\n")
         os.environ["FAKE_REPORT"] = json.dumps({"next": "", "needs_pi": "none", "campaign": "done" if final else "continue",
                                                 "summary": ("morning report written" if final else f"pass {n}: dispatched the next steps")})

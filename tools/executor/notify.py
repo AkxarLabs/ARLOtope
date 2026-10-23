@@ -3,9 +3,9 @@
 Configured in Settings → Lab → Notifications, stored in lab/.env.local (git-ignored; a topic or a
 webhook URL is a secret — anyone holding it can read or post) and never passed to agents:
 
-  NEWTS_NOTIFY_NTFY=https://ntfy.sh/<your-topic>     a phone push via ntfy (app or web); any ntfy server
-  NEWTS_NOTIFY_WEBHOOK=https://hooks.slack.com/...   Slack / Discord / Teams / anything taking JSON {text}
-  NEWTS_NOTIFY_LINK=http://my-pc.tailnet:8787        where the dashboard is reachable from your phone;
+  ARLOTOPE_NOTIFY_NTFY=https://ntfy.sh/<your-topic>     a phone push via ntfy (app or web); any ntfy server
+  ARLOTOPE_NOTIFY_WEBHOOK=https://hooks.slack.com/...   Slack / Discord / Teams / anything taking JSON {text}
+  ARLOTOPE_NOTIFY_LINK=http://my-pc.tailnet:8787        where the dashboard is reachable from your phone;
                                                      each notification links straight to the item
 
 What is sent: title/body excerpts, which can include a question or command. Files, full transcripts
@@ -34,7 +34,7 @@ _last: dict[str, float] = {}
 _busy: dict[str, threading.Lock] = {}
 
 
-KEYS = {"ntfy": "NEWTS_NOTIFY_NTFY", "webhook": "NEWTS_NOTIFY_WEBHOOK", "link": "NEWTS_NOTIFY_LINK"}
+KEYS = {"ntfy": "ARLOTOPE_NOTIFY_NTFY", "webhook": "ARLOTOPE_NOTIFY_WEBHOOK", "link": "ARLOTOPE_NOTIFY_LINK"}
 
 
 def config(lab: Lab) -> dict:

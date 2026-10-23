@@ -32,7 +32,7 @@ MAX_REPLY_CHARS = 4000
 
 
 def _depth_now() -> int:
-    return pos_int(os.environ.get("AUTOSCIENTIST_AGENT_DEPTH", "0") or 0, 0, 0)
+    return pos_int(os.environ.get("ARLOTOPE_AGENT_DEPTH", "0") or 0, 0, 0)
 
 
 def check_enabled(lab: Lab, *, new_run: bool = True) -> dict:
@@ -64,7 +64,9 @@ def _enqueue(lab: Lab, spec: RunSpec) -> dict:
         from kernel import model as workflow_model, studies
         study = studies.study(lab.hub, v['subject'])
         if study and workflow_model.does(study['step'], study['workflow'], study['use'], lab.hub) == v['skill']:
-            spec.role = (workflow_model.step(study['step'], lab.hub).get('agent') or {}).get('role') or spec.role
+            task = {**(workflow_model.step(study['step'], lab.hub) or {}),
+                    **workflow_model.workflow(study['workflow'], lab.hub).get('nodes', {}).get(study['step'], {})}
+            spec.role = (task.get('agent') or {}).get('role') or spec.role
     assignment = spec.extra.get('repeat_assignment') or assignments.resolve(lab, spec, v['subject'], remote)
     backend = assignment['backend']
     if backend not in backends.REGISTRY:
@@ -91,6 +93,17 @@ def _enqueue(lab: Lab, spec: RunSpec) -> dict:
     run_id, mpath = new_run_id(adir, base)
     rd = run_dir(adir, run_id)
     rd.mkdir(parents=True, exist_ok=True)
+    import skill_resources
+    try:
+        methods = skill_resources.prepare(lab, v, spec, rd, remote)
+    except (ValueError, OSError) as error:
+        raise SpecError(str(error)) from None
+    if methods:
+        if not is_ask and not spec.prompt_override:
+            explicit = profile.render_prompt(lab, v, slash_command(v), False)
+            old = profile.render_prompt(lab, v, slash_command(v), backends.get(backend).native_slash)
+            prompt = prompt.replace(old, explicit, 1)
+        prompt = skill_resources.rewrite(prompt, lab.hub, lab.project_dir(v['subject']), rd / 'skills', methods)
     (rd / "prompt.md").write_text(prompt, encoding="utf-8")
     pre = profile.preamble(lab, run_id, {**v, 'explains': spec.extra.get('explains')}, backends.get(backend).ask_tool)
     if role_instructions:
@@ -99,6 +112,8 @@ def _enqueue(lab: Lab, spec: RunSpec) -> dict:
         pre += '\n\nTask-specific role instructions:\n' + spec.extra['role_instructions']
     if spec.campaign:
         pre += "\n\n" + profile.campaign_block(lab, spec, v, run_id)
+    if methods:
+        pre = skill_resources.rewrite(pre, lab.hub, lab.project_dir(v['subject']), rd / 'skills', methods)
     (rd / "preamble.md").write_text(pre, encoding="utf-8")
     if remote:
         remote_projects.capture(lab, v, rd)
@@ -131,6 +146,8 @@ def _enqueue(lab: Lab, spec: RunSpec) -> dict:
         "brief_sha": profile.stage_brief(lab, v)[1],   # which instructions governed this run (provenance)
     }
     m.update(context_fields)
+    if methods:
+        m['skills'] = methods
     if v.get('subject') and not spec.extra.get('workflow_node'):
         from kernel import studies, model as workflow_model
         study = studies.study(lab.hub, v['subject'])

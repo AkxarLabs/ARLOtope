@@ -36,11 +36,15 @@ def record(rd: Path, agent: str | None, event: str, **fields) -> None:
         pass                                    # a full disk never stops the run
 
 
-def read(rd: Path) -> list[dict]:
+def read(rd: Path, *, strict: bool = False) -> list[dict]:
     out = []
     try:
         lines = (Path(rd) / FILE).read_text(encoding="utf-8").splitlines()
+    except FileNotFoundError:
+        return out
     except OSError:
+        if strict:
+            raise
         return out
     for ln in lines:
         try:
@@ -50,12 +54,12 @@ def read(rd: Path) -> list[dict]:
     return out
 
 
-def tree(rd: Path) -> dict:
+def tree(rd: Path, *, strict: bool = False) -> dict:
     """{"agents": {id: {id, parent, type, summary, status, result, started, actions: [{ts, kind, tool, summary}]}},
     "attempts": n} — "main" is the run's own agent."""
     agents = {"main": {"id": "main", "parent": None, "type": None, "summary": None, "status": None, "actions": []}}
     attempts = 0
-    for e in read(rd):
+    for e in read(rd, strict=strict):
         who = e.get("agent") or "main"
         a = agents.setdefault(who, {"id": who, "parent": "main", "type": None, "summary": None, "status": None, "actions": []})
         ev = e.get("event")

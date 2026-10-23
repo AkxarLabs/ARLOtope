@@ -149,13 +149,14 @@ def project_file(lab, run_id, relative):
 
 def start(lab, run_id, agent=None, **options):
     from .runs import check_enabled, enqueue
+    from lab_profile import runtime_file
     check_enabled(lab)
     index, info = snapshot(lab, run_id, agent)
     about = run_id + (':'+info['agent'] if info['agent'] else '')
     output = index.parent/'explanation.html'
-    command = [sys.executable, str(lab.hub/'tools/executor_cli.py'), '--hub', str(lab.hub),
+    command = [sys.executable, str(runtime_file(lab.hub, 'tools/executor_cli.py')), '--hub', str(lab.hub),
                'evidence', run_id]
-    publish = [sys.executable, str(lab.hub/'tools/artifact.py'), 'publish', '--title', 'Work summary',
+    publish = [sys.executable, str(runtime_file(lab.hub, 'tools/artifact.py')), 'publish', '--title', 'Work summary',
                '--file', str(output), '--about', about]
     if info['study']:
         publish += ['--study', info['study']]

@@ -229,6 +229,8 @@ def run_detail(run_id: str) -> tuple[dict, int]:
         return {"error": "no such run"}, 404
     target, workdir, path, m = hit
     out = workers.compact_run(m)
+    from framework_activity import view
+    out['external_activity'] = view(ctx.HUB, m, refresh=True)
     from task_completion import flag_runs
     flag_runs(ctx.HUB, [out])
     out.update(qa=m.get("qa") or [], attempts=m.get("attempts") or [], args=m.get("args"),
@@ -334,7 +336,7 @@ def run_log(run_id: str) -> tuple[dict, int]:
     log = path.parent / f"{m.get('run_id') or run_id}.d" / "supervisor.log"
     try:
         text = log.read_text(encoding="utf-8", errors="replace")[-8000:]
-    except OSError:
+    except FileNotFoundError:
         text = ""
     return {"ok": True, "text": text}, 200
 
@@ -418,7 +420,7 @@ def run_actions(q: dict) -> tuple[dict, int]:
     got = _run_dir(q.get("run_id", ""))
     if not got:
         return {"error": "no such run"}, 404
-    return {"ok": True, **executor.actions.tree(got[0])}, 200
+    return {"ok": True, **executor.actions.tree(got[0], strict=True)}, 200
 
 
 def explain_run(body: dict) -> tuple[dict, int]:
@@ -438,7 +440,7 @@ def explain_run(body: dict) -> tuple[dict, int]:
     return {"ok": True, 'run_id': queued['run_id'], "note": "Explainer queued. Its page will appear in this run’s explanations and Library."}, 200
 
 
-def _written(run_id: str) -> tuple[list[Path], dict] | None:
+def _written(run_id: str, *, strict: bool = False) -> tuple[list[Path], dict] | None:
     hit = executor.find_run(_xlab(), run_id or "") if executor else None
     if not hit:
         return None
@@ -457,15 +459,18 @@ def _written(run_id: str) -> tuple[list[Path], dict] | None:
                     for p in ev.get("files") or []:
                         fp = Path(p) if Path(p).is_absolute() else base / p
                         seen.setdefault(str(fp.resolve()), fp.resolve())
-    except OSError:
+    except FileNotFoundError:
         pass
+    except OSError:
+        if strict:
+            raise
     return list(seen.values()), m
 
 
 def run_files(q: dict) -> tuple[dict, int]:
     if executor is None:
         return ctx.no_executor()
-    got = _written(q.get("run_id", ""))
+    got = _written(q.get("run_id", ""), strict=True)
     if got is None:
         return {"error": "no such run"}, 404
     files, m = got

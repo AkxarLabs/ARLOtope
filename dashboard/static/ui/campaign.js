@@ -1,4 +1,4 @@
-/* Newts' Lab — a running campaign: what the lab is doing on its own while the PI is away. A compact card
+/* ARLOtope — a running campaign: what the lab is doing on its own while the PI is away. A compact card
    (Home's Today rail, the Studies page) and a sheet with everything: progress against the deadline and
    budget, each study (waiting for you? held?), the last passes, what was started or refused and why,
    questions a pass left, the checkpoints it may approve for you (and what it approved) — with Pause / Resume /
@@ -14,7 +14,6 @@
   const when = ts => NL.when(ts);   // "Sun 4 Oct, 13:47" (core.js)
 
   NL.campaignsOf = s => (s.campaign_states || (NL.DEMO && NL.demoCampaignStates ? NL.demoCampaignStates(0) : []));
-  NL.liveCampaigns = s => NL.campaignsOf(s).filter(c => ['active', 'finishing', 'stopping', 'paused', 'stalled'].includes(c.status));
 
   // what the campaign's runs cost so far (from the runs this page sees; a subscription login may report none)
   const costOf = r => +((r.usage || {}).cost_usd) || 0;
@@ -50,7 +49,6 @@
     return NL.act('/api/campaign/control', { name: c.name, action, confirm: true, ...(extra || {}) });
   };
 
-  NL.campaignAct = act;   // the palette's Pause / Stop entries (app.js) go through the same confirms
 
   /* a question a pass left: answer it here and the next pass gets the answer */
   const CampaignQuestion = ({ c, q }) => {

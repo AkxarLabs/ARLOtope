@@ -13,7 +13,7 @@ from pathlib import Path, PureWindowsPath
 from urllib.parse import quote, unquote, urlsplit
 
 ROOT = Path(__file__).resolve().parents[1]
-SCHEME = 'newts+ssh'
+SCHEME = 'arlotope+ssh'
 
 
 class RemoteError(ValueError):
@@ -59,7 +59,7 @@ def spool(hub, slug):
 
 
 def machines():
-    path = Path(os.environ.get('NEWTS_HOME') or Path.home() / '.newts') / 'machines.json'
+    path = Path(os.environ.get('ARLOTOPE_HOME') or Path.home() / '.arlotope') / 'machines.json'
     try:
         return json.loads(path.read_text(encoding='utf-8')).get('machines', [])
     except (ValueError, OSError):
@@ -111,7 +111,7 @@ def bundle():
         raise RemoteError('PyYAML license notice is missing. Reinstall PyYAML before bundling the worker.')
     for index, notice in enumerate(notices):
         files['LICENSES/PyYAML' + (str(index) if index else '') + '.txt'] = dependency.locate_file(notice).read_bytes()
-    for name in ('project_worker', 'project_identity', 'project_files', 'project_control', 'interactive_terminal', 'terminal', 'labfiles', 'artifact', 'knowledge', 'tagging'):
+    for name in ('project_worker', 'loopback_http', 'project_identity', 'project_files', 'project_control', 'interactive_terminal', 'terminal', 'labfiles', 'artifact', 'knowledge', 'tagging', 'github_access', 'frameworks', 'framework_activity', 'skill_resources'):
         files[name + '.py'] = (ROOT / 'tools' / (name + '.py')).read_bytes()
     files['lab_profile.py'] = (ROOT / 'tools/project_profile.py').read_bytes()
     files['executor/__init__.py'] = b'"""Execution-only package; no central scheduler or research kernel."""\n'
@@ -135,17 +135,25 @@ def bundle():
 
 def capture(lab, validated, rd):
     """Copy instruction text, not the Lab filesystem or credentials, into this run's snapshot."""
+    from kernel import model
+    paths = []
     files = {}
-    paths = [lab.hub / p for p in ('AGENTS.md', 'AGENT-GUIDE.md', 'lab/RESEARCH.md', 'lab/SYSTEM.md')]
+    for base in dict.fromkeys((model.CODE, lab.hub)):
+        inherited = [base / p for p in ('AGENTS.md', 'AGENT-GUIDE.md')]
+        inherited.append(base / 'docs/external-frameworks.md')
+        for path in (base / '.claude/skills').glob('*/SKILL.md'):
+            inherited.extend(p for p in path.parent.rglob('*') if p.is_file() and not p.is_symlink()
+                             and (p.suffix in ('.md', '.py', '.js', '.json', '.yaml', '.yml')
+                                  or p.name in ('LICENSE', 'NOTICE')) and p.stat().st_size < 100_000)
+        inherited.extend((base / 'agent-roles').glob('*.md'))
+        inherited.extend((base / 'workflow/frameworks').glob('*.yaml'))
+        inherited.extend(p for p in (base / 'templates').rglob('*.md') if p.stat().st_size < 100_000)
+        for p in inherited:
+            if p.is_file():
+                files[p.relative_to(base).as_posix()] = p.read_text(encoding='utf-8-sig')
+    paths.extend(lab.hub / p for p in ('lab/RESEARCH.md', 'lab/SYSTEM.md'))
     paths.extend((lab.hub / 'studies' / validated['subject']).glob('*.md'))
-    # A free-form task can choose any procedure after inspecting the repository.
-    for path in (lab.hub / '.claude/skills').glob('*/SKILL.md'):
-        paths.extend(p for p in path.parent.rglob('*') if p.is_file() and not p.is_symlink()
-                     and (p.suffix in ('.md', '.py', '.js', '.json', '.yaml', '.yml')
-                          or p.name in ('LICENSE', 'NOTICE')) and p.stat().st_size < 100_000)
-    paths.extend((lab.hub / 'agent-roles').glob('*.md'))
-    for folder in ('templates', 'lab/templates'):
-        paths.extend(p for p in (lab.hub / folder).rglob('*.md') if p.stat().st_size < 100_000)
+    paths.extend(p for p in (lab.hub / 'lab/templates').rglob('*.md') if p.stat().st_size < 100_000)
     for p in paths:
         if p.is_file():
             files[p.relative_to(lab.hub).as_posix()] = p.read_text(encoding='utf-8-sig')
@@ -169,10 +177,17 @@ def rewrite(lab, m, text):
     loc = m['remote']
     local = lab.project_workdir(m['target'])
     local_rd = run_dir(lab.agents_dir(local), m['run_id'])
-    remote_rd = loc['path'].rstrip('/') + '/.bus/newts/' + owner(lab.hub) + '/agents/' + m['run_id'] + '.d'
+    remote_rd = loc['path'].rstrip('/') + '/.bus/arlotope/' + owner(lab.hub) + '/agents/' + m['run_id'] + '.d'
     for source, destination in ((local_rd, remote_rd), (local, loc['path']), (lab.hub, remote_rd + '/instructions')):
         for spelling in sorted({str(source), source.as_posix()}, key=len, reverse=True):
             text = text.replace(spelling, destination)
+    # Inherited resources can live in the installed runtime, outside this Lab's directory.
+    from kernel import model
+    if model.CODE.resolve() != lab.hub.resolve():
+        for relative in ('tools', 'arlo.py', '.claude/skills', 'agent-roles', 'templates', 'workflow/frameworks', 'docs/external-frameworks.md', 'AGENTS.md', 'AGENT-GUIDE.md'):
+            source = model.CODE / relative
+            for spelling in sorted({str(source), source.as_posix()}, key=len, reverse=True):
+                text = text.replace(spelling, remote_rd + '/instructions/' + relative)
     return text
 
 
@@ -188,13 +203,16 @@ def dispatch(lab, path, m):
         assert_available(lab, m['session_id'], rid, expected=m)
     facts = rpc(loc['machine'], 'info', {'backends': (machine(loc['machine']).get('agent_config') or {})})
     rd = run_dir(path.parent, rid)
-    remote_rd = loc['path'].rstrip('/') + '/.bus/newts/' + owner(lab.hub) + '/agents/' + rid + '.d'
+    remote_rd = loc['path'].rstrip('/') + '/.bus/arlotope/' + owner(lab.hub) + '/agents/' + rid + '.d'
     snapshot = remote_rd + '/instructions'
     runtime = facts['runtime']
     instructions = json.loads((rd / 'instructions.json').read_text(encoding='utf-8'))
-    instructions['newts.py'] = ('import os,sys\nos.execv(sys.executable, [sys.executable, ' + repr(runtime) + ', "control", *sys.argv[1:]])\n')
+    instructions['arlo.py'] = ('import os,sys\nos.execv(sys.executable, [sys.executable, ' + repr(runtime) + ', "control", *sys.argv[1:]])\n')
+    instructions['tools/arlo_cli.py'] = instructions['arlo.py']
+    instructions['tools/lab_bus.py'] = instructions['arlo.py']
     instructions['tools/artifact.py'] = ('import os,sys\nos.execv(sys.executable, [sys.executable, ' + repr(runtime) + ', "artifact", *sys.argv[1:]])\n')
     instructions['tools/knowledge.py'] = ('import os,sys\nos.execv(sys.executable, [sys.executable, ' + repr(runtime) + ', "knowledge", *sys.argv[1:]])\n')
+    instructions['tools/frameworks.py'] = ('import os,sys\nos.execv(sys.executable, [sys.executable, ' + repr(runtime) + ', "framework", *sys.argv[1:]])\n')
     prompt = rewrite(lab, m, (rd / 'prompt.md').read_text(encoding='utf-8'))
     pre = rewrite(lab, m, (rd / 'preamble.md').read_text(encoding='utf-8'))
     local_knowledge=f'python "{(lab.hub / "tools/knowledge.py").as_posix()}" --hub "{lab.hub.as_posix()}" --study {m["subject"]}'
@@ -222,7 +240,9 @@ def dispatch(lab, path, m):
             if not receipt or receipt.get('stored') is not True:
                 raise RemoteError('Reconnect this machine to update its runner before using study materials.')
     result = call(lab.hub, m['target'], 'dispatch', run_id=rid, manifest=supplied, prompt=prompt, preamble=pre,
-                  instructions={k: rewrite(lab, m, v) for k, v in instructions.items()}, config=config)
+                  instructions={k: rewrite(lab, m, v) for k, v in instructions.items()}, config=config,
+                  resources={p.relative_to(rd / 'skills').as_posix(): base64.b64encode(p.read_bytes()).decode()
+                             for p in (rd / 'skills').rglob('*') if p.is_file()})
     m['remote_dispatched'] = True
     m.pop('remote_dispatch_pending', None)
     m['remote_status'] = 'connected'
@@ -325,8 +345,16 @@ def sync(lab):
             from kernel import studies
             state = studies.study(lab.hub, m['subject'])
             outputs = studies.study_outputs(lab.hub, dict(state, step=m.get('workflow_node') or state['step']))
+            from framework_activity import request as activity_request
+            try:
+                activity = activity_request(lab.hub, m)
+            except (OSError, ValueError, KeyError, TypeError) as error:
+                activity = None
+                m['external_activity'] = {'error':str(error)}
+            if activity:
+                activity.pop('machine')
             poll = call(lab.hub, m['target'], 'poll', run_id=m['run_id'], offset=m.get('remote_offset', 0),
-                        actions_offset=m.get('remote_actions_offset', 0), study_files=outputs)
+                        actions_offset=m.get('remote_actions_offset', 0), study_files=outputs, framework_activity=activity)
             if not poll.get('found'):
                 raise RemoteError('The remote run is unavailable; no replacement was started.')
             current = read_manifest(path) or m
@@ -337,6 +365,8 @@ def sync(lab):
                 preserved = {k: current[k] for k in ('cwd', 'remote', 'remote_dispatched', 'remote_offset', 'remote_actions_offset', 'post_processed') if k in current}
                 m.update(remote, **preserved)
             m['remote_status'], m['remote_error'] = 'connected', None
+            if 'external_activity' in poll:
+                m['external_activity'] = poll['external_activity']
             blob = base64.b64decode(poll['stream'])
             stream = path.parent / m['stream']
             # Offset is committed with the manifest; truncate a replayed tail after an interrupted sync.

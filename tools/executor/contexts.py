@@ -15,13 +15,13 @@ def reservation(lab):
 
 
 def prepare(lab, config, backend, workdir, prompt, outputs=(), machine=None):
-    """Return prompt and lineage: fresh, same session, native fork, or legacy portable handoff."""
+    """Return prompt and lineage: fresh with optional handoff, continue, or native fork."""
     config = config or {}
     if not isinstance(config, dict):
         raise SpecError('Context must be a mapping.')
     mode = config.get('mode', 'fresh')
-    if mode not in ('fresh', 'continue', 'fork', 'native-fork'):
-        raise SpecError('Context must be fresh, continue, handoff or native-fork.')
+    if mode not in ('fresh', 'continue', 'native-fork'):
+        raise SpecError('Context must be fresh, continue or native-fork. Enable handoff on a fresh context to share a summary.')
     lineage = {'mode': mode, 'source_run': config.get('run_id')}
     if mode == 'fresh' and not config.get('handoff'):
         return prompt, {'context': lineage}
@@ -31,13 +31,13 @@ def prepare(lab, config, backend, workdir, prompt, outputs=(), machine=None):
         raise SpecError('The context source run is unavailable.') from None
     if source.get('status') not in TERMINAL:
         raise SpecError('Wait for the source task to finish before continuing or copying its context.')
-    if mode == 'fork' or mode == 'fresh' and config.get('handoff'):
+    if mode == 'fresh' and config.get('handoff'):
         lineage['method'] = 'handoff'
         folder = run_dir(path.parent, source['run_id'])
         files = [str(p) for p in (folder / 'prompt.md', folder / 'preamble.md', path.parent / str(source.get('stream') or '')) if p.is_file()]
         if source.get('remote'):
             from remote_projects import owner
-            base = source['remote']['path'].rstrip('/') + '/.bus/newts/' + owner(lab.hub) + '/agents/'
+            base = source['remote']['path'].rstrip('/') + '/.bus/arlotope/' + owner(lab.hub) + '/agents/'
             files = [base+source['run_id']+'.d/prompt.md', base+source['run_id']+'.d/preamble.md', base+source['stream']]
         summaries = [handoff(source, [*files, *outputs])]
         for other_id in config.get('run_ids', []):
@@ -126,6 +126,28 @@ def assert_current(lab, run):
     assert_available(lab, run.get('session_id'), run['run_id'], expected=run)
 
 
+def workflow_evidence(lab, incoming, imported):
+    """Carry accepted source references along the same causal edges as real run IDs."""
+    result = {(e['node'], e.get('visit')): e for e in imported}
+    seen, queue = set(), [r for r in incoming.values() if r]
+    while queue:
+        rid = queue.pop()
+        if rid in seen:
+            continue
+        seen.add(rid)
+        hit = find_run(lab, rid)
+        if hit:
+            record = hit[3]
+            for e in record.get('input_evidence') or []:
+                result[(e['node'], e.get('visit'))] = e
+            queue.extend(r for r in record.get('input_runs') or [] if r)
+    return list(result.values())
+
+
+class MissingWorkflowSource(SpecError):
+    """No conversation exists for a causal task, e.g. researcher-supplied work."""
+
+
 def workflow_sources(lab, incoming, context, node):
     """Find exact causal source runs, never the latest unrelated run with the same node name."""
     requested = context.get('from')
@@ -148,6 +170,8 @@ def workflow_sources(lab, incoming, context, node):
                 queue.extend(record.get('input_runs') or [])
         if not found and task == node and context.get('initial') == 'fresh':
             continue
+        if not found:
+            raise MissingWorkflowSource('The context source has no completed run. Start fresh with its evidence instead.')
         if len(found) != 1:
             raise SpecError('Choose an unambiguous completed context source, or start new with evidence handoff.')
         result.append(find_run(lab, next(iter(found)))[3])

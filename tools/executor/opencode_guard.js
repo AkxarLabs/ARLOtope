@@ -1,6 +1,6 @@
-// Newts' Lab signature guard for opencode — the twin of the claude/codex PreToolUse guard hook.
+// ARLOtope signature guard for opencode — the twin of the claude/codex PreToolUse guard hook.
 //
-// The executor copies this file into a per-run OPENCODE_CONFIG_DIR (plugins/newts-guard.js), filling in
+// The executor copies this file into a per-run OPENCODE_CONFIG_DIR (plugins/arlotope-guard.js), filling in
 // the guard script and interpreter. Before every tool call it pipes ONE Claude-shaped PreToolUse payload
 // to tools/signature_guard.py and waits: exit 2 means "this would forge a PI signature", and throwing
 // from tool.execute.before is how an opencode plugin refuses a tool call (the agent sees the message).
@@ -10,7 +10,7 @@ import { spawn } from "node:child_process"
 const GUARD = __GUARD__
 const PYTHON = __PYTHON__
 
-export const NewtsGuard = async ({ directory }) => {
+export const ARLOtopeGuard = async ({ directory }) => {
   const check = (payload) => new Promise((resolve) => {
     let err = ""
     const timer = setTimeout(() => resolve(null), 15000)

@@ -8,7 +8,7 @@ template-owned plumbing, never research content:
   scripts/trace_hook.py · scripts/lab_bus.py        (verbatim template copies)
   .claude/settings.json                             ("hooks" block replaced; permissions untouched)
   .codex/hooks.json                                 (codex tracer hooks, used once the repo is trusted)
-  .opencode/plugins/newts-trace.js · .opencode/.gitignore   (opencode tracer plugin)
+  .opencode/plugins/arlotope-trace.js · .opencode/.gitignore   (opencode tracer plugin)
   .claude/agents · .codex/agents · .opencode/agents (role files, resolved from the hub tiers)
   the RUNNER (scripts/run.py · _scheduler.py · status.py · reconcile.py ·
   src/project_pkg/tracking.py) — job-scheduler support — and .codex/config.toml (its top-level keys once
@@ -42,7 +42,7 @@ if hasattr(sys.stdout, "reconfigure"):
 HUB = Path(__file__).resolve().parents[1]
 TEMPLATE = HUB / "templates" / "project"
 VERBATIM = ("scripts/trace_hook.py", "scripts/lab_bus.py", ".codex/hooks.json",
-            ".opencode/plugins/newts-trace.js", ".opencode/.gitignore")
+            ".opencode/plugins/arlotope-trace.js", ".opencode/.gitignore")
 
 
 def _norm(b: bytes) -> bytes:

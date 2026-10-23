@@ -10,7 +10,7 @@ Claude-shaped hook payload on stdin and DENIES (exit 2, the reason on stderr) a 
     the extensions always; plus every path in rules.yaml `protected_paths` (the manuals, templates, the PI's instructions,
     rooms, panels)
   * the lab's settings (lab/config.yaml), except in the procedures whose job is changing them with the PI
-  * or runs the PI's verbs (`newts approve|revoke|changes|approve-collector`, tools/new.py)
+  * or runs the PI's verbs (`arlo approve|revoke|changes|approve-collector`, tools/new.py)
   * and, in a run of a procedure that declares `writes:` (globs, e.g. the designers' lab/.bus/designs/**),
     anything outside those globs (and the system's temp folder) — through its edit tools or a shell redirect
 
@@ -33,30 +33,30 @@ import time
 from pathlib import Path
 
 HERE = Path(__file__).resolve().parent
-HUB = Path(os.environ.get("NEWTS_HUB") or HERE.parent).resolve()
+HUB = Path(os.environ.get("ARLOTOPE_HUB") or HERE.parent).resolve()
 sys.path.insert(0, str(HERE))
 
 # the floor no rules.yaml can lower: the kernel's records, and the core of the definition (workflow/ holds
 # rules.yaml itself; skills, roles and checks are what every agent runs under)
 FLOOR = [
-    (r"^lab/journal\.jsonl$", "the journal is the kernel's — studies move with `newts move`, approvals are the PI's"),
-    (r"^lab/REGISTRY\.md$", "the registry is written from the journal — `newts move` moves a study"),
+    (r"^lab/journal\.jsonl$", "the journal is the kernel's — studies move with `arlo move`, approvals are the PI's"),
+    (r"^lab/REGISTRY\.md$", "the registry is written from the journal — `arlo move` moves a study"),
     (r"^lab/approvals\.jsonl", "approvals are the PI's"),
     (r"^lab/\.bus/(checks|campaigns|compose)/", "the dashboard's and the keeper's records are not a run's to change"),
     (r"^lab/\.bus/(limits\.json|pi-actions\.jsonl)$", "the executor's and the PI's records are not a run's to change"),
     (r"^lab/\.bus/panels/approved\.json$", "which panel collectors may run is the PI's decision"),
     (r"^lab/\.bus/artifacts/[^/]+/(reply\.json|seen)$", "the PI's replies are the PI's"),
-    (r"^workflow/", "the lab's definition is the PI's — suggest a change (`newts propose`) or ask a designer"),
-    (r"^\.claude/(skills|agents)/", "the lab's procedures and roles are the PI's — suggest a change with `newts propose`"),
-    (r"^\.(codex|opencode)/agents/", "the lab's roles are the PI's — suggest a change with `newts propose`"),
-    (r"^agent-roles/", "the lab's roles are the PI's — suggest a change with `newts propose`"),
+    (r"^workflow/", "the lab's definition is the PI's — suggest a change (`arlo propose`) or ask a designer"),
+    (r"^\.claude/(skills|agents)/", "the lab's procedures and roles are the PI's — suggest a change with `arlo propose`"),
+    (r"^\.(codex|opencode)/agents/", "the lab's roles are the PI's — suggest a change with `arlo propose`"),
+    (r"^agent-roles/", "the lab's roles are the PI's — suggest a change with `arlo propose`"),
     (r"^checks/", "the lab's checks are the PI's — a run can't add or change what checks it"),
-    (r"^extensions/", "the lab's extensions are the PI's to add — suggest a change with `newts propose` instead"),
+    (r"^extensions/", "the lab's extensions are the PI's to add — suggest a change with `arlo propose` instead"),
     (r"^tools/(signature_guard\.py|executor/opencode_guard\.js)$", "the guard is the PI's — a run can't switch it off"),
 ]
-DEFINITION = "the lab's procedures, rules, roles, templates and the PI's instructions are the PI's — suggest a change with `newts propose`"
+DEFINITION = "the lab's procedures, rules, roles, templates and the PI's instructions are the PI's — suggest a change with `arlo propose`"
 CONFIG = r"^lab/config\.yaml$"
-VERBS = re.compile(r"\bnewts(?:\.py[\"']?|\b)(?:\s+--?[\w-]+(?:[ =][^\s|;&]+)?)*\s+(?:approve|revoke|changes|approve-collector|ack|hold|release|pause)(?=\s|$|[|;&])"
+VERBS = re.compile(r"\barlo(?:\.(?:py|cmd)[\"']?|\b)(?:\s+--?[\w-]+(?:[ =][^\s|;&]+)?)*\s+(?:approve|revoke|changes|approve-collector|ack|hold|release|pause)(?=\s|$|[|;&])"
                    r"|(?:^|[\s/\\\"'])new\.py\b|--skip-guard\b")
 WRITE_HINT = re.compile(r"(?<![0-9&])>(?!&)|\btee\b|sed\s+-i|perl\s+-\w*i|Set-Content|Add-Content|Out-File|"
                         r"\.write\(|write_text|write_bytes|open\([^)]*['\"][wa+]|\bcp\s|\bmv\s|\brm\s|\bln\s|"
@@ -85,12 +85,12 @@ def _config_run() -> bool:
         allowed = rules.load(HUB).get("config_procedures") or ["setup-lab", "configure"]
     except Exception:  # noqa: BLE001
         allowed = ["setup-lab", "configure"]
-    return os.environ.get("NEWTS_RUN_SKILL") in allowed
+    return os.environ.get("ARLOTOPE_RUN_SKILL") in allowed
 
 
 def _writes() -> list[str]:
     """The globs this run's procedure confines its writes to (its `writes:`), or [] for no confinement."""
-    skill = os.environ.get("NEWTS_RUN_SKILL")
+    skill = os.environ.get("ARLOTOPE_RUN_SKILL")
     if not skill:
         return []
     from kernel import model  # noqa: PLC0415
@@ -111,7 +111,7 @@ def _confined(path: Path) -> str | None:
             return None
         except ValueError:
             pass
-    return f"a /{os.environ.get('NEWTS_RUN_SKILL')} run writes only {', '.join(pats)}"
+    return f"a /{os.environ.get('ARLOTOPE_RUN_SKILL')} run writes only {', '.join(pats)}"
 
 
 REDIRECT_TARGET = re.compile(r"(?<![0-9&-])>>?\s*([^\s|;&<>]+)|\btee\s+(?:-a\s+)?([^\s|;&<>]+)"
@@ -203,7 +203,7 @@ def decide(payload: dict) -> str | None:
 
 
 def _log(decision: str, tool: str, why: str) -> None:
-    rd = os.environ.get("NEWTS_RUN_DIR")
+    rd = os.environ.get("ARLOTOPE_RUN_DIR")
     if not rd:
         return
     try:
@@ -229,14 +229,14 @@ def main() -> int:
         try:
             from kernel import watch  # noqa: PLC0415
             watch.flag(HUB, "warn", f"the signature guard failed and allowed a {tool} call", source="guard",
-                       run=os.environ.get("NEWTS_RUN_ID"), detail=f"{type(e).__name__}: {e}"[:300])
+                       run=os.environ.get("ARLOTOPE_RUN_ID"), detail=f"{type(e).__name__}: {e}"[:300])
         except Exception:  # noqa: BLE001
             pass
         return 0
     if not why:
         return 0
     _log("deny", tool, why)
-    sys.stderr.write(f"Denied by the Newts' Lab signature guard: {why}. Ask the PI instead; do not try another way "
+    sys.stderr.write(f"Denied by the ARLOtope signature guard: {why}. Ask the PI instead; do not try another way "
                      "around it.\n")
     return 2
 

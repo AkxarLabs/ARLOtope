@@ -15,11 +15,8 @@ no websockets):
 
 from __future__ import annotations
 
-import base64
 import os
-import secrets
 import shlex
-import subprocess
 import sys
 import threading
 import time
@@ -63,6 +60,10 @@ def _reap() -> None:
 def command_for(purpose: str, backend: str | None) -> tuple[list[str] | None, str | None]:
     """The fixed argv for a purpose — (argv, error)."""
     terminal = ctx.tool("terminal")
+    if purpose == 'login' and backend == 'github':
+        from github_access import login_argv
+        argv = login_argv()
+        return (argv, None) if argv else (None, 'Install GitHub CLI, then retry. Public repository URLs work without it.')
     if purpose == "shell":
         if os.name == "posix":
             return [os.environ.get("SHELL") or "/bin/bash", "-l"], None
@@ -91,19 +92,19 @@ def open_session(body: dict) -> tuple[dict, int]:
         return {"error": err}, 400
     with _LOCK:
         _reap()
-        live = [s for s in SESSIONS.values() if not s.exited]
-        if len(live) >= MAX_SESSIONS:
-            return {"error": "too many open terminals; close one first"}, 400
         try:
             cols, rows = int(body.get("cols") or 100), int(body.get("rows") or 28)
         except (TypeError, ValueError):
             cols, rows = 100, 28
         try:
-            s = Session(argv, str(ctx.HUB), purpose, cols, rows)
+            s, created = Session.open(SESSIONS, argv, str(ctx.HUB), purpose, cols=cols, rows=rows,
+                                      request_id=body.get('request_id'), limit=MAX_SESSIONS)
+        except ValueError as e:
+            return {"error": str(e)}, 400
         except OSError as e:
             return {"error": f"could not start it: {e}"}, 500
-        SESSIONS[s.id] = s
-    ctx.pi_log({"action": f"term.{purpose}", "backend": backend, "argv": argv[:4]})
+    if created:
+        ctx.pi_log({"action": f"term.{purpose}", "backend": backend, "argv": argv[:4]})
     attention.recheck_executor(cli=True)
     title = {"login": f"Sign in to {backend}", "install": f"Install {backend}", "shell": "Terminal"}[purpose]
     return {"ok": True, "id": s.id, "title": title, "pty": has_pty(), "command": " ".join(shlex.quote(a) for a in argv)}, 200

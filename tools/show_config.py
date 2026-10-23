@@ -88,7 +88,7 @@ def main() -> int:
     print_flat("Layer 1 — lab/config.yaml", lab_cfg)
 
     if not args.project:
-        root = (lab_cfg.get("lab") or {}).get("projects_root", "../newts-lab-projects")
+        root = (lab_cfg.get("lab") or {}).get("projects_root", "../arlotope-projects")
         print(f"\n(projects root: `{(HUB / root).resolve()}` — pass a project path for layers 2-3)")
         return 0
 
