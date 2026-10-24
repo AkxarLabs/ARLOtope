@@ -131,6 +131,42 @@ def test_assistant_routes_roles_and_subagents_to_real_runs(hub, monkeypatch):
     assert facts['artifacts'][0]['link'] == '#/artifacts/report'
 
 
+def test_assistant_reads_the_selected_child_without_contacting_its_parent(hub, monkeypatch):
+    import executor
+    from executor import manifest
+    monkeypatch.syspath_prepend(str(REPO / 'dashboard'))
+    api = load('dashboard/assistant')
+    monkeypatch.setattr(api.ctx, 'HUB', hub.root)
+    hub.add_registry_row('s', title='Study', state='active')
+    lab = executor.Lab(hub.root)
+    path = lab.agents_dir(hub.root) / 'source.json'
+    path.parent.mkdir(parents=True, exist_ok=True)
+    manifest.write_manifest(path, {'schema': 2, 'run_id': 'source', 'target': 'hub',
+        'level': 'hub', 'subject': 's', 'cwd': str(hub.root), 'backend': 'codex',
+        'status': 'running', 'stream': 'source.stream.jsonl',
+        'subagents': {'lens-1': {'type': 'reviewer', 'description': 'Check evidence'}}})
+    original = path.read_bytes()
+    monkeypatch.setattr(api.sources, 'snapshot', lambda: {'items': [{'id': 's', 'title': 'Study'}]})
+    starts = []
+    monkeypatch.setattr(api, '_start_or_reply', lambda *args: starts.append(args) or {'run_id': 'assistant'})
+    monkeypatch.setattr(api, 'reply', lambda *a, **kw: pytest.fail('Must not message the working agent'))
+    result, code = api.send({'text': 'What did this reviewer find?', 'run': 'source', 'agent': 'lens-1'})
+    assert code == 200 and result['run_id'] == 'assistant' and len(starts) == 1
+    contexts = list((hub.lab / '.bus/assistant-context').glob('*.json'))
+    context = json.loads(contexts[0].read_text(encoding='utf8'))
+    assert context['selection']['study'] == 's'
+    assert context['selected_run']['agent'] == 'lens-1'
+    assert context['selected_run']['coverage']['missing']
+    import knowledge
+    records = knowledge.dispatch(hub.root, 's', 'list')['rows']
+    assert records[0]['about'] == {'run': 'source', 'agent': 'lens-1'}
+    assert path.read_bytes() == original
+    before = list((hub.lab / '.bus/assistant-context').glob('*.json'))
+    assert api.send({'text': 'Wrong child', 'run': 'source', 'agent': 'missing'})[1] == 400
+    assert list((hub.lab / '.bus/assistant-context').glob('*.json')) == before
+    assert len(knowledge.dispatch(hub.root, 's', 'list')['rows']) == 1
+
+
 def test_disabled_assistant_updates_do_no_snapshot_or_agent_work(hub, monkeypatch):
     monkeypatch.syspath_prepend(str(REPO / 'dashboard'))
     api = load('dashboard/assistant')

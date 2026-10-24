@@ -75,8 +75,7 @@ def steps_table(hub=None) -> str:
 def show_pi_line(p: dict, project: bool = False) -> str:
     tool = '"$ARLOTOPE_HUB/tools/artifact.py"' if project else "tools/artifact.py"
     return (f"**Show the PI** (`python {tool} publish --title \"…\" --file <path>`): {str(p['show_pi']).strip()}. "
-            "One artifact for what they would genuinely want to see — not a running commentary. A decision you need "
-            "takes `--question \"…\" --choices \"A;B\"` (the answer comes back to this run); it is never an approval.")
+            "Publish once per milestone. Use `--question \"…\" --choices \"A;B\"` for feedback, never approval.")
 
 
 def does_a_step(proc: str, p: dict, hub=None) -> bool:
@@ -96,13 +95,12 @@ def contract_block(proc: str, hub=None) -> str:
     lines = [f"**First, load the brief:** `uv run --with pyyaml python {arlo} brief {proc}"
              + (" --study <slug>`" if study else " [--study <slug>]`")
              + (" (`<hub>` = this project's `control.yaml` `hub_path`)" if project else "")
-             + f" — skip it if a `ARLOTOPE BRIEF /{proc}` block is already in your context. It says where the study stands, "
-             "the PI's own instructions for this work, and the checkpoints."]
+             + f"; skip when `ARLOTOPE BRIEF /{proc}` is already supplied. Follow its task ownership, additions and checkpoints."]
     if study and does_a_step(proc, p, hub):
         outs = ", ".join(f"`{o}`" for o in dict.fromkeys(["done", *p.get("outcomes", []), "park", "kill"]))
-        lines.append(f"\n**Finish by reporting one outcome** — {outs} — with `uv run --with pyyaml python {arlo} move "
-                     "<slug> <outcome> --note \"…\"`. The study's workflow decides where it goes (the brief lists each "
-                     "outcome's destination); never edit lab/REGISTRY.md or lab/journal.jsonl.")
+        lines.append(f"\n**Finish by reporting one outcome** — {outs} — when the brief assigns this skill the task. Use "
+                     f"`uv run --with pyyaml python {arlo} move <slug> <outcome> --note \"…\"`; follow the brief's routes. "
+                     "Never edit the journal or registry.")
     if p.get("outputs"):
         lines.append("\n**It must produce:**")
         lines += [f"- {o}" for o in p["outputs"]]
@@ -111,7 +109,7 @@ def contract_block(proc: str, hub=None) -> str:
     if p.get("guide"):
         where = "<hub>/AGENT-GUIDE.md" if project else "AGENT-GUIDE.md"
         lines.append(f"\n**Read first:** `{where}` — " + ", ".join(f"\"{g}\"" for g in p["guide"])
-                     + " (it binds exactly like AGENTS.md).")
+                     + ".")
     return "\n".join(lines)
 
 

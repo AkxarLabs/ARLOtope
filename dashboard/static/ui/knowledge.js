@@ -82,7 +82,7 @@
     ${record.run ? html`<button type="button" class="link small" onClick=${() => N.openRun(record.run)}>Open agent conversation</button>` : null}
     ${record.about?.rel ? html`<p><a href=${'#/library/' + encodeURIComponent(record.about.scope) + '/' + encodeURIComponent(record.about.slug || '_') + '/' + record.about.rel.split('/').map(encodeURIComponent).join('/')}>About ${record.about.rel}</a></p>` : null}
     ${record.about?.artifact ? html`<p><a href=${'#/artifacts/' + encodeURIComponent(record.about.artifact)}>About the published output ↗</a></p>` : null}
-    ${record.about?.run ? html`<p><button type="button" class="link" onClick=${() => N.openRun(record.about.run)}>About the source run ↗</button></p>` : null}
+    ${record.about?.run ? html`<p><button type="button" class="link" onClick=${() => N.openRun(record.about.run,record.about.agent)}>About the source run ↗</button></p>` : null}
     ${record.acknowledge ? html`<p class="muted small">${record.acknowledgements?.length ? 'Acknowledged by ' + record.acknowledgements.map(item => item.run).join(', ') : 'Acknowledgement requested. This note is not a queued task.'}</p>` : null}
     ${record.source?.url && /^https?:\/\//i.test(record.source.url) ? html`<p><a href=${record.source.url} target="_blank" rel="noopener">Open original source ↗</a> · ${record.source.coverage || 'Coverage not recorded'}</p>` : null}
   </header><${N.Markdown} text=${record.text} sel=${{ scope: record.scope, slug: record.slug, rel: record.rel, study, knowledgeId: record.id, attachment: record.attachment }}/>

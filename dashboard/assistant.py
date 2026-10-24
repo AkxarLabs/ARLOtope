@@ -105,7 +105,7 @@ def view(q=None):
 def _deliver(record, text, facts, revision, options):
     lab = Lab(ctx.HUB)
     selection = {key: options.get(key, (record.get('selection') or {}).get(key, '')) or ''
-                 for key in ('study', 'run', 'backend', 'model', 'preset')}
+                 for key in ('study', 'run', 'agent', 'backend', 'model', 'preset')}
     if any(not isinstance(value, str) or len(value)>180 for value in selection.values()):
         raise SpecError('Choose a study, run and agent using their text identifiers.')
     if selection['study'] and not any(p['id'] == selection['study'] for p in facts['projects']):
@@ -115,6 +115,14 @@ def _deliver(record, text, facts, revision, options):
         focused = find_run(lab, selection['run'])
         if not focused or selection['study'] and (focused[3].get('subject') or (focused[3].get('explains') or {}).get('study')) != selection['study']:
             raise SpecError('Choose a run in the selected study.')
+        if not selection['study']:
+            selection['study'] = focused[3].get('subject') or (focused[3].get('explains') or {}).get('study') or ''
+    if selection['agent'] and not focused:
+        raise SpecError('Choose the subagent’s parent run.')
+    from executor import evidence
+    selected_run = evidence.describe(lab, selection['run'], selection['agent'] or None) if focused else None
+    if selected_run:
+        selection['agent'] = selected_run['agent'] or ''
     run = _run(record)
     previous = record.get('selection') or {}
     fresh = options.get('fresh') is True or any(selection[key] != previous.get(key, '') for key in ('backend', 'model', 'preset'))
@@ -152,16 +160,15 @@ def _deliver(record, text, facts, revision, options):
             selected_document['text']=selected_document['text'][:100000]
         selected_document['coverage']='partial text' if selected_document.get('clipped') else 'text' if selected_document.get('text') else 'file reference only'
     question=knowledge.dispatch(ctx.HUB,selection['study'] or None,'add',kind='answer',
-        text='## Question\n\n'+text,title=text[:120],about=document or reference or ({'run':selection['run']} if selection['run'] else None),
+        text='## Question\n\n'+text,title=text[:120],about=document or reference or ({'run':selection['run'], **({'agent':selection['agent']} if selection['agent'] else {})} if selection['run'] else None),
         status='queued',author='human',baseline=(run.get('last_result') or {}).get('id') if run else None)
     question_ref={k:question[k] for k in ('id','created','baseline')}
     question_ref['study']=selection['study'] or None
     context = ctx.HUB / 'lab/.bus/assistant-context' / (uuid.uuid4().hex+'.json')
     context.parent.mkdir(parents=True, exist_ok=True)
     cli = [sys.executable, str(ctx.TOOLS / 'executor_cli.py'), '--hub', str(ctx.HUB)]
-    from executor import evidence
     context.write_text(json.dumps({'revision': revision, **facts, 'selection': selection,
-        'selected_run': evidence.describe(lab, selection['run']) if focused else None,
+        'selected_run': selected_run,
         'selected_document':selected_document,'selected_artifact':selected_artifact, 'tools': {
         'knowledge': [sys.executable,str(ctx.TOOLS/'knowledge.py'),'--hub',str(ctx.HUB),
                       *(['--study',selection['study']] if selection['study'] else []),'list'],
@@ -181,6 +188,7 @@ def _deliver(record, text, facts, revision, options):
             'The recent list is bounded; all_runs finds older sessions. inspect_run gives local evidence paths, including remote mirrors.',
             'Read the transcript/actions for details. A short result or a completed run does not verify a scientific claim.',
             'Inspect child records without messaging the parent. Missing or shortened history must be disclosed.',
+            'For a question about ongoing work, read its recorded evidence; do not message, interrupt or resume that agent unless the user explicitly asks.',
             'Use explain_run only for a requested independent visual summary; never send a summary request via message_run.',
             'If launch depth refuses a new explainer, direct the user to Visual summary on the source run.',
             'Use message_run only for a follow-up the user requested. Identify yourself as the workspace assistant and relay that request.',

@@ -9,6 +9,18 @@ A skill supplies a method; a workflow assigns it to a task. The same skill can s
 or workflows. Reporting a task outcome advances the workflow. Ordinary replies do not approve
 checkpoints.
 
+## How instructions fit together
+
+`AGENTS.md` supplies the shared protocol. A managed run's brief adds the study, task, role,
+checkpoints and project context. Its task can name one or more skills and add written instructions.
+The selected skills supply the methods; they do not each complete the task independently.
+Only the procedure assigned to finish the task reports its outcome.
+
+Keep a skill's main file focused on its method. Put substantial optional branches in `references/`
+and link them from the step that needs them. Those files travel with project copies and saved runs.
+Avoid copying the shared protocol into every skill. Use configuration for budgets and model choices,
+and task instructions for study-specific additions. The supplied research methods are editable defaults.
+
 ## Read the instructions
 
 Select a task on the workflow map and choose **View instructions**. Read its skill, added task

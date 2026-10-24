@@ -29,6 +29,20 @@ recorded outcomes, not whether the agent wrote “done” in its reply. See [rec
 The study's **History** tab keeps task passes and agent attempts together. Saving its generated
 history snapshot is optional; the underlying workflow and run records are already retained.
 
+## Ask about ongoing work
+
+Click a character and choose **Ask assistant**, or use the same button in its conversation.
+The workspace assistant opens with that run selected. Selecting a subagent preserves that focus;
+expand **Focus** to change it. Ask your question and choose **Send**. The answer arrives when the
+assistant finishes its turn and is saved separately in the study's Library.
+
+The assistant reads recorded conversations, actions and project files. It does not interrupt the
+working agent to answer a question. Missing or shortened records limit what it can explain;
+independently started terminal agents may have only activity records.
+
+**Message** sends an instruction to the working agent instead. For a subagent, the message goes
+through its parent. Use this when you want to steer the work, rather than ask the assistant about it.
+
 ## Agent compatibility
 
 All adapters use the same studies, task outcomes, queue and research checkpoints. Conversation
