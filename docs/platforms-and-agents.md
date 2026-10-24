@@ -31,9 +31,13 @@ The dashboard needs a modern browser; the 3D Lab needs WebGL. Studies and Librar
 lists and readers alongside the scene. Project dependencies are separate from Lab’s dependencies.
 Native Windows SSH bootstrap is not implemented.
 
-Passing checks describe the tested version and scenario. The macOS launcher’s reverse-DNS startup
-stall was fixed and the full platform suite passed on candidate 8254d11. Interactive browser,
-terminal sign-in and authenticated provider checks remain separate from the headless suite.
+On Windows, a launcher using Microsoft Store Python creates a managed Python environment for Lab
+helpers. This avoids Store interpreter failures inside an agent sandbox. It does not replace a
+project's environment. The first launch may download Python and PyYAML through uv.
+
+Passing checks describe the tested version and scenario; see the [CI runs](https://github.com/AkxarLabs/ARLOtope/actions/workflows/ci.yml)
+for a particular commit. Interactive browser, terminal sign-in and authenticated provider checks
+remain separate from the headless suite.
 
 Automated peers test the application’s sessions, questions, permissions and failure paths without
 provider credits. They do not verify live provider authentication or model access. Recorded manual

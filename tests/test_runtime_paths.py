@@ -8,6 +8,37 @@ import pytest
 from conftest import REPO, kernel
 
 
+def test_store_python_detection_includes_the_base_of_a_virtualenv(monkeypatch):
+    kernel()
+    from executor import procs
+    monkeypatch.setattr(sys, '_base_executable', r'C:\Users\u\AppData\Local\Microsoft\WindowsApps\python.exe')
+    assert procs._store_python(sys.executable)
+    assert procs._store_python(r'C:\Users\u\AppData\Local\Microsoft\WindowsApps\python.exe')
+    assert not procs._store_python('/usr/bin/python3')
+
+
+def test_store_python_uses_a_managed_runtime(monkeypatch, tmp_path):
+    kernel()
+    import shutil
+    from executor import procs
+    monkeypatch.setattr(sys, '_base_executable', r'C:\WindowsApps\python.exe')
+    monkeypatch.delenv('ARLOTOPE_KEEP_PYTHON', raising=False)
+    monkeypatch.setenv('ARLOTOPE_HOME', str(tmp_path))
+    monkeypatch.setattr(shutil, 'which', lambda _: 'uv')
+    monkeypatch.setattr(procs, '_STABLE', {})
+    stable = tmp_path / 'py' / ('Scripts/python.exe' if os.name == 'nt' else 'bin/python')
+    calls = []
+    def run(argv, **kwargs):
+        calls.append(argv)
+        if 'venv' in argv:
+            stable.parent.mkdir(parents=True)
+            stable.touch()
+        return subprocess.CompletedProcess(argv, 0)
+    monkeypatch.setattr(procs.subprocess, 'run', run)
+    assert procs.python_exe() == str(stable)
+    assert '--managed-python' in next(call for call in calls if 'venv' in call)
+
+
 def test_commands_use_installed_runtime_and_keep_the_selected_lab(hub):
     k = kernel()
     import lab_profile
@@ -25,6 +56,8 @@ def test_commands_use_installed_runtime_and_keep_the_selected_lab(hub):
     assert (REPO / 'tools/arlo_cli.py').as_posix() in command and f'--hub "{hub.root.as_posix()}"' in command
     v = {'level': 'hub', 'workdir': str(hub.root), 'cfg': {'kind': 'ask'}, 'target': 'hub', 'skill': 'ask'}
     text = lab_profile.preamble(__import__('executor').Lab(hub.root), 'runtime-test', v, '')
+    assert '& $env:ARLOTOPE_PYTHON <script>' in text
+    assert '"$ARLOTOPE_PYTHON" <script>' in text
     for name in ('artifact.py', 'knowledge.py', 'lab_bus.py'):
         assert (REPO / 'tools' / name).as_posix() in text
         assert (hub.root / 'tools' / name).as_posix() not in text
