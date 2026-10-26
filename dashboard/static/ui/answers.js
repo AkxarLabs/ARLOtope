@@ -1,4 +1,4 @@
-/* Newts' Lab — answers without an agent. A question the lab's own live state already answers ("what needs
+/* ARLOtope — answers without an agent. A question the lab's own live state already answers ("what needs
    me?", "what's running?", "what happened overnight?", "how much today?", "where is <study>?") is answered here,
    instantly and for free, instead of starting a Claude/Codex session that would spend ~50k tokens just loading
    its context. Anything that asks for WORK (run, write, compare, explain why…) still goes to an agent, and every
@@ -61,7 +61,7 @@
       case 'needs': return { title: needs.length ? `${NL.plural(needs.length, 'thing')} ${needs.length === 1 ? 'needs' : 'need'} you` : 'Nothing needs you right now',
         body: list(needs.slice(0, 12).map(a => html`<li><button type="button" class="link" onClick=${() => NL.attAct ? NL.attAct(a, (a.actions || [])[0] || { id: a.kind === 'artifact' ? 'artifact' : 'tail' }) : null}>${a.title}</button>${a.body ? html`<span class="muted"> · ${NL.clip(a.body, 90)}</span>` : null}</li>`), 'Agents ask here when they need a decision.') };
       case 'running': return { title: active.length ? `${NL.plural(active.length, 'agent')} at work` : 'No agents are running',
-        body: list(active.map(r => runLine(s, r)), 'Choose Start task on the Agents page.') };
+        body: list(active.map(r => runLine(s, r)), 'Choose Start task in All agents.') };
       case 'failed': {
         const bad = runs.filter(r => ['failed', 'timeout', 'killed'].includes(r.status) && (Date.parse(r.finished || r.created) || 0) > dayAgo(s));
         const quiet = runs.filter(r => NL.RUN_ACTIVE.has(r.status) && (r.heartbeat_age_s || 0) > 180);

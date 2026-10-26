@@ -1,21 +1,22 @@
 # Project Protocol — {{title}}
 
-You are the implementation agent of this project, spawned from the Newts' Lab at `{{hub_path}}`
+You are the implementation agent of this project, spawned from the ARLOtope at `{{hub_path}}`
 (the hub). **This file is the protocol for any session started in this directory** — orientation
 order, autonomy bounds, subagent policy, the extensibility rules, session write-back. It binds every
 agent. The hub's `AGENTS.md`/`CLAUDE.md` (the lab-wide protocol) still binds you too; this file adds
 what is specific to working inside a project.
 
 It is the **single source of truth**: Claude Code reads it through `CLAUDE.md` (a thin file that
-imports this one) and gets the hub procedures as native slash-command **skills** and the subagent
-roles as native **Task subagents**; other agents (Codex, opencode, …) read this file directly. The
-research procedures live in the hub at `{{hub_path}}/.claude/skills/<name>/SKILL.md` — open the file
-and follow it step by step.
+imports this one); other agents (Codex, opencode, …) read this file directly. Selected workflow
+methods live in `.agents/skills/<name>/SKILL.md`. Existing `.claude/skills/` and `.opencode/skills/`
+methods are also retained. A managed run names its exact saved copies: read those paths. For a
+method not copied here, consult `{{hub_path}}/.claude/skills/<name>/SKILL.md` or the installed Lab.
+Native slash commands and subagent roles depend on the harness; explicit files work across harnesses.
 
 ## Orientation (start of every session, in this order)
 
-Read relevant human notes and sources under `.newts/knowledge/` (or the `knowledge_dir` in
-`.newts/project.json`). Human notes do not queue work or grant approvals. If acknowledgement is
+Read relevant human notes and sources under `.arlotope/knowledge/` (or the `knowledge_dir` in
+`.arlotope/project.json`). Human notes do not queue work or grant approvals. If acknowledgement is
 requested, use the knowledge command in the run brief to mark the note as read. Save useful papers
 and resources with URL/DOI, version and what you actually read (metadata, abstract or full text).
 Plain Markdown and subfolders are supported. Keep existing ledgers and run evidence in place.
@@ -44,7 +45,7 @@ Plain Markdown and subfolders are supported. Keep existing ledgers and run evide
    surfaces dead runs, orphans, and a stale loop lock (`--fix` clears a stale loop lock).
 7. **Back-half re-entry:** if `PLAN.md` has new rows the hub appended during writing/review,
    or the study was sent back for more experiments (`uv run --with pyyaml python
-   {{hub_path}}/newts.py next {{slug}}` names `/experiment` again), just run `/experiment` as
+   {{hub_path}}/arlo.py next {{slug}}` names `/experiment` again), just run `/experiment` as
    usual — the paper-phase back-half loop re-enters here. The project can be re-entered
    **repeatedly** during the paper phase; treat each new PLAN.md row like any planned experiment.
 
@@ -78,7 +79,7 @@ uv run pytest                                                      # keep green 
 
 ## Procedures
 
-The lab's procedures live in the hub at `{{hub_path}}/.claude/skills/<name>/SKILL.md`.
+Use the project's selected methods first; the reusable originals live in the Lab's skill library.
 From inside this project you will mainly need, in lifecycle order:
 
 | Procedure | When |
@@ -100,10 +101,10 @@ PLAN.md statuses tell you); when in doubt, `check_project.py` suggests one.
 - Work behind a checkpoint of the study's workflow waits for its approval. The brief lists the
   checkpoints, where each sits (`at:` for one inside a step, such as full-scale runs), whether each
   is approved, and the PI's notes. Before that kind of work, check the matching one with
-  `uv run --with pyyaml python {{hub_path}}/newts.py approved {{slug}} <checkpoint-id>` (exit 0 =
+  `uv run --with pyyaml python {{hub_path}}/arlo.py approved {{slug}} <checkpoint-id>` (exit 0 =
   approved). Not approved → stop, say what the PI should look at, and end with
   `needs_pi=<checkpoint id>`. A workflow with no such checkpoint lets the work go on.
-- Approvals are records only the PI makes (the dashboard, or `newts approve`) — or a campaign's
+- Approvals are records only the PI makes (the dashboard, or `arlo approve`) — or a campaign's
   keeper, for a checkpoint the PI delegated to that campaign. Nothing you write approves anything.
 - Unattended operation needs a `LOOP_BRIEF.md`, and the PI's approval when the workflow has a
   checkpoint for starting a research loop — a loop never approves itself.
@@ -144,7 +145,7 @@ block you can't justify is a finding, not an obstacle to remove.
 ## Showing the PI something (artifacts)
 
 To ask the PI to look at a plan, results, a figure or a page you made, publish it to the lab's dashboard:
-`python "$NEWTS_HUB/tools/artifact.py" publish --title "…" --file <path>` (outside a dashboard run, the hub is
+`python "$ARLOTOPE_HUB/tools/artifact.py" publish --title "…" --file <path>` (outside a dashboard run, the hub is
 `hub_path` in `control.yaml`). `--question "…" --choices "A;B"` asks for a decision; the answer comes back to your
 run — don't stop and wait for it; if your run ends first it becomes a note for the next agent. One artifact per
 milestone (a plan before real compute, a result that changes the next step, a paper figure) — never logs or progress
@@ -189,7 +190,8 @@ is no runtime to install** (a Claude session also gets them as native slash-comm
     `grilling` + `domain-modeling`. Vendored, MIT — see `grill-with-docs/NOTICE`. Reach for it
     before a non-trivial refactor or new-module design (distinct from the hub's *research* design
     records).
-- **Research-lifecycle procedures** live in the HUB at `{{hub_path}}/.claude/skills/<name>/SKILL.md`
+- **Research-lifecycle procedures** have selected project copies in `.agents/skills/` and reusable
+  originals at `{{hub_path}}/.claude/skills/<name>/SKILL.md`
   (`experiment`, `improve`, `ideate --in-project`, `analyze`, `make-figures`, …) — same convention:
   open the file and follow it step by step.
 
@@ -201,7 +203,7 @@ gets them as native `.claude/skills/` slash commands. Either way the `SKILL.md` 
 The hub's hard rules (`{{hub_path}}/AGENTS.md` → "Hard rules", generated from `workflow/rules.yaml`) bind
 every session here too — read them at orientation. These are the project-specific ones:
 
-<!-- newts:project-rules (generated by `newts docs` from workflow/) -->
+<!-- arlotope:project-rules (generated by `arlo docs` from workflow/) -->
 1. **A new experiment is a NEW yaml** in `configs/experiments/` — experiment configs are immutable once run. New behavior goes behind a config switch; baseline code paths stay runnable forever.
 2. **Stages:** SMOKE (pipeline check) → PILOT (decisive small run) → FULL (only once the workflow's checkpoint at full-scale runs, if it has one, is approved — the brief says). Stay within the budgets in the proposal and config (the Compute panel shows the PI where you stand) — never raise a budget, seed, or eval setting to make a result look better; flag the PI instead.
 3. **Record every attempt** in `EXPERIMENT_LOG.md` (format at the top of that file, including failures), then ONE git commit: `exp-NNN: <one-line outcome>`.
@@ -214,7 +216,7 @@ every session here too — read them at orientation. These are the project-speci
 10. **Analyses follow the frozen plan.** The proposal's "Analysis plan" (primary comparison, uncertainty method, exclusion rules, decision rule) is frozen when the proposal is approved, with the eval protocol. An analysis the plan did not name is **EXPLORATORY**: labelled so in the analysis note and carried into the paper with `status: exploratory` in `claims.yaml` and the word in the claim's sentence. A confirmatory claim is one the plan pre-specified and the final evaluation supports.
 11. **Rows added after results are post-hoc.** A PLAN.md experiment row added after full runs were approved or after the first analysis entry is tagged `(post-hoc)` in its Question, still needs a pre-written criterion, and its results are reported as exploratory. Re-running a configuration with new seeds after seeing its result is logged as `rerun_of: exp-NNN` with a reason; seeds come from `seeds.list`, never chosen by outcome. The paper's "All experiments run" appendix lists every row, kept or not, and the number of configurations evaluated on validation to reach the headline result.
 12. **Data provenance.** `control.yaml` `data:` names the dataset's source, version and hash, the split-construction seed and the licence before any PILOT runs; the paper's data statement is written from it. A dataset that changes mid-project is a new version with a new hash and a logged note.
-<!-- /newts:project-rules -->
+<!-- /arlotope:project-rules -->
 
 ## Session end (write-back)
 

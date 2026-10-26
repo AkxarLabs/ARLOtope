@@ -3,9 +3,9 @@
 # variant of one) and the others a study there can run (`also:`). `room:` is where it stands in the
 # dashboard's world (workflow/rooms.yaml).
 #
-# A procedure never names a step: it ends by reporting an outcome (`newts move <study> <outcome>`) and the
+# A procedure never names a step: it ends by reporting an outcome (`arlo move <study> <outcome>`) and the
 # study's workflow says where that leads. `parked` and `killed` are the two shelves every lab has — `park`
-# and `kill` lead there from anywhere. The PI shapes this file (agents never edit it); `newts check`
+# and `kill` lead there from anywhere. The PI shapes this file (agents never edit it); `arlo check`
 # validates it.
 
 seed:            {label: Idea, do: triage, room: incubator, also: [discuss]}
@@ -18,6 +18,14 @@ analysis:        {label: Analysis, do: analyze, room: bench, also: [experiment, 
 writing:         {label: Writing, do: write-paper, room: writing, also: [make-figures, critique-paper], agent: {role: writer}}
 internal-review: {label: Internal review, do: review-paper, room: writing, also: [critique-paper, write-paper], tags: [review], agent: {role: reviewer}}
 final:           {label: Final, do: finalize, room: archive}
+
+# External phase tasks use the same graph, rooms, agents and checkpoint model.
+external-setup:   {label: Task setup, room: study}
+external-search:  {label: Investigation, room: lab}
+external-compare: {label: Baselines & ablations, room: lab}
+external-eval:    {label: Final evaluation, room: bench}
+external-analyze: {label: Post-hoc analysis, room: bench}
+external-write:   {label: External writing, room: writing}
 
 parked:          {label: Parked, room: margins}
 killed:          {label: Killed, room: margins}

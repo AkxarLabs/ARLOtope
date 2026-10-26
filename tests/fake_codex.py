@@ -11,7 +11,7 @@ Mirrors what the executor relies on, as read from codex-rs (rust-v0.157):
     Claude-shaped payload: root session_id (= thread id); agent_id/agent_type inside a subagent;
     tool names Bash / spawn_agent.
 FAKE_MODE: complete (default) | subagents.
-Every invocation appends {argv, stdin, cwd, env subset} to $NEWTS_RUN_DIR/fake_calls.jsonl.
+Every invocation appends {argv, stdin, cwd, env subset} to $ARLOTOPE_RUN_DIR/fake_calls.jsonl.
 
 `codex [-c …] app-server` (the executor's live session) speaks the app-server protocol instead
 (JSON-RPC without the "jsonrpc" field, one JSON object per line): initialize → thread/start|resume →
@@ -122,12 +122,12 @@ def main() -> int:
         pos = pos[2:]
     prompt = sys.stdin.read() if pos == ["-"] else (pos[0] if pos else "")
     cwd = opts.get("-C") or os.getcwd()
-    run_dir = os.environ.get("NEWTS_RUN_DIR")
+    run_dir = os.environ.get("ARLOTOPE_RUN_DIR")
     if run_dir:
         with Path(run_dir, "fake_calls.jsonl").open("a", encoding="utf-8") as f:
             f.write(json.dumps({"argv": argv, "stdin": prompt, "cwd": cwd,
                                 "env": {k: v for k, v in os.environ.items()
-                                        if k.startswith(("AUTOSCIENTIST_", "NEWTS_"))}}) + "\n")
+                                        if k.startswith(("ARLOTOPE_"))}}) + "\n")
     hooks = hooks_from(opts["-c"])
     trusted = bool(opts.get("--dangerously-bypass-hook-trust"))
     tid = resume or str(uuid.uuid4())
@@ -310,12 +310,12 @@ def app_server(pre: list[str]) -> int:
             tid = p.get("threadId") or str(uuid.uuid4())
             cwd = p.get("cwd") or os.getcwd()
             trusted = bool((p.get("config") or {}).get("bypass_hook_trust"))
-            run_dir = os.environ.get("NEWTS_RUN_DIR")
+            run_dir = os.environ.get("ARLOTOPE_RUN_DIR")
             if run_dir:
                 with Path(run_dir, "fake_calls.jsonl").open("a", encoding="utf-8") as f:
                     f.write(json.dumps({"argv": ["app-server", *pre], "method": m, "params": p, "cwd": cwd,
                                         "env": {k: v for k, v in os.environ.items()
-                                                if k.startswith(("AUTOSCIENTIST_", "NEWTS_"))}}) + "\n")
+                                                if k.startswith(("ARLOTOPE_"))}}) + "\n")
             out({"id": o["id"], "result": {"thread": {"id": tid}}})
             note("thread/started", thread={"id": tid})
             hook("SessionStart", source="resume" if m == "thread/resume" else "startup")
@@ -323,8 +323,8 @@ def app_server(pre: list[str]) -> int:
             turn = f"turn-{turns + 1}"
             out({"id": o["id"], "result": {"turn": {"id": turn, "status": "inProgress"}}})
             text = (p.get("input") or [{}])[0].get("text") or ""
-            if turns == 0 and os.environ.get("NEWTS_RUN_DIR"):
-                with Path(os.environ["NEWTS_RUN_DIR"], "fake_calls.jsonl").open("a", encoding="utf-8") as f:
+            if turns == 0 and os.environ.get("ARLOTOPE_RUN_DIR"):
+                with Path(os.environ["ARLOTOPE_RUN_DIR"], "fake_calls.jsonl").open("a", encoding="utf-8") as f:
                     f.write(json.dumps({"argv": ["turn/start"], "stdin": text}) + "\n")
             turn_body(turn, text)
         elif m == "turn/steer":

@@ -1,7 +1,7 @@
 """Proof by scenario: what a lab can make of the kernel without touching its code.
 
     1  a step of its own        a replication step between analysis and writing, with its own skill — on the
-                                map, in the brief, `newts next`, the launcher; done at analysis can't skip it
+                                map, in the brief, `arlo next`, the launcher; done at analysis can't skip it
     2  a lab with no papers     its own steps, skills and checks, and none of the research ones
     3  a renamed step           the studies standing there move with it; the journal says so
     4  a variant, where wanted  a quick literature pass in one workflow, and for one study only
@@ -27,7 +27,7 @@ model, studies, checkpoints, journal, define = K.model, K.studies, K.checkpoints
 
 @pytest.fixture(autouse=True)
 def _not_in_a_run(monkeypatch):
-    monkeypatch.delenv("NEWTS_RUN_ID", raising=False)
+    monkeypatch.delenv("ARLOTOPE_RUN_ID", raising=False)
 
 
 @pytest.fixture
@@ -39,12 +39,12 @@ def lab(hub):
     return hub
 
 
-def _skill(root, name, **newts):
-    """A minimal skill: a folder with a SKILL.md whose `newts:` block is its definition."""
+def _skill(root, name, **arlotope):
+    """A minimal skill: a folder with a SKILL.md whose `arlotope:` block is its definition."""
     d = root / ".claude" / "skills" / name
     d.mkdir(parents=True, exist_ok=True)
-    block = yaml.safe_dump({"kind": "stage", "args": "slug", **newts}, sort_keys=False)
-    (d / "SKILL.md").write_text(f"---\nname: {name}\ndescription: {name}\nnewts:\n"
+    block = yaml.safe_dump({"kind": "stage", "args": "slug", **arlotope}, sort_keys=False)
+    (d / "SKILL.md").write_text(f"---\nname: {name}\ndescription: {name}\narlotope:\n"
                                 + "".join(f"  {ln}\n" for ln in block.splitlines()) + f"---\n\n# {name}\n\nDo the work.\n",
                                 encoding="utf-8")
 
@@ -98,11 +98,13 @@ def _product_lab(root):
     for name in ("write-spec", "build"):
         _skill(root, name)
     _skill(root, "evaluate", outcomes={"regressed": "a metric got worse than the last release"})
+    # This Lab deliberately removes every shipped method, as a user can do in the skill editor.
+    (root / '.claude/skills/.excluded.json').write_text(json.dumps(list(model.load()['procedures'])), encoding='utf-8')
     (root / "checks").mkdir(exist_ok=True)
     (root / "checks" / "tests_green.py").write_text(
         'NAME = "tests-green"\n\n\ndef add_args(p):\n    p.add_argument("slug")\n\n\n'
         'def run(a, g):\n    import os, pathlib\n'
-        '    ok = (pathlib.Path(os.environ["NEWTS_HUB"]) / "studies" / a.slug / "GREEN").exists()\n'
+        '    ok = (pathlib.Path(os.environ["ARLOTOPE_HUB"]) / "studies" / a.slug / "GREEN").exists()\n'
         '    return g._verdict(0 if ok else 1, "tests green" if ok else "tests red")\n', encoding="utf-8")
 
 
@@ -142,7 +144,7 @@ def test_renaming_a_step_carries_its_studies_checkpoints_and_instructions(lab):
 
 
 def test_renaming_a_step_is_the_pis(lab, monkeypatch):
-    monkeypatch.setenv("NEWTS_RUN_ID", "r-1")
+    monkeypatch.setenv("ARLOTOPE_RUN_ID", "r-1")
     with pytest.raises(studies.StudyError, match="the PI's"):
         studies.rename_step(lab.root, "active", "running")
 
@@ -168,7 +170,7 @@ def test_a_check_with_parameters_and_a_watch_of_its_own(lab):
     (lab.root / "checks" / "budget_under.py").write_text(
         'NAME = "budget-under"\n\n\ndef add_args(p):\n    p.add_argument("slug")\n    p.add_argument("--usd", type=float, required=True)\n\n\n'
         'def run(a, g):\n    import json, os, pathlib\n'
-        '    f = pathlib.Path(os.environ["NEWTS_HUB"]) / "studies" / a.slug / "spend.json"\n'
+        '    f = pathlib.Path(os.environ["ARLOTOPE_HUB"]) / "studies" / a.slug / "spend.json"\n'
         '    spent = json.loads(f.read_text())["usd"] if f.exists() else 0\n'
         '    return g._verdict(0 if spent <= a.usd else 1, f"spent {spent} of {a.usd}")\n', encoding="utf-8")
     p = lab.root / "workflow" / "workflows" / "quick.yaml"

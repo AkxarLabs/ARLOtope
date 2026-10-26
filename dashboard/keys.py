@@ -30,7 +30,7 @@ def _env_read() -> dict:
 
 
 def keys_status() -> tuple[dict, int]:
-    have = {k: v for k, v in _env_read().items() if not k.startswith("NEWTS_")}   # (notifications: their own form)
+    have = {k: v for k, v in _env_read().items() if not k.startswith("ARLOTOPE_")}   # (notifications: their own form)
     keys = [{"key": k, "label": KNOWN_KEYS.get(k, k), "set": bool(have.get(k)) or bool(os.environ.get(k)),
              "where": ("lab" if have.get(k) else ("environment" if os.environ.get(k) else None))}
             for k in list(KNOWN_KEYS) + [k for k in have if k not in KNOWN_KEYS]]
@@ -39,7 +39,7 @@ def keys_status() -> tuple[dict, int]:
 
 def keys_set(body: dict) -> tuple[dict, int]:
     key = str(body.get("key") or "").strip()
-    if not _KEY_RE.match(key) or key.startswith(("NEWTS_", "AUTOSCIENTIST_", "CLAUDE_", "OPENCODE_", "CODEX_", "PATH")):
+    if not _KEY_RE.match(key) or key.startswith(("ARLOTOPE_", "CLAUDE_", "OPENCODE_", "CODEX_", "PATH")):
         return {"error": "a key name like S2_API_KEY"}, 400
     value = body.get("value")
     if value is not None and (not isinstance(value, str) or "\n" in value or len(value) > 500):
@@ -55,7 +55,7 @@ def keys_set(body: dict) -> tuple[dict, int]:
 
 
 def _env_write(have: dict) -> None:
-    lines = ["# This lab's keys — written by the dashboard. Research keys are inherited by runs; NEWTS_* lines",
+    lines = ["# This lab's keys — written by the dashboard. Research keys are inherited by runs; ARLOTOPE_* lines",
              "# (notifications) never are. Never commit."]
     lines += [f"{k}={v}" for k, v in have.items()]
     p = _env_path()
@@ -108,7 +108,7 @@ def notify_test(body: dict) -> tuple[dict, int]:
     cfg = notify.config(sources.executor.Lab(ctx.HUB))
     if not (cfg.get("ntfy") or cfg.get("webhook")):
         return {"error": "set an ntfy topic or a webhook first"}, 400
-    failed = notify.send(cfg, {"title": "Newts' Lab: notifications work", "kind": "test",
+    failed = notify.send(cfg, {"title": "ARLOtope: notifications work", "kind": "test",
                                "body": "Questions, approvals and checkpoints that need you land here."})
     if failed:
         return {"error": f"could not reach {', '.join(failed)} ; check the address"}, 400

@@ -374,7 +374,7 @@ def tick(lab: Lab, *, spawn=None, wait: float = 0.0, background_notify: bool = T
             pass
         prog = lab.prog()
         report["enabled"] = bool(prog.get("enabled"))
-        depth = pos_int(os.environ.get("AUTOSCIENTIST_AGENT_DEPTH", "0") or 0, 0, 0)
+        depth = pos_int(os.environ.get("ARLOTOPE_AGENT_DEPTH", "0") or 0, 0, 0)
         if not prog.get("enabled") or depth >= pos_int(prog.get("max_depth", 1), 1, 0):
             return report
         if report["paused"]:
@@ -454,7 +454,7 @@ def tick(lab: Lab, *, spawn=None, wait: float = 0.0, background_notify: bool = T
         _LAST_TICK[str(lab.hub)] = {"ts": report["ts"], "started": len(report["started"]),
                                     "skipped": report["skipped"], "brake": report["brake"]}
         if not report["skipped"]:
-            write_lease(lab, os.environ.get("NEWTS_TICKER") or "tick")
+            write_lease(lab, os.environ.get("ARLOTOPE_TICKER") or "tick")
 
 
 def last_tick(lab: Lab) -> dict | None:
@@ -505,7 +505,7 @@ def live_ticker(lab: Lab, *, excluding_pid: int | None = None) -> bool:
 
 def supervisor_finished(lab: Lab) -> None:
     """Flush the last run when no dashboard/server is ticking, then hand remaining work on."""
-    if os.environ.get('NEWTS_NO_AUTOTICKER') or live_ticker(lab, excluding_pid=os.getpid()):
+    if os.environ.get('ARLOTOPE_NO_AUTOTICKER') or live_ticker(lab, excluding_pid=os.getpid()):
         return
     try:
         tick(lab, background_notify=False)
@@ -519,7 +519,7 @@ def ensure_ticker(lab: Lab, *, exiting_pid: int | None = None) -> bool:
     """If no live scheduler owns a recent lease and work remains, start a detached
     `executor_cli serve --until-idle`. An exiting supervisor cannot keep its own lease alive.
     Returns True if it started one."""
-    if os.environ.get("NEWTS_NO_AUTOTICKER"):
+    if os.environ.get("ARLOTOPE_NO_AUTOTICKER"):
         return False
     try:
         with scheduler_lock(lab, wait=0.01):
@@ -528,7 +528,7 @@ def ensure_ticker(lab: Lab, *, exiting_pid: int | None = None) -> bool:
             log = lab.lab / ".bus" / "scheduler-serve.log"
             log.parent.mkdir(parents=True, exist_ok=True)
             env = dict(os.environ)
-            env.pop("AUTOSCIENTIST_AGENT_DEPTH", None)   # the ticker is the PI's scheduler, not an agent
+            env.pop("ARLOTOPE_AGENT_DEPTH", None)   # the ticker is the PI's scheduler, not an agent
             with open(log, "ab") as fh:
                 child = subprocess.Popen([python_exe(), str(CLI), "--hub", str(lab.hub), "serve", "--until-idle"], cwd=str(lab.hub),
                                          stdin=subprocess.DEVNULL, stdout=fh, stderr=subprocess.STDOUT, env=env,

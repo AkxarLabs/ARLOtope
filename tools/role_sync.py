@@ -58,7 +58,7 @@ def _role_names() -> list[str]:
 
 
 def _cfg_agents() -> dict:
-    return (labfiles.load_yaml(HUB / "lab" / "config.yaml").get("agents") or {})
+    return (labfiles.config(HUB).get("agents") or {})
 
 
 def _norm(text: str) -> str:

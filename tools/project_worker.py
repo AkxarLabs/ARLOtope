@@ -11,8 +11,10 @@ import subprocess
 import sys
 import threading
 import time
-from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
+from http.server import BaseHTTPRequestHandler
 from pathlib import Path
+
+from loopback_http import LoopbackHTTPServer
 
 PROTOCOL = 1
 MAX_BODY = 8 * 1024 * 1024
@@ -24,7 +26,7 @@ def user_id():
 
 
 def session_file(port):
-    return Path(os.environ.get('NEWTS_HOME') or Path.home() / '.newts') / 'workers' / f'session-{port}.json'
+    return Path(os.environ.get('ARLOTOPE_HOME') or Path.home() / '.arlotope') / 'workers' / f'session-{port}.json'
 
 
 def private_json(path, value):
@@ -61,13 +63,9 @@ class Worker:
             raise ValueError('Choose an existing absolute project folder.')
         root = root.resolve()
         owner, slug = safe_id(data['owner']), safe_id(data['study'])
-        marker = root / '.bus' / 'newts-owner.json'
+        marker = root / '.arlotope' / 'project.json'
         with self.lock:
-            if marker.exists():
-                current = json.loads(marker.read_text(encoding='utf-8'))
-                if current.get('owner') != owner or current.get('study') != slug:
-                    raise ValueError('This project belongs to another Lab or study. Open its Lab instead.')
-            elif claim:
+            if not marker.exists() and claim:
                 if (root / 'lab/config.yaml').is_file():
                     raise ValueError('This folder is a Lab. Connect that Lab instead of attaching it as a project.')
                 control = root / 'control.yaml'
@@ -77,13 +75,17 @@ class Worker:
                     old_hub = Path(config.get('hub_path') or '')
                     if old_hub.is_absolute() and (old_hub / 'lab/config.yaml').is_file():
                         raise ValueError('This project is attached to an existing Lab. Connect that Lab instead.')
-                atomic(marker, {'owner': owner, 'study': slug})
-            else:
-                raise ValueError('Attach the project to this Lab first.')
             if claim:
                 from project_identity import register
                 register(root, owner, slug, data.get('lab_id'), data.get('title'))
-        return root, root / '.bus' / 'newts' / owner
+            elif marker.exists():
+                current = json.loads(marker.read_text(encoding='utf-8'))
+                if current.get('owner') != owner or current.get('study') != slug:
+                    raise ValueError(f'Project "{root}" belongs to another Lab or study '
+                                     f'(study: {current.get("study")}, execution owner: {current.get("owner")}). Open its Lab instead.')
+            else:
+                raise ValueError('Attach the project to this Lab first.')
+        return root, root / '.bus' / 'arlotope' / owner
 
     def info(self, data):
         from executor import backends
@@ -95,7 +97,7 @@ class Worker:
             clis[name] = {'found': bool(argv), 'command': argv, 'logged_in': auth.get('logged_in') if auth else None}
         # Registrations only: no recursive filesystem scan.
         labs = []
-        registrations = Path.home() / '.newts' / 'labs.json'
+        registrations = Path.home() / '.arlotope' / 'labs.json'
         if registrations.is_file():
             try:
                 labs = json.loads(registrations.read_text(encoding='utf-8')).get('labs', [])
@@ -106,6 +108,15 @@ class Worker:
                 'git': shutil.which('git'), 'npm': shutil.which('npm'), 'clis': clis, 'labs': labs, 'projects':discover(), 'runtime': self.runtime}
 
     def call(self, method, data):
+        if method == 'frameworks':
+            from frameworks import installed
+            return {'frameworks': installed(data['definitions'], data.get('project')), 'machine': 'remote'}
+        if method == 'framework-receipt':
+            from frameworks import completion
+            return completion(data['definition'], data['project'], data['study'], data['phase'])
+        if method == 'framework-activity':
+            from framework_activity import read
+            return read(**data)
         if method == 'browse':
             from project_files import browse
             return browse(data.get('path'), data.get('hidden') is True)
@@ -114,8 +125,30 @@ class Worker:
             return discover(data.get('root'), max(0,min(int(data.get('depth',2)),8)))
         if method == 'info':
             return self.info(data)
+        if method == 'github':
+            import github_access as github
+            action = data.get('action')
+            if action == 'status':
+                return github.status()
+            if action == 'repositories':
+                return github.repositories()
+            if action == 'lookup':
+                import re
+                name = data.get('repository', '')
+                if not re.fullmatch(r'[A-Za-z0-9][A-Za-z0-9-]{0,38}/[A-Za-z0-9_.-]{1,100}', name) or name.split('/')[1] in ('.', '..'):
+                    raise ValueError('Use an exact owner/repository.')
+                if data.get('authenticated'):
+                    value = github.repository(name)
+                else:
+                    import urllib.request
+                    with urllib.request.urlopen(urllib.request.Request('https://api.github.com/repos/'+name, headers={'User-Agent':'ARLOtope-Lab'}), timeout=12) as response:
+                        value = json.loads(response.read(1_000_001))
+                return {'name':value['full_name'],'url':'https://github.com/'+value['full_name'],
+                        'description':str(value.get('description') or '')[:500],'language':value.get('language'),
+                        'archived':bool(value.get('archived')),'private':bool(value.get('private'))}
+            raise ValueError('Choose connection status, repositories or lookup.')
         if method == 'clone':
-            # Public GitHub repositories only; an explicit attach action authorizes the download.
+            # An explicit attach action authorizes a fixed-host download using this machine's sign-in.
             import re
             repo = data['repository']
             if not re.fullmatch(r'[A-Za-z0-9-]+/[A-Za-z0-9_.-]+', repo) or repo.split('/')[1] in ('.', '..'):
@@ -123,17 +156,27 @@ class Worker:
             dest = Path(data['path']).expanduser()
             if not dest.is_absolute() or dest.exists():
                 raise ValueError('Choose a new absolute clone destination.')
-            result = subprocess.run(['git', 'clone', '--', 'https://github.com/' + repo + '.git', str(dest)],
-                env={**os.environ, 'GIT_TERMINAL_PROMPT': '0', 'GCM_INTERACTIVE': 'Never'},
+            from github_access import clone_argv
+            argv = clone_argv(repo, dest) if data.get('github_auth') is True else ['git', 'clone', '--', 'https://github.com/' + repo + '.git', str(dest)]
+            result = subprocess.run(argv,
+                env={**os.environ, 'GIT_TERMINAL_PROMPT': '0', 'GCM_INTERACTIVE': 'Never', 'GH_PROMPT_DISABLED': '1'},
                 capture_output=True, text=True, timeout=180)
             if result.returncode:
-                raise ValueError(result.stderr[-1000:])
+                raise ValueError('Could not clone the repository. Check GitHub access on this machine, or attach an existing checkout.')
             return {'path': str(dest.resolve())}
         if method.startswith('term/'):
             return self.terminal(method, data)
         root, bus = self.root(data, claim=method == 'attach')
         if method == 'attach':
             return {'path': str(root), 'bus': str(bus)}
+        if method == 'skills':
+            import skill_resources
+            sources = {name: {rel: base64.b64decode(value, validate=True) for rel, value in content.items()}
+                       for name, content in data['sources'].items()}
+            records = skill_resources.install(root, sources)
+            skill_resources.record_project(root, data['workflow'], data['study'], records)
+            return {'records': records, 'files': {name: {rel: base64.b64encode(value).decode()
+                for rel, value in skill_resources.files(root / record['path']).items()} for name, record in records.items()}}
         if method == 'knowledge':
             import knowledge
             folder=knowledge.project_folder(root)
@@ -243,6 +286,12 @@ class Worker:
                         raise ValueError('Invalid instruction path.')
                     dest.parent.mkdir(parents=True, exist_ok=True)
                     dest.write_text(text, encoding='utf-8')
+                for rel, encoded in data.get('resources', {}).items():
+                    dest = (rd / 'skills' / rel).resolve()
+                    if not dest.is_relative_to((rd / 'skills').resolve()):
+                        raise ValueError('Invalid skill resource path.')
+                    dest.parent.mkdir(parents=True, exist_ok=True)
+                    dest.write_bytes(base64.b64decode(encoded, validate=True))
                 atomic(rd / 'config.json', data['config'])
                 atomic(manifest, m)
                 result = {'ok': True, 'accepted': True, 'run_id': rid, 'attempt': generation}
@@ -291,15 +340,29 @@ class Worker:
                 if path.is_relative_to(allowed) and path.is_file() and path.stat().st_size <= MAX_BODY // 8:
                     artifacts[rel] = base64.b64encode(path.read_bytes()).decode()
             result['study_files'] = artifacts
-            activity = rd/'actions.jsonl'
-            action_offset = max(0, int(data.get('actions_offset', 0)))
-            action_content = b''
-            if activity.is_file():
-                with activity.open('rb') as stream:
-                    stream.seek(action_offset)
-                    action_content = stream.read(512*1024)
-            result['actions'] = base64.b64encode(action_content).decode()
-            result['actions_offset'] = action_offset+len(action_content)
+            caught_up = True
+            for name, filename in (('actions','actions.jsonl'), ('records','conversation.jsonl')):
+                activity = rd/filename
+                position = max(0, int(data.get(name+'_offset', 0)))
+                chunk = b''
+                if activity.is_file():
+                    with activity.open('rb') as source:
+                        source.seek(position)
+                        chunk = source.read(512*1024)
+                result[name] = base64.b64encode(chunk).decode()
+                result[name+'_offset'] = position+len(chunk)
+                caught_up &= not activity.is_file() or result[name+'_offset'] >= activity.stat().st_size
+            from executor.manifest import TERMINAL
+            result['settled'] = (result['manifest'].get('status') in TERMINAL and not is_locked(rd/'lock')
+                and not requests and not any((rd/'inbox').glob('*.json'))
+                and (not stream.is_file() or result['offset'] >= stream.stat().st_size)
+                and caught_up)
+            if data.get('framework_activity'):
+                from framework_activity import read
+                try:
+                    result['external_activity'] = read(**data['framework_activity'])
+                except (OSError, ValueError, TypeError) as error:
+                    result['external_activity'] = {'error':str(error)}
             return result
         if method == 'response':
             cid = safe_id(data['id'])
@@ -341,9 +404,13 @@ class Worker:
         from executor.backends import resolve_cli
         if method == 'term/open':
             backend, purpose = data['backend'], data['purpose']
-            argv = resolve_cli(backend, data.get('config') or {})
+            argv = resolve_cli(backend, data.get('config') or {}) if backend != 'github' else None
             if purpose == 'login':
-                argv = login_argv(backend, argv or [])
+                if backend == 'github':
+                    from github_access import login_argv as github_login
+                    argv = github_login()
+                else:
+                    argv = login_argv(backend, argv or [])
             elif purpose == 'install':
                 command = install_command(backend)
                 argv = ['bash', '-lc', command] if command else None
@@ -351,10 +418,9 @@ class Worker:
                 raise ValueError('Choose install or login.')
             if not argv:
                 raise ValueError('Configure this agent command and sign in manually.')
-            if len([t for t in self.terminals.values() if not t.exited]) >= 8:
-                raise ValueError('Close an existing terminal first.')
-            session = Session(argv, str(Path.home()), purpose)
-            self.terminals[session.id] = session
+            with self.lock:
+                session, _ = Session.open(self.terminals, argv, str(Path.home()), purpose,
+                                          request_id=data.get('request_id'))
             return {'ok': True, 'id': session.id, 'pty': os.name == 'posix', 'title': purpose.title() + ' · ' + backend}
         session = self.terminals.get(data.get('id'))
         if not session:
@@ -408,7 +474,7 @@ def run(project, owner, rid):
     from executor.procs import RunLock
     from executor.supervise import _attempt
     root = Path(project)
-    bus = root / '.bus' / 'newts' / safe_id(owner)
+    bus = root / '.bus' / 'arlotope' / safe_id(owner)
     adir, rd = bus / 'agents', bus / 'agents' / (safe_id(rid) + '.d')
     lock = RunLock(rd / 'lock')
     deadline = time.monotonic() + 10
@@ -429,7 +495,7 @@ def run(project, owner, rid):
 
 def serve(port):
     worker, token = Worker(), secrets.token_urlsafe(32)
-    identity = {'app':'newts-worker','protocol':PROTOCOL,'pid':os.getpid(),
+    identity = {'app':'arlotope-worker','protocol':PROTOCOL,'pid':os.getpid(),
                 'build':Path(worker.runtime).stem,'uid':user_id()}
     class Handler(BaseHTTPRequestHandler):
         def log_message(self, *_):
@@ -470,9 +536,9 @@ def serve(port):
                 return self.send({'ok': True, 'result': worker.call(body['method'], body.get('data') or {})})
             except (ValueError, KeyError, TypeError, OSError, subprocess.SubprocessError) as error:
                 return self.send({'error': str(error)}, 400)
-    server = ThreadingHTTPServer(('127.0.0.1', port), Handler)
+    server = LoopbackHTTPServer(('127.0.0.1', port), Handler)
     credentials = session_file(server.server_port)
-    private_json(credentials, {**identity, 'port':server.server_port,'cookie':'worker='+token,'newts_worker_session':True})
+    private_json(credentials, {**identity, 'port':server.server_port,'cookie':'worker='+token,'arlotope_worker_session':True})
     try:
         server.serve_forever()
     finally:
@@ -481,6 +547,9 @@ def serve(port):
 
 
 def main():
+    if len(sys.argv) > 1 and sys.argv[1] == 'framework':
+        from frameworks import main as framework_main
+        return framework_main(sys.argv[2:])
     if len(sys.argv)>1 and sys.argv[1]=='knowledge':
         from knowledge import main as knowledge_main
         return knowledge_main(sys.argv[2:])
@@ -507,14 +576,14 @@ def main():
             c = http.client.HTTPConnection('127.0.0.1', a.port, timeout=2)
             c.request('GET', '/api/ping')
             result = json.loads(c.getresponse().read())
-            if result.get('app') != 'newts-worker' or result.get('protocol') != PROTOCOL:
+            if result.get('app') != 'arlotope-worker' or result.get('protocol') != PROTOCOL:
                 raise ValueError('The worker port belongs to an incompatible service.')
             if result.get('build') != Path(sys.argv[0]).stem:
                 raise ValueError('A different worker build uses this port. Reconnect from the updated Lab.')
             if result.get('uid') != user_id():
                 raise ValueError('The worker port belongs to another account. Choose another connection.')
         except OSError:
-            log = Path.home() / '.newts/worker.log'
+            log = Path.home() / '.arlotope/worker.log'
             log.parent.mkdir(parents=True, exist_ok=True)
             with log.open('ab') as stream:
                 child = subprocess.Popen([sys.executable, str(Path(sys.argv[0]).resolve()), 'serve', '--port', str(a.port)],
@@ -524,11 +593,11 @@ def main():
                     c = http.client.HTTPConnection('127.0.0.1', a.port, timeout=1)
                     c.request('GET', '/api/ping')
                     result = json.loads(c.getresponse().read())
-                    if result.get('app') == 'newts-worker':
+                    if result.get('app') == 'arlotope-worker':
                         break
                 except OSError:
                     if child.poll() is not None:
-                        raise ValueError('The worker did not start; inspect ~/.newts/worker.log.')
+                        raise ValueError('The worker did not start; inspect ~/.arlotope/worker.log.')
                 time.sleep(.1)
             else:
                 raise ValueError('The worker did not start.')

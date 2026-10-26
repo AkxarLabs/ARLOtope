@@ -1,4 +1,6 @@
-# Newts’ Lab
+# ARLOtope
+
+![ARLOtope](assets/brand/arlotope-wordmark.png){ .brand-wordmark width="440" }
 
 A visual research workspace for scientists working with coding agents. Bring a question or an
 existing repository, keep your tools, and build a readable record of work, evidence and decisions.
@@ -12,7 +14,8 @@ existing repository, keep your tools, and build a readable record of work, evide
 
 ## Start with the work you have
 
-Save a research question, attach a local or remote folder, or clone a public GitHub repository.
+Save a research question, attach a local or remote folder, or clone a GitHub repository.
+Private repositories use the connected GitHub account on the selected machine.
 Upload a brief and supporting materials if you have them. Ask an agent to help refine the study,
 then review its suggestions. Creating a study does not start work or approve a checkpoint.
 
@@ -26,7 +29,7 @@ your agent accounts, existing repositories and research tools remain yours.
 | [Lab](dashboard.md) | Follow agents in the visual workspace, inspect their work and respond to decisions. |
 | [Studies](projects.md) | Keep the question, project, workflow position, instructions and history together. |
 | [Library](knowledge.md) | Read documents, sources, human notes, saved answers and published outputs. |
-| [Workflow](agent-workflows.md) | Compose tasks, choose agent roles and context, group rooms and configure checkpoints. |
+| [Workflow](agent-workflows.md) | Connect tasks, choose agent roles and context, assign shared rooms and configure checkpoints. |
 
 ## A process you can change
 

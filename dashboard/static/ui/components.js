@@ -1,8 +1,19 @@
-/* Newts' Lab — shared UI pieces: buttons, pills, cards, sheets, dialogs, fields, tabs, markdown. */
+/* ARLOtope — shared UI pieces: buttons, pills, cards, sheets, dialogs, fields, tabs, markdown. */
 (function () {
   'use strict';
   const NL = window.NL;
   const { html, useState, useEffect, useLayoutEffect, useRef, useMemo, cls } = NL;
+
+  // Recent inspector forms survive switching readers; kept only in this browser tab's memory.
+  const drafts=new Map();
+  NL.useDraft=(name,initial)=>{
+    const key=(NL.getState()?.lab_info?.path||location.origin)+':'+name;
+    const read=()=>drafts.has(key)?drafts.get(key):typeof initial==='function'?initial():initial;
+    const [value,set]=useState(read),active=useRef(key);
+    useLayoutEffect(()=>{if(active.current!==key){active.current=key;set(read())}},[key]);
+    const change=next=>set(previous=>{const v=typeof next==='function'?next(previous):next;drafts.delete(key);if(v!==''&&v!==null)drafts.set(key,v);if(drafts.size>128)drafts.delete(drafts.keys().next().value);return v});
+    return [value,change];
+  };
 
   NL.Btn = ({ children, onClick, kind, small, disabled, title, type, busy, icon }) => {
     const [working, setWorking] = useState(false);
@@ -46,27 +57,79 @@
     stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden=${title ? null : 'true'} role=${title ? 'img' : null}>${title ? html`<title>${title}</title>` : null}<path d=${ICONS[name] || ''} /></svg>`;
 
   NL.Pill = ({ tone, children, title }) => html`<span class=${cls('pill', tone && 'pill-' + tone)} title=${title}>${children}</span>`;
-  NL.runStateLabel=r=>r.needs_followup?'Task unfinished':r.status==='completed'&&r.kind==='ask'&&!r.workflow_node&&!r.assigned_step?'Your turn':NL.RUN_WORD[r.status]||r.status;
+  NL.runStateLabel = (r,s=NL.getState?.()||{}) => {
+    const signal=ArloAgents.attention({...s,runs:[r]}, {run_id:r.run_id,status:r.status});
+    if(signal)return signal.label;
+    if (r.needs_followup) return 'Task unfinished';
+    if (NL.runWaiting(r)) return r.pending_permissions?.length ? 'Permission needed' : 'Waiting for you';
+    if (r.status === 'completed' && r.kind === 'ask' && !r.workflow_node && !r.assigned_step) return 'Your turn';
+    return NL.RUN_WORD[r.status] || r.status;
+  };
   NL.RunPill = ({ r }) => r ? html`<${NL.Pill} tone=${r.needs_followup?'ask':NL.RUN_TONE[r.status] || 'muted'}>${NL.RUN_TONE[r.status] === 'live' ? html`<i class="dot-live"></i>` : null}${NL.runStateLabel(r)}</${NL.Pill}>` : null;
   NL.StatePill = ({ state }) => html`<${NL.Pill} tone=${NL.stateTone(state)}>${NL.STATE_LABEL[state] || state || '—'}</${NL.Pill}>`;
   NL.RoleDot = ({ role }) => html`<i class="role-dot" style=${{ background: NL.roleOf(role).color }} title=${NL.roleOf(role).label}></i>`;
 
-  NL.Card = ({ children, tone, onClick, className }) => html`<div class=${cls('card', tone && 'card-' + tone, onClick && 'card-click', className)} onClick=${onClick} role=${onClick ? 'button' : null} tabIndex=${onClick ? 0 : null}
-    onKeyDown=${onClick ? (e => (e.key === 'Enter' || e.key === ' ') && (e.preventDefault(), onClick(e))) : null}>${children}</div>`;
   NL.Section = ({ title, children, action, count, className }) => html`<section class=${cls('section', className)}>
     ${title ? html`<header class="section-head"><h3>${title}${count != null ? html` <span class="count">${count}</span>` : null}</h3>${action || null}</header>` : null}
     ${children}</section>`;
   NL.Empty = ({ icon, title, children }) => html`<div class="empty">${icon ? html`<div class="empty-ico" aria-hidden="true">${icon}</div>` : null}
     ${title ? html`<div class="empty-title">${title}</div>` : null}<div class="empty-body">${children}</div></div>`;
   NL.Spinner = () => html`<span class="spinner" aria-label="loading"></span>`;
+  NL.LoadState = ({ error, reload, stale }) => error ? html`<div role="alert"><${NL.Empty} title="Could not load">
+    <p>${error}</p>${stale ? html`<p>Last loaded data is shown.</p>` : null}<${NL.Btn} onClick=${reload}>Retry</${NL.Btn}></${NL.Empty}></div>` : html`<${NL.Spinner} />`;
+  /** Browsers hide iframe HTTP failures. Check headers first; keep original URLs and sandboxing. */
+  const FilePreview = ({ url, kind, title, className, srcdoc }) => {
+    const [attempt, retry] = NL.useReducer(n => n + 1, 0);
+    const [checked, setChecked] = useState(kind === 'image' || srcdoc != null), [error, setError] = useState('');
+    useEffect(() => {
+      if (kind === 'image' || srcdoc != null) return;
+      let active = true;
+      const controller = new AbortController();
+      setChecked(false);
+      fetch(url, { method: 'HEAD', credentials: 'same-origin', signal: controller.signal }).then(r => {
+        if (active) { setError(r.ok ? '' : `Could not open this file (${r.status}).`); setChecked(r.ok); }
+      }).catch(() => { if (active) setError('Could not reach the lab server.'); });
+      return () => { active = false; controller.abort(); };
+    }, [attempt]);
+    if (error) return html`<${NL.LoadState} error=${error} reload=${() => { setError(''); retry(); }} />`;
+    if (!checked) return html`<${NL.Spinner} />`;
+    const failed = () => setError('The preview could not load. Try again or open the original file.');
+    return kind === 'image' ? html`<img key=${attempt} class=${className} src=${url} alt=${title} onError=${failed} />`
+      : html`<iframe key=${attempt} class=${className} src=${srcdoc != null ? undefined : url} srcdoc=${srcdoc} sandbox=${kind === 'html' ? 'allow-scripts' : undefined} title=${title} onError=${failed}></iframe>`;
+  };
+  NL.FilePreview = props => html`<${FilePreview} key=${props.kind + ':' + props.url} ...${props} />`;
+  /** The shared opaque renderer shell: loading and failure are distinct; retry replaces only this frame. */
+  NL.LabFrame = ({ frameRef, src, title, onLoad, onRetry, fallback }) => {
+    const [status, setStatus] = useState('loading'), [error, setError] = useState(''), [revision, setRevision] = useState(0);
+    useLayoutEffect(() => {
+      const receive = e => {
+        if (e.source !== frameRef.current?.contentWindow || e.data?.labView !== 1) return;
+        if (e.data.error) { setError(String(e.data.error)); setStatus('failed'); }
+        else if (e.data.kind === 'ready') { setError(''); setStatus('ready'); }
+        else if (e.data.kind === 'labels' && typeof e.data.value === 'boolean') NL.setPref('labels',e.data.value);
+      };
+      window.addEventListener('message', receive);
+      return () => window.removeEventListener('message', receive);
+    }, [frameRef]);
+    const retry = () => { onRetry?.(); setError(''); setStatus('loading'); setRevision(n => n + 1); };
+    return html`<div class=${cls('lab-frame', 'is-' + status)} aria-busy=${status === 'loading'}>
+      <iframe ref=${frameRef} key=${revision} sandbox="allow-scripts" src=${src} title=${title} hidden=${status === 'failed'} onLoad=${onLoad}
+        onError=${() => { setError('The renderer page could not load.'); setStatus('failed'); }} />
+      ${status !== 'ready' ? html`<div class="lab-frame-status" role=${status === 'failed' ? 'alert' : 'status'}>
+        ${status === 'loading' ? html`<p><${NL.Spinner}/> Loading 3D view…</p>` : html`<p><b>The 3D view is unavailable.</b></p>`}
+        <div class="row"><${NL.Btn} small onClick=${retry}>Retry 3D view</${NL.Btn}>${fallback}</div>
+        ${error ? html`<details><summary>Details</summary><p class="mono small">${error}</p></details>` : null}</div>` : null}
+    </div>`;
+  };
   NL.Bar = ({ value, max, tone }) => { const p = max ? Math.max(0, Math.min(1, value / max)) : 0; return html`<span class=${cls('bar', tone && 'bar-' + tone)}><i style=${{ width: (p * 100).toFixed(1) + '%' }}></i></span>`; };
 
   /* ── fields ─────────────────────────────────────────────────────────────── */
   NL.Field = ({ label, hint, children, error }) => {
-    const name = child => child && [NL.Input, NL.Textarea, NL.Select].includes(child.type) && typeof label === 'string'
+    const name = child => child && [NL.Input, NL.Textarea, NL.Select, NL.Seg].includes(child.type) && typeof label === 'string'
       ? window.preact.cloneElement(child, { ariaLabel: label, ariaDescription: hint }) : child;
     const content = Array.isArray(children) ? children.map(name) : name(children);
-    return html`<label class=${cls('field', error && 'field-error')}><span class="field-label">${label}</span>${content}${hint ? html`<span class="field-hint">${hint}</span>` : null}${error ? html`<span class="field-err">${error}</span>` : null}</label>`;
+    const Tag = [].concat(children || []).some(child => child?.type === NL.Seg) ? 'div' : 'label';
+    return html`<${Tag} class=${cls('field', error && 'field-error')}><span class="field-label">${label}</span>${content}${hint ? html`<span class="field-hint">${hint}</span>` : null}${error ? html`<span class="field-err">${error}</span>` : null}</${Tag}>`;
   };
   NL.Input = ({ value, onInput, placeholder, type, autofocus, onEnter, mono, min, max, disabled, ariaLabel, ariaDescription }) => {
     const ref = useRef();
@@ -82,13 +145,37 @@
   };
   NL.Select = ({ value, onChange, options, disabled, ariaLabel, ariaDescription }) => html`<select aria-label=${ariaLabel} aria-description=${ariaDescription} class="input select" value=${value} disabled=${disabled} onChange=${e => onChange(e.target.value)}>
     ${options.map(o => typeof o === 'string' ? html`<option value=${o}>${o}</option>` : html`<option value=${o.value} disabled=${o.disabled}>${o.label}</option>`)}</select>`;
-  NL.Seg = ({ value, onChange, options }) => html`<div class="seg" role="radiogroup">${options.map(o => html`<button type="button" role="radio" disabled=${o.disabled} aria-checked=${value === o.value}
-    class=${cls('seg-btn', value === o.value && 'on')} onClick=${() => onChange(o.value)}>${o.label}</button>`)}</div>`;
+  NL.Seg = ({ value, onChange, options, ariaLabel }) => {
+    const enabled = options.filter(o => !o.disabled), tab = enabled.find(o => o.value === value) || enabled[0];
+    const key = (e, current) => {
+      if (e.altKey || e.ctrlKey || e.metaKey || !enabled.length) return;
+      const direction = { ArrowRight: 1, ArrowDown: 1, ArrowLeft: -1, ArrowUp: -1 }[e.key];
+      if (!direction && e.key !== 'Home' && e.key !== 'End') return;
+      e.preventDefault();
+      const index = e.key === 'Home' ? 0 : e.key === 'End' ? enabled.length - 1 : (enabled.findIndex(o => o.value === current) + direction + enabled.length) % enabled.length;
+      e.currentTarget.parentElement.querySelectorAll('button:not(:disabled)')[index]?.focus();
+      onChange(enabled[index].value);
+    };
+    return html`<div class="seg" role="radiogroup" aria-label=${ariaLabel}>${options.map(o => html`<button type="button" role="radio" disabled=${o.disabled} aria-checked=${value === o.value} tabindex=${o === tab ? 0 : -1}
+      class=${cls('seg-btn', value === o.value && 'on')} onKeyDown=${e => key(e,o.value)} onClick=${() => onChange(o.value)}>${o.label}</button>`)}</div>`;
+  };
   NL.Toggle = ({ on, onChange, label, sub }) => html`<button type="button" class=${cls('toggle-row')} role="switch" aria-checked=${!!on} onClick=${() => onChange(!on)}>
     <span class="toggle-text"><b>${label}</b>${sub ? html`<small>${sub}</small>` : null}</span><span class=${cls('toggle', on && 'on')}><i></i></span></button>`;
 
-  NL.Tabs = ({ tabs, value, onChange }) => html`<nav class="tabs" role="tablist">${tabs.map(t => html`<button type="button" role="tab" aria-selected=${value === t.id}
+  NL.Tabs = ({ tabs, value, onChange }) => {
+    const ref=useRef();
+    useEffect(()=>{const nav=ref.current,selected=nav?.querySelector('[aria-selected="true"]');if(!selected)return;
+      const box=nav.getBoundingClientRect(),tab=selected.getBoundingClientRect();
+      if(tab.right>box.right)nav.scrollLeft+=tab.right-box.right;else if(tab.left<box.left)nav.scrollLeft+=tab.left-box.left;
+    },[value]);
+    return html`<nav ref=${ref} class="tabs" role="tablist" onKeyDown=${e=>{
+      if(!e.target.matches('[role="tab"]')||e.altKey||e.ctrlKey||e.metaKey)return;
+      const direction={ArrowRight:1,ArrowLeft:-1}[e.key];if(!direction&&e.key!=='Home'&&e.key!=='End')return;
+      e.preventDefault();const i=e.key==='Home'?0:e.key==='End'?tabs.length-1:(tabs.findIndex(t=>t.id===value)+direction+tabs.length)%tabs.length;
+      ref.current.children[i]?.focus();onChange(tabs[i].id);
+    }}>${tabs.map(t => html`<button type="button" role="tab" aria-selected=${value === t.id} tabindex=${value===t.id?0:-1}
     class=${cls('tab', value === t.id && 'on')} onClick=${() => onChange(t.id)}>${t.label}${t.count ? html` <span class="count">${t.count}</span>` : null}</button>`)}</nav>`;
+  };
 
   /* ── layers ─────────────────────────────────────────────────────────────── */
   /** A side sheet (right) — or a centered dialog. Rendered by the OverlayHost from NL.open(). */
@@ -103,7 +190,7 @@
     const [txt, setTxt] = useState('');
     const good = typed ? txt.trim() === typed : input ? !!txt.trim() : true;
     const done = () => good && resolve(input ? txt.trim() : true);
-    return html`<div class="dialog" role="alertdialog" aria-modal="true">
+    return html`<div class="dialog" role="alertdialog" aria-modal="true" aria-label=${title}>
       <h3>${title}</h3>
       ${body ? html`<div class="dialog-body">${typeof body === 'string' ? html`<p>${body}</p>` : body}</div>` : null}
       ${detail ? html`<div class="dialog-detail">${detail}</div>` : null}
@@ -160,11 +247,11 @@
           if (document.activeElement !== opener) requestAnimationFrame(restore);
         }
       };
-    }, [top?.id]);
+    }, [top?.id,top?.key]);
     if (!list.length) return null;
     return html`${list.map((layer, i) => html`<div data-layer-id=${layer.id} key=${layer.id} class=${cls('layer', 'layer-' + layer.kind)} style=${{ zIndex: 100 + i * 2 }}>
       <div class="scrim" onClick=${() => NL.close(layer.id)}></div>
-      <${layer.Comp} ...${layer.props} onClose=${() => NL.close(layer.id)} layerId=${layer.id} /></div>`)}`;
+      <${layer.Comp} key=${layer.key||layer.id} ...${layer.props} onClose=${() => NL.close(layer.id)} layerId=${layer.id} /></div>`)}`;
   };
 
   NL.Toasts = () => {
@@ -189,16 +276,14 @@
     for (const seg of src.split('/')) { if (seg === '' || seg === '.') continue; if (seg === '..') dir.pop(); else dir.push(seg); }
     return `/api/libfile?${NL.qs({ scope: sel.scope, slug: sel.slug || '', rel: dir.join('/') })}`;
   }
-  /** markdown → sanitized HTML (+ front-matter chips). Math is stashed before marked so `$a_i$` survives. */
-  NL.mdToHtml = (mdText, sel) => {
+  /** markdown → sanitized HTML (with unparsed document metadata). Math is stashed before marked so `$a_i$` survives. */
+  NL.mdToHtml = (mdText, sel, literalHtml = false) => {
     let text = String(mdText || '').replace(/^﻿/, '');
     let front = '';
     const fm = /^---\r?\n([\s\S]*?)\r?\n---\r?\n?/.exec(text);
     if (fm) {
       text = text.slice(fm[0].length);
-      const chips = fm[1].split(/\r?\n/).map(ln => /^([A-Za-z_][\w .-]*):\s*(.*)$/.exec(ln.trim())).filter(Boolean)
-        .map(m => `<span class="fm-chip"><b>${esc(m[1])}</b>${m[2] ? ' ' + esc(m[2]) : ''}</span>`);
-      if (chips.length) front = `<div class="md-frontmatter">${chips.join('')}</div>`;
+      if (fm[1].trim()) front = `<details class="md-frontmatter"><summary>Document details</summary><pre>${esc(fm[1])}</pre></details>`;
     }
     if (!(window.marked && window.DOMPurify)) return front + `<pre class="plain">${esc(text)}</pre>`;
     const stash = [];
@@ -207,14 +292,18 @@
       .replace(/\$\$[\s\S]+?\$\$/g, put).replace(/\\\[[\s\S]+?\\\]/g, put).replace(/\\\([\s\S]+?\\\)/g, put)
       .replace(/\$(?!\s)((?:\\.|[^$\\\n])+?)(?<![\s\\])\$(?!\d)/g, put)).join('');
     let out;
-    try { out = window.marked.parse(text, { gfm: true, breaks: false, async: false }); } catch (e) { return front + `<pre class="plain">${esc(mdText)}</pre>`; }
+    try {
+      const renderer = literalHtml ? new window.marked.Renderer() : undefined;
+      if(renderer)renderer.html=token=>token.text.startsWith('<!--')?'':esc(token.text);
+      out = window.marked.parse(text, { gfm: true, breaks: false, async: false, ...(renderer ? {renderer} : {}) });
+    } catch (e) { return front + `<pre class="plain">${esc(mdText)}</pre>`; }
     out = window.DOMPurify.sanitize(out).replace(/(\d+)/g, (m, i) => mathHtml(stash[+i]));
     if (sel) out = out.replace(/<img([^>]*?)src="([^"]+)"/g, (m, a, src) => { const u = assetUrl(sel, src.replace(/&amp;/g, '&')); return `<img${a}loading="lazy" src="${u ? esc(u) : src}"`; });
     return front + out;
   };
-  NL.Markdown = ({ text, sel, className }) => {
+  NL.Markdown = ({ text, sel, className, onFile, literalHtml }) => {
     const ref = useRef();
-    const markup = useMemo(() => NL.mdToHtml(text, sel), [text, sel && sel.rel, sel && sel.slug]);
+    const markup = useMemo(() => NL.mdToHtml(text, sel, literalHtml), [text, sel && sel.rel, sel && sel.slug, literalHtml]);
     useEffect(() => {
       const host = ref.current; if (!host) return;
       host.querySelectorAll('a[href]').forEach(a => {
@@ -223,12 +312,13 @@
         else if (/^https?:/i.test(href)) { a.target = '_blank'; a.rel = 'noopener'; }
         else if (!href.startsWith('#')) a.onclick = ev => {
           ev.preventDefault();
+            if(onFile){onFile(href);return}
           const url=assetUrl(sel,href);
           if(url&&sel){const rel=new URL(url,location.origin).searchParams.get('rel');NL.openDoc(sel.scope,sel.slug,rel)}
           else NL.toast('That links to another file. Open it from the Library.');
         };
       });
-    }, [markup]);
+    }, [markup, onFile]);
     return html`<div ref=${ref} class=${cls('md', className)} dangerouslySetInnerHTML=${{ __html: markup }}></div>`;
   };
 

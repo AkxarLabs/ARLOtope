@@ -82,7 +82,8 @@ def executor_status() -> dict:
                     **{k: prog.get(k) for k in executor.CONFIG_KEYS if k in prog},
                     'acp_command': ((prog.get('backends') or {}).get('acp') or {}).get('command') or []})
     base.update(available=True, enabled=bool(prog.get("enabled")),
-                active=sum(1 for m in runs if m.get("status") in executor.ACTIVE),
+                active=sum(1 for m in runs if executor.is_live(m)),
+                slots_used=sum(1 for m in runs if executor.uses_slot(m)),
                 queued=sum(1 for m in runs if m.get("status") == "queued"),
                 waiting=sum(1 for m in runs if m.get("status") in executor.PAUSED))
     lt = base.get("last_tick")

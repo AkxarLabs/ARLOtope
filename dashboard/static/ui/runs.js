@@ -1,4 +1,4 @@
-/* Newts' Lab — runs as conversations. A run is one agent session the PI started (a procedure or a
+/* ARLOtope — runs as conversations. A run is one agent session the PI started (a procedure or a
    free-form instruction); the run sheet streams it like a chat: the agent's messages, its tool calls
    folded into groups, subagents inline, its questions as forms you answer in place, and the report
    with its next step as a button. Also: the runs list, and the per-agent inspector. */
@@ -9,6 +9,18 @@
   const needsAttention = r => r.needs_followup || r.status === 'waiting_input' || !!r.pending_permissions?.length
     || !!(r.report?.needs_pi && NL.RUN_DONE.has(r.status));
 
+  // Inbox and run-sheet recovery use the same message, session and handoff behavior.
+  NL.continueTask = async (id, fresh = false) => {
+    const r = NL.run(NL.getState(), id) || (await NL.get('/api/run?' + NL.qs({run_id:id}))).run;
+    if (!r) return NL.toast('This run is unavailable. Refresh and try again.', 'bad');
+    const handoff = fresh || !r.session_id;
+    const x = await NL.act(handoff ? '/api/run/handoff' : '/api/run/reply', {run_id:id, confirm:true,
+      text:'Continue the assigned task. Check its current state and evidence, finish the work and report its workflow outcome.'},
+      handoff ? 'New agent queued' : 'Continuing task');
+    if (x.run_id && x.run_id !== id) NL.openRun(x.run_id);
+    return x;
+  };
+
   /* ── live transcript (polls /api/run/tail while the sheet is open) ──────── */
   function useRun(id) {
     const [detail, setDetail] = useState(null);
@@ -16,33 +28,37 @@
     const [err, setErr] = useState(null);
     const st = useRef({ offset: 0, status: null, last: 0, alive: true, skipped: 0 });
     useEffect(() => {
-      st.current = { offset: 0, status: null, last: 0, alive: true, skipped: 0 };
+      const state = { offset: 0, status: null, last: 0, alive: true, skipped: 0 };
+      st.current = state;
       setLines([]); setDetail(null); setErr(null);
       if (NL.DEMO) return undefined;
       let timer = null;
       const loadDetail = async () => {
         const d = await NL.get(`/api/run?${NL.qs({ run_id: id })}`);
-        if (!st.current.alive) return;
-        if (d.ok) { setDetail(d.run); st.current.last = Date.now(); } else setErr(d.error || 'no such run');
+        if (!state.alive) return;
+        if (d.ok) { setDetail(d.run); state.last = Date.now(); } else setErr(d.error || 'no such run');
       };
       const tick = async () => {
-        const t = await NL.get(`/api/run/tail?${NL.qs({ run_id: id, offset: st.current.offset })}`);
-        if (!st.current.alive) return;
+        const t = await NL.get(`/api/run/tail?${NL.qs({ run_id: id, offset: state.offset })}`);
+        if (!state.alive) return;
         if (t.ok) {
-          if (t.skipped && !st.current.offset) st.current.skipped = t.skipped;
-          st.current.offset = t.offset;
+          setErr(null);
+          if (t.skipped && !state.offset) state.skipped = t.skipped;
+          state.offset = t.offset;
           if (t.lines && t.lines.length) setLines(prev => { const next = prev.concat(t.lines); return next.length > 2500 ? next.slice(-2000) : next; });
-          if (t.status !== st.current.status || Date.now() - st.current.last > 5000) { st.current.status = t.status; await loadDetail(); }
+          if (t.status !== state.status || Date.now() - state.last > 5000) { state.status = t.status; await loadDetail(); }
+          if (!state.alive) return;
           const done = NL.RUN_DONE.has(t.status) && t.eof;
           timer = setTimeout(tick, done ? 6000 : 1400);
         } else { setErr(t.error || 'no such run'); timer = setTimeout(tick, 5000); }
       };
       tick();
-      return () => { st.current.alive = false; clearTimeout(timer); };
+      return () => { state.alive = false; clearTimeout(timer); };
     }, [id]);
     const s = NL.useLab();
     const live = NL.run(s, id);        // the snapshot's compact copy is fresher for status/elapsed
-    const run = detail ? { ...detail, ...(live || {}), qa: detail.qa, attempts: detail.attempts, transcript: detail.transcript } : live;
+    const run = detail ? { ...detail, ...(live || {}), qa: detail.qa, attempts: detail.attempts, transcript: detail.transcript,
+      external_activity:live?.external_activity||detail.external_activity } : live;
     return { run, lines, err, skipped: st.current.skipped, reload: () => { st.current.last = 0; } };
   }
 
@@ -110,8 +126,7 @@
 
   const ElicitationCard = ({r, question}) => {
     const f=question.input.elicitation,fields=f.requestedSchema?.properties||{},required=f.requestedSchema?.required||[];
-    const [values,setValues]=useState(()=>Object.fromEntries(Object.entries(fields).filter(([,v])=>'default' in v).map(([k,v])=>[k,v.default]))),[error,setError]=useState(''),[busy,setBusy]=useState(false);
-    useEffect(()=>{setValues(Object.fromEntries(Object.entries(fields).filter(([,v])=>'default' in v).map(([k,v])=>[k,v.default])));setError('')},[question.tool_use_id]);
+    const [values,setValues]=NL.useDraft('form:'+r.run_id+':'+question.tool_use_id,()=>Object.fromEntries(Object.entries(fields).filter(([,v])=>'default' in v).map(([k,v])=>[k,v.default]))),[error,setError]=useState(''),[busy,setBusy]=useState(false);
     const update=(k,v)=>setValues(old=>({...old,[k]:v}));
     const send=async action=>{
       setBusy(true);setError('');
@@ -146,12 +161,9 @@
     // a question that came as plain text (or didn't come through) still gets a box to answer it in
     const plain = pq.question || pq.text || (pq.input && (pq.input.question || pq.input.text)) || '';
     const qs = ((pq.input || {}).questions) || [];
-    const [free, setFree] = useState('');
-    const [ans, setAns] = useState({});
-    const [other, setOther] = useState({});
-    const [skipped,setSkipped]=useState({});
-    const key = (r.pending_question || {}).tool_use_id;
-    useEffect(() => { setAns({}); setOther({});setSkipped({});setFree(''); }, [key]);
+    const key='question:'+r.run_id+':'+(pq.tool_use_id||plain||r.attempt);
+    const [free,setFree]=NL.useDraft(key+':free',''),[ans,setAns]=NL.useDraft(key+':answers',{}),
+      [other,setOther]=NL.useDraft(key+':other',{}),[skipped,setSkipped]=NL.useDraft(key+':skipped',{});
     const pick = (q, label) => setAns(a => {
       if (!q.multiSelect) return { ...a, [q.question]: label };
       const cur = new Set(a[q.question] || []); cur.has(label) ? cur.delete(label) : cur.add(label);
@@ -162,13 +174,13 @@
     const send = async () => {
       if (!qs.length) {
         if (!free.trim()) return NL.toast('Type your answer first', 'warn');
-        const x = await NL.act('/api/run/answer', { run_id: r.run_id, request_id:key, text: free.trim() }, 'Sent. The agent carries on.');
+        const x = await NL.act('/api/run/answer', { run_id: r.run_id, request_id:pq.tool_use_id, text: free.trim() }, 'Sent. The agent carries on.');
         if (x.ok) setFree('');
         return x;
       }
       const a = answers();
       if (!complete) return NL.toast('Answer or skip each question', 'warn');
-      const x = await NL.act('/api/run/answer', { run_id: r.run_id, request_id:key, answers: a }, 'Sent. The agent carries on.');
+      const x = await NL.act('/api/run/answer', { run_id: r.run_id, request_id:pq.tool_use_id, answers: a }, 'Sent. The agent carries on.');
       return x;
     };
     return html`<div class="ask">
@@ -202,7 +214,7 @@
   const Report = ({ r }) => {
     const rep = r.report; if (!rep || !NL.RUN_DONE.has(r.status)) return null;
     return html`<div class=${cls('report', rep.needs_pi && 'report-needs')}>
-      <div class="report-h">${rep.needs_pi ? '✋ ' + (NEEDS[rep.needs_pi] || rep.needs_pi) : r.needs_followup ? 'Task unfinished' : r.status === 'completed' ? NL.runStateLabel(r) : NL.RUN_WORD[r.status]}</div>
+      <div class="report-h">${rep.needs_pi ? '✋ ' + (NEEDS[rep.needs_pi] || rep.needs_pi) : r.needs_followup ? 'Output' : r.status === 'completed' ? NL.runStateLabel(r) : NL.RUN_WORD[r.status]}</div>
       ${rep.summary ? html`<${NL.Markdown} text=${rep.summary} />` : null}
       <div class="row">
         ${rep.needs_pi && r.subject && NL.checkpoint(rep.needs_pi) ? html`<${NL.Btn} kind="primary" onClick=${() => NL.openCheckpoint(r.subject, rep.needs_pi)}>Review: ${NL.checkpoint(rep.needs_pi).title}</${NL.Btn}>` : null}
@@ -221,7 +233,7 @@
     const d = r.digest; if (!d || !NL.RUN_DONE.has(r.status)) return null;
     return html`<div class="digest">
       <div class="row gap wrap">${(d.outcome || []).map(e => html`<${NL.Pill} tone=${e.kind === 'none' ? 'muted' : e.kind === 'wait' ? 'warn' : 'ok'}>${OUTCOME_WORD(e)}</${NL.Pill}>`)}
-        <span class="muted small">${d.written} written · ${d.deleted} deleted · ${d.commits} commits · ${d.commands || 0} commands${d.denials ? html` · <b>${d.denials} refused</b>` : ''}</span>
+        <span class="muted small">${NL.plural(d.written || 0,'file written','files written')} · ${NL.plural(d.deleted || 0,'file deleted','files deleted')} · ${NL.plural(d.commits || 0,'commit')} · ${NL.plural(d.commands || 0,'command')}${d.denials ? html` · <b>${d.denials} refused</b>` : ''}</span>
         ${(d.files || []).length || (d.notable || []).length ? html`<button type="button" class="link small" onClick=${() => setOpen(!open)}>${open ? 'hide' : 'details'}</button>` : null}</div>
       ${(d.flags || []).map(f => html`<div class=${cls('note', f.level === 'block' ? 'note-bad' : 'note-warn')}>${f.say}${f.hold ? '; nothing new starts for this study until you acknowledge it' : ''}
         ${f.id && f.level !== 'info' ? html` <button type="button" class="link small" onClick=${() => NL.act('/api/flag/ack', { flag: f.id }, 'Acknowledged')}>acknowledge</button>` : null}</div>`)}
@@ -229,14 +241,59 @@
     </div>`;
   };
 
+  NL.FrameworkActivity=({data,reload})=>!data?null:html`<details class="framework-activity" open>
+    <summary>${data.title||'External tool'} <span class="muted small">${data.phase?.replaceAll('_',' ')||'activity'}</span></summary>
+    ${data.error?html`<${NL.LoadState} error=${data.error} reload=${reload}/>`:html`
+      <p class="muted small">Observed activity · controls stay with the phase.</p>
+      ${!data.events?.length?html`<p class="muted small">${data.supported?'No events recorded yet.':'This tool has no activity mapping.'}</p>`:html`
+        <ol class="framework-timeline">${data.events.slice().reverse().map((e,i)=>html`<li key=${i} class=${e.state}>
+            <span class="framework-event-mark" aria-hidden="true">${e.state==='running'?'◌':e.state==='failed'?'×':e.state==='completed'?'✓':'·'}</span>
+          <div><b>${e.label}</b><small>${e.state==='running'?'started':e.state.replaceAll('_',' ')}${e.cycle!=null?' · cycle '+e.cycle:''}${e.worker!=null?' · worker '+(typeof e.worker==='number'?e.worker+1:e.worker):''}
+            · <${NL.EditorLink} path=${data.root+'/'+e.source} machine=${data.machine}>Source</${NL.EditorLink}></small></div>
+          <time dateTime=${e.time}>${NL.hhmm(e.time)}</time></li>`)}</ol>`}
+      ${data.clipped||data.malformed?html`<p class="muted small">${data.clipped?'Showing recent events. ':''}${data.malformed?'Some incomplete records were skipped.':''}</p>`:null}`}
+  </details>`;
+  const SavedEntry=({entry,run})=>{
+    const [open,setOpen]=useState(false),names={input:'Task input',response:'Agent response',request:entry.request_kind==='permission'?'Permission request':'Question',answer:'Answer',message:'Your message',permission:'Permission decision',cancelled:'Request cancelled'};
+    const questions=(entry.input?.questions||[]).map(q=>q.question).filter(Boolean),answers=entry.answers||entry.content;
+    const reply=answers&&typeof answers==='object'?Object.entries(answers).map(([q,a])=>q+': '+(Array.isArray(a)?a.join(', '):typeof a==='object'?JSON.stringify(a):a)).join('\n\n'):entry.response;
+    const text=entry.text||entry.input?.elicitation?.message||questions.join('\n\n')||reply||(entry.kind==='permission'?(entry.allow?'Allowed':'Denied')+(entry.message?' — '+entry.message:''):entry.message||entry.action||'');
+    const payload=Object.fromEntries(Object.entries(entry).filter(([key])=>!['id','at','kind','attempt','text','agent','clipped'].includes(key)));
+    return html`<details class="saved-entry" onToggle=${e=>setOpen(e.currentTarget.open)}><summary>${names[entry.kind]||entry.kind} <span class="muted small">· attempt ${entry.attempt} · ${NL.hhmm(entry.at)}${entry.error?' · Error':''}</span>
+      ${text?html`<span class="saved-preview">${NL.clip(text.replaceAll('\n',' '),110)}</span>`:null}</summary>
+      ${open?html`${entry.agent?html`<button class="link small" onClick=${()=>NL.openRun(run,entry.agent)}>Subagent ${entry.agent} ↗</button>`:null}
+        ${text?html`<${NL.Markdown} text=${text}/>`:null}
+        ${!['response','message','input'].includes(entry.kind)?html`<details><summary>Details</summary><pre class="exchange-data">${JSON.stringify(payload,null,2)}</pre></details>`:null}
+        ${entry.delivery?html`<p class="muted small">${entry.delivery==='attempt-start'?'Supplied when this attempt started; delivery is not a completion receipt.':'Queued for the next attempt.'}</p>`:null}
+        ${entry.clipped?html`<p class="muted small">This record was clipped when captured.</p>`:null}`:null}</details>`;
+  };
+  NL.RecordedTurns=({r})=>{
+    const [open,setOpen]=useState(false),[data,setData]=useState(null),[busy,setBusy]=useState(false),[error,setError]=useState('');
+    const load=async(offset=0)=>{if(busy)return;setBusy(true);setError('');try{
+      const result=await NL.get('/api/run/records?'+NL.qs({run_id:r.run_id,offset}));
+      if(!result.ok)setError(result.error||'Could not read saved exchanges.');
+      else setData(old=>({...result,rows:offset?[...(old?.rows||[]),...result.rows]:result.rows}));
+    }catch(e){setError(e.message)}finally{setBusy(false)}};
+    useEffect(()=>{if(open)load()},[open,r.run_id,r.record_count,r.status,r.remote_records_offset]);
+    return html`<details class="recorded-turns" onToggle=${e=>{if(e.target===e.currentTarget)setOpen(e.currentTarget.open)}}><summary>Saved responses & exchanges${r.record_count?' · '+r.record_count:''}</summary>
+      ${open?html`<button class="link small" onClick=${()=>load()}>Refresh exchanges</button>${error?html`<p role="alert">${error} <button class="link" onClick=${()=>load()}>Retry</button></p>`:null}
+        ${busy&&!data?html`<p class="muted small">Loading…</p>`:null}
+        ${data?.rows.map(entry=>html`<${SavedEntry} key=${entry.id} entry=${entry} run=${r.run_id}/>`)}
+        ${data&&!data.rows.length?html`<p class="muted small">${data.available?'No complete exchange records yet.':'No saved exchanges for this run. Its transcript may still be available.'}</p>`:null}
+        ${data?.skipped?html`<p class="muted small">Some damaged records could not be read.</p>`:null}
+        ${data?.incomplete?html`<p class="muted small">The last record is incomplete. It may still be arriving from the project machine.</p>`:null}
+        ${data?.next!=null?html`<${NL.Btn} small busy=${busy} onClick=${()=>load(data.next)}>Load more exchanges</${NL.Btn}>`:null}
+        ${r.record_error?html`<p role="status" class="muted small">Some exchanges could not be saved: ${r.record_error}</p>`:null}`:null}</details>`;
+  };
   /* ── the run sheet ─────────────────────────────────────────────────────── */
   NL.RunSheet = ({ id, focusSub, onClose }) => {
-    const { run: r, lines, err, skipped } = useRun(id);
+    const { run: r, lines, err, skipped, reload } = useRun(id);
     const s = NL.useLab();
+    useEffect(()=>{if(r)NL.focusRun(r,focusSub)},[r?.run_id,focusSub,r?.subject,r?.workflow_node]);
     const blocks = useMemo(() => toBlocks(lines), [lines]);
     const scroller = useRef();
     const [stick, setStick] = useState(true);
-    const [reply, setReply] = useState('');
+    const [reply, setReply] = NL.useDraft('reply:'+id,'');
     useEffect(() => { const el = scroller.current; if (el && stick) el.scrollTop = el.scrollHeight; }, [blocks.length, r && r.status, stick]);
     const onScroll = e => { const el = e.target; setStick(el.scrollHeight - el.scrollTop - el.clientHeight < 80); };
     if (!r) return html`<${NL.Sheet} title="Run" onClose=${onClose} wide>${err ? html`<${NL.Empty}>${err}</${NL.Empty}>` : html`<${NL.Spinner} />`}</${NL.Sheet}>`;
@@ -255,7 +312,7 @@
       <span class="mono muted small" title="this run's id">${r.run_id}</span></span>`;
     const footer = html`<div class="runfoot">
       ${r.status === 'waiting_input' && r.pending_question ? null : canReply ? html`<div class="reply">
-        <${NL.Textarea} rows="2" value=${reply} onInput=${setReply} onSubmit=${sendReply} placeholder=${hint} />
+        <${NL.Textarea} rows="2" value=${reply} onInput=${setReply} onSubmit=${sendReply} ariaLabel="Message to agent" ariaDescription=${hint} placeholder="Message the agent…" />
         <${NL.Btn} kind="primary" onClick=${sendReply} disabled=${!reply.trim()}>Send</${NL.Btn}></div>` : null}
       <div class="row">
         ${liveNow && active ? html`<${NL.Btn} onClick=${() => NL.act('/api/run/interrupt', { run_id: r.run_id })} title="Stops the current step. The run stays open for your next message.">⏸ Pause step</${NL.Btn}>` : null}
@@ -264,12 +321,14 @@
         ${NL.RUN_DONE.has(r.status) && r.session_id && r.status !== 'completed' ? html`<${NL.Btn} onClick=${() => NL.act('/api/run/resume', { run_id: r.run_id }, 'Resuming')}>↻ Resume</${NL.Btn}>` : null}
         <span class="grow"></span>
         ${r.transcript ? html`<${NL.EditorLink} path=${r.transcript}>transcript ↗</${NL.EditorLink}>` : null}
-        <button class="link small" onClick=${async () => { const x = await NL.get(`/api/run/log?${NL.qs({ run_id: r.run_id })}`); NL.open(NL.TextSheet, { title: 'Technical log', sub: r.run_id, text: x.text || '(empty)' }); }}>technical log</button>
+        <button class="link small" onClick=${() => NL.open(NL.TextSheet, { title: 'Technical log', sub: r.run_id, path: `/api/run/log?${NL.qs({ run_id: r.run_id })}` })}>technical log</button>
       </div></div>`;
     return html`<${NL.Sheet} title=${title} sub=${sub} onClose=${onClose} wide footer=${footer}>
+      <nav class="inspector-links" aria-label="Related work"><button type="button" class="link" onClick=${()=>{onClose();NL.askAboutRun(r,focusSub||'')}}>Ask assistant</button>${it?html`<a href=${NL.focusHref('workflow/map')} onClick=${onClose}>Task</a><a href=${NL.focusHref('library')} onClick=${onClose}>Outputs</a>`:null}${(s.agents||[]).some(a=>a.run_id===r.run_id)?html`<button type="button" class="link" onClick=${()=>{onClose();NL.followAgent(r.run_id)}}>Show in Lab</button>`:null}</nav>
+      <button type="button" class="link small" onClick=${()=>NL.openInstructions({run_id:r.run_id,title:'Recorded instructions'})}>Recorded instructions</button>
       <div class="runmeta">
         ${r.elapsed_s != null ? html`<span><b>${NL.mins(r.elapsed_s)}</b>${budget ? html` of ${Math.round(r.max_minutes)}m <${NL.Bar} value=${r.elapsed_s} max=${budget} tone=${r.elapsed_s > budget * 0.85 ? 'warn' : ''} />` : null}</span>` : null}
-        ${r.n_actions ? html`<span><b>${r.n_actions}</b> actions</span>` : null}
+        ${r.n_actions ? html`<span><b>${r.n_actions}</b> ${r.n_actions === 1 ? 'action' : 'actions'}</span>` : null}
         ${(r.subagents || []).length ? html`<span>${NL.plural(r.subagents.length, 'subagent')}</span>` : null}
         ${r.usage && r.usage.cost_usd != null ? html`<span>≈ $${(+r.usage.cost_usd).toFixed(2)}</span>` : null}
         ${r.status === 'queued' ? html`<span>${r.not_before ? 'scheduled for ' + NL.hhmm(r.not_before) : 'starts as soon as a slot is free'}</span>` : null}
@@ -280,18 +339,23 @@
       ${r.remote_error ? html`<div class="note note-warn" role="status">${r.remote_error}</div>` : null}
       ${r.delivery_uncertain ? html`<div class="note note-warn">A message may not have reached the agent. Check the conversation before sending it again.</div>` : null}
       ${(r.external_interactions||[]).map(e=>html`<div class="small muted" role="status">${e.message||'External interaction'} · ${e.completed_at?'Completion reported by agent':'Link opened; completion not reported'}</div>`)}
-      ${r.needs_followup?html`<div class="note note-warn"><b>Agent stopped · Task unfinished</b><p>The workflow is waiting for this task’s outcome.</p><${NL.Btn} small kind="primary" onClick=${async()=>{const x=await NL.act(r.session_id?'/api/run/reply':'/api/run/handoff',{run_id:r.run_id,confirm:true,text:'Continue the assigned task. Check its current state and evidence, finish the work and report its workflow outcome.'},r.session_id?'Continuing task':'New agent queued');if(x.run_id&&x.run_id!==r.run_id)NL.openRun(x.run_id)}}>${r.session_id?'Continue task':'New agent with handoff'}</${NL.Btn}></div>`:null}
+      ${r.needs_followup ? html`<div class="note note-warn"><p>No outcome recorded.</p><div class="row wrap">
+        ${r.session_id ? html`<${NL.Btn} small kind="primary" onClick=${() => NL.continueTask(r.run_id)}>Continue task</${NL.Btn}>` : null}
+        <${NL.Btn} small kind=${r.session_id ? '' : 'primary'} onClick=${() => NL.continueTask(r.run_id,true)}>New agent with handoff</${NL.Btn}></div></div>` : null}
       ${r.status === 'waiting_input' && r.pending_question ? (r.pending_questions||[r.pending_question]).map(q=>q.input?.elicitation?html`<${ElicitationCard} key=${q.tool_use_id} r=${r} question=${q}/>`:html`<${AskCard} key=${q.tool_use_id} r=${{...r,pending_question:q}} />`) : null}
       <${Lineage} r=${r} />
+      <${NL.FrameworkActivity} data=${r.external_activity} reload=${reload}/>
       <${Subagents} r=${r} focus=${focusSub} />
       <${Explanations} r=${r} />
       <${NL.RunFiles} r=${r} />
+      <${NL.RecordedTurns} key=${r.run_id} r=${r} />
       <${Actions} r=${r} />
       <div class="convo" ref=${scroller} onScroll=${onScroll}>
         ${skipped ? html`<div class="msg-div"><span>earlier output skipped (${Math.round(skipped / 1024)} KB)</span></div>` : null}
         ${!blocks.length ? r.status === 'waiting_input' && !r.pending_question && r.last_text
           ? html`<div class="msg"><${NL.Markdown} text=${r.last_text} /></div>`
-          : html`<div class="muted pad">${r.status === 'queued' ? 'Waiting for a free slot…' : NL.DEMO ? 'The demo has no transcripts. Its latest step is below.' : active ? (r.last_action ? 'Working. Its latest step is below.' : 'Starting up…') : 'No transcript yet.'}</div>` : null}
+          : !err ? html`<div class="muted pad">${r.status === 'queued' ? 'Waiting for a free slot…' : NL.DEMO ? 'The demo has no transcripts. Its latest step is below.' : active ? (r.last_action ? 'Working. Its latest step is below.' : 'Starting up…') : 'No transcript yet.'}</div>` : null : null}
+        ${err ? html`<div class="note note-warn" role="alert"><p>${err}</p><small>Retrying automatically. Loaded messages stay visible.</small></div>` : null}
         ${blocks.map((b, i) => html`<${Block} key=${i} b=${b} last=${i === blocks.length - 1 && active} />`)}
         ${active && r.last_action ? html`<div class="now"><i class="dot-live"></i> <b>${r.last_action.tool || ''}</b> ${NL.clip(r.last_action.summary, 140)}</div>` : null}
         <${PermissionRows} r=${r} />
@@ -346,7 +410,7 @@
     return html`<details class="subs" open=${live > 0 || !!focus}><summary>${NL.plural(subs.length, 'subagent')}${live ? html` · <b>${live} working</b>` : null}</summary>
       ${kidsOf(null).slice().reverse().map(sa => html`<${Row} key=${sa.id} sa=${sa} depth=${0} />`)}</details>`;
   };
-  NL.openRun = (id, sub) => { if (id) NL.open(NL.RunSheet, { id, focusSub: sub || null }, { key: 'run:' + id }); };
+  NL.openRun = (id, sub) => {if(!id)return;const r=NL.run(NL.getState(),id);if(r)NL.focusRun(r,sub);return NL.open(NL.RunSheet, { id, focusSub: sub || null }, { key: 'run:' + id,slot:'inspector' });};
 
   /* A separate terminal agent explains the recorded evidence without interrupting the source run. */
   NL.explain = async (runId, agent, options={}) => {
@@ -372,9 +436,8 @@
   const MAX_ROWS = 400;
   const Actions = ({ r }) => {
     const [open, setOpen] = useState(false);
-    const [t, setT] = useState(null);
-    useEffect(() => { if (open && !NL.DEMO) NL.get(`/api/run/actions?${NL.qs({ run_id: r.run_id })}`).then(x => setT(x && x.ok ? x.agents : null)); },
-      [open, r.run_id, Math.floor((r.n_actions || 0) / 10), r.status]);
+    const g = NL.useGet(open && !NL.DEMO ? `/api/run/actions?${NL.qs({ run_id: r.run_id })}` : null, Math.floor((r.n_actions || 0) / 10) + ':' + r.status);
+    const t = (g.data || g.previous)?.agents;
     const Agent = ({ id, depth }) => {
       const a = t[id], acts = a.actions.slice(-MAX_ROWS);
       return html`<div class="act-agent" style=${{ marginLeft: (depth * 16) + 'px' }}>
@@ -384,10 +447,16 @@
           : html`<div class="act-row"><span class="muted mono small">${NL.hhmm(x.ts)}</span><span title=${NL.activity(x.kind)[1]}>${NL.activity(x.kind)[0]}</span><span class="clip grow">${x.summary || x.tool || ''}</span></div>`)}</div>`;
     };
     return html`<details class="runfiles" onToggle=${e => setOpen(e.target.open)}><summary>Everything it did</summary>
-      ${!open ? null : t && t.main ? html`<${Agent} id="main" depth=${0} />` : html`<div class="muted small">${NL.DEMO ? 'The demo keeps no record of actions.' : 'Nothing recorded yet.'}</div>`}</details>`;
+      ${open && !NL.DEMO && (g.error || !g.data && !g.previous) ? html`<${NL.LoadState} ...${g} stale=${!!g.previous} />` : null}
+      ${!open ? null : t && t.main && Object.values(t).some(a => a.actions?.length) ? html`<${Agent} id="main" depth=${0} />` : NL.DEMO || g.data ? html`<div class="muted small">${NL.DEMO ? 'The demo keeps no record of actions.' : 'Nothing recorded yet.'}</div>` : null}</details>`;
   };
 
-  NL.TextSheet = ({ title, sub, text, onClose }) => html`<${NL.Sheet} title=${title} sub=${sub} onClose=${onClose} wide><pre class="plain">${text}</pre></${NL.Sheet}>`;
+  NL.TextSheet = ({ title, sub, text, path, onClose }) => {
+    const g = NL.useGet(path || null), d = g.data || g.previous;
+    return html`<${NL.Sheet} title=${title} sub=${sub} onClose=${onClose} wide>
+      ${path && (g.error || !d) ? html`<${NL.LoadState} ...${g} stale=${!!g.previous} />` : null}
+      ${!path || d ? html`<pre class="plain">${path ? d.text || '(empty)' : text}</pre>` : null}</${NL.Sheet}>`;
+  };
 
   /* ── run rows (Home rail, Runs page, Study page) ───────────────────────── */
   NL.RunRow = ({ r, compact }) => {
@@ -426,21 +495,21 @@
     const terminals = (s.workers || []).filter(w => w.interactive && w.status !== 'done' && !w.parent && !w.run_id);
     const openAgent = a => (a.run_id ? NL.openRun(a.run_id, a.sub) : a.worker_id && NL.openWorker(a.worker_id));
     return html`<div class="page">
-      <header class="page-head"><div><h1>Agents</h1><p class="muted small">Dashboard tasks and connected terminal sessions.</p></div>
+      <header class="page-head"><div><h1>All agents</h1><p class="muted small">Dashboard tasks and connected terminal sessions.</p></div>
         <div class="row">${s.lab_paused ? html`<${NL.Btn} onClick=${() => NL.pauseLab(false)}>Resume all</${NL.Btn}>` : nRun ? html`<${NL.Btn} kind="ghost" onClick=${() => NL.pauseLab(true)} title="Stops every agent; you can resume them">Pause all</${NL.Btn}>` : null}
           <${NL.Btn} kind="primary" icon="＋" onClick=${() => NL.openStart()}>Start task</${NL.Btn}></div></header>
       <div class="statline">
-        <span><b>${nRun}</b> dashboard runs active${caps.total ? html` · <a class="link" href="#/settings/autonomy" title="Change dashboard run limit">limit ${caps.total}</a>` : ''}</span><span><b>${all.filter(r => r.status === 'queued').length}</b> queued</span><span><b>${all.filter(needsAttention).length}</b> waiting for you</span><span>${NL.plural(terminals.length,'terminal session','terminal sessions')}</span>
+        <span><b>${x.slots_used??'—'}</b>${caps.total ? html` / <a class="link" href="#/settings/autonomy" title="Change task limit">${caps.total}</a>` : ''} task slots used</span><span><b>${x.active??nRun}</b> agents active</span><span><b>${all.filter(r => r.status === 'queued').length}</b> queued</span><span><b>${all.filter(needsAttention).length}</b> waiting for you</span><span><b>${terminals.length}</b> ${terminals.length === 1 ? 'terminal session' : 'terminal sessions'}</span>
         ${x.brake ? html`<span class="warn">⚠ daily limit reached: ${x.brake}</span>` : null}
         ${!NL.execOn(s) && !NL.DEMO ? html`<span class="warn">Starting agents from the dashboard is off. <a class="link" href="#/settings/autonomy">Turn it on</a></span>` : null}
       </div>
       ${working.length ? html`<${NL.Section} title="Dashboard agents" count=${working.length}><div class="agents-strip">${working.slice(0, 40).map(a => html`<button type="button" class=${cls('agent-chip', a.parent && 'sub')} onClick=${() => openAgent(a)}
           title=${a.doing ? `${NL.activity(a.doing.kind)[1]}: ${a.doing.summary || a.doing.tool || ''}` : a.last || ''}>
-        ${a.parent ? html`<span class="muted">↳</span>` : null}<${NL.RoleDot} role=${a.role} /><span class="clip">${NL.clip(a.label || NL.roleOf(a.role).label, 34)}</span>
-        ${a.status === 'asking' ? html`<span class="warn small">asking you</span>` : a.doing ? html`<span class="muted small">${NL.activity(a.doing.kind)[0]} ${NL.activity(a.doing.kind)[1]}</span>` : null}</button>`)}</div></${NL.Section}>` : null}
+        ${a.parent ? html`<span class="muted">↳</span>` : null}<${NL.RoleDot} role=${a.role} /><span class="clip">${NL.clip(NL.agentTitle(a,s), 70)}</span>
+        ${NL.run(s,a.run_id)?.needs_followup ? html`<span class="warn small">Task unfinished</span>` : a.status === 'asking' ? html`<span class="warn small">asking you</span>` : a.doing ? html`<span class="muted small">${NL.activity(a.doing.kind)[0]} ${NL.activity(a.doing.kind)[1]}</span>` : null}</button>`)}</div></${NL.Section}>` : null}
       ${terminals.length ? html`<${NL.Section} title="Terminal sessions" count=${terminals.length}><p class="muted small">Started in a terminal or editor. Reply there.</p>
         <div class="agents-strip">${terminals.slice(0, 12).map(w => html`<button type="button" class="agent-chip" onClick=${() => NL.openWorker(w.worker_id)}>
-          <${NL.RoleDot} role=${w.role} /><span class="clip">${NL.clip(w.label || NL.item(s,w.idea||w.project)?.title || w.idea || w.project || 'Lab session', 40)}</span><span class="muted small">${w.status}${(w.children || []).length ? ' · ' + NL.plural(w.children.length, 'subagent') : ''}</span></button>`)}</div></${NL.Section}>` : null}
+          <${NL.RoleDot} role=${w.role} /><span class="clip">${NL.clip(NL.agentTitle(w,s), 70)}</span><span class="muted small">${w.status}${(w.children || []).length ? ' · ' + NL.plural(w.children.length, 'subagent') : ''}</span></button>`)}</div></${NL.Section}>` : null}
       <h2 class="runs-history-title">Dashboard run history</h2><div class="toolbar runs-toolbar"><${NL.Tabs} tabs=${FILTERS.map(x2 => ({ id: x2.id, label: x2.label, count: x2.id === 'all' ? null : all.filter(x2.f).length || null }))} value=${f} onChange=${setF} />
         <${NL.Select} value=${sort} onChange=${setSort} ariaLabel="Sort runs" options=${[{ value: 'new', label: 'Newest first' }, { value: 'cost', label: 'Most expensive first' }]} />
         <input class="input search" aria-label="Find a run" placeholder="Find a run…" value=${q} onInput=${e => setQ(e.target.value)} /></div>
@@ -460,19 +529,19 @@
     const kids = (w.children || []).map(byId).filter(Boolean);
     const acts = (w.recent_actions || []).slice().reverse();
     const run = (s.runs || []).find(r => (w.run_id && r.run_id === w.run_id) || (r.session_id && (r.session_id === w.session_id || r.session_id === w.worker_id)));
-    return html`<${NL.Sheet} title=${NL.clip(w.label || NL.roleOf(w.role).label, 70)} onClose=${onClose}
+    return html`<${NL.Sheet} title=${NL.clip(NL.agentTitle(w,s), 70)} onClose=${onClose}
       sub=${html`<span class="row-wrap"><${NL.RoleDot} role=${w.role} /> ${NL.roleOf(w.role).label} · <span class=${w.status === 'working' ? 'live' : 'muted'}>${w.status}</span> · ${anchor ? html`<a class="link" href=${'#/study/' + anchor.id}>${NL.clip(anchor.title || anchor.id, 30)}</a>` : 'the lab'}</span>`}>
       <div class="row">
         ${run ? html`<${NL.Btn} small onClick=${() => NL.openRun(run.run_id)}>Open its run</${NL.Btn}>` : null}
         ${run && !run.explains ? html`<${NL.Btn} small onClick=${() => NL.explain(run.run_id, w.spawn_id || null)}>Visual summary</${NL.Btn}>` : null}
         ${parent ? html`<${NL.Btn} small onClick=${() => NL.openWorker(parent.worker_id)}>↑ Started by ${NL.clip(parent.label || NL.roleOf(parent.role).label, 30)}</${NL.Btn}>` : null}</div>
       ${w.interactive ? html`<div class="note small">A session started outside the dashboard (a terminal or an editor), traced here by the lab's hooks. Its questions stay in that session.</div>` : null}
-      <div class="runmeta"><span><b>${w.n_actions || 0}</b> actions</span>${w.started ? html`<span>started ${NL.hhmm(w.started)}</span>` : null}${w.last_ts ? html`<span>last ${NL.hhmm(w.last_ts)}</span>` : null}${w.variant ? html`<span>variant ${w.variant}</span>` : null}</div>
+      <div class="runmeta"><span><b>${w.n_actions || 0}</b> ${w.n_actions === 1 ? 'action' : 'actions'}</span>${w.started ? html`<span>started ${NL.hhmm(w.started)}</span>` : null}${w.last_ts ? html`<span>last ${NL.hhmm(w.last_ts)}</span>` : null}${w.variant ? html`<span>variant ${w.variant}</span>` : null}</div>
       ${w.in_tool ? html`<div class="now"><i class="dot-live"></i> inside <b>${w.in_tool.tool || 'a tool'}</b> since ${NL.hhmm(w.in_tool.since)}: ${NL.clip(w.in_tool.summary, 200)}</div>` : null}
       ${w.result ? html`<div class="subres"><div class="subres-h">↩ handed back</div><div class="subres-t">${w.result}</div></div>` : null}
       ${kids.length ? html`<${NL.Section} title="Its subagents" count=${kids.length}>${kids.map(k => html`<button type="button" class="agent-chip wide" onClick=${() => NL.openWorker(k.worker_id)}><${NL.RoleDot} role=${k.role} /><span class="clip grow">${k.label || NL.roleOf(k.role).label}</span><span class="muted small">${k.status}</span></button>`)}</${NL.Section}>` : null}
       <${NL.Section} title="What it did">${acts.length ? html`<div class="timeline">${acts.map(a => html`<div class="tl-row"><span class="muted mono small">${NL.hhmm(a.ts)}</span><span class="grow">${a.text || ''}</span><span class="muted small">${a.kind || ''}</span></div>`)}</div>` : html`<div class="muted">No actions logged yet.</div>`}</${NL.Section}>
     </${NL.Sheet}>`;
   };
-  NL.openWorker = id => NL.open(NL.WorkerSheet, { id }, { key: 'worker' });
+  NL.openWorker = id => {NL.focusAgent(id);return NL.open(NL.WorkerSheet, { id }, { key: 'worker:'+id,slot:'inspector' })};
 })();

@@ -1,7 +1,7 @@
 """Small, product-neutral task graph helpers. Rooms and context never change dependencies."""
 from __future__ import annotations
 
-MODES = ('fresh', 'continue', 'fork', 'native-fork')
+MODES = ('fresh', 'continue', 'native-fork')
 
 
 def targets(value):
@@ -94,6 +94,12 @@ def validate(nodes):
             problems.append(f'{sid}: outputs must be relative file paths.')
         if node.get('instructions') is not None and not isinstance(node['instructions'], str):
             problems.append(f'{sid}: task instructions must be text.')
+        if node.get('external') is not None:
+            from frameworks import validate as validate_external
+            try:
+                validate_external(node['external'])
+            except ValueError as error:
+                problems.append(f'{sid}: {error}')
         if not isinstance(node.get('skills', []), list) or any(not isinstance(p,str) for p in node.get('skills', [])):
             problems.append(f'{sid}: skills must be a list of procedure names.')
         if node.get('join') is not None and not isinstance(node['join'], bool):

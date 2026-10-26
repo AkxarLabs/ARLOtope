@@ -9,12 +9,28 @@ A workflow defines the tasks a study can do, the routes between them and the che
 | Study | One question or project following a workflow |
 | Shared step | A reusable step definition with a default procedure |
 | Task | A step as configured in a composed workflow, with instructions, outputs and agent/context choices |
+| Room | A shared visual location used by tasks across studies; independent of execution order |
 | Procedure | A readable skill that tells an agent how to perform work |
 | Outcome | The result the agent reports, such as `done` or a named revision route |
 | Checkpoint | Authorization before a step or at a named point during it |
 | Journal | The append-only record used to reconstruct study state |
 
 A procedure reports an outcome; the workflow decides the destination. A role or preset does not grant checkpoint authority.
+
+### Where the next-task button comes from
+
+The journal records the current task. Its definition selects a skill or own instructions.
+The start button shows the task name, with its skill underneath. For example, Quick study starts
+at `seed`: the task is **Idea**, its skill is **Triage the idea**, and its room is Incubator.
+The study's title does not change this assignment.
+
+The task stays current until the kernel accepts an outcome. Writing a document or ending an agent
+turn does not complete it. A finished attempt with no outcome offers **Continue task**. Graph
+workflows track each task and pass separately; **Run ready tasks** starts their ready branches.
+
+Change the task's skill or instructions in Workflow. The starter can also record existing work or
+skip initial tasks. Rooms are shared locations, not extra tasks. `park` and `kill` are generic
+shelving outcomes; see [study controls](running-work.md#hold-or-steer-a-study).
 
 ## Files
 
@@ -23,12 +39,12 @@ A procedure reports an outcome; the workflow decides the destination. A role or 
 | `workflow/steps.yaml` | Shared steps, default procedures and optional role/tag metadata |
 | `workflow/workflows/<id>.yaml` | Ordered path, procedure substitutions, routes, checkpoints and optional composed nodes |
 | `workflow/rooms.yaml` | Room/stage labels and presentation |
-| `.claude/skills/<name>/SKILL.md` | Procedure instructions and `newts` metadata |
+| `.claude/skills/<name>/SKILL.md` | Skill instructions and optional `arlotope` contract metadata |
 | `lab/workflow/` | Lab-added instructions |
 | `studies/<slug>/workflow/` | Study-specific instruction and assignment overrides |
 | `lab/journal.jsonl` | Kernel-owned study history |
 
-`lab/REGISTRY.md` is generated from the journal. Edit neither to move a study. The dashboard writes shared changes through a draft and publication review. After direct definition edits, run `uv run --with pyyaml python newts.py check`.
+`lab/REGISTRY.md` is generated from the journal. Edit neither to move a study. The dashboard writes shared changes through a draft and publication review. After direct definition edits, run `uv run --with pyyaml python arlo.py check`.
 
 A shared step can declare a role:
 
@@ -88,7 +104,7 @@ This declares a fresh reviewer and a revision in the writer's conversation, prov
 
 ![A checkpoint's evidence and decision controls](assets/current/checkpoint.webp)
 
-*Demonstration fixture: checkpoint decisions are recorded separately from chat and tool permissions.*
+*Screenshots show an example Lab.*
 
 | Field | Purpose |
 |---|---|
@@ -129,10 +145,10 @@ The judge returns a decision packet; the engine validates its declared decision 
 Commands below run from the Lab folder. `done` follows the configured next step or ends the last task; named outcomes follow their routes; `park` and `kill` shelve work. A composed workflow can have several active tasks, each with a visit and owning run.
 
 ```bash
-uv run --with pyyaml python newts.py status
-uv run --with pyyaml python newts.py next my-study
-uv run --with pyyaml python newts.py brief experiment --study my-study
-uv run --with pyyaml python newts.py move my-study done --note "Required outputs recorded."
+uv run --with pyyaml python arlo.py status
+uv run --with pyyaml python arlo.py next my-study
+uv run --with pyyaml python arlo.py brief experiment --study my-study
+uv run --with pyyaml python arlo.py move my-study done --note "Required outputs recorded."
 ```
 
 A run must produce required outputs and report its accepted outcome. A clean process exit alone does not complete a task. The bound visit rejects stale ownership and duplicate completions do not advance it twice. Joins wait for configured incoming branches; use an ordinary merge for alternatives.
@@ -141,14 +157,14 @@ The kernel holds an unapproved **before** checkpoint when the reported outcome r
 
 ```bash
 # Researcher action: record the specific checkpoint decision.
-uv run --with pyyaml python newts.py approve my-study CHECKPOINT_ID
+uv run --with pyyaml python arlo.py approve my-study CHECKPOINT_ID
 ```
 
 Prose, directives, notes, artifact replies and permissions are never research approvals. Checkpoints explicitly delegated to checks, independent judges or approved campaigns use their declared mechanisms.
 
 ## The brief
 
-`newts.py brief <procedure> --study <study>` describes that procedure's work, outputs, allowed outcomes, instructions and checkpoint status. Use `next <study>` to identify the next procedure first. Dashboard runs load their brief before execution. Variants may inherit procedure metadata through `newts.like` while supplying their own skill body.
+`arlo.py brief <procedure> --study <study>` describes that procedure's work, outputs, allowed outcomes, instructions and checkpoint status. Use `next <study>` to identify the next procedure first. Dashboard runs load their brief before execution. Variants may inherit procedure metadata through `arlotope.like` while supplying their own skill body.
 
 ## The journal
 
@@ -158,7 +174,7 @@ Prose, directives, notes, artifact replies and permissions are never research ap
 
 The following tables are generated from the shipped definitions. Edit the workflow source, not this block.
 
-<!-- workflow:begin (generated by `newts docs` — edit workflow/) -->
+<!-- workflow:begin (generated by `arlo docs` — edit workflow/) -->
 | Step | Its procedure | Also | Room |
 |---|---|---|---|
 | `seed` — Idea | `/triage` | `/discuss` | incubator |
@@ -171,15 +187,28 @@ The following tables are generated from the shipped definitions. Edit the workfl
 | `writing` — Writing | `/write-paper` | `/make-figures`, `/critique-paper` | writing |
 | `internal-review` — Internal review | `/review-paper` | `/critique-paper`, `/write-paper` | writing |
 | `final` — Final | `/finalize` |  | archive |
+| `external-setup` — Task setup |  |  | study |
+| `external-search` — Investigation |  |  | lab |
+| `external-compare` — Baselines & ablations |  |  | lab |
+| `external-eval` — Final evaluation |  |  | bench |
+| `external-analyze` — Post-hoc analysis |  |  | bench |
+| `external-write` — External writing |  |  | writing |
 
 | Workflow | Path | Routes | Checkpoints |
 |---|---|---|---|
 | Research paper (`research`) — default | `seed` → `lit-review` → `scoping` → `proposal` → `setup` → `active` → `analysis` → `writing` → `internal-review` → `final` | analysis: `more-experiments` → active, `null-result` → ask; writing: `more-experiments` → active, `reanalyse` → analysis; internal-review: `revise` → writing, `more-experiments` → active | Approve the proposal (before `setup`); Approve full runs (during `active`, at full-scale runs); Approve the research loop (during `active`, at starting an unattended research loop); Finalize the paper (before `final`) |
+| Agentic Scientist · Sakana (`sakana`) | `seed` → `external-setup` → `external-search` → `external-compare` → `external-eval` → `external-analyze` → `external-write` → `internal-review` → `final` | — | Review the task and budget (before `external-setup`); Review the frozen selection (before `external-eval`) |
 | Quick study (`quick`) | `seed` → `proposal` → `setup` → `active` → `analysis` → `final` | analysis: `more-experiments` → active | none |
 | Target-driven (`target`) | `active` → `final` | — | Approve external scoring (during `active`, at sending an output to an external scorer); Choose the final output (before `final`) |
 <!-- workflow:end -->
 
 ## Research workflow safeguards
+
+The default frozen-evaluation watch applies when a project's `control.yaml` exists at the start
+or end of a run, including deletion during the run. Plain attached repositories need no Lab
+evaluation contract. Explicit `frozen` checks in a procedure or checkpoint still require that
+contract and remain strict. A custom watch can use `when: project` for any attached project, or
+`when: project-control` for this contract-aware condition.
 
 ### The paper-refinement loop (and its safeguards)
 

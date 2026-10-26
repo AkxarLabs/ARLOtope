@@ -1,17 +1,17 @@
 # Extending the Lab
 
-Change a method or workflow through the existing definitions. **Workflow** offers the map, shared
-steps and procedures; **Advanced** contains roles, stage groups, rules, checks, project types and
-instruments. Agent harness/model presets belong in Settings, not in role instructions.
+Change a method or workflow through the existing definitions. **Workflow** offers the map,
+**Skills** and **Rooms**. **More settings** contains shared steps, roles, rules, checks, project
+types and instruments. Agent harness/model presets belong in Settings, not in role instructions.
 
 Dashboard edits stay in a draft. Use **Review & publish** to inspect changes and validation problems;
 publishing applies them. **Change history** can undo the latest publication. An agent designer
 proposes a draft; it cannot publish or approve its own changes.
 
-![Workflow map and draft controls](assets/current/workflow-map.webp)
+![Workflow map and draft controls](assets/current/workflow-editor.png)
 
-For terminal edits, `newts` below means `uv run --with pyyaml python newts.py`.
-Run `newts check` after editing definitions. Researcher-owned files and signature guards still apply.
+For terminal edits, `arlo` below uses the short launcher on PATH; `uv run --with pyyaml python arlo.py` is the portable form.
+Run `arlo check` after editing definitions. Researcher-owned files and signature guards still apply.
 
 ## Add a step
 
@@ -24,13 +24,14 @@ uv run --with pyyaml python tools/new.py step replication --like analysis \
 
 The procedure `replicate` must already exist. This copies the shared step and inserts it after
 analysis in the research path. By hand, edit `workflow/steps.yaml` and the workflow’s `path`.
-In the dashboard use **Steps → New step**, then **Edit steps** on the workflow.
+In the dashboard use **More settings → Task defaults → New step** for a reusable definition.
+For a workflow-specific task, use **Add task** or the **+** after an existing task on the map.
 
 A composed task can instead carry its own instructions and skill sequence. Select it on the map
 to edit role, preset, expected files and context. Role describes the job; choosing it does not
 implicitly change conversation inheritance.
 
-![Task instructions, role, agent and context](assets/current/workflow-task.webp)
+![Task instructions, role, agent and context](assets/current/workflow-task-grouped.png)
 
 ## Make a variant of a procedure
 
@@ -38,14 +39,14 @@ implicitly change conversation inheritance.
 uv run --with pyyaml python tools/new.py skill lit-review-quick --like lit-review --title "A quick scan"
 ```
 
-The copied skill’s `newts.like` identifies its family. Edit its Markdown instructions while keeping
+The copied skill’s `arlotope.like` identifies its family. Edit its Markdown instructions while keeping
 the intended outcome/evidence contract clear. It is a copy, not a live link to the original.
 
 Use a variant through a workflow’s `use` mapping, a study’s **Instructions → Variant**, or a step’s
 `do`. The CLI study swap is:
 
 ```bash
-newts workflow use <study> lit-review=lit-review-quick
+arlo workflow use <study> lit-review=lit-review-quick
 ```
 
 `lit-review=` removes the swap. Additive shared instructions live in
@@ -57,7 +58,7 @@ The dashboard’s procedure editor exposes the same files and variants.
 A procedure declares nonstandard outcomes in its frontmatter:
 
 ```yaml
-newts:
+arlotope:
   outcomes:
     regressed: something that passed before now fails
 ```
@@ -100,7 +101,7 @@ on failures. A working agent cannot approve its own task.
 Skill frontmatter can declare:
 
 ```yaml
-newts:
+arlotope:
   reads: ["studies/<slug>/SPEC.md"]
   outputs: ["studies/<slug>/BUILD.md: implementation and reproduction instructions"]
   writes: ["studies/<slug>/**"]
@@ -114,11 +115,11 @@ it is not an OS filesystem sandbox. See [monitoring](monitoring.md).
 ## Rename a step
 
 ```bash
-newts workflow rename-step active running --yes
+arlo workflow rename-step active running --yes
 ```
 
 This updates the shared identifier, workflow references and study positions through recorded remap
-events. To change only the visible label, edit **Steps → step → About**. Do not rename history by
+events. To change only the visible label, edit **More settings → Task defaults → step → About**. Do not rename history by
 hand or edit the generated registry.
 
 ## Add a check
@@ -147,6 +148,9 @@ uv run --with pyyaml python tools/new.py check budget-under --like writeback
 
 ## Add a workflow
 
+Optional external research engines use [declarative framework definitions](external-frameworks.md)
+on ordinary tasks. The Sakana preset demonstrates this without adding an agent backend or core dependency.
+
 Use **New workflow** or **Make a copy** on the map. For a file-based copy:
 
 ```bash
@@ -154,12 +158,12 @@ uv run --with pyyaml python tools/new.py workflow fast --like research --title "
 ```
 
 Review its steps/tasks, routes, checkpoints and evidence requirements, then validate. A study chooses
-a workflow at creation or through `newts workflow set <study> <workflow>`. Changing that choice is
+a workflow at creation or through `arlo workflow set <study> <workflow>`. Changing that choice is
 separate from approving a checkpoint.
 
-## Add a stage group
+## Add a shared room
 
-A stage group uses a stable `room` ID for related steps or tasks. It affects visual grouping,
+A room uses a stable `room` ID for related steps or tasks. It affects visual placement,
 not dependency order:
 
 ```bash
@@ -176,8 +180,8 @@ The [room designer](room-design.md) refines appearance through a private preview
 The terminal extension interface remains available for researcher-supplied bundles:
 
 ```bash
-newts extension list
-newts extension install <name>
+arlo extension list
+arlo extension install <name>
 ```
 
 Installation previews the overlay and validates it before applying. No general software-product
@@ -209,7 +213,7 @@ Use **Workflow → Draft with an agent** or `/design` for a concrete process cha
 writes an overlay under `lab/.bus/designs/workflow/<timestamp>/` and checks it:
 
 ```bash
-newts check --design lab/.bus/designs/workflow/<timestamp>
+arlo check --design lab/.bus/designs/workflow/<timestamp>
 ```
 
 The proposal remains separate until the researcher takes it into the shared draft, reviews and
@@ -221,3 +225,11 @@ Quick study, individual procedures and custom workflows can produce a replicatio
 analysis, simulation or verified derivation. Keep its agreed evidence and final checks explicit.
 A methodology profile should adapt the contract rather than silently omit traceability or evaluation.
 See [project types](project-types.md) and [skills](skills.md).
+## Collector execution
+
+Custom collectors execute the checked bytes from a temporary sibling file. Their working directory
+stays the Lab root, and sibling resources remain available. The temporary filename differs;
+`ARLOTOPE_COLLECTOR` gives the original absolute script path. The collector folder must permit temporary
+files. Copies are removed after execution when the OS releases them. Trusted shipped collectors
+keep their installed paths and need no write access to the installation. This preserves the existing
+interpreter choices; it does not create a sandbox or freeze a collector's other dependencies.

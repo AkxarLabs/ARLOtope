@@ -9,7 +9,7 @@
 
 NOTHING here is specific to any host or tool. When the score is EXTERNAL (sending output out to
 be scored), the study's workflow checkpoint on external scoring (if it has one) must be approved — a record in
-the hub's journal, checked with the hub's `newts approved` — and a passed deadline blocks it. How many reads
+the hub's journal, checked with the hub's `arlo approved` — and a passed deadline blocks it. How many reads
 the PI allows is in their note on that approval — follow it; the dashboard's panels show the count.
 `--via command` runs whatever `target.scoring.score_command` the agent filled
 for THIS task (a CLI, an HTTP call, a grader). Every read is appended to `runs/scores.jsonl`
@@ -130,19 +130,19 @@ def _scoring_approved() -> tuple[bool, str]:
     except (OSError, yaml.YAMLError):
         ctl = {}
     hub, slug = str(ctl.get("hub_path") or "").strip(), str(ctl.get("project") or "").strip()
-    if not hub or not (Path(hub) / "newts.py").is_file() or not slug:
+    if not hub or not (Path(hub) / "arlo.py").is_file() or not slug:
         return False, "the hub (control.yaml hub_path / project) can't be reached to check the PI's approval"
     cid = _scoring_checkpoint(Path(hub), slug)
     if cid is None:
         return True, "the study's workflow has no checkpoint on external scoring"
-    r = subprocess.run([sys.executable, str(Path(hub) / "newts.py"), "approved", slug, cid],
+    r = subprocess.run([sys.executable, str(Path(hub) / "arlo.py"), "approved", slug, cid],
                        capture_output=True, text=True, encoding="utf-8", errors="replace")
     return (r.returncode == 0, (r.stdout or r.stderr or "").strip() or "it is not approved")
 
 
 def _scoring_checkpoint(hub: Path, slug: str) -> str | None:
     """The id of the study's `during` checkpoint at external scoring (its `at` mentions a scorer), or None."""
-    r = subprocess.run([sys.executable, str(hub / "newts.py"), "workflow", "show", slug, "--json"],
+    r = subprocess.run([sys.executable, str(hub / "arlo.py"), "workflow", "show", slug, "--json"],
                        capture_output=True, text=True, encoding="utf-8", errors="replace")
     try:
         w = json.loads(r.stdout or "{}")

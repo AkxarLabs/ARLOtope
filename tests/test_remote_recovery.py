@@ -16,13 +16,13 @@ import project_worker as W
 
 @pytest.fixture
 def state(tmp_path, monkeypatch):
-    monkeypatch.setenv('NEWTS_HOME', str(tmp_path / 'home'))
+    monkeypatch.setenv('ARLOTOPE_HOME', str(tmp_path / 'home'))
     root = tmp_path / 'project'
     root.mkdir()
     worker = W.Worker()
     args = {'path': str(root), 'owner': 'owner', 'study': 'study', 'run_id': 'run'}
     worker.call('attach', args)
-    agents = root / '.bus/newts/owner/agents'
+    agents = root / '.bus/arlotope/owner/agents'
     rd = agents / 'run.d'
     rd.mkdir(parents=True)
     manifest = agents / 'run.json'
@@ -131,7 +131,7 @@ def test_stopped_remote_agent_resumes_on_the_first_try(hub, worker):
     executor.stop(lab, run['run_id'])
     stopped = wait(lab, run['run_id'], lambda m: m['status'] == 'killed')
     assert stopped['session_id'] == pending['session_id']
-    rd = root / '.bus/newts' / remote.owner(hub.root) / 'agents' / (run['run_id'] + '.d')
+    rd = root / '.bus/arlotope' / remote.owner(hub.root) / 'agents' / (run['run_id'] + '.d')
     assert (rd / 'stop').exists()
     executor.reply(lab, run['run_id'], 'Continue this conversation.')
     executor.tick(lab)

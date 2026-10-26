@@ -22,7 +22,7 @@ import uuid
 from dataclasses import dataclass, field
 from pathlib import Path
 
-from . import actions, backends, live
+from . import actions, backends, live, records
 from .lab import Lab, labfiles, pos_float, pos_int, profile
 from .manifest import (append_jsonl, emit, now, read_manifest, run_dir, transition, worker_line,
                        write_manifest)
@@ -221,7 +221,7 @@ def _env_local(lab: Lab) -> dict:
     """lab/.env.local (git-ignored; written by the dashboard's Research keys form): KEY=value lines a run
     inherits (e.g. S2_API_KEY). Never overrides what the executor itself sets."""
     return {k: v for k, v in labfiles.read_env(lab.lab / ".env.local").items()
-            if k.replace("_", "").isalnum() and not k.startswith(("NEWTS_", "AUTOSCIENTIST_"))}
+            if k.replace("_", "").isalnum() and not k.startswith(("ARLOTOPE_"))}
 
 
 _CONTINUE = ("This session was interrupted before it finished ({why}). Check what was already done "
@@ -307,7 +307,7 @@ def _prepare(lab: Lab, b, st: _State, workdir: Path, rd: Path, is_live: bool):
     """The Attempt (CLI, prompt, env, the backend's sidecars) — or an exit code when it can't start."""
     m, run_id, prog = st.m, st.m["run_id"], lab.prog()
     try:
-        profile.begin_run(lab, m)
+        m['task_followup'] = bool(profile.begin_run(lab, m))
     except ValueError as error:
         st.transition('failed', reason=str(error), last_message=str(error), finished=now())
         return 1
@@ -349,10 +349,10 @@ def _prepare(lab: Lab, b, st: _State, workdir: Path, rd: Path, is_live: bool):
     if b.preassign_session and not m.get("session_id"):
         m["session_id"] = str(uuid.uuid4())   # resumable even if it dies before its first line
     attempt = int(m.get("attempt") or 0) + 1
-    env = {**os.environ, "NEWTS_RUN_ID": run_id, "NEWTS_RUN_DIR": str(rd), "NEWTS_HUB": str(lab.hub),
-           "NEWTS_RUN_TARGET": str(m.get("target")), "NEWTS_ATTEMPT": str(attempt),
-           "NEWTS_RUN_SUBJECT": str(m.get("subject") or ""), "NEWTS_RUN_SKILL": str(m.get("skill") or ""),
-           "AUTOSCIENTIST_AGENT_DEPTH": str(pos_int(m.get("depth"), 0, 0) + 1)}
+    env = {**os.environ, "ARLOTOPE_RUN_ID": run_id, "ARLOTOPE_RUN_DIR": str(rd), "ARLOTOPE_HUB": str(lab.hub),
+           "ARLOTOPE_RUN_TARGET": str(m.get("target")), "ARLOTOPE_ATTEMPT": str(attempt),
+           "ARLOTOPE_RUN_SUBJECT": str(m.get("subject") or ""), "ARLOTOPE_RUN_SKILL": str(m.get("skill") or ""),
+           "ARLOTOPE_AGENT_DEPTH": str(pos_int(m.get("depth"), 0, 0) + 1)}
     profile.run_env(m, env)                   # what the lab sets for one run
     if not m.get("watch_start"):
         try:   # where the repos stood as it started — the digest compares against this (the lab's monitoring)
@@ -360,7 +360,7 @@ def _prepare(lab: Lab, b, st: _State, workdir: Path, rd: Path, is_live: bool):
         except Exception as e:  # noqa: BLE001 — monitoring never stops a run
             m["watch_error"] = f"{type(e).__name__}: {e}"[:300]
     env.update(_env_local(lab))
-    env["NEWTS_PYTHON"] = python_exe()   # the opencode tracer plugin shells out to trace_hook.py with it
+    env["ARLOTOPE_PYTHON"] = python_exe()   # the opencode tracer plugin shells out to trace_hook.py with it
     preamble = (rd / "preamble.md").read_text(encoding="utf-8") if (rd / "preamble.md").exists() else ""
     a = backends.Attempt(lab=lab, m=m, workdir=workdir, rd=rd, prog=prog, cli=cli, ver=ver, prompt=prompt,
                          preamble=preamble, resuming=resuming, live=is_live, env=env, python=python_exe(),
@@ -405,6 +405,8 @@ def _run_attempt(lab: Lab, b, st: _State, workdir: Path, adir: Path, rd: Path, i
                                          "exit_code": None, "stop_reason": None, "wall_seconds": None,
                                          "resume": (m.get("resume") or {}).get("mode")})
     m.update(attempt=attempt, pending_question=None, transport="live" if is_live else "oneshot")
+    records.record(rd, m, "input", text=a.prompt, delivery="attempt-start",
+                   source=(m.get("resume") or {}).get("mode") or "initial")
     m.pop("pending_permissions", None)
     sess = conv = None
     if is_live:
@@ -546,6 +548,8 @@ class _Recorder:
         sa = self.subagents[key]
         if sa.get("status") in ("done", "failed", "stopped"):
             return
+        if self.rd and result:
+            records.record(self.rd, self.m, 'response', agent=key, text=str(result), error=status=='failed')
         sa.update(status=status, finished=now(), **({"result": str(result)[:1200]} if result else {}))
         sa.pop("in_tool", None)
         for cid in [c for c, (k, _) in self.calls.items() if k == key]:
@@ -567,6 +571,10 @@ class _Recorder:
         if e in ("request", "cancelled", "turn_end", "limits"):
             if self.conv:
                 self.conv.on_event(ev)
+            elif self.rd and e == "request":
+                records.record(self.rd, m, "request", request_id=ev.get("id"), request_kind=ev.get("kind"),
+                               tool=ev.get("tool"), input=ev.get("input"), why=ev.get("why"))
+                self.st.write()
             return
         if e == "start":
             m['conversation_started'] = True
@@ -649,6 +657,8 @@ class _Recorder:
         elif e == "denied":
             m["denials"] = int(m.get("denials") or 0) + 1
         elif e == "result":
+            if self.rd and ev.get('last_message') and not ev.get('parent'):
+                records.record(self.rd, m, 'response', text=str(ev['last_message']), error=bool(ev.get('is_error')))
             if m.get('assistant') and self.rd and ev.get('last_message') and not ev.get('parent'):
                 import knowledge
                 result={'id':uuid.uuid4().hex,'at':knowledge.now(),'text':str(ev['last_message'])[:450000],

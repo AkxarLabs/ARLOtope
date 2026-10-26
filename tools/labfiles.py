@@ -23,10 +23,35 @@ from __future__ import annotations
 
 import json
 import time
+from contextlib import contextmanager
+from contextvars import ContextVar
 from pathlib import Path
 
-DEFAULT_PROJECTS_ROOT = "../newts-lab-projects"
+DEFAULT_PROJECTS_ROOT = "../arlotope-projects"
 _EMPTY = ("—", "-", "")
+_reads = ContextVar('lab_reads', default=None)
+
+
+@contextmanager
+def read_batch():
+    """Reuse registry, config and model reads within one snapshot, never between requests."""
+    if _reads.get() is not None:
+        yield
+        return
+    token = _reads.set({})
+    try:
+        yield
+    finally:
+        _reads.reset(token)
+
+
+def cached_read(key, read):
+    cache = _reads.get()
+    if cache is None:
+        return read()
+    if key not in cache:
+        cache[key] = read()
+    return cache[key]
 
 
 def read_text(path) -> str:
@@ -38,9 +63,26 @@ def read_text(path) -> str:
 
 
 def read_jsonl(path, tail: int | None = None) -> list[dict]:
-    lines = read_text(path).splitlines()
-    if tail:
-        lines = lines[-tail:]
+    if tail and tail > 0:
+        # Recent activity must not allocate the entire append-only history on every refresh.
+        try:
+            with Path(path).open('rb') as stream:
+                offset = stream.seek(0, 2)
+                blocks, newlines = [], 0
+                while offset and newlines <= tail:
+                    size = min(offset, 64 * 1024)
+                    offset -= size
+                    stream.seek(offset)
+                    block = stream.read(size)
+                    blocks.append(block)
+                    newlines += block.count(b'\n')
+            lines = b''.join(reversed(blocks)).decode('utf-8-sig', errors='replace').splitlines()[-tail:]
+        except OSError:
+            return []
+    else:
+        lines = read_text(path).splitlines()
+        if tail:
+            lines = lines[-tail:]
     out = []
     for ln in lines:
         if not ln.strip():
@@ -103,14 +145,29 @@ def read_env(path) -> dict:
     return out
 
 
+def ensure_config(hub) -> Path:
+    """Seed this clone's private settings once; never overwrite an existing Lab."""
+    path = Path(hub) / "lab" / "config.yaml"
+    defaults = path.with_name('config.defaults.yaml')
+    if not path.exists() and defaults.is_file():
+        data = defaults.read_bytes()
+        try:
+            with path.open('xb') as output:
+                output.write(data)
+        except FileExistsError:
+            pass  # Another process initialized the same clone.
+    return path
+
+
 def config(hub) -> dict:
-    return load_yaml(Path(hub) / "lab" / "config.yaml")
+    path = ensure_config(hub)
+    return cached_read(('config', path), lambda: load_yaml(path))
 
 
 def registry_rows(hub) -> list[dict]:
     """Every study, as the kernel's journal has it (lab/REGISTRY.md is the same, written out)."""
     from kernel import studies  # noqa: PLC0415 — lazy: the kernel reads this module's helpers
-    return studies.rows(hub)
+    return cached_read(('registry', Path(hub)), lambda: studies.rows(hub))
 
 
 def row(hub, slug: str) -> dict | None:
@@ -123,18 +180,19 @@ def projects_root(hub) -> Path:
 
 
 def registry_project_path(hub, slug: str, r: dict | None = None) -> Path | None:
-    r = r or row(hub, slug)
+    r = r if r is not None else row(hub, slug)
     raw = ((r or {}).get("project") or "").strip().strip("`")
     if raw in _EMPTY:
         return None
-    if raw.startswith('newts+ssh://'):
+    if raw.startswith('arlotope+ssh://'):
         return None
     p = Path(raw)
     return p if p.is_absolute() else (Path(hub) / p).resolve()
 
 
 def project_dir(hub, slug: str, r: dict | None = None) -> Path | None:
-    if str((r or row(hub, slug) or {}).get('project') or '').startswith('newts+ssh://'):
+    r = r if r is not None else (row(hub, slug) or {})
+    if str(r.get('project') or '').startswith('arlotope+ssh://'):
         return None
     p = registry_project_path(hub, slug, r)
     if p:

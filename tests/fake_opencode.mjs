@@ -1,6 +1,6 @@
 // A stand-in for `opencode run --format json` (1.18), for hermetic executor tests (no model, no network).
 //
-// It LOADS THE REAL tracer plugin (.opencode/plugins/newts-trace.js, found by walking up from --dir to
+// It LOADS THE REAL tracer plugin (.opencode/plugins/arlotope-trace.js, found by walking up from --dir to
 // the git root, like opencode) and drives it with opencode's plugin API — session.created (root, then a
 // `task` child session with parentID + agent), tool.execute.before/after, message.part.updated,
 // session.status idle, dispose — while printing the root session's JSON lines exactly as `run
@@ -36,7 +36,7 @@ if (argv[0] === "serve") {
     if (hooks) return hooks
     hooks = []
     for (let d = path.resolve(dir); ; d = path.dirname(d)) {
-      const f = path.join(d, ".opencode", "plugins", "newts-trace.js")
+      const f = path.join(d, ".opencode", "plugins", "arlotope-trace.js")
       if (fs.existsSync(f)) { const mod = await import(pathToFileURL(f).href); for (const fn of Object.values(mod)) hooks.push(await fn({ directory: dir, worktree: dir })); break }
       if (fs.existsSync(path.join(d, ".git")) || path.dirname(d) === d) break
     }
@@ -121,7 +121,7 @@ if (argv[0] === "serve") {
       if ((m = u.match(/^\/session\/([^/]+)\/prompt_async$/))) {
         root = root || m[1]
         const text = (body.parts || [{}])[0].text || ""
-        if (process.env.NEWTS_RUN_DIR) fs.appendFileSync(path.join(process.env.NEWTS_RUN_DIR, "fake_calls.jsonl"),
+        if (process.env.ARLOTOPE_RUN_DIR) fs.appendFileSync(path.join(process.env.ARLOTOPE_RUN_DIR, "fake_calls.jsonl"),
           JSON.stringify({ argv: ["serve", "prompt_async", m[1]], stdin: text, body, cwd: dir }) + "\n")
         res.writeHead(204); res.end()
         if (wake) wake({ text })
@@ -155,14 +155,14 @@ const dir = opt("--dir") || process.cwd()
 const resume = opt("-s")
 const out = (o) => process.stdout.write(JSON.stringify({ timestamp: Date.now(), ...o }) + "\n")
 
-if (process.env.NEWTS_RUN_DIR) {
-  const env = Object.fromEntries(Object.entries(process.env).filter(([k]) => k.startsWith("NEWTS_") || k.startsWith("AUTOSCIENTIST_") || k.startsWith("OPENCODE_")))
-  fs.appendFileSync(path.join(process.env.NEWTS_RUN_DIR, "fake_calls.jsonl"), JSON.stringify({ argv, stdin: "", cwd: dir, env }) + "\n")
+if (process.env.ARLOTOPE_RUN_DIR) {
+  const env = Object.fromEntries(Object.entries(process.env).filter(([k]) => k.startsWith("ARLOTOPE_") || k.startsWith("OPENCODE_")))
+  fs.appendFileSync(path.join(process.env.ARLOTOPE_RUN_DIR, "fake_calls.jsonl"), JSON.stringify({ argv, stdin: "", cwd: dir, env }) + "\n")
 }
 
 let pluginFile = null
 for (let d = path.resolve(dir); ; d = path.dirname(d)) {
-  const f = path.join(d, ".opencode", "plugins", "newts-trace.js")
+  const f = path.join(d, ".opencode", "plugins", "arlotope-trace.js")
   if (fs.existsSync(f)) { pluginFile = f; break }
   if (fs.existsSync(path.join(d, ".git")) || path.dirname(d) === d) break
 }

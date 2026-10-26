@@ -1,11 +1,10 @@
 # Research stage groups, also used as columns on the Studies board. A step belongs to the group
-# its `room:` names in workflow/steps.yaml. The legacy key keeps existing workflows compatible.
-# The optional Lab view draws these groups using fixed built-in rooms; `per_project: true` draws
-# one instance per live project. Existing placement metadata remains readable.
+# its `room:` names in workflow/steps.yaml.
+# The Lab draws one shared room per definition (one set per machine in By-machine view).
 
 - {id: incubator, label: Ideas, title: The Incubator}
 - {id: study, label: Study, title: The Study}
-- {id: lab, label: Lab, title: The Lab, per_project: true}
+- {id: lab, label: Lab, title: The Lab}
 - {id: bench, label: Analysis, title: The Bench}
 - {id: writing, label: Writing, title: The Writing Room}
 - {id: archive, label: Done, title: The Archive}

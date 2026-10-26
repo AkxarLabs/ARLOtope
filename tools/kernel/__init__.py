@@ -7,12 +7,11 @@
     brief         what an agent is told for one procedure and study
     instructions  the PI's own added instructions, and agents' proposals for them
     rules         workflow/rules.yaml
-    define        writing the definition back (Compose, designers, migration)
+    define        writing the definition back (Compose, designers)
     diff          what a change to the definition does; a designer's draft checked against the live one
     watch         monitoring: each run's computed digest, watches, flags
-    migrate       bringing an older lab onto all this, once
 
-Import-safe (pyyaml + stdlib, no I/O at import). `newts <verb>` (tools/newts_cli.py) is its command line.
+Import-safe (pyyaml + stdlib, no I/O at import). `arlo <verb>` (tools/arlo_cli.py) is its command line.
 """
 
-from . import brief, checkpoints, define, diff, instructions, journal, migrate, model, rules, studies, watch  # noqa: F401
+from . import brief, checkpoints, define, diff, instructions, journal, model, rules, studies, watch  # noqa: F401

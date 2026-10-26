@@ -54,6 +54,38 @@ class Spawns:
         return 4242
 
 
+@pytest.mark.parametrize('backend', ['claude','codex','opencode','acp'])
+def test_managed_method_uses_project_snapshot_on_every_backend(hub, tmp_path, backend):
+    import yaml
+    import shutil
+    from test_skill_resources import skill
+    shutil.copytree(REPO/'workflow',hub.root/'workflow',dirs_exist_ok=True)
+    source = skill(hub.root/'.claude/skills')
+    definition = {'id':'custom','title':'Custom','path':['inspect','finish'],
+                  'nodes':{'inspect':{'procedure':'custom-method'},'finish':{'procedure':None}},'checkpoints':[]}
+    folder = hub.root/'workflow/workflows'
+    folder.mkdir(parents=True,exist_ok=True)
+    (folder/'custom.yaml').write_text(yaml.safe_dump(definition),encoding='utf-8')
+    project = hub.make_project('custom-study')
+    hub.add_registry_row('custom-study',state='inspect',project=str(project),workflow='custom')
+    lab = setup(hub)
+    config = yaml.safe_load((hub.lab/'config.yaml').read_text())
+    config['agents']['programmatic']['backends'][backend] = {'command':[sys.executable,str(FAKE)]}
+    (hub.lab/'config.yaml').write_text(yaml.safe_dump(config),encoding='utf-8')
+    first = executor.enqueue(lab, RunSpec('custom-method',target='custom-study',backend=backend))
+    hit = executor.find_run(lab,first['run_id'])
+    directory = manifest.run_dir(hit[2].parent,first['run_id'])
+    method = directory/'skills/custom-method/SKILL.md'
+    assert method.is_file() and first['skills']['custom-method']['source'] == 'lab'
+    assert method.as_posix() in (directory/'prompt.md').read_text(encoding='utf-8')
+    assert '/custom-method custom-study' not in (directory/'prompt.md').read_text(encoding='utf-8')
+    project_method = project/'.agents/skills/custom-method/SKILL.md'
+    project_method.write_text('---\nname: custom-method\ndescription: Project method.\n---\nProject adaptation.',encoding='utf-8')
+    second = executor.enqueue(lab,RunSpec('custom-method',target='custom-study',backend=backend))
+    assert second['skills']['custom-method']['source'] == 'project'
+    assert 'Project adaptation' not in method.read_text(encoding='utf-8')
+
+
 def test_pid_liveness_tracks_process_exit_without_shell_probes(monkeypatch):
     child = subprocess.Popen([sys.executable, '-c', 'import time; time.sleep(30)'], **procs.NO_WINDOW)
     def unwanted(*_args, **_kwargs):
@@ -183,6 +215,11 @@ def test_autopilot_brief_must_live_in_campaigns_and_be_approved(hub):
 def test_prompt_forms(hub):
     lab = setup(hub)
     v = spec.validate(lab, RunSpec(skill="propose", target="idea-a"))
+    fallback = spec.profile.render_prompt(lab, v, spec.slash_command(v), True)
+    assert (REPO / '.claude/skills/propose/SKILL.md').as_posix() in fallback
+    local_skill = hub.root / '.claude/skills/propose/SKILL.md'
+    local_skill.parent.mkdir(parents=True)
+    local_skill.write_text((REPO / '.claude/skills/propose/SKILL.md').read_text(encoding='utf-8'), encoding='utf-8')
     assert spec.profile.render_prompt(lab, v, spec.slash_command(v), spec.backends.get("claude").native_slash) == "/propose idea-a"          # native slash command
     p = spec.profile.render_prompt(lab, v, spec.slash_command(v), spec.backends.get("codex").native_slash)
     assert "SKILL.md" in p and "/propose idea-a" in p                        # other agents read the file
@@ -300,7 +337,7 @@ def test_resolve_cli(tmp_path, monkeypatch):
     exe = tmp_path / ("claude.exe" if os.name == "nt" else "claude")
     exe.write_text("", encoding="utf-8")
     assert backends.resolve_cli("claude", {"command": str(exe)}) == [str(exe)]
-    assert backends.resolve_cli("claude", {"command": ["py", "fake.py"]}) == ["py", "fake.py"]
+    assert backends.resolve_cli("claude", {"command": [sys.executable, "fake.py"]}) == [sys.executable, "fake.py"]
     assert backends.resolve_cli("claude", {"command": str(tmp_path / "nope")}) is None
     monkeypatch.setenv("PATH", str(tmp_path / "empty"))
     monkeypatch.setattr(backends, "_candidates", lambda name: [exe])
@@ -431,7 +468,7 @@ def test_existing_session_continues_at_depth_cap_but_new_agent_cannot_launch(hub
     m = executor.enqueue(lab, RunSpec('lab-status'))
     path = executor.find_run(lab, m['run_id'])[2]
     manifest.transition(lab, path, m, 'completed', by='fixture', session_id='existing-session')
-    monkeypatch.setenv('AUTOSCIENTIST_AGENT_DEPTH', '1')
+    monkeypatch.setenv('ARLOTOPE_AGENT_DEPTH', '1')
     if operation == 'reply':
         continued = executor.reply(lab, m['run_id'], 'Inspect the requested evidence', by='run:assistant')
     else:
@@ -444,6 +481,29 @@ def test_existing_session_continues_at_depth_cap_but_new_agent_cannot_launch(hub
         executor.resume(disabled, m['run_id'])
 
 
+@pytest.mark.parametrize('backend', ['claude', 'codex', 'opencode', 'acp'])
+def test_task_followup_preserves_session_and_assignment_without_completing_it(hub, backend):
+    from task_completion import flag_runs
+    lab = setup(hub)
+    m = executor.enqueue(lab, RunSpec('propose', target='idea-a'))
+    path = executor.find_run(lab, m['run_id'])[2]
+    cursor = len(K.journal.events(hub.root, 'idea-a'))
+    manifest.transition(lab, path, m, 'completed', by='fixture', session_id='existing-session', backend=backend,
+                        assigned_step='proposal', assigned_journal_index=cursor)
+    assert flag_runs(hub.root, [m])[0]['needs_followup']
+    items = executor.attention.collect(lab)
+    followup = next(a for a in items if a['kind'] == 'followup')
+    assert [(a['id'], a['label']) for a in followup['actions']][:2] == [
+        ('resume', 'Continue task'), ('handoff', 'New agent with handoff')]
+    updated = executor.reply(lab, m['run_id'], 'Finish the assigned task and report its outcome.')
+    assert updated['status'] == 'queued' and updated['backend'] == backend
+    assert updated['session_id'] == 'existing-session'
+    assert updated['assigned_step'] == 'proposal' and updated['assigned_journal_index'] == cursor
+    assert updated['resume'] == {'mode':'reply', 'text':'Finish the assigned task and report its outcome.'}
+    assert K.studies.study(hub.root, 'idea-a')['step'] == 'proposal'
+    assert len(K.journal.events(hub.root, 'idea-a')) == cursor
+
+
 def test_cli_inspection_exposes_evidence_paths_and_message_source(hub, monkeypatch, capsys):
     cli = load('executor_cli')
     lab = setup(hub)
@@ -454,8 +514,8 @@ def test_cli_inspection_exposes_evidence_paths_and_message_source(hub, monkeypat
     shown = json.loads(capsys.readouterr().out)
     assert Path(shown['files']['record']) == path
     assert Path(shown['files']['transcript']) == path.parent / m['stream']
-    monkeypatch.setenv('AUTOSCIENTIST_AGENT_DEPTH', '1')
-    monkeypatch.setenv('NEWTS_RUN_ID', 'assistant-source')
+    monkeypatch.setenv('ARLOTOPE_AGENT_DEPTH', '1')
+    monkeypatch.setenv('ARLOTOPE_RUN_ID', 'assistant-source')
     assert cli.main(['--hub', str(hub.root), 'reply', m['run_id'], '--text', 'Requested follow-up']) == 0
     events = (hub.lab / '.bus/runs.jsonl').read_text(encoding='utf-8').splitlines()
     assert json.loads(events[-1])['by'] == 'run:assistant-source'
@@ -464,7 +524,7 @@ def test_cli_inspection_exposes_evidence_paths_and_message_source(hub, monkeypat
 def test_depth_guard_blocks_enqueue_and_tick(hub, monkeypatch):
     lab = setup(hub)
     rid = _queue(lab, 1)[0]
-    monkeypatch.setenv("AUTOSCIENTIST_AGENT_DEPTH", "1")
+    monkeypatch.setenv("ARLOTOPE_AGENT_DEPTH", "1")
     with pytest.raises(SpecError, match="depth"):
         _queue(lab, 1)
     assert executor.tick(lab, spawn=Spawns())["started"] == []

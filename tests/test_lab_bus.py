@@ -39,7 +39,7 @@ def test_attached_project_inbox_needs_no_copied_scripts(tmp_path):
     project = tmp_path / 'existing project'
     project.mkdir()
     _write_directives(project / '.bus', [{'id': 'd-project', 'text': 'Review the brief.'}])
-    env = {k: v for k, v in os.environ.items() if not k.startswith('NEWTS_RUN_')}
+    env = {k: v for k, v in os.environ.items() if not k.startswith('ARLOTOPE_RUN_')}
     command = [sys.executable, str(REPO / 'tools/lab_bus.py'), '--project', str(project)]
     inbox = subprocess.run([*command, 'inbox'], env=env, capture_output=True, text=True, timeout=15)
     assert inbox.returncode == 0 and 'Review the brief.' in inbox.stdout
@@ -166,11 +166,11 @@ def test_directive_dropped_when_withdrawn(hub, monkeypatch):
 
 
 def test_executor_kinds_and_run_report_autofills_run_id(hub, monkeypatch):
-    """Headless runs emit a machine-readable footer; its run id comes from NEWTS_RUN_ID when omitted."""
+    """Headless runs emit a machine-readable footer; its run id comes from ARLOTOPE_RUN_ID when omitted."""
     import types
     m, bus = _mod(hub, monkeypatch)
     assert {"agent_waiting", "agent_resumed", "run_report"} <= m.KINDS
-    monkeypatch.setenv("NEWTS_RUN_ID", "hub-propose-x-1")
+    monkeypatch.setenv("ARLOTOPE_RUN_ID", "hub-propose-x-1")
     m.cmd_emit(types.SimpleNamespace(kind="run_report", idea=None, run_id=None, stage=None, status=None,
                                      detail=None, data=["next=/spawn-project x", "needs_pi=gate1", "summary=ready"]))
     ev = m._read_jsonl(bus / "events.jsonl")[-1]

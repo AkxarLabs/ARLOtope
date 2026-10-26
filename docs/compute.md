@@ -21,7 +21,7 @@ use an SSH window on the controller. Keep that window open. **Restart sign-in** 
 attempt; **Cancel connection** stops it. Provider login is separate and runs on the project machine.
 See [remote setup and recovery](remote-projects.md).
 
-**Connections** in the Lab and **Machines & compute** in the footer open **Labs & machines**.
+**Machines** in the Lab and footer opens machine connections and compute readings.
 Its **Separate Labs** controls open or create an independent Lab on a machine. **Keep connected**
 refreshes that Lab’s activity on this page while you work elsewhere; it does not merge journals.
 
@@ -30,7 +30,7 @@ refreshes that Lab’s activity on this page while you work elsewhere; it does n
 Start the dashboard on the host:
 
 ```bash
-uv run --with pyyaml python newts.py --background
+uv run --with pyyaml python arlo.py --background
 ```
 
 Use the SSH forwarding command it prints, then open the local forwarded address. `--status` and
@@ -66,7 +66,7 @@ campaigns. It is monitored, rather than an automatic GPU reservation system. SMO
 Before a substantial run, inspect the Compute instrument or:
 
 ```bash
-uv run --with pyyaml python newts.py panel compute
+uv run --with pyyaml python arlo.py panel compute
 ```
 
 ## Scheduler setup

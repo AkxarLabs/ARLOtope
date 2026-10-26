@@ -3,11 +3,8 @@
  *
  *   Lab3D.CHARACTERS                       — [{ id, label, blurb, line }] in display order (line: a personality, never a job)
  *   const c = Lab3D.makeCharacter(K, 'human', { color: '#5ccfbc', hue: 40, scale: 1 });
- *     color: the role badge on its chest · hue: turns its FAMILY colour round the wheel (a main agent and its
- *     subagents share it: the scientist's scarf, the frog's spots and toes, the owl's tufts and wing tips, the
- *     fox's scarf, the robot's antenna and chest light; the penguin's bow tie, the hedgehog's cardigan, the bee's
- *     satchel and antenna tips, the capybara's towel, the snail's antenna tips and bookmark, the dragon's wings and
- *     spikes) · scale: its size. An unknown id gives the newt. world3d/cast.html shows them all, in every pose.
+ *     color: role badge · hue: family accent (the main agent and its recorded children share it) · scale: size.
+ *     Lab offers the newt, scientist and robot. An unknown id falls back to the newt.
  *   c.group                       — add it to the scene (stands on y = 0, faces +z)
  *   c.update(t, { pose, moving, act, poke }) — as the newt's: one shared animator (Lab3D.animator, newt.js), and
  *     each character's own fidgets while it stands idle
@@ -97,14 +94,6 @@
   function legsPair(T, body, g, m, dx, y) {
     return [-1, 1].map(s => T.add(body, g, m, s * dx, y, 0.02));
   }
-  /** a lathe profile's radius at height y (to set things on a body's surface) */
-  function profR(prof, y) {
-    for (let i = 1; i < prof.length; i++) {
-      const [r0, y0] = prof[i - 1], [r1, y1] = prof[i];
-      if (y <= y1) return r0 + (r1 - r0) * Math.max(0, (y - y0) / ((y1 - y0) || 1));
-    }
-    return 0;
-  }
   const ease = u => u * u * (3 - 2 * u);
 
   // ── the mini human: a little scientist in a lab coat, round glasses and a scarf in the family colour ──
@@ -193,8 +182,6 @@
       } });
   }
 
-  // ── the penguin: a round little intern — a navy coat, a heart-shaped white face, a bow tie in the family colour,
-  //    a clipboard tucked under one flipper (crisp: it's stationery) ──
   const BUILDERS = { human, robot };
 
   L.attachAccessory = (K, character, id, side = 'right') => {

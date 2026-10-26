@@ -1,10 +1,12 @@
 # Notes, sources and saved answers
 
-Use **Library → Notes & sources** for retained knowledge. Choose **Project / study**, a record kind and an optional search. Records live in ordinary files alongside the project or study they concern.
+Use **Library → Notes & sources** for retained knowledge. Choose **Library study**, a record kind and an optional search. Records live in ordinary files alongside the project or study they concern.
+
+Failed document shelves, records and note reads offer **Retry**. If a refresh fails after loading, the last copy remains labelled. Changing the study or record does not reuse another selection's contents. Adding a note refreshes the shelf without changing the document it discusses.
 
 ![Study-organized notes and saved answers](assets/current/library-records.webp)
 
-*Demonstration fixture: record filters and the reader keep questions, notes and sources together by study.*
+*Screenshots show an example Lab.*
 
 ## Choose the right action
 
@@ -27,8 +29,6 @@ These actions have different consequences. A saved note is context, not a task o
 
 ![Adding a note with acknowledgement requested](assets/current/note.webp)
 
-*Demonstration fixture: the checked acknowledgement option records a request for a read receipt.*
-
 Saving does not queue work, interrupt an agent or request an answer. An agent reading relevant records at its next check-in can acknowledge the note. That receipt means it read the note, not that it accepted directions or received an approval. The note's referenced document stays unchanged.
 
 ## Ask about a document or output
@@ -40,8 +40,6 @@ Saving does not queue work, interrupt an agent or request an answer. An agent re
 
 ![A workspace question linked to its source](assets/current/assistant.webp)
 
-*Demonstration fixture: Q&A has its own conversation and saved record.*
-
 Questions and answers are saved separately from their source files. A later response refreshes in the selected record. Failed starts and interrupted/unanswered turns have explicit states. If a remote project is unavailable during answer delivery, the Lab retains a local receipt and retries; warnings identify pending delivery. Changing the question does not discard an already captured answer.
 
 The assistant sees supplied context and can use normal file/transcript tools. File formats, clipping and remote availability can limit what it reads. An explanation is not a verified scientific finding. Use a task and the research protocol for new experiments or source edits.
@@ -52,18 +50,32 @@ The assistant sees supplied context and can use normal file/transcript tools. Fi
 
 ![Existing documents organized by Lab and study](assets/current/library-documents.webp)
 
-*Demonstration fixture: Documents reads existing files; Add note and Ask do not insert text into them.*
-
 ## Where records live
 
 | Location | Purpose |
 |---|---|
-| `.newts/project.json` | Project identity and configured knowledge directory |
-| `.newts/knowledge/` | Default project notes, answers and retained sources |
+| `.arlotope/project.json` | Project identity and configured knowledge directory |
+| `.arlotope/knowledge/` | Default project notes, answers and retained sources |
 | `studies/<slug>/knowledge/` | Records created before a project is attached |
 | `lab/records/` | Lab-wide records |
 
 Earlier study records remain visible after a project is attached. Existing plans, ledgers, experiment artifacts and published outputs keep their own locations. Project identity is separate from its display name; it contains no credentials. Commit the identity and knowledge files if they should travel with the repository.
+
+## What to keep in Git
+
+Attaching an existing repository leaves its `.gitignore` unchanged. The review and success screens explain the added files:
+
+![Project-file guidance in the study review](assets/current/project-files.png)
+
+| Path | Git and backup guidance |
+|---|---|
+| `.arlotope/project.json` | Keep with the project if its stable identity should travel. It includes its owning Lab ID and knowledge location, not credentials. A copy still belongs to that Lab; copying it does not transfer ownership. |
+| `.arlotope/knowledge/` | Review notes, answers and source attachments before committing. Keep selected records in Git if they should travel; leave private or large files local. A custom `knowledge_dir` uses that configured path instead. |
+| `.bus/` | Local directives, task records and transcripts. Keep out of Git; back it up separately if you need that history. Project identity and ownership live in `.arlotope/project.json`. |
+
+In a Git checkout, add `/.bus/` to `.git/info/exclude` for a local ignore, or to `.gitignore` for a shared rule. Worktrees use their Git directory's `info/exclude`. Do not blanket-ignore `.arlotope/` if you want its identity or knowledge committed. Ignore rules do not untrack already committed files.
+
+When moving a Lab, preserve its `lab/identity.json` along with its studies and project records. The machine-local `~/.arlotope/projects.json` is a discovery index, not the durable project identity. Discovery can find `.arlotope/project.json` again when scanning a chosen folder. New clones do not carry local task history; a different Lab cannot claim them merely because `.bus/` is absent.
 
 ## Record and source reference
 
@@ -96,3 +108,17 @@ uv run --with pyyaml python tools/knowledge.py --study my-study add --kind sourc
 ```
 
 Omit `--study` for Lab records. From another directory, pass `--hub /path/to/lab`; on the project machine use `--project /path/to/project`. Source capture also accepts `--doi`, `--version` and `--attachment` for a local original up to 50 MB. Remote attachments must be added on their machine; a controller path is not a remote file.
+
+
+## Workflow logs
+
+Use a log for a decision, finding, failure or handoff worth retaining. The fields are the same for any custom workflow:
+
+```bash
+arlo log "The baseline failed its smoke check; see the error trace." --study my-study \
+  --tag finding --ref runs/smoke/stderr.log
+```
+
+In a managed run, omit `--study`: the run supplies its study, run ID and attempt. Add `--agent CHILD_ID` only when the exported child ID is known. Tags and evidence references are optional and repeatable. Logs are ordinary knowledge records, shown beside their run in **Study → History** and searchable in **Library**. Human notes and saved workspace answers appear there too. Open the linked record to read its full text.
+
+The shared run instructions describe this command once; imported skills need no Lab-specific logging format. A log records context. Complete tasks through the workflow's outcome command; approvals still use their checkpoint controls.

@@ -92,6 +92,29 @@ def _dirty(cwd: Path) -> dict[str, str]:
     return out
 
 
+def _content(path: Path) -> str | None:
+    """Fingerprint an already-dirty file, without following a symlink outside the repo."""
+    try:
+        digest = hashlib.sha256()
+        if path.is_symlink():
+            digest.update(str(path.readlink()).encode('utf-8'))
+        else:
+            if not path.is_file():
+                return 'missing' if not path.exists() else None
+            with path.open('rb') as stream:
+                for chunk in iter(lambda: stream.read(1 << 20), b''):
+                    digest.update(chunk)
+        return digest.hexdigest()
+    except FileNotFoundError:
+        return 'missing'
+    except OSError:
+        return None
+
+
+def _in_scope(root: Path, path: str, scopes: list[str]) -> bool:
+    return not scopes or any((root / path).is_relative_to(scope) for scope in scopes)
+
+
 def _journal_mark(hub) -> dict:
     p = journal.path(hub)
     try:
@@ -113,14 +136,25 @@ def journal_rewritten(hub, mark: dict | None) -> bool:
 
 
 def snapshot(dirs: list[Path], hub=None) -> dict:
-    """{repo root: {head, dirty}} for each dir inside a git repo (others are left out), and the journal's mark."""
+    """Git state, existing project contracts (also outside git), and the journal's position."""
     out: dict = {"_journal": _journal_mark(hub)} if hub else {}
+    out["_controls"] = []
     for d in dict.fromkeys(Path(x).resolve() for x in dirs if x):
+        if (d / "control.yaml").is_file():
+            out["_controls"].append(d.as_posix())
         top = (_git(d, "rev-parse", "--show-toplevel") or "").strip()
         top = Path(top).as_posix() if top else ""
-        if not top or top in out:
+        if not top:
             continue
-        out[top] = {"head": (_git(Path(top), "rev-parse", "HEAD") or "").strip() or None, "dirty": _dirty(Path(top))}
+        if top not in out:
+            out[top] = {"head": (_git(Path(top), "rev-parse", "HEAD") or "").strip() or None,
+                        "dirty": _dirty(Path(top)), "scopes": []}
+        out[top]['scopes'].append(d.as_posix())
+    for top, state in out.items():
+        if not top.startswith('_'):
+            root = Path(top)
+            state['dirty_content'] = {p: _content(root / p) for p in state['dirty']
+                                      if _in_scope(root, p, state['scopes'])}
     return out
 
 
@@ -132,17 +166,27 @@ def changes(snap: dict) -> dict:
             continue
         root = Path(top)
         now = _dirty(root)
+        baseline = s.get('dirty_content') or {}
+        current = {p: _content(root / p) for p in baseline}
         seen: dict[str, str] = {}
         if s.get("head"):
             for ln in (_git(root, "diff", "--name-status", s["head"]) or "").splitlines():
                 parts = ln.split("\t")
                 if len(parts) >= 2:
                     seen[parts[-1]] = parts[0][:1]
-            commits += len((_git(root, "rev-list", f"{s['head']}..HEAD") or "").split())
-        for p, st in now.items():
-            if p not in (s.get("dirty") or {}) or (s.get("dirty") or {}).get(p) != st:
+            paths = [Path(scope).relative_to(root).as_posix() for scope in s.get('scopes') or []]
+            commits += len((_git(root, "rev-list", f"{s['head']}..HEAD", '--', *paths) or "").split())
+        for p in (s.get('dirty') or {}).keys() | now.keys():
+            st = now.get(p, '')
+            if (s.get('dirty') or {}).get(p) != st or p in baseline and baseline[p] != current[p]:
                 seen.setdefault(p, "D" if "D" in st else "A" if "?" in st else "M")
         for p, st in seen.items():
+            if not _in_scope(root, p, s.get('scopes') or []):
+                continue
+            if baseline.get(p) is not None and baseline[p] == current[p]:
+                continue
+            if p in baseline and not (root / p).exists() and not (root / p).is_symlink():
+                st = 'D'
             (deleted if st == "D" else written).append((root / p).as_posix())
     return {"written": sorted(set(written)), "deleted": sorted(set(deleted)), "commits": commits}
 
@@ -193,7 +237,7 @@ def _match(paths: list[str], pats: list[str], hub: Path, project: Path | None) -
 
 
 def evaluate(hub, ws: list[dict], ch: dict, cmds: list[str], denials: int, project: Path | None,
-             study: str | None, run: str | None) -> list[dict]:
+             study: str | None, run: str | None, controls: tuple | list = ()) -> list[dict]:
     """Raise a flag for each watch the run tripped. → the flags."""
     out = []
     for w in ws:
@@ -206,7 +250,14 @@ def evaluate(hub, ws: list[dict], ch: dict, cmds: list[str], denials: int, proje
             hits += [c for c in cmds if any(fnmatch.fnmatchcase(c.strip(), str(p)) for p in w["runs"])]
         if w.get("denials") and denials >= int(w["denials"]):
             hits.append(f"{denials} refused calls")
-        if w.get("check") and study and (w.get("when") != "project" or project):
+        when = w.get("when")
+        applies = True
+        if when == "project":
+            applies = bool(project)
+        elif when == "project-control":
+            applies = bool(project and ((project / "control.yaml").is_file()
+                                       or project.resolve().as_posix() in controls))
+        if w.get("check") and study and applies:
             from . import checkpoints  # noqa: PLC0415
             from .model import check_spec  # noqa: PLC0415
             item = w["check"] if isinstance(w["check"], dict) else str(w["check"])
@@ -262,7 +313,7 @@ def digest(hub, m: dict, snap: dict, bus_dirs: list[Path], project: Path | None 
     from . import studies  # noqa: PLC0415
     wid = studies.workflow_of(hub, study) if study else None
     ws = watches(hub) + checkpoint_watches(hub, study, wid)
-    raised = evaluate(hub, ws, ch, cmds, denials, project, study, run)
+    raised = evaluate(hub, ws, ch, cmds, denials, project, study, run, (snap or {}).get("_controls", []))
     raised += _outside_writes(hub, m, ch, study, run)
     if journal_rewritten(hub, (snap or {}).get("_journal")):
         raised.append(flag(hub, "block", "the journal was rewritten during this run (the kernel only appends)",

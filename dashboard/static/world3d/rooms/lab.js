@@ -1,5 +1,4 @@
-/* Room · the Lab — a project's own lab (active · analysis): every live project gets one of these (the
-   workflow marks the room `per_project`), so it is the biggest room on the table. The default research
+/* Room · the Lab — a shared experiment room. The default research
    workflow's full-runs checkpoint hangs here. stations: [x, z, facing] — facing is the newt's turn (0 = toward the open front, π = the back wall). */
 Lab3D.defineRoom({
   key: 'lab', size: [13.5, 8.5], floor: 'tiles', accent: 'teal',

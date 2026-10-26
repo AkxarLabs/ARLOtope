@@ -1,4 +1,4 @@
-# Contributing to Newts' Lab
+# Contributing to ARLOtope
 
 Contributions to the dashboard, tools, procedures, templates and documentation belong here.
 Your research records and project repositories belong to your Lab, rather than a product pull request.
@@ -17,6 +17,11 @@ no frontend build.
 Use a separate scratch Lab to exercise study creation, real agents or remote connections.
 Keep personal research, credentials, machine connections and generated run files out of a PR.
 Review the diff before committing; do not reset someone else's local Lab state to clean a test.
+
+The shipped configuration is `lab/config.defaults.yaml`. First use creates ignored local
+`lab/config.yaml`. Product changes to defaults belong in the former; personal preferences belong
+in the latter. Study folders and local Lab records are ignored. This prevents ordinary staging,
+not deliberate `git add -f`; inspect `git diff --cached` before pushing.
 
 ## Checks
 

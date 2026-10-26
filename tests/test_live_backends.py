@@ -29,7 +29,7 @@ def codex(hub):
 def opencode(hub):
     lab = _setup_backend(hub, "opencode", [NODE, str(FAKE_OPENCODE)], live=True)
     (hub.root / ".opencode" / "plugins").mkdir(parents=True, exist_ok=True)
-    shutil.copy(REPO / ".opencode" / "plugins" / "newts-trace.js", hub.root / ".opencode" / "plugins")
+    shutil.copy(REPO / ".opencode" / "plugins" / "arlotope-trace.js", hub.root / ".opencode" / "plugins")
     return lab
 
 
@@ -129,7 +129,7 @@ def test_codex_steer_interrupt_and_usage_limit(hub, monkeypatch):
 @needs_node
 def test_opencode_live_session_traces_through_the_plugin_and_resumes(hub, monkeypatch):
     monkeypatch.setenv("FAKE_MODE", "subagents")
-    monkeypatch.setenv("NEWTS_PYTHON", sys.executable)
+    monkeypatch.setenv("ARLOTOPE_PYTHON", sys.executable)
     lab = opencode(hub)
     m = wait_for(lab, executor.enqueue(lab, RunSpec(skill="lab-status", backend="opencode"))["run_id"])
     assert m["status"] == "completed" and m["transport"] == "live", m

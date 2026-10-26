@@ -107,7 +107,7 @@ def append_command(target: str, action: str, args: dict, text: str) -> dict:
                             "text": text or action.replace("_", " ")})
 
 
-def _find_ref_bus(target: str, ref: str, ts: str | None = None) -> Path | None:
+def _find_ref_bus(target: str, ref: str, ts: str | None = None, scope: str | None = None) -> Path | None:
     """The bus dir whose directives.jsonl actually CONTAINS the directive being withdrawn.
     A directive aimed at a pre-spawn idea was recorded on the hub bus (the _append fallback);
     once the project exists, the same target resolves to the project bus, so routing the
@@ -116,9 +116,13 @@ def _find_ref_bus(target: str, ref: str, ts: str | None = None) -> Path | None:
 
     Matches on id AND ts: d-NNN ids are per-file counters (_next_id), so the hub and a project
     bus can independently mint the same d-003 — matching id alone could withdraw the wrong one.
-    The frontend sends the displayed record's ts; when present it disambiguates exactly."""
+    The frontend sends the displayed record's scope too: two buses can mint the same id in the
+    same second. Older callers without a scope retain the target-first lookup."""
+    if scope not in (None, "hub", "project"):
+        raise ValueError("scope must be hub or project")
+    candidates = (ctx.LAB / ".bus",) if scope == "hub" else (_bus_dir(target),) if scope == "project" else (_bus_dir(target), ctx.LAB / ".bus")
     seen: list[Path] = []
-    for bus in (_bus_dir(target), ctx.LAB / ".bus"):
+    for bus in candidates:
         if bus in seen:
             continue
         seen.append(bus)
@@ -138,9 +142,11 @@ def _find_ref_bus(target: str, ref: str, ts: str | None = None) -> Path | None:
     return None   # not found (e.g. a synthesized d?xxxx id) — caller falls back to target routing
 
 
-def append_withdraw(target: str, ref: str, ts: str | None = None) -> None:
+def append_withdraw(target: str, ref: str, ts: str | None = None, scope: str | None = None) -> None:
     ref = str(ref or "").strip()[:120]
-    bus = _find_ref_bus(target, ref, ts)
+    bus = _find_ref_bus(target, ref, ts, scope)
+    if bus is None and scope == "hub":
+        bus = ctx.LAB / ".bus"
     if bus is None and ctx.safe_id(target) is None and target not in ("hub", "", None):
         bus = ctx.LAB / ".bus"   # unknown ref + a non-slug legacy target -> safe hub fallback, never a raise
     _append(target, {"kind": "withdraw", "ref": ref}, bus=bus)
@@ -158,7 +164,7 @@ def directive_post(body: dict) -> tuple[dict, int]:
 
 def withdraw_post(body: dict) -> tuple[dict, int]:
     try:
-        append_withdraw(body.get("target", "hub"), body.get("id", ""), body.get("ts"))
+        append_withdraw(body.get("target", "hub"), body.get("id", ""), body.get("ts"), body.get("scope"))
     except ValueError as e:
         return {"error": str(e)}, 400
     return {"ok": True}, 200

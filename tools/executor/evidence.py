@@ -3,7 +3,6 @@ from __future__ import annotations
 
 import base64
 import json
-import sys
 import uuid
 from datetime import datetime
 from pathlib import Path
@@ -11,6 +10,7 @@ from pathlib import Path
 from . import actions
 from .manifest import find_run, run_dir
 from .spec import RunSpec, SpecError
+from .procs import python_exe
 
 
 def describe(lab, run_id, agent=None):
@@ -19,13 +19,14 @@ def describe(lab, run_id, agent=None):
         raise SpecError('No such run.')
     _, workdir, path, manifest = hit
     rd = run_dir(path.parent, run_id)
-    recorded = actions.tree(rd)['agents']
+    recorded = actions.tree(rd, include_actions=False)['agents']
     children = {**recorded}
     children.pop('main', None)
     for key, child in (manifest.get('subagents') or {}).items():
         children[key] = {**children.get(key, {}), **child}
     files = {'record': path, 'prompt': rd/'prompt.md', 'instructions': rd/'preamble.md',
-             'transcript': path.parent/manifest['stream'], 'actions': rd/actions.FILE}
+             'transcript': path.parent/manifest['stream'], 'actions': rd/actions.FILE,
+             'conversation': rd/'conversation.jsonl'}
     workers = path.parent.parent/'workers'
     logs = []
     unreadable = []
@@ -77,7 +78,7 @@ def describe(lab, run_id, agent=None):
             'worker_discovery': 'Run ownership in the first and last 128 KB of each worker log.',
             'worker_logs_unreadable': unreadable,
             'child_messages': 'Only messages exported by this harness are available; activity and returns may be partial.',
-            'actions': 'Observed activity with shortened descriptions, not a complete transcript.',
+            'actions': 'Read files.actions for observed activity with shortened descriptions; actions are not embedded here or a complete transcript.',
             'remote': 'Locally mirrored records; remote work may be newer.' if manifest.get('remote') else None}}
 
 
@@ -110,7 +111,7 @@ def snapshot(lab, run_id, agent=None):
         if not path.is_file():
             continue
         try:
-            if key in ('transcript', 'actions') or key.startswith('worker-'):
+            if key in ('transcript', 'actions', 'conversation') or key.startswith('worker-'):
                 content, bounds = _excerpt(path, 128*1024 if key.startswith('worker-') else 2*1024*1024)
             else:
                 content = path.read_bytes()
@@ -149,13 +150,15 @@ def project_file(lab, run_id, relative):
 
 def start(lab, run_id, agent=None, **options):
     from .runs import check_enabled, enqueue
+    from lab_profile import runtime_file
     check_enabled(lab)
     index, info = snapshot(lab, run_id, agent)
     about = run_id + (':'+info['agent'] if info['agent'] else '')
     output = index.parent/'explanation.html'
-    command = [sys.executable, str(lab.hub/'tools/executor_cli.py'), '--hub', str(lab.hub),
+    python = python_exe()
+    command = [python, str(runtime_file(lab.hub, 'tools/executor_cli.py')), '--hub', str(lab.hub),
                'evidence', run_id]
-    publish = [sys.executable, str(lab.hub/'tools/artifact.py'), 'publish', '--title', 'Work summary',
+    publish = [python, str(runtime_file(lab.hub, 'tools/artifact.py')), 'publish', '--title', 'Work summary',
                '--file', str(output), '--about', about]
     if info['study']:
         publish += ['--study', info['study']]

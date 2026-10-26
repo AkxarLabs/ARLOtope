@@ -7,7 +7,7 @@ import time
 from .procs import kill_tree, NO_WINDOW
 
 
-def probe(command, cwd, timeout=20):
+def probe(command, cwd, timeout=45):
     process = subprocess.Popen(command, cwd=cwd, stdin=subprocess.PIPE, stdout=subprocess.PIPE,
         stderr=subprocess.DEVNULL, text=True, encoding='utf-8', errors='replace',
         **NO_WINDOW)
@@ -19,7 +19,7 @@ def probe(command, cwd, timeout=20):
     threading.Thread(target=read, daemon=True).start()
     try:
         process.stdin.write(json.dumps({'jsonrpc': '2.0', 'id': 1, 'method': 'initialize', 'params': {
-            'protocolVersion': 1, 'clientInfo': {'name': 'newts-lab', 'version': '1'}, 'clientCapabilities': {}}})+'\n')
+            'protocolVersion': 1, 'clientInfo': {'name': 'arlotope', 'version': '1'}, 'clientCapabilities': {}}})+'\n')
         process.stdin.flush()
         until = time.monotonic()+timeout
         while time.monotonic() < until:
@@ -33,13 +33,19 @@ def probe(command, cwd, timeout=20):
                 message = json.loads(line)
             except ValueError:
                 continue
-            if not isinstance(message, dict) or message.get('id') != 1:
+            if not isinstance(message, dict) or message.get('jsonrpc') != '2.0' or message.get('id') != 1:
                 continue
             if message.get('error'):
                 raise ValueError(str(message['error'].get('message') or 'ACP initialization failed.'))
             result = message.get('result') or {}
             if not isinstance(result, dict) or result.get('protocolVersion') != 1:
                 raise ValueError('This agent did not negotiate ACP v1.')
+            methods = result.get('authMethods') or []
+            if not isinstance(methods, list) or any(not isinstance(m, dict) or not isinstance(m.get('id'), str)
+                    or not m['id'] or m.get('name') is not None and not isinstance(m['name'], str) for m in methods):
+                raise ValueError('ACP initialization returned invalid authentication methods.')
+            if any(result.get(key) is not None and not isinstance(result[key], dict) for key in ('agentInfo', 'agentCapabilities')):
+                raise ValueError('ACP initialization returned invalid agent information.')
             return {key: result.get(key) for key in ('protocolVersion', 'agentInfo', 'agentCapabilities', 'authMethods')}
         raise ValueError('ACP initialization timed out. Check the command and try again.')
     finally:

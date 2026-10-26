@@ -5,6 +5,7 @@ server, reached through a real TCP relay standing in for `ssh -L`."""
 from __future__ import annotations
 
 import http.client
+import http.server
 import json
 import os
 import shutil
@@ -23,9 +24,35 @@ needs_bash = pytest.mark.skipif(os.name != "posix" or not BASH,
     reason="the fake SSH integration needs a POSIX host and bash (Windows bash may use WSL paths)")
 
 
+@pytest.mark.parametrize('status,payload,expected',[
+    (200,{'app':'arlotope'},True), (200,{'app':'other'},False),
+    (200,[],False), (200,'not json',False), (302,{'app':'arlotope'},False),
+])
+def test_launcher_discovery_ignores_proxies_and_rejects_other_services(monkeypatch,status,payload,expected):
+    import urllib.request
+    launcher=load('arlo.py')
+    def proxy_lookup():
+        raise AssertionError('Loopback discovery consulted system proxies')
+    monkeypatch.setattr(urllib.request,'getproxies',proxy_lookup)
+    class Handler(http.server.BaseHTTPRequestHandler):
+        def do_GET(self):
+            assert self.path=='/api/ping'
+            self.send_response(status)
+            self.send_header('Location','http://unrelated.invalid/')
+            self.end_headers()
+            self.wfile.write((payload if isinstance(payload,str) else json.dumps(payload)).encode())
+        def log_message(self,*args): pass
+    server=http.server.HTTPServer(('127.0.0.1',0),Handler)
+    thread=threading.Thread(target=server.serve_forever,daemon=True);thread.start()
+    try:
+        assert bool(launcher.ping(server.server_port)) is expected
+    finally:
+        server.shutdown();server.server_close();thread.join()
+
+
 @pytest.mark.skipif(os.name != "posix", reason="POSIX HTTP servers reuse closed TCP connections")
 def test_dashboard_port_probe_matches_http_server_reuse():
-    launcher = load("newts.py")
+    launcher = load("arlo.py")
     with socket.socket() as server:
         server.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
         server.bind(("127.0.0.1", 0))
@@ -42,9 +69,9 @@ def test_dashboard_port_probe_matches_http_server_reuse():
 
 @pytest.fixture
 def env(hub, tmp_path, monkeypatch):
-    home = tmp_path / "newts-home"
-    monkeypatch.setenv("NEWTS_HOME", str(home))
-    monkeypatch.setenv("NEWTS_SSH", json.dumps([sys.executable, str(REPO / "tests" / "fake_ssh.py")]))
+    home = tmp_path / "arlotope-home"
+    monkeypatch.setenv("ARLOTOPE_HOME", str(home))
+    monkeypatch.setenv("ARLOTOPE_SSH", json.dumps([sys.executable, str(REPO / "tests" / "fake_ssh.py")]))
     monkeypatch.setenv("FAKE_SSH_HOME", str(tmp_path / "remote-home"))
     monkeypatch.setenv("FAKE_SSH_LOG", str(tmp_path / "ssh.jsonl"))
     (tmp_path / "remote-home").mkdir()
@@ -62,7 +89,7 @@ def env(hub, tmp_path, monkeypatch):
     m.ctx.set_remote(None)
     for c in list(m.machines.CONNS.values()):
         c.disconnect()
-    subprocess.run([sys.executable, str(REPO / "newts.py"), "--hub", str(hub.root), "--stop"], capture_output=True, timeout=60)
+    subprocess.run([sys.executable, str(REPO / "arlo.py"), "--hub", str(hub.root), "--stop"], capture_output=True, timeout=60)
 
 
 def test_ssh_config_hosts_and_probe_parsing(env, tmp_path, monkeypatch):
@@ -121,7 +148,7 @@ def test_connect_proxy_and_lose_the_tunnel(env):
     m, hub, tmp_path = env
     m.machines.add_machine({"host": "box", "name": "Box"})
     mach = m.machines._get("box")
-    mach["launcher"] = (REPO / "newts.py").as_posix()          # the remote lab would ship its own newts.py
+    mach["launcher"] = (REPO / "arlo.py").as_posix()          # the remote lab would ship its own arlo.py
     m.machines._put(mach)
     m.machines.add_lab({"id": "box", "path": hub.root.as_posix()})
     srv, port, cookie = _serve(m)
@@ -181,11 +208,41 @@ def test_create_a_lab_on_a_remote_machine(env):
     assert any(l["path"] == dest for l in m.machines._get("box")["labs"])
 
 
+def test_foreground_custom_port_has_status_and_can_be_stopped(hub, tmp_path, monkeypatch):
+    launcher = load('arlo.py')
+    with socket.socket() as available:
+        available.bind(('127.0.0.1', 0))
+        port = available.getsockname()[1]
+    monkeypatch.setenv('ARLOTOPE_HOME', str(tmp_path/'home'))
+    monkeypatch.setenv('ARLOTOPE_KEEP_PYTHON', '1')
+    # Include the child stack if startup stalls; the parent pytest trace cannot see it.
+    bootstrap = ('import faulthandler,runpy,sys; faulthandler.dump_traceback_later(15,repeat=True); '
+                 'path=sys.argv.pop(1); sys.argv[0]=path; runpy.run_path(path,run_name="__main__")')
+    with (tmp_path/'launcher.log').open('w') as log:
+        process = subprocess.Popen([sys.executable, '-u', '-c', bootstrap, str(REPO/'arlo.py'), '--hub', str(hub.root),
+                                    '--foreground', '--no-browser', '--port', str(port)],
+                                   env=os.environ.copy(), stdout=log, stderr=log)
+        try:
+            deadline = time.monotonic()+30
+            while time.monotonic()<deadline and not launcher.ping(port):
+                assert process.poll() is None
+                time.sleep(.1)
+            assert launcher.ping(port), (tmp_path/'launcher.log').read_text(errors='replace')
+            hit = launcher.running_for(hub.root)
+            assert hit and hit[0] == port and hit[1]['app'] == 'arlotope'
+            assert launcher.stop(hub.root)['ok']
+            process.wait(timeout=10)
+        finally:
+            if process.poll() is None:
+                process.terminate()
+                process.wait(timeout=10)
+
+
 def test_detached_processes_never_run_on_uvs_throwaway_python():
     """`uv run --with …` runs in builds-v0/.tmpXXXX, deleted when uv exits — a detached server (and the agent
     supervisors it spawns) must re-exec on a stable interpreter first. The venv's python is a symlink out of
     that directory, so detection must not resolve it."""
-    newts, procs = load("newts.py"), load("tools/executor/procs.py")
+    arlotope, procs = load("arlo.py"), load("tools/executor/procs.py")
     if os.name == "nt":
         assert procs._ephemeral(r"C:\Users\u\AppData\Local\uv\cache\builds-v0\.tmpAb12\Scripts\python.exe")
         assert not procs._ephemeral(r"C:\Users\u\lab\.venv\Scripts\python.exe")
@@ -194,7 +251,7 @@ def test_detached_processes_never_run_on_uvs_throwaway_python():
         assert not procs._ephemeral("/usr/bin/python3")
         assert not procs._ephemeral("/home/u/lab/.venv/bin/python")
     if not procs._ephemeral(sys.executable):
-        assert newts.stable_python() == sys.executable   # the launcher uses the executor's one finder
+        assert arlotope.stable_python() == sys.executable   # the launcher uses the executor's one finder
 
 
 @needs_bash
@@ -206,7 +263,7 @@ def test_one_overview_across_this_computer_and_a_remote_lab(env):
     kernel().studies.move(hub.root, "idea-g", "done", by="cli")      # its proposal is done: it waits for you
     m.machines.add_machine({"host": "box", "name": "Box"})
     mach = m.machines._get("box")
-    mach["launcher"] = (REPO / "newts.py").as_posix()
+    mach["launcher"] = (REPO / "arlo.py").as_posix()
     m.machines._put(mach)
     m.machines.add_lab({"id": "box", "path": hub.root.as_posix()})
     res, code = m.machines.open_lab({"id": "box", "path": hub.root.as_posix()})
@@ -250,14 +307,14 @@ def test_a_stopped_remote_dashboard_comes_back_and_forgetting_its_machine_comes_
     m, hub, tmp_path = env
     m.machines.add_machine({"host": "box", "name": "Box"})
     mach = m.machines._get("box")
-    mach["launcher"] = (REPO / "newts.py").as_posix()
+    mach["launcher"] = (REPO / "arlo.py").as_posix()
     m.machines._put(mach)
     m.machines.add_lab({"id": "box", "path": hub.root.as_posix()})
     res, code = m.machines.open_lab({"id": "box", "path": hub.root.as_posix()})
     assert code == 200 and res["state"] == "connected", res
     conn = m.ctx.REMOTE
     first = conn.tunnel
-    subprocess.run([sys.executable, str(REPO / "newts.py"), "--hub", str(hub.root), "--stop"], capture_output=True, timeout=60)
+    subprocess.run([sys.executable, str(REPO / "arlo.py"), "--hub", str(hub.root), "--stop"], capture_output=True, timeout=60)
     t0 = time.time()
     while time.time() - t0 < 90 and not conn.alive():
         time.sleep(1)

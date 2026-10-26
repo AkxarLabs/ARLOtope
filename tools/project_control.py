@@ -9,6 +9,13 @@ from pathlib import Path
 
 
 def control(argv):
+    if argv and argv[0] == 'log':
+        import knowledge
+        parser = argparse.ArgumentParser(description='Save a project log')
+        knowledge.log_arguments(parser)
+        result = knowledge.log_note(None, parser.parse_args(argv[1:]), project=Path.cwd())
+        print(json.dumps(result, ensure_ascii=False))
+        return 0
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('verb', choices=('status', 'next', 'approved', 'move', 'emit'))
     parser.add_argument('values', nargs='*')
@@ -17,7 +24,10 @@ def control(argv):
     parser.add_argument('--data', action='append', default=[])
     parser.add_argument('--hub', help=argparse.SUPPRESS)
     parser.add_argument('--json', action='store_true', help=argparse.SUPPRESS)
+    parser.add_argument('--run-id', help=argparse.SUPPRESS)
     args = vars(parser.parse_args(argv))
+    if args.pop('run_id') not in (None, os.environ.get('ARLOTOPE_RUN_ID')):
+        parser.error('This event belongs to another run.')
     args.pop('hub')
     args.pop('json')
     try:
@@ -31,13 +41,13 @@ def control(argv):
 
 def request(payload):
     """One durable request; callers keep the same record pending across a connection outage."""
-    if os.environ.get('NEWTS_GATE_JUDGE') and payload.get('verb') == 'move':
+    if os.environ.get('ARLOTOPE_GATE_JUDGE') and payload.get('verb') == 'move':
         return {'code': 1, 'text': 'Return the gate verdict. Only the engine applies its decision.'}
-    folder = Path(os.environ['NEWTS_RUN_DIR'])
+    folder = Path(os.environ['ARLOTOPE_RUN_DIR'])
     request_id = uuid.uuid4().hex
     queue = folder / 'controller'
     queue.mkdir(exist_ok=True)
-    record = {'id': request_id, 'run_id': os.environ['NEWTS_RUN_ID'], **payload}
+    record = {'id': request_id, 'run_id': os.environ['ARLOTOPE_RUN_ID'], **payload}
     temp = queue / (request_id + '.tmp')
     temp.write_text(json.dumps(record), encoding='utf-8')
     temp.replace(queue / (request_id + '.request.json'))

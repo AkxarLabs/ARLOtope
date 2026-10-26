@@ -1,4 +1,4 @@
-"""`newts <verb>` (tools/newts_cli.py): the whole lab from a terminal, through the same kernel the dashboard uses.
+"""`arlo <verb>` (tools/arlo_cli.py): the whole lab from a terminal, through the same kernel the dashboard uses.
 The PI's verbs ask for confirmation (or --yes) and refuse inside an agent run; every dashboard action names the
 verb that does the same."""
 
@@ -17,7 +17,7 @@ K = kernel()
 
 @pytest.fixture(autouse=True)
 def _not_in_a_run(monkeypatch):
-    monkeypatch.delenv("NEWTS_RUN_ID", raising=False)
+    monkeypatch.delenv("ARLOTOPE_RUN_ID", raising=False)
 
 
 @pytest.fixture
@@ -27,7 +27,7 @@ def cli(hub, monkeypatch):
         f"    backends:\n      claude:\n        command: {json.dumps([sys.executable, str(REPO / 'tests' / 'fake_claude.py')])}\n",
         encoding="utf-8")
     monkeypatch.setattr(sys, "stdin", io.StringIO(""))       # no terminal to ask on
-    mod = load("newts_cli")
+    mod = load("arlo_cli")
     return lambda *argv: mod.main(["--hub", str(hub.root), *argv])
 
 
@@ -57,7 +57,7 @@ def test_approve_revoke_and_changes(hub, cli, capsys):
     assert "pass --yes" in capsys.readouterr().err
     assert cli("approve", "demo", "approve-proposal", "--yes", "--note", "keep it small") == 0
     out = capsys.readouterr().out
-    assert "demo → Project set-up" in out and "next: newts start spawn-project demo" in out
+    assert "demo → Project set-up" in out and "next: arlo start spawn-project demo" in out
     rec = K.journal.latest(hub.root, "demo", "approve-proposal")
     assert (rec["decision"], rec["by"], rec["via"], rec["note"]) == ("approved", "pi", "cli", "keep it small")
     assert cli("approved", "demo", "approve-proposal") == 0 and "the PI's note: keep it small" in capsys.readouterr().out
@@ -82,7 +82,7 @@ def test_approve_can_start_the_next_steps_work(hub, cli, capsys):
 
 def test_the_pis_verbs_refuse_inside_an_agent_run(hub, cli, monkeypatch, capsys):
     hub.add_registry_row("demo", state="proposal")
-    monkeypatch.setenv("NEWTS_RUN_ID", "hub-x-1")
+    monkeypatch.setenv("ARLOTOPE_RUN_ID", "hub-x-1")
     for argv in (("approve", "demo", "approve-proposal", "--yes"), ("revoke", "demo", "approve-proposal", "--yes"),
                  ("move", "demo", "--to", "active", "--yes"), ("workflow", "set", "demo", "quick"),
                  ("workflow", "rename-step", "active", "running", "--yes"), ("hold", "demo"), ("release", "demo"),
@@ -98,7 +98,7 @@ def test_status_brief_and_checkpoint(hub, cli, capsys):
     K.studies.move(hub.root, "demo", "done")
     assert cli("status") == 0
     out = capsys.readouterr().out
-    assert "1 thing(s) need you." in out and "Approve the proposal" in out and "newts checkpoint demo approve-proposal" in out
+    assert "1 thing(s) need you." in out and "Approve the proposal" in out and "arlo checkpoint demo approve-proposal" in out
     assert cli("--json", "status") == 0
     data = json.loads(capsys.readouterr().out)
     assert data["waiting"][0]["study"] == "demo" and data["waiting"][0]["checkpoint"] == "approve-proposal"
@@ -106,7 +106,7 @@ def test_status_brief_and_checkpoint(hub, cli, capsys):
     out = capsys.readouterr().out
     assert "before setup" in out and "it waits for this" in out
     assert cli("brief", "propose", "--study", "demo") == 0
-    assert "NEWTS BRIEF /propose · study demo" in capsys.readouterr().out
+    assert "ARLOTOPE BRIEF /propose · study demo" in capsys.readouterr().out
     assert cli("approve", "demo", "approve-proposal", "--yes") == 0
     capsys.readouterr()
     cli("status")
@@ -115,7 +115,7 @@ def test_status_brief_and_checkpoint(hub, cli, capsys):
 
 
 def test_check_docs_and_propose(hub, cli, capsys, tmp_path):
-    assert cli("check") == 0 and "[newts] ok" in capsys.readouterr().out
+    assert cli("check") == 0 and "[arlo] ok" in capsys.readouterr().out
     f = tmp_path / "draft.md"
     f.write_text("Cite the closest three papers.", encoding="utf-8")
     assert cli("propose", "lit-review", "--file", str(f), "--why", "seen twice") == 0
@@ -126,7 +126,7 @@ def test_check_docs_and_propose(hub, cli, capsys, tmp_path):
 
 def _routes(monkeypatch):
     monkeypatch.syspath_prepend(str(REPO / "dashboard"))
-    return load("dashboard/serve").POST_ROUTES, load("newts_cli")
+    return load("dashboard/serve").POST_ROUTES, load("arlo_cli")
 
 
 def test_every_dashboard_action_has_a_terminal_verb(monkeypatch):
@@ -136,5 +136,5 @@ def test_every_dashboard_action_has_a_terminal_verb(monkeypatch):
     assert set(routes) - set(cli.ROUTE_VERBS) == set()
     for r in ("/api/checkpoint/decide", "/api/study/move", "/api/study/hold", "/api/study/workflow", "/api/study/use"):
         assert cli.ROUTE_VERBS[r] != "dashboard-only", r
-    verbs = {v.split()[0] for v in cli.ROUTE_VERBS.values() if v != "dashboard-only" and not v.startswith("newts.py")}
+    verbs = {v.split()[0] for v in cli.ROUTE_VERBS.values() if v != "dashboard-only" and not v.startswith("arlo.py")}
     assert verbs <= cli.VERBS, verbs - cli.VERBS

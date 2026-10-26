@@ -1,4 +1,4 @@
-"""Read-only world model for the Vivarium dashboard.
+"""Read-only world model for the ARLOtope dashboard.
 
 The lab's files ARE the database — this module only reads them, tolerantly:
   - lab/journal.jsonl      -> the studies: where each stands, what it waits for, the PI's decisions, flags
@@ -34,7 +34,7 @@ try:
     import executor  # noqa: E402
 except Exception:  # noqa: BLE001 — a broken/missing executor must never blank the dashboard
     executor = None
-from kernel import instructions, journal, model, studies, watch  # noqa: E402 — the lab's definition and record
+from kernel import instructions, model, studies, watch  # noqa: E402 — the lab's definition and record
 import labfiles  # noqa: E402 — the lab's files, read one way (tools/labfiles.py)
 import workers  # noqa: E402 — who is working: runs + the traced agents
 import attention  # noqa: E402 — what needs the PI; the executor's status
@@ -220,6 +220,8 @@ def _synth_id(d: dict) -> str:
 
 def _directive_threads(bus_dir: Path, default_target: str = "hub") -> list[dict]:
     directives = labfiles.read_jsonl(bus_dir / "directives.jsonl")
+    if not directives:
+        return []
     events = labfiles.read_jsonl(bus_dir / "events.jsonl")
     withdrawn = {d.get("ref") for d in directives if d.get("kind") == "withdraw"}
     acks: dict[str, dict] = {}
@@ -246,7 +248,7 @@ def _directive_threads(bus_dir: Path, default_target: str = "hub") -> list[dict]
         ack = acks.get(did)
         state = "withdrawn" if did in withdrawn else (ack["state"] if ack else "pending")
         threads.append({"id": did, "ts": d.get("ts"), "text": d.get("text", ""),
-                        "state": state, "ack": ack,
+                        "state": state, "ack": ack, "scope": "hub" if default_target == "hub" else "project",
                         "target": d.get("target") or default_target,   # the record's own target wins (M2)
                         "kind": d.get("kind", "note"), "action": d.get("action"),
                         "args": d.get("args")})
@@ -337,10 +339,12 @@ def _artifacts_view() -> list[dict]:
 
 
 
+@labfiles.read_batch()
 def snapshot() -> dict:
     import remote_projects
     rows = parse_registry()
     hub_bus = ctx.LAB / ".bus"
+    hub_directives = _directive_threads(hub_bus)
     items, all_events = [], []
     proj_ids = {r["id"] for r in rows if _project_path(r) is not None}
     roster = workers.scan(hub_bus, None, proj_ids)
@@ -372,8 +376,8 @@ def snapshot() -> dict:
             "claims": _claims_count(row["id"]),  # number of claims in claims.yaml (drives the claims↔artifact map)
             "inflight": [], "best": None, "loop_active": False, "events": [],
         }
-        item["directives"] = []
-        for key in ('active_steps', 'runnable', 'task_waits', 'completed_steps', 'joins', 'blocked_reason'):
+        item["directives"] = [d for d in hub_directives if d["target"] == row["id"]]
+        for key in ('active_steps', 'runnable', 'task_waits', 'completed_steps', 'joins', 'blocked_reason', 'entry', 'entry_cancelled'):
             if key in row:
                 item[key] = row[key]
         item["agents"] = []
@@ -393,7 +397,7 @@ def snapshot() -> dict:
             item["inflight"] = _inflight_runs(pdir)
             item["loop_active"] = (pdir / ".bus" / ".loop-active").exists()
             item["agents"] = workers.launched_agents(pdir)
-            item["directives"] = _directive_threads(pdir / ".bus", default_target=row["id"])
+            item["directives"] += _directive_threads(pdir / ".bus", default_target=row["id"])
             ctrl = pdir / "control.yaml"
             cfg = labfiles.load_yaml(ctrl) if ctrl.exists() else {}
             item["project_type"] = str(cfg.get("project_type") or "ml")   # the world draws its lab by it
@@ -401,6 +405,7 @@ def snapshot() -> dict:
             item["events"] = pevents[-12:]
             all_events.extend(pevents)
             roster.extend(workers.scan(pdir / ".bus", row["id"], proj_ids))
+        item["directives"].sort(key=lambda d: d.get("ts") or "")
         items.append(item)
 
     # hub-bus workers promoted to a project (its /improve worktrees) count toward that project too
@@ -409,6 +414,10 @@ def snapshot() -> dict:
     runs = hub_runs + [a for it in items for a in (it.get("agents") or [])]
     from task_completion import flag_runs
     flag_runs(ctx.HUB, runs)
+    from framework_activity import view as framework_view
+    for run in runs:
+        if run.get('workflow_node') and run.get('status') in ('starting', 'running', 'resuming'):
+            run['external_activity'] = framework_view(ctx.HUB, run)
     workers.LIVE_IDS.clear()
     workers.LIVE_IDS.update(x for r in runs if r.get("status") in ("starting", "running", "resuming", "waiting_input")
                      for x in (r.get("run_id"), r.get("session_id")) if x)
@@ -427,7 +436,7 @@ def snapshot() -> dict:
         "events": all_events[-200:],
         "escalations": (esc := _escalations(all_events)),
         "notebook": _notebook_status(),
-        "directives": _directive_threads(hub_bus),
+        "directives": hub_directives,
         "workers": roster[-200:],
         "agents": workers.agents(runs, roster),     # every agent at work, one shape (the world draws these)
         "campaigns": campaigns(rows),

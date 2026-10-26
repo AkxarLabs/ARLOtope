@@ -6,7 +6,7 @@
  *
  *   const n = Lab3D.makeNewt(K, { color: '#5ccfbc', hue: 40, scale: 1 });
  *     color: the role badge on its chest · hue: turns its gills and tail round the colour wheel (a main agent's
- *     family colour — its subagents are smaller newts in the same colours) · scale: its size
+ *     family colour — its subagents are smaller arlo in the same colours) · scale: its size
  *   n.group                       — add it to the scene
  *   n.update(t, { pose, moving, act, poke }) — pose: idle | work | walk | wait | sleep | fail | carry · act: the
  *     activity it works at (model.ACTS: read, edit, run, search, plan, spawn, …) · poke: seconds since you
@@ -43,14 +43,14 @@
     }
     geo.setAttribute('color', new THREE.BufferAttribute(cols, 3)); geo.computeVertexNormals();
     // cap the thick end with a sphere so it reads as one body
-    const m = K.mesh(geo, K.mat('#ffffff', { vc: true, smooth: true, glow: '#6c4f8a', gi: {day:0,night:0.5} }));
+    const m = K.mesh(geo, K.mat('#ffffff', { vc: true, smooth: true, glow: '#ffffff', gi: {day:0,night:0.06} }));
     return m;
   }
 
   /** one gill frond: a tapered stalk pointing up (+y) with little side twigs */
   function frond(K, len, color) {
     const { THREE } = K, g = new THREE.Group();
-    const m = K.mat(color, { smooth: true, glow: color, gi: {day:0,night:0.55} });
+    const m = K.mat(color, { smooth: true, glow: color, gi: {day:0,night:0.22} });
     const stalk = K.mesh(K.geometry('CapsuleGeometry', 0.03, len * 0.8, 8, 18), m, 0, len / 2, 0); g.add(stalk);
     for (let i = 0; i < 4; i++) {
       const y = len * (0.22 + i * 0.18), side = i % 2 ? 1 : -1, tw = K.mesh(K.geometry('CapsuleGeometry', 0.017, len * 0.26, 8, 18), m, 0, 0, 0);
@@ -88,6 +88,7 @@
     type(o, tt) { o.lean = 0.12; o.armL = -1.1 + Math.max(0, S(tt * 11)) * 0.28; o.armR = -1.1 + Math.max(0, S(tt * 11 + 2)) * 0.28; o.tilt = 0.14 + S(tt * 1.3) * 0.05; },
     read(o, tt) { o.lean = 0.08; o.tilt = 0.3; o.turn = S(tt * 0.9) * 0.16; o.look = S(tt * 0.9) * 0.6; o.armL = o.armR = -1.25;
       const u = (tt % 4.5) / 0.6; if (u < 1) { o.raiseR = S(PI * u) * 0.7; o.armR = -1.25 + S(PI * u) * 0.3; } },
+    review(o, tt) { WORK.read(o,tt);o.turn=S(tt*.65)*.3;o.look=S(tt*.65)*.8;o.raiseL=Math.max(0,S(tt*.65))*.4;o.raiseR=Math.max(0,-S(tt*.65))*.4; },
     run(o, tt) { if (tt % 6 < 3.4) return WORK.type(o, tt); o.lean = -0.06; o.tilt = -0.1; o.face = 'hopeful'; o.bob += Math.abs(S(tt * 2.5)) * 0.01; },
     search(o, tt) { o.turn = S(tt * 1.4) * 0.5; o.look = S(tt * 3.1); o.armR = -0.9; o.raiseR = 1.75; o.tilt = -0.06; },
     plan(o, tt) { o.armR = -2.2; o.raiseR = -0.6; o.tilt = -0.2 + S(tt * 0.8) * 0.05; o.turn = 0.18; o.look = 0.5; o.face = 'content'; },
@@ -126,7 +127,7 @@
         o.turn = S(tt * 4.5) * 0.06;                                   // the head bobbles along
       }
       if (pose === 'idle') { o.turn = S(tt * 0.45) * 0.35 * Math.max(0, S(tt * 0.21)); o.roll = S(tt * 0.6) * 0.05; }
-      if (pose === 'work') { o.face = 'focus'; WORK[ACT[st.act] || 'type'](o, tt, rest); }
+      if (pose === 'work') { o.face = 'focus'; WORK[st.act==='read'&&/review|critic|overseer/.test(st.role||'')?'review':ACT[st.act] || 'type'](o, tt, rest); }
       if (pose === 'wait') { o.armR = -0.15; o.raiseR = 2.55 + S(tt * 6) * 0.3; o.bob = Math.abs(S(tt * 3)) * 0.035; o.tilt = -0.15; o.turn = 0.12; o.roll = 0.1; o.face = 'hopeful'; }
       if (pose === 'carry') { o.armL = o.armR = -0.3; o.raiseL = o.raiseR = 2.35; o.face = 'happy'; }
       if (pose === 'sleep') { o.tilt = 0.38; o.face = 'asleep'; o.bob = S(tt * 1.1) * 0.014 - 0.01; o.armL = o.armR = -0.15; o.roll = S(tt * 0.5) * 0.04; }
@@ -184,7 +185,9 @@
     o = o || {};
     const { THREE } = K, root = new THREE.Group(), body = new THREE.Group(), head = new THREE.Group();
     const gill = GILL.map(c => turn(THREE, c, o.hue || 0)), tailC = TAIL.map(c => turn(THREE, c, o.hue || 0));
-    const skin = K.mat(o.skin || 'cream', { smooth: true, rough: 0.7 }), dark = K.mat('#151517', { smooth: true, rough: 0.3 });
+    // Character identity stays warm; only the surrounding room palette changes at night.
+    const skinColor = o.skin || '#fbeee0';
+    const skin = K.mat(skinColor, { smooth: true, rough: 0.7, glow: skinColor, gi: {day:0,night:0.45} }), dark = K.mat('#151517', { smooth: true, rough: 0.3 });
     root.add(body);
     // legs + feet
     const legs = [-1, 1].map(s => { const l = K.mesh(K.geometry('CapsuleGeometry', 0.065, 0.05, 8, 18), skin, s * 0.12, 0.08, 0.03); body.add(l);
@@ -207,7 +210,7 @@
     const hlM = K.mat('#ffffff', { smooth: true, glow: '#ffffff', gi: 0.6 });
     const eyes = [-1, 1].map(s => { const e = K.mesh(K.geometry('SphereGeometry', 0.046, 28, 24), dark, s * 0.17, -0.085, 0.245); e.scale.set(1, 1.08, 0.7); head.add(e); return e; });
     eyes.forEach(e => { const a = K.mesh(K.geometry('SphereGeometry', 0.016, 28, 20), hlM, 0.014, 0.017, 0.035); const b = K.mesh(K.geometry('SphereGeometry', 0.007, 28, 20), hlM, -0.013, -0.014, 0.037); e.add(a, b); });
-    [-1, 1].forEach(s => { const c = K.mesh(K.geometry('SphereGeometry', 0.04, 28, 20), K.mat('#f4b3b8', { smooth: true, rough: 0.9 }), s * 0.235, -0.14, 0.2); c.scale.set(1, 0.55, 0.4); head.add(c); });
+    [-1, 1].forEach(s => { const c = K.mesh(K.geometry('SphereGeometry', 0.04, 28, 20), K.mat('#f4b3b8', { smooth: true, rough: 0.9, glow: '#f4b3b8', gi: {day:0,night:0.18} }), s * 0.235, -0.14, 0.2); c.scale.set(1, 0.55, 0.4); head.add(c); });
     const mouth = K.mesh(K.geometry('TorusGeometry', 0.022, 0.006, 10, 24, Math.PI), dark, 0, -0.125, 0.268); mouth.rotation.z = Math.PI; head.add(mouth);
     const brows = L.brows(K, eyes, '#c9a59c');   // soft, like the art's bare face
     // gills: three fronds a side, fanned out behind the cheeks

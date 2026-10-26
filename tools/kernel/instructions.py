@@ -6,7 +6,7 @@
     studies/<slug>/workflow/…           the same names, for one study (they come after the lab's)
 
 To do a procedure differently altogether, make a variant of its skill and use it (`like:`, `use:`) — these
-files only ADD. Agents never edit them: `newts propose` files a proposal the PI takes or leaves.
+files only ADD. Agents never edit them: `arlo propose` files a proposal the PI takes or leaves.
 """
 
 from __future__ import annotations

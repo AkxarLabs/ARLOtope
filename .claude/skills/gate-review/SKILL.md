@@ -1,7 +1,7 @@
 ---
 name: gate-review
 description: Independently judge declared evidence against a gate's rubric.
-newts:
+arlotope:
   kind: utility
   launchable: false
   title: Review a gate

@@ -23,9 +23,9 @@ def now():
 def project_folder(root):
     root=Path(root).resolve()
     from project_identity import read
-    config=read(root/'.newts/project.json', {})
+    config=read(root/'.arlotope/project.json', {})
     if not isinstance(config,dict):raise ValueError('The project configuration must be a mapping.')
-    rel=config.get('knowledge_dir','.newts/knowledge')
+    rel=config.get('knowledge_dir','.arlotope/knowledge')
     if not isinstance(rel,str) or Path(rel).is_absolute():
         raise ValueError('Knowledge directory must be relative to the project.')
     folder=(root/rel).resolve()
@@ -196,17 +196,18 @@ def update(folder, identifier, *, acknowledgement=None, response=None, status=No
 
 def dispatch(hub, study, action='list', **data):
     loc=location(hub,study)
-    legacy=Path(hub)/'studies'/str(study)/'knowledge'
-    if study and loc['scope']=='project' and legacy.is_dir():
+    # Notes created before project attachment remain part of this study's history.
+    study_records=Path(hub)/'studies'/str(study)/'knowledge'
+    if study and loc['scope']=='project' and study_records.is_dir():
         if action in ('get','update'):
-            old=_file(legacy,data['id'])
+            old=_file(study_records,data['id'])
             if old.is_file():
-                result=get(legacy,data['id']) if action=='get' else update(legacy,data.pop('id'),**data)
+                result=get(study_records,data['id']) if action=='get' else update(study_records,data.pop('id'),**data)
                 return {**result,'scope':'study','slug':study,'rel':old.relative_to(Path(hub)/'studies'/study).as_posix()}
         if action=='list':
             query={**data,'offset':0,'limit':None}
             current=_dispatch(hub,study,action,**query)
-            old=listing(legacy,**query)
+            old=listing(study_records,**query)
             for row in old['rows']:row.update(scope='study',slug=study,rel='knowledge/'+row['file'])
             rows=current['rows']+old['rows']
             rows.sort(key=lambda r:str(r.get('created') or datetime.fromtimestamp(r['mtime'],timezone.utc).isoformat()),reverse=True)
@@ -290,6 +291,33 @@ def sync_answer(lab, run=None):
         dispatch(lab.hub,question.get('study'),'update',id=question['id'],status='unanswered' if run['status']=='completed' else 'interrupted')
 
 
+def log_arguments(parser):
+    parser.add_argument('text')
+    parser.add_argument('--study', default=os.environ.get('ARLOTOPE_RUN_SUBJECT'))
+    parser.add_argument('--title', default='')
+    parser.add_argument('--tag', action='append', default=[])
+    parser.add_argument('--ref', action='append', default=[])
+    parser.add_argument('--agent', help='Exported child agent ID, when known')
+
+
+def log_note(hub, args, project=None):
+    """A contextual knowledge record; never an outcome, directive or approval."""
+    study = args.study if args.study != 'hub' else None
+    context = {}
+    rid = os.environ.get('ARLOTOPE_RUN_ID')
+    if rid and study == (os.environ.get('ARLOTOPE_RUN_SUBJECT') or None):
+        context.update(run=rid, attempt=int(os.environ.get('ARLOTOPE_ATTEMPT') or 0))
+        context['about'] = {'run': rid}
+        if args.agent:context['about']['agent'] = args.agent
+    elif args.agent:
+        raise ValueError('A child agent reference needs its managed parent run.')
+    data = dict(kind='log', text=args.text, title=args.title, tags=args.tag, refs=args.ref,
+                author='agent' if rid else 'human', **context)
+    if project:
+        return create(project_folder(project), studies=[study] if study else [], **data)
+    return dispatch(hub, study, 'add', **data)
+
+
 def main(argv=None):
     parser=argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--hub',type=Path,default=Path(__file__).resolve().parents[1])
@@ -306,11 +334,11 @@ def main(argv=None):
     data={'query':args.value if args.action=='search' else '', 'kind':args.kind,'tag':args.tag,'offset':args.offset} if action=='list' else {'id':args.value}
     if action=='add':
         data={'kind':args.kind or 'note','text':args.file.read_text(encoding='utf-8') if args.file else args.text,
-              'title':args.title,'tags':[args.tag] if args.tag else [],'author':'agent' if os.environ.get('NEWTS_RUN_ID') else 'human',
-              'acknowledge':args.acknowledge,'run':os.environ.get('NEWTS_RUN_ID')}
+              'title':args.title,'tags':[args.tag] if args.tag else [],'author':'agent' if os.environ.get('ARLOTOPE_RUN_ID') else 'human',
+              'acknowledge':args.acknowledge,'run':os.environ.get('ARLOTOPE_RUN_ID')}
         if args.kind=='source':data['source']={k:v for k,v in {'url':args.url,'doi':args.doi,'version':args.version,'coverage':args.coverage,'retrieved':now()}.items() if v}
         if args.attachment:data['attachment']=str(args.attachment)
-    if args.action=='ack':data['acknowledgement']={'run':os.environ.get('NEWTS_RUN_ID') or 'terminal-agent'}
+    if args.action=='ack':data['acknowledgement']={'run':os.environ.get('ARLOTOPE_RUN_ID') or 'terminal-agent'}
     if args.project:
         folder=project_folder(args.project)
         result=listing(folder,**data) if action=='list' else get(folder,data['id']) if action=='get' else create(folder,**data) if action=='add' else update(folder,data.pop('id'),**data)

@@ -26,7 +26,7 @@ INSTALL = {
     "codex": {"*": "npm install -g @openai/codex"},
     "opencode": {"*": "npm install -g opencode-ai"},
 }
-TITLE = "Newts' Lab"
+TITLE = "ARLOtope"
 
 
 def install_command(backend: str) -> str | None:

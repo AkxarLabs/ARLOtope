@@ -27,7 +27,7 @@ The host needs OpenSSH, `bash` and Python 3.10+; cloning needs Git. This bootstr
 Linux/macOS-style hosts. Native Windows SSH bootstrap is not implemented. The controller has
 Windows and POSIX code paths; see [platform verification](platforms-and-agents.md).
 
-The packaged runner goes under `~/.newts/workers`, with bundled Python support. It does not require
+The packaged runner goes under `~/.arlotope/workers`, with bundled Python support. It does not require
 remote `pip` or a system service. Agents, datasets and project dependencies remain your responsibility.
 The bundle includes its source files, Lab license and dependency notices.
 
@@ -59,13 +59,17 @@ you can also stop that waiting task. An unexpectedly lost active supervisor is s
 
 ## Files and decisions
 
+Finished runs stop background polling once the worker is idle, all transcript, action and conversation chunks have
+arrived and pending requests are settled. A reply or resume starts synchronization again. Incomplete
+or disconnected runs continue to retry; opening a project file still reads from the connected worker.
+
 | Place | Records |
 |---|---|
 | Owning Lab | Study journal, workflows, approvals, queue and mirrored run records |
 | Project machine | Repository, environment, provider credentials, supervisor and full run files |
-| Project `.bus/newts/<owner>/agents/` | Remote manifests, instruction snapshots and delivery receipts |
+| Project `.bus/arlotope/<owner>/agents/` | Remote manifests, instruction snapshots and delivery receipts |
 | Lab `lab/.bus/remote-projects/<study>/` | Controller run mirror, not the whole repository |
-| Project `.newts/knowledge/` | Human notes, saved Q&A and retained sources |
+| Project `.arlotope/knowledge/` | Human notes, saved Q&A and retained sources |
 
 Each dispatch carries a fixed instruction snapshot, including uploaded materials. Later edits do not
 change an already queued run’s snapshot. The Library reads remote documents through the runner;
@@ -84,22 +88,24 @@ and [notes and Q&A](knowledge.md).
 ## Identity and discovery
 
 `lab/identity.json` holds a stable Lab ID and execution owner. Keep it when moving or backing up
-the Lab. Attachment writes project identity in `.newts/project.json` and the compatible
-`.bus/newts-owner.json`; a per-machine `~/.newts/projects.json` index supports discovery.
+the Lab. Attachment writes project identity and execution ownership in `.arlotope/project.json`;
+a per-machine `~/.arlotope/projects.json` index supports discovery.
 These are ownership/discovery metadata, not authentication.
 
 Discovery checks identities and paths, flags missing folders and duplicate copied identities, and
 scans a chosen folder to bounded depth. It does not attach projects by itself. A project owned by
 another Lab is refused. Do not delete an ownership file to force a transfer.
 
+Attachment errors name the selected folder and recorded Lab ID or study/execution owner. If the discovery index disagrees with the project configuration, the error names both IDs. Restore the correct identity rather than deleting its configuration. Local and remote attachment validate identities before writing registration records, so a rejected claim can be corrected and retried. See [Git and backup guidance](knowledge.md#what-to-keep-in-git) for which files travel with a project.
+
 **By machine**, the default Lab layout, gives machines separate spaces. **Unified** places the same
 work in shared rooms. This changes presentation, not execution, filtering or context.
 
 ## Separate remote Labs
 
-**Connections → Labs & machines → Separate Labs** opens or creates a full Lab on that host.
+**Machines → Separate Labs** opens or creates a full Lab on that host.
 Switching to it changes the dashboard’s owning journal and settings; it does not merge studies.
-**Keep connected** refreshes its activity on the Labs & machines page.
+**Keep connected** refreshes its activity on the Machines page.
 
 ## Security and verification limits
 

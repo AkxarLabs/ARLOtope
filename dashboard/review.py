@@ -4,7 +4,6 @@ knowledge, and the claims map.
 
 from __future__ import annotations
 
-import json
 import re
 from pathlib import Path
 
@@ -31,20 +30,6 @@ def _filesec(title: str, f: Path, fallback: str = "") -> dict:
     if f.exists() and f.is_file():
         sec["path"] = str(f.resolve())
     return sec
-
-
-def _read_full(path: Path) -> str:
-    """Unclipped read — for parsing/extraction where a 16 KB clip could cut a section mid-way (the
-    extracted section itself is small, so this never streams much). Empty string if absent."""
-    if not path.exists() or not path.is_file():
-        return ""
-    try:
-        return path.read_text(encoding="utf-8-sig", errors="replace")
-    except OSError:
-        return ""
-
-
-_HEADING = re.compile(r"^(#{1,6})\s+(.*?)\s*$")
 
 
 def _checkpoint_bundle(slug: str, cid: str) -> dict:
