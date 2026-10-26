@@ -8,6 +8,70 @@ import pytest
 from conftest import REPO, kernel, load
 
 
+@pytest.mark.parametrize('ending', ['\n', '\r\n', ''])
+def test_jsonl_tail_preserves_recent_rows_and_sees_appends(tmp_path, ending):
+    import labfiles
+    path = tmp_path/'events.jsonl'
+    path.write_bytes(('\ufeff{"n":1}\r\n{"text":"café"}\r\n[]\r\n{"n":2}'+ending).encode('utf-8'))
+    assert labfiles.read_jsonl(path, tail=2) == [{'n': 2}]
+    assert labfiles.read_jsonl(path, tail=3) == [{'text': 'café'}, {'n': 2}]
+    with path.open('ab') as stream:
+        stream.write((('' if ending else '\n')+'{"n":3}\n{"torn":').encode())
+    assert labfiles.read_jsonl(path, tail=2) == [{'n': 3}]
+    assert labfiles.read_jsonl(path, tail=0) == [{'n': 1}, {'text': 'café'}, {'n': 2}, {'n': 3}]
+
+
+def test_jsonl_tail_reads_the_end_instead_of_the_entire_history(tmp_path, monkeypatch):
+    import labfiles
+    from pathlib import Path
+    path = tmp_path/'events.jsonl'
+    path.write_bytes(b'{"old":"'+b'x'*100+b'"}\n')
+    with path.open('ab') as stream:
+        stream.write(b'{"old":true}\n'*100000)
+        stream.write(b'{"recent":true}\n'*20)
+    opened = Path.open
+    read_bytes = []
+    class Counted:
+        def __init__(self, stream): self.stream = stream
+        def __enter__(self): return self
+        def __exit__(self, *args): self.stream.close()
+        def seek(self, *args): return self.stream.seek(*args)
+        def read(self, *args):
+            data = self.stream.read(*args)
+            read_bytes.append(len(data))
+            return data
+    monkeypatch.setattr(Path, 'open', lambda p, *a, **kw: Counted(opened(p, *a, **kw)))
+    assert labfiles.read_jsonl(path, tail=20) == [{'recent': True}]*20
+    assert sum(read_bytes) < path.stat().st_size/10
+
+
+def test_jsonl_tail_keeps_long_unicode_rows_and_missing_file_semantics(tmp_path):
+    import labfiles
+    path = tmp_path/'events.jsonl'
+    text = 'é'*100000
+    path.write_text('{"text":"'+text+'"}\n{"last":true}\n', encoding='utf-8')
+    assert labfiles.read_jsonl(path, tail=2) == [{'text': text}, {'last': True}]
+    assert labfiles.read_jsonl(tmp_path/'missing', tail=20) == []
+
+
+def test_no_directives_does_not_scan_unrelated_history(hub, monkeypatch):
+    monkeypatch.syspath_prepend(str(REPO/'dashboard'))
+    sources = load('dashboard/sources')
+    original = sources.labfiles.read_jsonl
+    def read(path, *args, **kwargs):
+        assert path.name != 'events.jsonl'
+        return original(path, *args, **kwargs)
+    monkeypatch.setattr(sources.labfiles, 'read_jsonl', read)
+    assert sources._directive_threads(hub.lab/'.bus') == []
+
+
+def test_no_workers_does_not_reload_role_files(hub, monkeypatch):
+    monkeypatch.syspath_prepend(str(REPO/'dashboard'))
+    workers = load('dashboard/workers')
+    monkeypatch.setattr(kernel().model, 'roles', lambda *a: pytest.fail('No worker logs to label'))
+    assert workers.scan(hub.lab/'.bus') == []
+
+
 @pytest.mark.parametrize('route,code,fresh', [('/api/starter', 201, True),
                                           ('/api/starter', 400, False),
                                           ('/api/libdoc', 200, False)])

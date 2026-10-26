@@ -257,12 +257,13 @@ def update(body):
                 _save(record)
             if not record.get('automatic'):
                 return {'ok': True, 'automatic': False}, 200
-            facts, revision = summary(sources.snapshot())
             run = _run(record)
             busy = run and (run.get('status') in ('queued', 'starting', 'running', 'resuming') or run.get('pending_question') or run.get('pending_permissions'))
+            if busy or time.time() - record.get('sent_at', 0) < 300:
+                return {'ok': True, 'automatic': True}, 200
+            facts, revision = summary(sources.snapshot())
             meaningful = bool(facts['attention'] or any(r['status'] in ('completed', 'failed', 'timeout') for r in facts['runs']))
-            if (record.get('automatic') and meaningful and not busy and revision != record.get('revision')
-                    and time.time() - record.get('sent_at', 0) >= 300):
+            if meaningful and revision != record.get('revision'):
                 return _deliver(record, 'Briefly explain meaningful changes since your last update. Stay quiet if nothing requires attention. Do not start work.', facts, revision, {}), 200
             return {'ok': True, 'automatic': bool(record.get('automatic'))}, 200
     except (ValueError, OSError) as error:

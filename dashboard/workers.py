@@ -197,10 +197,10 @@ def _fold_worker(lines: list[dict]) -> dict:
 
 
 def scan(bus_dir: Path, project: str | None = None, projects: set | None = None) -> list[dict]:
-    known = {"orchestrator", *ctx.tool("kernel").model.roles(ctx.HUB)}   # the lab's roles (agent-roles/*.yaml)
     wdir = bus_dir / "workers"
     if not wdir.exists():
         return []
+    known = {"orchestrator", *ctx.tool("kernel").model.roles(ctx.HUB)}   # the lab's roles (agent-roles/*.yaml)
     now = time.time()
     out = []
     for f in sorted(wdir.glob("*.jsonl")):

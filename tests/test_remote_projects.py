@@ -53,6 +53,46 @@ def configure(hub):
     (hub.root/'lab/config.yaml').write_text(yaml.safe_dump(cfg),encoding='utf-8')
 
 
+@pytest.mark.parametrize('pending', ['', 'inbox', 'stop', 'disconnected', 'final', 'resume', 'undrained'])
+def test_settled_remote_history_skips_polling_but_pending_work_still_syncs(hub, monkeypatch, pending):
+    from executor import Lab, manifest
+    hub.add_registry_row('s', project=R.uri('box', '/work'))
+    lab = Lab(hub.root)
+    folder = lab.project_workdir('s')
+    path = lab.agents_dir(folder)/'remote-run.json'
+    rd = manifest.run_dir(path.parent, 'remote-run')
+    rd.mkdir(parents=True)
+    source = {'schema': 2, 'run_id': 'remote-run', 'target': 's', 'subject': 's',
+        'status': 'completed', 'post_processed': True, 'stream': 'remote-run.stream.jsonl',
+        'remote': {'machine': 'box', 'path': '/work'}, 'remote_dispatched': True,
+        'remote_status': 'connected', 'remote_settled': True}
+    if pending == 'inbox':
+        (rd/'inbox').mkdir()
+        (rd/'inbox/reply.json').write_text('{"kind":"reply","text":"Follow up"}')
+    if pending == 'stop': (rd/'stop').touch()
+    if pending == 'disconnected': source['remote_status'] = 'disconnected'
+    if pending == 'final': source['post_processed'] = False
+    if pending == 'resume': source['status'] = 'queued'
+    if pending == 'undrained': source['remote_settled'] = False
+    manifest.write_manifest(path, source)
+    monkeypatch.setattr(R, 'rewrite', lambda lab, run, text: text)
+    calls = []
+    def rpc(hub, slug, verb, **params):
+        calls.append(verb)
+        return {'found': True, 'manifest': source, 'stream': '', 'offset': 0, 'requests': [], 'settled': True}
+    monkeypatch.setattr(R, 'call', rpc)
+    R.sync(lab)
+    assert ('poll' in calls) == bool(pending)
+    assert ('command' in calls) == (pending in ('inbox', 'stop'))
+    if pending in ('inbox', 'stop'):
+        assert not manifest.read_manifest(path)['remote_settled']
+        R.sync(lab)  # Delivery needs a subsequent worker poll before it is settled again.
+        assert calls.count('poll') == 2
+    if not pending:
+        R.sync(lab)
+        assert calls == []
+
+
 def test_remote_skill_package_retains_binary_resources_and_project_edits(hub, worker):
     import base64
     import research_start
@@ -287,12 +327,13 @@ def test_message_after_remote_exit_is_admitted_as_a_resume(hub, worker):
     wait(lab, m['run_id'], lambda m: m['status'] == 'completed')
     # The controller's last poll still says running when the PI sends a follow-up.
     hit = find_run(lab, m['run_id'])
-    stale = dict(hit[3], status='running')
+    stale = dict(hit[3], status='running', post_processed=True, remote_settled=True)
     write_manifest(hit[2], stale)
     executor.reply(lab, m['run_id'], 'WRITE_RESULT')
     R.sync(lab)  # Delivers into the already-finished worker's inbox.
     queued = wait(lab, m['run_id'], lambda m: m['status'] == 'queued')
     assert queued['resume']['text'] == 'WRITE_RESULT'
+    assert not queued['post_processed']
     R.sync(lab)
     assert find_run(lab, m['run_id'])[3]['resume']['text'] == 'WRITE_RESULT'
     executor.tick(lab)
@@ -386,6 +427,38 @@ def test_worker_detects_crash_from_its_own_supervisor_lock(tmp_path):
     finally:
         lock.release()
     assert worker.call('poll', data)['manifest']['status'] == 'failed'
+
+
+def test_worker_settles_only_after_final_bytes_and_requests_are_drained(tmp_path):
+    from project_worker import Worker, atomic
+    from executor.procs import RunLock
+    root = tmp_path/'project'
+    root.mkdir()
+    worker = Worker('fixture.pyz')
+    data = {'path': str(root), 'owner': 'lab-a', 'study': 'study', 'run_id': 'run-a'}
+    worker.call('attach', data)
+    agents = root/'.bus/arlotope/lab-a/agents'
+    rd = agents/'run-a.d'
+    atomic(agents/'run-a.json', {'status': 'completed', 'attempt': 1})
+    rd.mkdir(parents=True, exist_ok=True)
+    content = b'{"event":"fixture"}\n'*40000
+    (agents/'run-a.stream.jsonl').write_bytes(content)
+    (rd/'actions.jsonl').write_bytes(content)
+    first = worker.call('poll', data)
+    assert not first['settled'] and first['offset'] < len(content)
+    data.update(offset=first['offset'], actions_offset=first['actions_offset'])
+    second = worker.call('poll', data)
+    assert second['settled'] and second['offset'] == len(content)
+    lock = RunLock(rd/'lock')
+    assert lock.try_acquire()
+    try:
+        assert not worker.call('poll', data)['settled']
+    finally:
+        lock.release()
+    atomic(rd/'controller/request-a.request.json', {'id': 'request-a', 'verb': 'artifact'})
+    assert not worker.call('poll', data)['settled']
+    worker.call('response', {**data, 'id': 'request-a', 'response': {'ok': True}})
+    assert worker.call('poll', data)['settled']
 
 
 def test_remote_task_reports_to_central_graph_and_stops_at_gate(hub,worker):

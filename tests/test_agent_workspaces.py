@@ -250,6 +250,18 @@ def test_disabled_assistant_updates_do_no_snapshot_or_agent_work(hub, monkeypatc
     assert api.update({}) == ({'ok': True, 'automatic': False}, 200)
 
 
+@pytest.mark.parametrize('busy', [False, True])
+def test_automatic_briefing_checks_eligibility_before_reading_the_lab(hub, monkeypatch, busy):
+    import time
+    monkeypatch.syspath_prepend(str(REPO/'dashboard'))
+    api = load('dashboard/assistant')
+    monkeypatch.setattr(api.ctx, 'HUB', hub.root)
+    api._save({'automatic': True, 'sent_at': 0 if busy else time.time()})
+    monkeypatch.setattr(api, '_run', lambda record: {'status': 'running'} if busy else None)
+    monkeypatch.setattr(api.sources, 'snapshot', lambda: pytest.fail('Not yet eligible for a briefing'))
+    assert api.update({}) == ({'ok': True, 'automatic': True}, 200)
+
+
 def test_room_draft_is_private_until_applied(hub,monkeypatch):
     monkeypatch.syspath_prepend(str(REPO/'dashboard'))
     api=load('dashboard/room_design');monkeypatch.setattr(api.ctx,'HUB',hub.root);monkeypatch.setattr(api.ctx,'LAB',hub.lab)

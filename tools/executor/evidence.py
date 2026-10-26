@@ -19,7 +19,7 @@ def describe(lab, run_id, agent=None):
         raise SpecError('No such run.')
     _, workdir, path, manifest = hit
     rd = run_dir(path.parent, run_id)
-    recorded = actions.tree(rd)['agents']
+    recorded = actions.tree(rd, include_actions=False)['agents']
     children = {**recorded}
     children.pop('main', None)
     for key, child in (manifest.get('subagents') or {}).items():
@@ -77,7 +77,7 @@ def describe(lab, run_id, agent=None):
             'worker_discovery': 'Run ownership in the first and last 128 KB of each worker log.',
             'worker_logs_unreadable': unreadable,
             'child_messages': 'Only messages exported by this harness are available; activity and returns may be partial.',
-            'actions': 'Observed activity with shortened descriptions, not a complete transcript.',
+            'actions': 'Read files.actions for observed activity with shortened descriptions; actions are not embedded here or a complete transcript.',
             'remote': 'Locally mirrored records; remote work may be newer.' if manifest.get('remote') else None}}
 
 

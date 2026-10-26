@@ -81,6 +81,24 @@ def test_missing_and_partial_evidence_is_explicit(hub,tmp_path):
     with pytest.raises(ValueError,match='inside'):evidence.project_file(lab,source['run_id'],str(outside))
 
 
+def test_evidence_descriptor_keeps_metadata_without_copying_child_actions(hub):
+    lab = configured(hub)
+    source = enqueue(lab, RunSpec('', prompt='Inspect evidence.'))
+    rd = manifest.run_dir(lab.agents_dir(lab.hub), source['run_id'])
+    actions.record(rd, None, 'spawn', child='review', type='reviewer', summary='Check evidence')
+    for i in range(300):
+        actions.record(rd, 'review', 'action', kind='read', tool='Read', summary=str(i))
+    actions.record(rd, 'review', 'stop', status='done', result='Supported by the supplied evidence')
+    info = evidence.describe(lab, source['run_id'], 'review')
+    assert info['agents']['review']['result'] == 'Supported by the supplied evidence'
+    assert 'actions' not in info['agents']['review']
+    assert len(json.dumps(info)) < 10000
+    assert len(actions.tree(rd)['agents']['review']['actions']) == 300
+    assert len(actions.read(rd)) == 302
+    actions.record(rd, None, 'spawn', child='later', type='analyst')
+    assert 'later' in evidence.describe(lab, source['run_id'])['agents']
+
+
 def test_hook_logs_use_embedded_run_identity(hub):
     lab=configured(hub);source=enqueue(lab,RunSpec('',prompt='Inspect evidence.'))
     rd=manifest.run_dir(lab.agents_dir(lab.hub),source['run_id'])

@@ -63,9 +63,26 @@ def read_text(path) -> str:
 
 
 def read_jsonl(path, tail: int | None = None) -> list[dict]:
-    lines = read_text(path).splitlines()
-    if tail:
-        lines = lines[-tail:]
+    if tail and tail > 0:
+        # Recent activity must not allocate the entire append-only history on every refresh.
+        try:
+            with Path(path).open('rb') as stream:
+                offset = stream.seek(0, 2)
+                blocks, newlines = [], 0
+                while offset and newlines <= tail:
+                    size = min(offset, 64 * 1024)
+                    offset -= size
+                    stream.seek(offset)
+                    block = stream.read(size)
+                    blocks.append(block)
+                    newlines += block.count(b'\n')
+            lines = b''.join(reversed(blocks)).decode('utf-8-sig', errors='replace').splitlines()[-tail:]
+        except OSError:
+            return []
+    else:
+        lines = read_text(path).splitlines()
+        if tail:
+            lines = lines[-tail:]
     out = []
     for ln in lines:
         if not ln.strip():

@@ -36,44 +36,52 @@ def record(rd: Path, agent: str | None, event: str, **fields) -> None:
         pass                                    # a full disk never stops the run
 
 
-def read(rd: Path, *, strict: bool = False) -> list[dict]:
-    out = []
+def _events(rd: Path, strict: bool):
     try:
-        lines = (Path(rd) / FILE).read_text(encoding="utf-8").splitlines()
+        with (Path(rd) / FILE).open(encoding='utf-8') as stream:
+            for line in stream:
+                try:
+                    event = json.loads(line)
+                except ValueError:
+                    continue
+                if isinstance(event, dict):
+                    yield event
     except FileNotFoundError:
-        return out
+        return
     except OSError:
         if strict:
             raise
-        return out
-    for ln in lines:
-        try:
-            out.append(json.loads(ln))
-        except ValueError:
-            continue
-    return out
 
 
-def tree(rd: Path, *, strict: bool = False) -> dict:
+def read(rd: Path, *, strict: bool = False) -> list[dict]:
+    return list(_events(rd, strict))
+
+
+def tree(rd: Path, *, strict: bool = False, include_actions: bool = True) -> dict:
     """{"agents": {id: {id, parent, type, summary, status, result, started, actions: [{ts, kind, tool, summary}]}},
-    "attempts": n} — "main" is the run's own agent."""
+    "attempts": n} — "main" is the run's own agent. Set include_actions=False for metadata only."""
     agents = {"main": {"id": "main", "parent": None, "type": None, "summary": None, "status": None, "actions": []}}
     attempts = 0
-    for e in read(rd, strict=strict):
+    for e in _events(rd, strict):
         who = e.get("agent") or "main"
         a = agents.setdefault(who, {"id": who, "parent": "main", "type": None, "summary": None, "status": None, "actions": []})
         ev = e.get("event")
         if ev == "attempt":
             attempts += 1
         elif ev == "action" and e.get("kind") != "spawn":     # (a spawn's own line stands for its call)
-            a["actions"].append({k: e.get(k) for k in ("ts", "kind", "tool", "summary")})
+            if include_actions:
+                a["actions"].append({k: e.get(k) for k in ("ts", "kind", "tool", "summary")})
         elif ev == "spawn" and e.get("child"):
             c = agents.setdefault(e["child"], {"id": e["child"], "actions": []})
             c.update(parent=who, type=e.get("type"), summary=e.get("summary"), status="working", started=e.get("ts"))
-            a["actions"].append({"ts": e.get("ts"), "kind": "spawn", "tool": e.get("tool"), "summary": e.get("summary"),
-                                 "child": e["child"]})
+            if include_actions:
+                a["actions"].append({"ts": e.get("ts"), "kind": "spawn", "tool": e.get("tool"), "summary": e.get("summary"),
+                                     "child": e["child"]})
         elif ev == "stop":
             a.update(status=e.get("status"), result=e.get("result"))
+    if not include_actions:
+        for agent in agents.values():
+            agent.pop('actions', None)
     return {"agents": agents, "attempts": attempts}
 
 

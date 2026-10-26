@@ -220,6 +220,8 @@ def _synth_id(d: dict) -> str:
 
 def _directive_threads(bus_dir: Path, default_target: str = "hub") -> list[dict]:
     directives = labfiles.read_jsonl(bus_dir / "directives.jsonl")
+    if not directives:
+        return []
     events = labfiles.read_jsonl(bus_dir / "events.jsonl")
     withdrawn = {d.get("ref") for d in directives if d.get("kind") == "withdraw"}
     acks: dict[str, dict] = {}

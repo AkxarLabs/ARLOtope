@@ -344,11 +344,16 @@ class Worker:
             action_offset = max(0, int(data.get('actions_offset', 0)))
             action_content = b''
             if activity.is_file():
-                with activity.open('rb') as stream:
-                    stream.seek(action_offset)
-                    action_content = stream.read(512*1024)
+                with activity.open('rb') as action_stream:
+                    action_stream.seek(action_offset)
+                    action_content = action_stream.read(512*1024)
             result['actions'] = base64.b64encode(action_content).decode()
             result['actions_offset'] = action_offset+len(action_content)
+            from executor.manifest import TERMINAL
+            result['settled'] = (result['manifest'].get('status') in TERMINAL and not is_locked(rd/'lock')
+                and not requests and not any((rd/'inbox').glob('*.json'))
+                and (not stream.is_file() or result['offset'] >= stream.stat().st_size)
+                and (not activity.is_file() or result['actions_offset'] >= activity.stat().st_size))
             if data.get('framework_activity'):
                 from framework_activity import read
                 try:

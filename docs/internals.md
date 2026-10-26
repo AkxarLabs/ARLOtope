@@ -11,6 +11,12 @@ remain uncached. The renderer's sandbox and content policy are unchanged.
 The dashboard and project worker share a local HTTP server that binds without reverse DNS. Its
 server name is the bound address. SSH hints also use the local hostname without resolving it.
 
+Concurrent browser requests share a one-second snapshot cache. The event stream sends a full
+snapshot only when state changes. Recent JSONL views read backward from the end; full-history
+readers remain available. Evidence descriptors contain child metadata and file paths rather than
+copying their action logs into assistant prompts. Automatic briefings check their cooldown and
+current conversation before assembling another Lab snapshot.
+
 ## Records and identity
 
 | Record | Purpose |

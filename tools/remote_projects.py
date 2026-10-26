@@ -332,12 +332,17 @@ def _request(lab, m, request):
 
 def sync(lab):
     """Refresh remote mirrors, deliver queued input and settle task-scoped controller requests."""
-    from executor.manifest import all_runs, read_manifest, run_dir, write_manifest
+    from executor.manifest import TERMINAL, all_runs, read_manifest, run_dir, write_manifest
     for _, _, path, m in all_runs(lab):
         if not m.get('remote'):
             continue
         rd = run_dir(path.parent, m['run_id'])
         try:
+            if (m.get('status') in TERMINAL and m.get('post_processed') and m.get('remote_settled')
+                    and m.get('remote_status') == 'connected'
+                    and not m.get('remote_dispatch_pending') and not (rd/'stop').exists()
+                    and not any((rd/'inbox').glob('*.json'))):
+                continue  # Settled history is local; replies and disconnected/final syncs still poll.
             if m.get('remote_dispatch_pending'):
                 dispatch(lab, path, m)
             if not m.get('remote_dispatched'):
@@ -360,11 +365,14 @@ def sync(lab):
             current = read_manifest(path) or m
             m = current
             remote = poll['manifest']
+            if remote.get('status') == 'queued' and remote.get('resume'):
+                current['post_processed'] = False  # A late message creates another turn to process.
             # A completed old attempt must never overwrite a locally queued resume.
             if current.get('status') != 'queued':
                 preserved = {k: current[k] for k in ('cwd', 'remote', 'remote_dispatched', 'remote_offset', 'remote_actions_offset', 'post_processed') if k in current}
                 m.update(remote, **preserved)
             m['remote_status'], m['remote_error'] = 'connected', None
+            m['remote_settled'] = poll.get('settled') is True
             if 'external_activity' in poll:
                 m['external_activity'] = poll['external_activity']
             blob = base64.b64decode(poll['stream'])
@@ -409,11 +417,13 @@ def sync(lab):
                     message['text'] = rewrite(lab, m, message['text'])
                 call(lab.hub, m['target'], 'command', run_id=m['run_id'], id=item.stem,
                      item=message)
+                m['remote_settled'] = False
                 item.unlink()  # Worker durably accepted it; remote live delivery has its own receipt.
             if (rd / 'stop').exists():
                 attempt = int(m.get('attempt', 0)) + (m.get('status') in ('starting', 'resuming'))
                 call(lab.hub, m['target'], 'command', run_id=m['run_id'], id='stop-' + str(attempt),
                      item={'kind': 'stop', 'attempt': attempt})
+                m['remote_settled'] = False
             write_manifest(path, m)
         except (RemoteError, OSError) as error:
             m['remote_status'], m['remote_error'] = 'disconnected', str(error)
