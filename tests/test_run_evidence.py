@@ -21,6 +21,7 @@ def configured(hub, backend='claude'):
 @pytest.mark.parametrize('backend',['claude','codex','opencode','acp'])
 @pytest.mark.parametrize('status',['queued','running','waiting_input','completed','failed'])
 def test_explainer_is_fresh_and_does_not_touch_source(hub,monkeypatch,backend,status):
+    monkeypatch.setattr(evidence, 'python_exe', lambda: 'C:/durable helper/python.exe')
     lab=configured(hub,backend)
     source=enqueue(lab,RunSpec('',prompt='Inspect evidence.'))
     _,_,path,source=manifest.find_run(lab,source['run_id'])
@@ -47,6 +48,7 @@ def test_explainer_is_fresh_and_does_not_touch_source(hub,monkeypatch,backend,st
     (path.parent/source['stream']).write_text('later changes\n')
     assert json.loads(frozen.read_text())['type']=='turn.completed'
     assert (own/'prompt.md').read_text().find('--about')>=0
+    assert (own/'prompt.md').read_text().count('C:/durable helper/python.exe') == 2
     import gate_reviews
     monkeypatch.setattr(gate_reviews,'start_waiting',lambda *a,**k:pytest.fail('Explanation triggered a gate reviewer'))
     import lab_profile
@@ -108,3 +110,22 @@ def test_remote_file_does_not_follow_a_reattached_study(hub,monkeypatch):
     monkeypatch.setattr(remote_projects,'project',lambda *a:{'machine':'box','path':'/new'})
     monkeypatch.setattr(remote_projects,'call',lambda *a,**k:pytest.fail('Read an unrelated project'))
     with pytest.raises(ValueError,match='moved'):evidence.project_file(lab,source['run_id'],'REPORT.md')
+
+
+def test_remote_evidence_uses_worker_and_discloses_stale_mirror(hub, monkeypatch):
+    import base64
+    import remote_projects
+    lab = configured(hub)
+    source = enqueue(lab, RunSpec('', prompt='Inspect evidence.'))
+    _, _, path, run = manifest.find_run(lab, source['run_id'])
+    remote = {'machine': 'test-machine', 'path': '/project'}
+    manifest.write_manifest(path, {**run, 'subject': 'study', 'remote': remote})
+    monkeypatch.setattr(remote_projects, 'project', lambda *a: remote)
+    calls = []
+    def read(*args, **kwargs):
+        calls.append((args[1:], kwargs))
+        return {'data': base64.b64encode(b'Remote evidence').decode()}
+    monkeypatch.setattr(remote_projects, 'call', read)
+    assert evidence.project_file(lab, source['run_id'], 'REPORT.md')['text'] == 'Remote evidence'
+    assert calls == [(('study', 'read'), {'file': 'REPORT.md'})]
+    assert 'remote work may be newer' in evidence.describe(lab, source['run_id'])['coverage']['remote']

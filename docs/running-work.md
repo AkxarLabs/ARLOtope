@@ -40,6 +40,12 @@ The assistant reads recorded conversations, actions and project files. It does n
 working agent to answer a question. Missing or shortened records limit what it can explain;
 independently started terminal agents may have only activity records.
 
+You can also ask it to compare agents or summarize a study. Each question refreshes its Lab snapshot;
+the assistant can find older sessions, read workflow history and inspect each run's evidence.
+It uses ordinary file and shell tools with supplied command paths. Remote records are local mirrors;
+project-file reads use the connected machine. It can re-read current records while answering, but
+does not continuously receive every working agent's stream.
+
 **Message** sends an instruction to the working agent instead. For a subagent, the message goes
 through its parent. Use this when you want to steer the work, rather than ask the assistant about it.
 

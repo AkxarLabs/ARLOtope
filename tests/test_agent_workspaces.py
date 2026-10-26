@@ -137,6 +137,7 @@ def test_assistant_reads_the_selected_child_without_contacting_its_parent(hub, m
     monkeypatch.syspath_prepend(str(REPO / 'dashboard'))
     api = load('dashboard/assistant')
     monkeypatch.setattr(api.ctx, 'HUB', hub.root)
+    monkeypatch.setattr(api, 'python_exe', lambda: 'C:/durable helper/python.exe')
     hub.add_registry_row('s', title='Study', state='active')
     lab = executor.Lab(hub.root)
     path = lab.agents_dir(hub.root) / 'source.json'
@@ -157,6 +158,7 @@ def test_assistant_reads_the_selected_child_without_contacting_its_parent(hub, m
     assert context['selection']['study'] == 's'
     assert context['selected_run']['agent'] == 'lens-1'
     assert context['selected_run']['coverage']['missing']
+    assert all(command[0] == 'C:/durable helper/python.exe' for command in context['tools'].values())
     import knowledge
     records = knowledge.dispatch(hub.root, 's', 'list')['rows']
     assert records[0]['about'] == {'run': 'source', 'agent': 'lens-1'}
@@ -165,6 +167,77 @@ def test_assistant_reads_the_selected_child_without_contacting_its_parent(hub, m
     assert api.send({'text': 'Wrong child', 'run': 'source', 'agent': 'missing'})[1] == 400
     assert list((hub.lab / '.bus/assistant-context').glob('*.json')) == before
     assert len(knowledge.dispatch(hub.root, 's', 'list')['rows']) == 1
+
+
+@pytest.mark.parametrize('backend', ['claude', 'codex', 'opencode', 'acp'])
+def test_assistant_tools_read_multiple_streams_outside_the_lab(hub, tmp_path, monkeypatch, backend):
+    import os
+    import subprocess
+    import sys
+    import yaml
+    from executor import Lab, actions, manifest
+    monkeypatch.syspath_prepend(str(REPO / 'dashboard'))
+    api = load('dashboard/assistant')
+    monkeypatch.setattr(api.ctx, 'HUB', hub.root)
+    # Context commands must use the executor's interpreter, not the controller's.
+    monkeypatch.setattr(api, 'python_exe', lambda: sys.executable)
+    project = tmp_path / 'Project with spaces'
+    project.mkdir()
+    hub.add_registry_row('s', title='Study', state='active', project=str(project))
+    (project / 'RESULTS.md').write_text('Fixture evidence: alpha and beta.', encoding='utf-8')
+    (hub.lab / 'config.yaml').write_text(yaml.safe_dump({'agents': {'programmatic': {
+        'enabled': True, 'backend': backend, 'backends': {backend: {
+            'command': [sys.executable, str(REPO / 'tests/fake_claude.py')]}}
+    }}}), encoding='utf-8')
+    lab = Lab(hub.root)
+    originals = {}
+    sources = []
+    for name, state in [('older-work', 'completed'), ('current-work', 'running')]:
+        path = lab.agents_dir(project) / (name + '.json')
+        source = {'schema': 2, 'run_id': name, 'target': 's', 'subject': 's',
+                  'level': 'project', 'cwd': str(project), 'backend': backend,
+                  'status': state, 'stream': name + '.stream.jsonl',
+                  'subagents': {'review': {'type': 'reviewer', 'result': name + ' child evidence'}}}
+        manifest.write_manifest(path, source)
+        rd = manifest.run_dir(path.parent, name)
+        rd.mkdir(parents=True, exist_ok=True)
+        for file, content in [(path, None), (path.parent / source['stream'], json.dumps({'text': name}) + '\n'),
+                              (rd / 'prompt.md', name + ' instructions'), (rd / 'preamble.md', 'Standing protocol')]:
+            if content is not None:
+                file.write_text(content, encoding='utf-8')
+            originals[file] = file.read_bytes()
+        actions.record(rd, 'review', 'action', tool='Read', summary='RESULTS.md')
+        sources.append({**source, 'subagents': [{'id': 'review', 'type': 'reviewer'}]})
+    # The older stream is absent from the short context, but must remain discoverable.
+    monkeypatch.setattr(api.sources, 'snapshot', lambda: {
+        'items': [{'id': 's', 'title': 'Study'}], 'runs': sources[1:]})
+    result, code = api.send({'text': 'Compare the earlier and current work.', 'study': 's', 'run': 'current-work'})
+    assert code == 200
+    context = json.loads(next((hub.lab / '.bus/assistant-context').glob('*.json')).read_text(encoding='utf-8'))
+    assert context['as_of'] and context['selected_run']['project'] == str(project)
+    tools = context['tools']
+    assert all(command[0] == sys.executable for command in tools.values())
+    def call(name, **values):
+        command = [values.get(arg, arg) for arg in tools[name]]
+        response = subprocess.run(command, cwd=hub.root, capture_output=True, text=True,
+                                  env={**os.environ, 'ARLOTOPE_HUB': str(hub.root)}, timeout=30)
+        assert response.returncode == 0, (name, response.stdout, response.stderr)
+        return response.stdout
+    assert 'older-work' in call('all_runs') and 'current-work' in call('all_runs')
+    history = json.loads(call('study_history', **{'<study-id>': 's'}))
+    assert {r['run_id'] for r in history['runs']} >= {'older-work', 'current-work'}
+    for source in sources:
+        info = json.loads(call('inspect_evidence', **{'<run-id>': source['run_id']}))
+        assert not info['coverage']['missing']
+        assert source['run_id'] in Path(info['files']['transcript']).read_text()
+        assert source['run_id'] in Path(info['files']['prompt']).read_text()
+    child = json.loads(call('inspect_child', **{'<run-id>': 'older-work', '<child-id>': 'review'}))
+    assert child['agent'] == 'review' and child['agents']['review']['result'] == 'older-work child evidence'
+    content = json.loads(call('read_project_file', **{'<run-id>': 'current-work', '<project-relative-path>': 'RESULTS.md'}))
+    assert content['text'] == 'Fixture evidence: alpha and beta.' and not content['clipped']
+    assert all(file.read_bytes() == original for file, original in originals.items())
+    assert not any((manifest.run_dir(lab.agents_dir(project), s['run_id']) / 'inbox').exists() for s in sources)
+    assert manifest.find_run(lab, result['run_id'])[3]['role'] == 'assistant'
 
 
 def test_disabled_assistant_updates_do_no_snapshot_or_agent_work(hub, monkeypatch):

@@ -3,7 +3,6 @@ from __future__ import annotations
 
 import base64
 import json
-import sys
 import uuid
 from datetime import datetime
 from pathlib import Path
@@ -11,6 +10,7 @@ from pathlib import Path
 from . import actions
 from .manifest import find_run, run_dir
 from .spec import RunSpec, SpecError
+from .procs import python_exe
 
 
 def describe(lab, run_id, agent=None):
@@ -154,9 +154,10 @@ def start(lab, run_id, agent=None, **options):
     index, info = snapshot(lab, run_id, agent)
     about = run_id + (':'+info['agent'] if info['agent'] else '')
     output = index.parent/'explanation.html'
-    command = [sys.executable, str(runtime_file(lab.hub, 'tools/executor_cli.py')), '--hub', str(lab.hub),
+    python = python_exe()
+    command = [python, str(runtime_file(lab.hub, 'tools/executor_cli.py')), '--hub', str(lab.hub),
                'evidence', run_id]
-    publish = [sys.executable, str(runtime_file(lab.hub, 'tools/artifact.py')), 'publish', '--title', 'Work summary',
+    publish = [python, str(runtime_file(lab.hub, 'tools/artifact.py')), 'publish', '--title', 'Work summary',
                '--file', str(output), '--about', about]
     if info['study']:
         publish += ['--study', info['study']]
