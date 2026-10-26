@@ -202,7 +202,8 @@ def test_assistant_tools_read_multiple_streams_outside_the_lab(hub, tmp_path, mo
         rd = manifest.run_dir(path.parent, name)
         rd.mkdir(parents=True, exist_ok=True)
         for file, content in [(path, None), (path.parent / source['stream'], json.dumps({'text': name}) + '\n'),
-                              (rd / 'prompt.md', name + ' instructions'), (rd / 'preamble.md', 'Standing protocol')]:
+                                  (rd / 'prompt.md', name + ' instructions'), (rd / 'preamble.md', 'Standing protocol'),
+                                  (rd / 'conversation.jsonl', json.dumps({'kind':'response','attempt':1,'text':name+' response'})+'\n')]:
             if content is not None:
                 file.write_text(content, encoding='utf-8')
             originals[file] = file.read_bytes()
@@ -231,6 +232,7 @@ def test_assistant_tools_read_multiple_streams_outside_the_lab(hub, tmp_path, mo
         assert not info['coverage']['missing']
         assert source['run_id'] in Path(info['files']['transcript']).read_text()
         assert source['run_id'] in Path(info['files']['prompt']).read_text()
+        assert source['run_id'] in Path(info['files']['conversation']).read_text()
     child = json.loads(call('inspect_child', **{'<run-id>': 'older-work', '<child-id>': 'review'}))
     assert child['agent'] == 'review' and child['agents']['review']['result'] == 'older-work child evidence'
     content = json.loads(call('read_project_file', **{'<run-id>': 'current-work', '<project-relative-path>': 'RESULTS.md'}))
