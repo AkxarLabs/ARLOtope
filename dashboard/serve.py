@@ -513,6 +513,7 @@ GET_ROUTES = {
     "/api/run/log": lambda q: runops.run_log(q.get("run_id", "")),
     "/api/run/files": runops.run_files,
     "/api/run/actions": runops.run_actions,
+    "/api/run/records": runops.run_records,
     "/api/run/file": runops.run_file,
     "/api/executor/health": lambda q: runops.executor_health(fresh=bool(q.get("fresh"))),
     "/api/library": lambda q: (library.lib_tree(), 200),

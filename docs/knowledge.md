@@ -108,3 +108,17 @@ uv run --with pyyaml python tools/knowledge.py --study my-study add --kind sourc
 ```
 
 Omit `--study` for Lab records. From another directory, pass `--hub /path/to/lab`; on the project machine use `--project /path/to/project`. Source capture also accepts `--doi`, `--version` and `--attachment` for a local original up to 50 MB. Remote attachments must be added on their machine; a controller path is not a remote file.
+
+
+## Workflow logs
+
+Use a log for a decision, finding, failure or handoff worth retaining. The fields are the same for any custom workflow:
+
+```bash
+arlo log "The baseline failed its smoke check; see the error trace." --study my-study \
+  --tag finding --ref runs/smoke/stderr.log
+```
+
+In a managed run, omit `--study`: the run supplies its study, run ID and attempt. Add `--agent CHILD_ID` only when the exported child ID is known. Tags and evidence references are optional and repeatable. Logs are ordinary knowledge records, shown beside their run in **Study → History** and searchable in **Library**. Human notes and saved workspace answers appear there too. Open the linked record to read its full text.
+
+The shared run instructions describe this command once; imported skills need no Lab-specific logging format. A log records context. Complete tasks through the workflow's outcome command; approvals still use their checkpoint controls.

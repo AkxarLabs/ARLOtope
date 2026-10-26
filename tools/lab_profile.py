@@ -295,6 +295,9 @@ def preamble(lab, run_id: str, v: dict, ask_tool: str | None) -> str:
                   'this records only that you read it. Do not start extra work just to acknowledge it. '
                   'Save useful sources with `add --kind source --title "..." --url "..." --coverage "abstract|full-text|metadata" --text "..."`. '
                   'Record only what you actually read; include version/DOI when known. Ordinary Markdown files and subfolders also work.']
+        lines.append(f'- Save a useful decision or finding: python "{runtime_file(lab.hub, "arlo.py").as_posix()}" '
+                     'log "<note>" --tag <label> --ref <evidence-path>. The managed run supplies study and attempt; '
+                     'add --agent <child-id> only when known. A log does not complete a task or grant approval.')
     if subject and v.get('skill') != 'gate-judge' and studies.study(lab.hub, subject):
         records = (lab.hub / 'studies' / subject).as_posix()
         publisher = runtime_file(lab.hub, 'tools/artifact.py').as_posix()

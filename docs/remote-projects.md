@@ -59,7 +59,7 @@ you can also stop that waiting task. An unexpectedly lost active supervisor is s
 
 ## Files and decisions
 
-Finished runs stop background polling once the worker is idle, all transcript/action chunks have
+Finished runs stop background polling once the worker is idle, all transcript, action and conversation chunks have
 arrived and pending requests are settled. A reply or resume starts synchronization again. Incomplete
 or disconnected runs continue to retry; opening a project file still reads from the connected worker.
 

@@ -9,6 +9,13 @@ from pathlib import Path
 
 
 def control(argv):
+    if argv and argv[0] == 'log':
+        import knowledge
+        parser = argparse.ArgumentParser(description='Save a project log')
+        knowledge.log_arguments(parser)
+        result = knowledge.log_note(None, parser.parse_args(argv[1:]), project=Path.cwd())
+        print(json.dumps(result, ensure_ascii=False))
+        return 0
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('verb', choices=('status', 'next', 'approved', 'move', 'emit'))
     parser.add_argument('values', nargs='*')

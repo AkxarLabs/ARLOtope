@@ -423,6 +423,17 @@ def run_actions(q: dict) -> tuple[dict, int]:
     return {"ok": True, **executor.actions.tree(got[0], strict=True)}, 200
 
 
+def run_records(q: dict) -> tuple[dict, int]:
+    got = _run_dir(q.get('run_id', ''))
+    if not got:
+        return {'error': 'no such run'}, 404
+    from executor import records
+    try:
+        return {'ok': True, **records.page(got[0], q.get('offset', 0))}, 200
+    except (ValueError, OSError) as error:
+        return {'error': str(error)}, 400
+
+
 def explain_run(body: dict) -> tuple[dict, int]:
     """Queue a separate explainer; never steer or answer the source conversation."""
     rid = _run_ref(body)

@@ -291,6 +291,33 @@ def sync_answer(lab, run=None):
         dispatch(lab.hub,question.get('study'),'update',id=question['id'],status='unanswered' if run['status']=='completed' else 'interrupted')
 
 
+def log_arguments(parser):
+    parser.add_argument('text')
+    parser.add_argument('--study', default=os.environ.get('ARLOTOPE_RUN_SUBJECT'))
+    parser.add_argument('--title', default='')
+    parser.add_argument('--tag', action='append', default=[])
+    parser.add_argument('--ref', action='append', default=[])
+    parser.add_argument('--agent', help='Exported child agent ID, when known')
+
+
+def log_note(hub, args, project=None):
+    """A contextual knowledge record; never an outcome, directive or approval."""
+    study = args.study if args.study != 'hub' else None
+    context = {}
+    rid = os.environ.get('ARLOTOPE_RUN_ID')
+    if rid and study == (os.environ.get('ARLOTOPE_RUN_SUBJECT') or None):
+        context.update(run=rid, attempt=int(os.environ.get('ARLOTOPE_ATTEMPT') or 0))
+        context['about'] = {'run': rid}
+        if args.agent:context['about']['agent'] = args.agent
+    elif args.agent:
+        raise ValueError('A child agent reference needs its managed parent run.')
+    data = dict(kind='log', text=args.text, title=args.title, tags=args.tag, refs=args.ref,
+                author='agent' if rid else 'human', **context)
+    if project:
+        return create(project_folder(project), studies=[study] if study else [], **data)
+    return dispatch(hub, study, 'add', **data)
+
+
 def main(argv=None):
     parser=argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--hub',type=Path,default=Path(__file__).resolve().parents[1])

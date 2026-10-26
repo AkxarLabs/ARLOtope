@@ -25,7 +25,8 @@ def describe(lab, run_id, agent=None):
     for key, child in (manifest.get('subagents') or {}).items():
         children[key] = {**children.get(key, {}), **child}
     files = {'record': path, 'prompt': rd/'prompt.md', 'instructions': rd/'preamble.md',
-             'transcript': path.parent/manifest['stream'], 'actions': rd/actions.FILE}
+             'transcript': path.parent/manifest['stream'], 'actions': rd/actions.FILE,
+             'conversation': rd/'conversation.jsonl'}
     workers = path.parent.parent/'workers'
     logs = []
     unreadable = []
@@ -110,7 +111,7 @@ def snapshot(lab, run_id, agent=None):
         if not path.is_file():
             continue
         try:
-            if key in ('transcript', 'actions') or key.startswith('worker-'):
+            if key in ('transcript', 'actions', 'conversation') or key.startswith('worker-'):
                 content, bounds = _excerpt(path, 128*1024 if key.startswith('worker-') else 2*1024*1024)
             else:
                 content = path.read_bytes()

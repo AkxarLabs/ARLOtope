@@ -163,22 +163,26 @@ The plan is stored in the study's `new` journal event as `entry: {revision, task
 
 ### Study history
 
-**Study → History** groups the recorded workflow tasks by pass and owning agent sessions. It links
-conversations and published outputs, and keeps repeated passes separate. A timed-out or stopped
-agent remains distinct from a completed workflow task. **Decisions & changes** contains the original
-workflow events, including reuse, omissions and checkpoint decisions; older changes can be expanded.
+**Study → History** groups tasks by pass and owning agent sessions. Ordered and graph workflows
+both keep repeated passes separate. Expand a task for responses, notes, outputs, attempts and
+recorded subagents. **Recorded instructions** opens its saved prompt and skills when available.
+A stopped agent remains distinct from a completed task. **Decisions & changes** contains the
+workflow events, including reuse, omissions and checkpoint decisions.
 
-The underlying records are already durable: `lab/journal.jsonl` for workflow events,
-`lab/.bus/runs.jsonl` for agent state transitions, and the run manifests/transcripts under the
-owning bus's `agents/` directory. Local mirrors retain connected-machine run records. Transcript
-coverage depends on the harness and retained data; an offline mirror may be stale.
+The original records are `lab/journal.jsonl` for workflow events, `lab/.bus/runs.jsonl` for run
+transitions, and manifests/transcripts in the owning bus's `agents/` directory. New managed runs
+also save attempt inputs, exported responses and human questions, answers, permission decisions
+and delivered messages in `<run>.d/conversation.jsonl`. This archive retains attempt IDs and survives transcript
+caps and the recent-answer window. It excludes private reasoning and messages the harness never
+exported. Older runs may have only their transcript. Responses are limited to 450,000 characters;
+clipped records are marked. Offline remote mirrors may be stale.
 
-**Save history to study** refreshes `studies/<id>/history/workflow.md` and `workflow.json`. These
-generated snapshots appear in Library → Documents → Workflow history. They are not another
-editable ledger; the live History view reads original records. JSON includes full workflow events,
-task passes, available agent attempt records, state transitions, output references and source paths.
-Its workflow definition is the current definition at export time, not a reconstruction of past code.
-Refresh the snapshot after more work when you want an updated file.
+**Save history to study** refreshes `studies/<id>/history/workflow.md` and `workflow.json`, visible
+in **Library → Documents → Workflow history**. The JSON contains workflow events, task passes,
+attempts, transitions, log previews, output references and source paths. Full conversations stay
+in the run files and load when opened. These generated snapshots can be refreshed after more
+work; the live History view reads original records. The exported workflow definition is current,
+while saved task labels come from individual runs or their snapshots where available.
 
 Agents can inspect or save the same projection:
 
@@ -189,7 +193,7 @@ uv run --with pyyaml python tools/study_history.py <study> --save
 
 ![Recorded workflow tasks and their agent sessions](assets/current/study-workflow-history.png)
 
-*Completed Sakana test records, grouped without launching another campaign.*
+*Offline test fixture: a stopped task, its retained responses and a linked finding. No research agent was launched.*
 
 ## Questions, checkpoints and permissions
 

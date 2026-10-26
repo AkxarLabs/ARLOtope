@@ -444,9 +444,10 @@ def test_worker_settles_only_after_final_bytes_and_requests_are_drained(tmp_path
     content = b'{"event":"fixture"}\n'*40000
     (agents/'run-a.stream.jsonl').write_bytes(content)
     (rd/'actions.jsonl').write_bytes(content)
+    (rd/'conversation.jsonl').write_bytes(content)
     first = worker.call('poll', data)
     assert not first['settled'] and first['offset'] < len(content)
-    data.update(offset=first['offset'], actions_offset=first['actions_offset'])
+    data.update(offset=first['offset'], actions_offset=first['actions_offset'], records_offset=first['records_offset'])
     second = worker.call('poll', data)
     assert second['settled'] and second['offset'] == len(content)
     lock = RunLock(rd/'lock')
@@ -520,3 +521,26 @@ def test_remote_worker_keeps_native_adapters(hub, worker, backend):
     done = wait(lab, m['run_id'], lambda m: m['status'] in ('completed', 'failed'), seconds=35)
     assert done['status'] == 'completed', done
     assert done['backend'] == backend and done['session_id']
+
+def test_controller_mirrors_conversation_bytes_without_duplicate_replays(hub,monkeypatch):
+    import base64
+    from executor import Lab,manifest,records
+    hub.add_registry_row('s',project=R.uri('box','/work'))
+    lab=Lab(hub.root);folder=lab.project_workdir('s')
+    path=lab.agents_dir(folder)/'mirror-run.json';rd=manifest.run_dir(path.parent,'mirror-run');rd.mkdir(parents=True)
+    source={'schema':2,'run_id':'mirror-run','target':'s','subject':'s','status':'completed',
+            'stream':'mirror-run.stream.jsonl','remote':{'machine':'box','path':'/work'},
+            'remote_dispatched':True,'remote_status':'connected','post_processed':False}
+    manifest.write_manifest(path,source)
+    content=b'{"id":"reply","kind":"response","text":"A durable answer","attempt":1}\n'
+    offsets=[]
+    def rpc(hub,slug,verb,**params):
+        offsets.append(params['records_offset'])
+        chunk=content[params['records_offset']:]
+        return {'found':True,'manifest':source,'stream':'','offset':0,'requests':[],
+                'records':base64.b64encode(chunk).decode(),'records_offset':len(content),'settled':True}
+    monkeypatch.setattr(R,'call',rpc)
+    R.sync(lab);R.sync(lab)
+    assert offsets==[0,len(content)]
+    assert (rd/records.FILE).read_bytes()==content
+    assert records.page(rd)['rows'][0]['text']=='A durable answer'

@@ -153,6 +153,7 @@ def _enqueue(lab: Lab, spec: RunSpec) -> dict:
         study = studies.study(lab.hub, v['subject'])
         if study and workflow_model.does(study['step'], study['workflow'], study['use'], lab.hub) == v['skill']:
             m['assigned_step'] = study['step']
+            m['task_label'] = (workflow_model.step(study['step'], lab.hub) or {}).get('label') or study['step']
             from kernel import journal
             m['assigned_journal_index'] = len(journal.events(lab.hub, v['subject']))
     if remote:
@@ -161,6 +162,10 @@ def _enqueue(lab: Lab, spec: RunSpec) -> dict:
         if spec.extra.get(key) is not None:
             m[key] = spec.extra[key]
     if spec.extra.get('workflow_node'):
+        from kernel import model as workflow_model, studies
+        state = studies.study(lab.hub, v['subject'])
+        node = (workflow_model.workflow(state['workflow'], lab.hub).get('nodes') or {}).get(spec.extra['workflow_node'],{}) if state else {}
+        m['task_label'] = node.get('label') or (workflow_model.step(spec.extra['workflow_node'],lab.hub) or {}).get('label') or spec.extra['workflow_node']
         from kernel.branches import bind
         try:
             binding = bind(lab.hub, v['subject'], spec.extra['workflow_node'], run_id)
@@ -277,6 +282,9 @@ def answer(lab: Lab, run_id: str, answers: dict | None = None, response: str | N
         history.append({"asked_at": pq.get("asked_at"), "question": pq.get("input"), "answers": clean,
                         "response": response or None, "answered_at": now(), "by": "PI", **packet})
         m["qa"] = history[-20:]
+        from . import records
+        records.record(run_dir(path.parent, run_id), m, "answer", request_id=pq.get("tool_use_id"),
+                       by="PI", answers=clean, response=response or None, delivery="queued-for-resume", **packet)
         _clear_stop(path, run_id)
         remaining = [q for q in questions if q['tool_use_id'] != pq['tool_use_id']]
         if form:

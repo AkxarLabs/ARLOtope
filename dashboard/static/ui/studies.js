@@ -215,24 +215,44 @@
   };
 
   const WorkflowHistory=({it})=>{
-    const s=NL.useLab(),read=NL.useGet('/api/study/history?study='+encodeURIComponent(it.id),JSON.stringify([it.state,it.updated,it.active_steps,it.waiting,NL.runsOf(s,it.id).map(r=>[r.run_id,r.status,r.attempt]),NL.artifactsOf(s).filter(a=>a.study===it.id).map(a=>a.id)])),data=read.data;
+    const s=NL.useLab(),[revision,setRevision]=useState(0),read=NL.useGet('/api/study/history?study='+encodeURIComponent(it.id),JSON.stringify([revision,it.state,it.updated,it.active_steps,it.waiting,NL.runsOf(s,it.id).map(r=>[r.run_id,r.status,r.attempt,r.record_count,r.remote_records_offset]),NL.artifactsOf(s).filter(a=>a.study===it.id).map(a=>a.id)])),data=read.data||read.previous;
+    useEffect(()=>{const changed=()=>setRevision(n=>n+1);window.addEventListener('nl-knowledge',changed);return()=>window.removeEventListener('nl-knowledge',changed)},[]);
     const [limit,setLimit]=useState(30),[saving,setSaving]=useState(false),[saved,setSaved]=useState(''),[error,setError]=useState('');
     const save=async()=>{setSaving(true);setError('');try{const result=await NL.api('/api/study/history/save',{study:it.id});if(result.ok){NL.invalidateLibrary();setSaved(result.rel)}else setError(result.error)}finally{setSaving(false)}};
     if(!data)return html`<${NL.LoadState} ...${read}/>`;
     const groups=data.visits.slice().reverse(),run=id=>data.runs.find(r=>r.run_id===id);
-    const session=r=>html`<div class="workflow-session"><button class="link" type="button" onClick=${()=>NL.openRun(r.run_id)}>${r.label||r.run_id}</button><small>${r.backend} · ${NL.runStateLabel(r)}${r.attempt>1?' · '+r.attempt+' attempts':''}</small>
+    const note=n=>html`<a class="history-note" href=${'#/library?'+NL.qs({view:'records',study:it.id,record:n.id})}><b>${n.title}</b><span class="muted small">${NL.clip(n.text||'',180)}</span></a>`;
+    const session=r=>html`<div class="workflow-session" key=${r.run_id}><div class="row wrap"><${NL.AgentAvatar} backend=${r.backend} size=${20}/><button class="link" type="button" onClick=${()=>NL.openRun(r.run_id)}>${r.label||r.run_id} ↗</button><small>${r.backend} · ${NL.runStateLabel(r)}${r.attempt>1?' · '+r.attempt+' attempts':''}</small></div>
+      ${r.last_message?html`<p class="history-response">${NL.clip(r.last_message,350)}</p>`:html`<p class="muted small">No response recorded.</p>`}
       ${['running','starting','resuming','waiting_input'].includes(r.status)?html`<button class="link small" type="button" onClick=${()=>NL.followAgent(r.run_id)}>Show in lab</button>`:null}
-      ${(data.outputs||[]).filter(a=>a.run_id===r.run_id||a.about?.run===r.run_id).map(a=>html`<a class="link small" href=${'#/artifacts/'+a.id}>${a.title} ↗</a>`)}</div>`;
-    return html`<section class="workflow-history"><header class="row between"><h2>Workflow history</h2><${NL.Btn} small busy=${saving} onClick=${save}>Save history to study</${NL.Btn}></header>
+      ${(data.outputs||[]).filter(a=>a.run_id===r.run_id||a.about?.run===r.run_id).map(a=>html`<a class="link small" href=${'#/artifacts/'+a.id}>${a.title} ↗</a>`)}
+      ${(data.notes||[]).filter(n=>(n.run||n.about?.run)===r.run_id).map(note)}
+      <${NL.RecordedTurns} key=${r.run_id} r=${r}/>
+      <button class="link small" onClick=${()=>NL.openInstructions({run_id:r.run_id,title:'Recorded instructions'})}>Recorded instructions</button>
+      <${NL.RecordActions} study=${it.id} about=${{run:r.run_id}}/>
+      ${r.attempts?.length?html`<details><summary>Attempts</summary>${r.attempts.map(a=>html`<p class="small">${a.n||a.attempt} · ${NL.when(a.started)} · ${a.finished?NL.when(a.finished):'No end recorded'}${a.exit_code!=null?' · exit '+a.exit_code:''}${a.stop_reason?' · '+a.stop_reason:''}</p>`)}</details>`:null}
+      ${Object.keys(r.subagents||{}).length?html`<details><summary>Subagents</summary>${Object.entries(r.subagents).map(([id,a])=>html`<p class="small"><button class="link" onClick=${()=>NL.openRun(r.run_id,id)}>${a.type||id} ↗</button> · ${a.status||'Unknown'}${a.result?' · '+NL.clip(a.result,180):''}</p>`)}</details>`:null}
+      </div>`;
+    const outcome=v=>{
+      if(v.outcome)return ({'task-completed':'Done','task-reused':'Existing work','task-omitted':'Skipped at start',
+        'task-routed':v.outcome.outcome,move:v.outcome.outcome==='done'?'Done':v.outcome.outcome||'Moved on',
+        wait:'Waiting for a decision',finish:'Done'})[v.outcome.kind]||v.outcome.kind;
+      if(!v.active)return 'No outcome recorded';
+      const sessions=v.runs.map(run).filter(Boolean);
+      return sessions.some(r=>['queued','running','starting','resuming','waiting_input'].includes(r.status))?'In progress':sessions.length?'Task unfinished':'Ready';
+    };
+    return html`<section class="workflow-history"><header class="row between"><h2>Workflow history</h2><button class="link small" onClick=${read.reload}>Refresh</button><${NL.Btn} small busy=${saving} onClick=${save}>Save history to study</${NL.Btn}></header>
       <p class="muted small">Tasks, repeated passes and agent attempts. A finished agent turn does not by itself complete a task.</p>
       ${read.error?html`<${NL.LoadState} error=${read.error} reload=${read.reload} stale/>`:null}${error?html`<p role="alert">${error}</p>`:null}
       ${saved?html`<p role="status"><a class="link" href=${'#/library/study/'+it.id+'/'+saved+'?view=documents&study='+it.id}>Saved snapshot ↗</a> <span class="muted small">Refresh it here after more work.</span></p>`:null}
       ${!groups.length?html`<p class="muted small">No task sessions recorded yet. Earlier workflow changes are below.</p>`:null}
-      ${groups.slice(0,limit).map(v=>html`<details class="workflow-visit"><summary><b>${NL.taskLabel(it,v.node)}</b> <span class="muted small">${v.workflow!==data.workflow?v.workflow+' · ':''}pass ${v.visit} · ${v.outcome?({ 'task-completed':'Done','task-reused':'Existing work','task-omitted':'Skipped at start','task-routed':v.outcome.outcome})[v.outcome.kind]:v.active?'In progress':'No outcome recorded'}</span></summary>
+      ${groups.slice(0,limit).map(v=>html`<details class="workflow-visit" key=${[v.execution,v.node,v.visit].join(':')}><summary><b>${v.label||v.node}</b> <span class="muted small">${v.workflow!==data.workflow?v.workflow+' · ':''}${v.execution>1?'workflow '+v.execution+' · ':''}pass ${v.visit} · ${outcome(v)} · ${NL.plural(v.runs.length,'session')}</span></summary>
         ${v.outcome?.note?html`<p>${v.outcome.note}</p>`:null}${v.outcome?.refs?.length?html`<p class="mono small path-wrap">${v.outcome.refs.join(' · ')}</p>`:null}
         ${v.runs.map(run).filter(Boolean).map(session)}${!v.runs.length?html`<p class="muted small">No agent session recorded for this pass.</p>`:null}</details>`)}
       ${groups.length>limit?html`<${NL.Btn} small onClick=${()=>setLimit(n=>n+30)}>Show earlier tasks</${NL.Btn}>`:null}
-      ${data.runs.some(r=>!r.workflow_node)?html`<details class="workflow-visit"><summary>Other study sessions</summary>${data.runs.filter(r=>!r.workflow_node).map(session)}</details>`:null}
+      ${data.runs.some(r=>!r.pass)?html`<details class="workflow-visit"><summary>Other study sessions</summary>${data.runs.filter(r=>!r.pass).map(session)}</details>`:null}
+      ${(data.notes||[]).some(n=>!data.runs.some(r=>r.run_id===(n.run||n.about?.run)))?html`<details class="workflow-visit"><summary>Study logs</summary>${data.notes.filter(n=>!data.runs.some(r=>r.run_id===(n.run||n.about?.run))).map(note)}</details>`:null}
+      ${data.notes_error?html`<p class="muted small" role="status">Study logs unavailable: ${data.notes_error}</p>`:null}
       <details class="workflow-visit"><summary>Decisions & changes</summary><${Timeline} it=${it} events=${data.events}/></details>
       <details class="workflow-visit"><summary>Where records live</summary><p class="mono small path-wrap">${data.sources.journal}<br/>${data.sources.runs}</p><p class="muted small">${data.coverage}</p></details>
     </section>`;

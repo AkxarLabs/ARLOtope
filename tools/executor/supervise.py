@@ -22,7 +22,7 @@ import uuid
 from dataclasses import dataclass, field
 from pathlib import Path
 
-from . import actions, backends, live
+from . import actions, backends, live, records
 from .lab import Lab, labfiles, pos_float, pos_int, profile
 from .manifest import (append_jsonl, emit, now, read_manifest, run_dir, transition, worker_line,
                        write_manifest)
@@ -405,6 +405,8 @@ def _run_attempt(lab: Lab, b, st: _State, workdir: Path, adir: Path, rd: Path, i
                                          "exit_code": None, "stop_reason": None, "wall_seconds": None,
                                          "resume": (m.get("resume") or {}).get("mode")})
     m.update(attempt=attempt, pending_question=None, transport="live" if is_live else "oneshot")
+    records.record(rd, m, "input", text=a.prompt, delivery="attempt-start",
+                   source=(m.get("resume") or {}).get("mode") or "initial")
     m.pop("pending_permissions", None)
     sess = conv = None
     if is_live:
@@ -546,6 +548,8 @@ class _Recorder:
         sa = self.subagents[key]
         if sa.get("status") in ("done", "failed", "stopped"):
             return
+        if self.rd and result:
+            records.record(self.rd, self.m, 'response', agent=key, text=str(result), error=status=='failed')
         sa.update(status=status, finished=now(), **({"result": str(result)[:1200]} if result else {}))
         sa.pop("in_tool", None)
         for cid in [c for c, (k, _) in self.calls.items() if k == key]:
@@ -567,6 +571,10 @@ class _Recorder:
         if e in ("request", "cancelled", "turn_end", "limits"):
             if self.conv:
                 self.conv.on_event(ev)
+            elif self.rd and e == "request":
+                records.record(self.rd, m, "request", request_id=ev.get("id"), request_kind=ev.get("kind"),
+                               tool=ev.get("tool"), input=ev.get("input"), why=ev.get("why"))
+                self.st.write()
             return
         if e == "start":
             m['conversation_started'] = True
@@ -649,6 +657,8 @@ class _Recorder:
         elif e == "denied":
             m["denials"] = int(m.get("denials") or 0) + 1
         elif e == "result":
+            if self.rd and ev.get('last_message') and not ev.get('parent'):
+                records.record(self.rd, m, 'response', text=str(ev['last_message']), error=bool(ev.get('is_error')))
             if m.get('assistant') and self.rd and ev.get('last_message') and not ev.get('parent'):
                 import knowledge
                 result={'id':uuid.uuid4().hex,'at':knowledge.now(),'text':str(ev['last_message'])[:450000],

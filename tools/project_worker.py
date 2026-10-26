@@ -340,20 +340,23 @@ class Worker:
                 if path.is_relative_to(allowed) and path.is_file() and path.stat().st_size <= MAX_BODY // 8:
                     artifacts[rel] = base64.b64encode(path.read_bytes()).decode()
             result['study_files'] = artifacts
-            activity = rd/'actions.jsonl'
-            action_offset = max(0, int(data.get('actions_offset', 0)))
-            action_content = b''
-            if activity.is_file():
-                with activity.open('rb') as action_stream:
-                    action_stream.seek(action_offset)
-                    action_content = action_stream.read(512*1024)
-            result['actions'] = base64.b64encode(action_content).decode()
-            result['actions_offset'] = action_offset+len(action_content)
+            caught_up = True
+            for name, filename in (('actions','actions.jsonl'), ('records','conversation.jsonl')):
+                activity = rd/filename
+                position = max(0, int(data.get(name+'_offset', 0)))
+                chunk = b''
+                if activity.is_file():
+                    with activity.open('rb') as source:
+                        source.seek(position)
+                        chunk = source.read(512*1024)
+                result[name] = base64.b64encode(chunk).decode()
+                result[name+'_offset'] = position+len(chunk)
+                caught_up &= not activity.is_file() or result[name+'_offset'] >= activity.stat().st_size
             from executor.manifest import TERMINAL
             result['settled'] = (result['manifest'].get('status') in TERMINAL and not is_locked(rd/'lock')
                 and not requests and not any((rd/'inbox').glob('*.json'))
                 and (not stream.is_file() or result['offset'] >= stream.stat().st_size)
-                and (not activity.is_file() or result['actions_offset'] >= activity.stat().st_size))
+                and caught_up)
             if data.get('framework_activity'):
                 from framework_activity import read
                 try:

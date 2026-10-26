@@ -359,7 +359,8 @@ def sync(lab):
             if activity:
                 activity.pop('machine')
             poll = call(lab.hub, m['target'], 'poll', run_id=m['run_id'], offset=m.get('remote_offset', 0),
-                        actions_offset=m.get('remote_actions_offset', 0), study_files=outputs, framework_activity=activity)
+                        actions_offset=m.get('remote_actions_offset', 0), records_offset=m.get('remote_records_offset',0),
+                        study_files=outputs, framework_activity=activity)
             if not poll.get('found'):
                 raise RemoteError('The remote run is unavailable; no replacement was started.')
             current = read_manifest(path) or m
@@ -369,7 +370,7 @@ def sync(lab):
                 current['post_processed'] = False  # A late message creates another turn to process.
             # A completed old attempt must never overwrite a locally queued resume.
             if current.get('status') != 'queued':
-                preserved = {k: current[k] for k in ('cwd', 'remote', 'remote_dispatched', 'remote_offset', 'remote_actions_offset', 'post_processed') if k in current}
+                preserved = {k: current[k] for k in ('cwd', 'remote', 'remote_dispatched', 'remote_offset', 'remote_actions_offset', 'remote_records_offset', 'post_processed') if k in current}
                 m.update(remote, **preserved)
             m['remote_status'], m['remote_error'] = 'connected', None
             m['remote_settled'] = poll.get('settled') is True
@@ -383,14 +384,15 @@ def sync(lab):
                 f.write(blob)
                 f.truncate()
             m['remote_offset'] = poll['offset']
-            if 'actions' in poll:  # Older workers can still provide their transcript without this field.
-                activity = rd/'actions.jsonl'
-                content = base64.b64decode(poll['actions'])
-                with activity.open('r+b' if activity.exists() else 'w+b') as stream:
-                    stream.seek(int(m.get('remote_actions_offset', 0)))
-                    stream.write(content)
-                    stream.truncate()
-                m['remote_actions_offset'] = poll['actions_offset']
+            for name, filename in (('actions','actions.jsonl'), ('records','conversation.jsonl')):
+                if name not in poll:continue
+                activity = rd/filename
+                content = base64.b64decode(poll[name])
+                with activity.open('r+b' if activity.exists() else 'w+b') as mirror:
+                    mirror.seek(int(m.get('remote_'+name+'_offset', 0)))
+                    mirror.write(content)
+                    mirror.truncate()
+                m['remote_'+name+'_offset'] = poll[name+'_offset']
             for rel, content in poll.get('study_files', {}).items():
                 if rel not in outputs:
                     continue

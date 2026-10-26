@@ -72,6 +72,10 @@ retain the transcript and append a durable action history to `<run>.d/actions.js
 nested when their parent and identity are available. Outside terminal/editor sessions can appear
 through repository hooks; they are traced sessions, not automatically supervised executor runs.
 
+`<run>.d/conversation.jsonl` stores exported responses and human exchanges separately from capped transcripts. Each record has an ID, attempt and timestamp; questions and answers share a request ID. The History view reads a bounded page on demand through `/api/run/records`. Remote workers mirror this file incrementally and settle only after its final bytes are drained. Write failures and clipped payloads remain visible.
+
+`tools/study_history.py` projects both ordered assignment cursors and graph task bindings onto step passes, separating workflow changes and loop visits. It reads existing journals and knowledge records; it does not drive execution. Saved task labels come from the run or its workflow snapshot, with stable task IDs as fallback. `arlo log` writes the existing knowledge format with managed run context.
+
 `dashboard/sources.py` joins these records into the snapshot used by the Lab world, **Agents**, the
 Inbox and run sheets. A quiet tool call does not imply that the agent has disappeared.
 

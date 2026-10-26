@@ -128,3 +128,84 @@ def test_history_keeps_distinct_workflow_epochs(hub):
     k.journal.append(hub.root,'sample','task-bind','kernel',node='collect',visit=1,run_id='new')
     groups=[v for v in H.read(hub.root,'sample')['visits'] if v['node']=='collect']
     assert len(groups)==2 and groups[0]['execution']!=groups[1]['execution']
+
+
+def test_ordered_cursor_keeps_loops_retries_and_workflow_changes_separate(hub):
+    k=kernel();k.studies.new(hub.root,'ordered',at='proposal',by='pi')
+    folder=hub.lab/'.bus/agents';folder.mkdir(parents=True)
+    def run(rid, step, cursor):
+        (folder/(rid+'.json')).write_text(json.dumps({'schema':2,'run_id':rid,'subject':'ordered',
+            'assigned_step':step,'assigned_journal_index':cursor,'status':'completed','backend':'codex',
+            'attempt':2,'attempts':[{'n':1,'stop_reason':'usage_limit'},{'n':2}],
+            'task_label':'Saved task title'}))
+    run('first','proposal',1);run('retry','proposal',1)
+    k.journal.append(hub.root,'ordered','move','cli',**{'from':'proposal','to':'active','outcome':'done'})
+    run('second','active',2)
+    k.journal.append(hub.root,'ordered','move','cli',**{'from':'active','to':'proposal','outcome':'revise'})
+    run('loop','proposal',3)
+    k.journal.append(hub.root,'ordered','workflow','pi',workflow='quick')
+    run('changed','proposal',4)
+    before=k.journal.path(hub.root).read_bytes()
+    history=H.read(hub.root,'ordered')
+    groups=history['visits']
+    assert groups[0]['runs']==['first','retry']
+    assert groups[0]['label']=='Saved task title'
+    assert groups[1]['runs']==['second']
+    assert groups[2]['runs']==['loop'] and groups[2]['visit']==2
+    assert groups[3]['runs']==['changed'] and groups[3]['execution']==2
+    assert groups[3]['outcome'] is None
+    assert next(r for r in history['runs'] if r['run_id']=='first')['assigned_journal_index']==1
+    assert k.journal.path(hub.root).read_bytes()==before
+
+
+def test_logs_join_history_by_run_without_changing_workflow(hub,monkeypatch):
+    import arlo_cli,knowledge
+    k=kernel();k.studies.new(hub.root,'sample',by='pi')
+    before=k.journal.path(hub.root).read_bytes()
+    monkeypatch.setenv('ARLOTOPE_HUB',str(hub.root))
+    monkeypatch.setenv('ARLOTOPE_RUN_ID','one')
+    monkeypatch.setenv('ARLOTOPE_RUN_SUBJECT','sample')
+    monkeypatch.setenv('ARLOTOPE_ATTEMPT','2')
+    assert arlo_cli.main(['log','Null result; retained the original method.','--tag','decision',
+                          '--ref','runs/one/metrics.json','--agent','child'])==0
+    note=H.read(hub.root,'sample')['notes'][0]
+    assert note['run']=='one' and note['attempt']==2 and note['about']=={'run':'one','agent':'child'}
+    assert note['refs']==['runs/one/metrics.json'] and note['tags']==['decision']
+    assert knowledge.dispatch(hub.root,'sample','get',id=note['id'])['text'].startswith('Null result')
+    assert k.journal.path(hub.root).read_bytes()==before
+
+
+def test_ordered_entry_choices_remain_ordered_passes(hub):
+    from test_workflow_entry import setup,plan
+    k,entry,w=setup(hub,graph=False)
+    k.studies.new(hub.root,'sample',entry=plan(entry,hub,w,collect='reuse'),by='pi')
+    entry.apply(hub.root,'sample')
+    groups=H.read(hub.root,'sample')['visits']
+    assert [g['node'] for g in groups]==['collect','inspect']
+    assert groups[0]['mode']=='ordered' and groups[0]['outcome']['kind']=='task-reused'
+    assert groups[1]['active'] and groups[1]['outcome'] is None
+
+
+def test_history_index_does_not_embed_full_answer_payloads(hub):
+    import knowledge
+    k=kernel();k.studies.new(hub.root,'sample',by='pi')
+    knowledge.dispatch(hub.root,'sample','add',kind='answer',text='Question summary',title='Saved answer',
+                       responses=[{'text':'full answer payload '*10000}])
+    note=H.read(hub.root,'sample')['notes'][0]
+    assert note['title']=='Saved answer' and 'responses' not in note
+
+
+def test_renamed_task_keeps_its_pass_run_and_original_evidence(hub):
+    from test_workflow_entry import setup
+    k,_,_=setup(hub)
+    k.studies.new(hub.root,'sample',by='pi')
+    k.branches.bind(hub.root,'sample','collect','one')
+    folder=hub.lab/'.bus/agents';folder.mkdir(parents=True)
+    (folder/'one.json').write_text(json.dumps({'schema':2,'run_id':'one','subject':'sample',
+        'workflow_node':'collect','workflow_visit':1,'task_label':'Original task title','status':'running'}))
+    k.studies.rename_step(hub.root,'collect','gathering')
+    history=H.read(hub.root,'sample')
+    groups=[g for g in history['visits'] if g['node']=='gathering']
+    assert len(groups)==1 and groups[0]['runs']==['one'] and groups[0]['active']
+    assert groups[0]['label']=='Original task title' and groups[0]['recorded_nodes']==['collect']
+    assert next(e for e in history['events'] if e['kind']=='task-bind')['node']=='collect'

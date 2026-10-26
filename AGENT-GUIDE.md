@@ -61,7 +61,7 @@ with author-summary handoff off. Assignment files are researcher-owned. See docs
 available attempts, workflow decisions and output references. `--save` refreshes generated Markdown
 and JSON under `studies/<study>/history/` for the Library. These snapshots are not a new journal or
 approval source. Read original evidence and available transcripts; old/missing child records and
-offline remote mirrors do not establish complete coverage. See docs/agent-workflows.md.
+offline remote mirrors do not establish complete coverage. Managed runs also retain exported responses and human exchanges in `<run>.d/conversation.jsonl`. Use `arlo log "<finding or decision>" [--tag label] [--ref evidence-path]` for useful context; the run supplies study and attempt. Logs never complete tasks or approve checkpoints. See docs/agent-workflows.md.
 
 **Configured independent gate reviews.** A published checkpoint may explicitly use `approver: agent`.
 The ordinary executor launches a fresh reviewer with the declared evidence, rubric and review skill;

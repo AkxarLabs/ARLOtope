@@ -4,6 +4,7 @@ the same code (the kernel in tools/kernel/, tools/panels.py, the executor).
 
     arlo status                              what needs you, what is running, every study and where it stands
     arlo studies                             the studies, their workflow and step
+    arlo log "…" [--study S] [--tag label] [--ref path]          save a contextual study log
     arlo new <study> --title "…" [--workflow W] [--at STEP]      file a study
     arlo move <study> <outcome> [--note "…"]                      report an outcome: the workflow moves it
     arlo move <study> --to <step> [--note "…"]                    (the PI) move it anywhere: revive, jump, skip
@@ -663,6 +664,16 @@ def cmd_config(a) -> int:
     return subprocess.run([sys.executable, str(HERE / "configure.py"), *argv]).returncode
 
 
+def cmd_log(a) -> int:
+    import knowledge
+    try:
+        result = knowledge.log_note(_hub(a), a)
+    except (OSError, ValueError) as error:
+        return _err(str(error), 1)
+    _out(a, result, 'Saved log: '+result['id'])
+    return 0
+
+
 def build() -> argparse.ArgumentParser:
     ap = argparse.ArgumentParser(prog="arlo", description="ARLOtope from a terminal",
                                  formatter_class=argparse.RawDescriptionHelpFormatter, epilog=__doc__.split("\n\n", 1)[1])
@@ -686,6 +697,8 @@ def build() -> argparse.ArgumentParser:
     opt = lambda name: ([name], {"default": None})  # noqa: E731
     add("status", cmd_status)
     add("studies", cmd_studies)
+    import knowledge
+    knowledge.log_arguments(add('log', cmd_log, help='Save a study log with optional tags and evidence references'))
     add('tags', cmd_tags, 'study', (["--set"], {'default':None, 'help':'comma-separated labels; empty clears'}))
     add("new", cmd_new, "study", opt("--title"), opt("--workflow"), opt("--at"))
     add("move", cmd_move, "study", (["outcome"], {"nargs": "?"}), opt("--to"), note, yes)
@@ -727,7 +740,7 @@ def build() -> argparse.ArgumentParser:
     return ap
 
 
-VERBS = {"status", "studies", "tags", "new", "move", "next", "brief", "checkpoint", "approve", "revoke", "changes", "approved",
+VERBS = {"status", "studies", "log", "tags", "new", "move", "next", "brief", "checkpoint", "approve", "revoke", "changes", "approved",
          "checks", "approvals", "flags", "ack", "start", "ask", "runs", "run", "answer", "reply", "stop", "resume", "pause", "hold",
          "release", "workflow", "project", "extension", "propose", "check", "docs", "room", "panels", "panel",
          "approve-collector", "config"}

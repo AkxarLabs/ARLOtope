@@ -253,6 +253,38 @@
           <time dateTime=${e.time}>${NL.hhmm(e.time)}</time></li>`)}</ol>`}
       ${data.clipped||data.malformed?html`<p class="muted small">${data.clipped?'Showing recent events. ':''}${data.malformed?'Some incomplete records were skipped.':''}</p>`:null}`}
   </details>`;
+  const SavedEntry=({entry,run})=>{
+    const [open,setOpen]=useState(false),names={input:'Task input',response:'Agent response',request:entry.request_kind==='permission'?'Permission request':'Question',answer:'Answer',message:'Your message',permission:'Permission decision',cancelled:'Request cancelled'};
+    const questions=(entry.input?.questions||[]).map(q=>q.question).filter(Boolean),answers=entry.answers||entry.content;
+    const reply=answers&&typeof answers==='object'?Object.entries(answers).map(([q,a])=>q+': '+(Array.isArray(a)?a.join(', '):typeof a==='object'?JSON.stringify(a):a)).join('\n\n'):entry.response;
+    const text=entry.text||entry.input?.elicitation?.message||questions.join('\n\n')||reply||(entry.kind==='permission'?(entry.allow?'Allowed':'Denied')+(entry.message?' — '+entry.message:''):entry.message||entry.action||'');
+    const payload=Object.fromEntries(Object.entries(entry).filter(([key])=>!['id','at','kind','attempt','text','agent','clipped'].includes(key)));
+    return html`<details class="saved-entry" onToggle=${e=>setOpen(e.currentTarget.open)}><summary>${names[entry.kind]||entry.kind} <span class="muted small">· attempt ${entry.attempt} · ${NL.hhmm(entry.at)}${entry.error?' · Error':''}</span>
+      ${text?html`<span class="saved-preview">${NL.clip(text.replaceAll('\n',' '),110)}</span>`:null}</summary>
+      ${open?html`${entry.agent?html`<button class="link small" onClick=${()=>NL.openRun(run,entry.agent)}>Subagent ${entry.agent} ↗</button>`:null}
+        ${text?html`<${NL.Markdown} text=${text}/>`:null}
+        ${!['response','message','input'].includes(entry.kind)?html`<details><summary>Details</summary><pre class="exchange-data">${JSON.stringify(payload,null,2)}</pre></details>`:null}
+        ${entry.delivery?html`<p class="muted small">${entry.delivery==='attempt-start'?'Supplied when this attempt started; delivery is not a completion receipt.':'Queued for the next attempt.'}</p>`:null}
+        ${entry.clipped?html`<p class="muted small">This record was clipped when captured.</p>`:null}`:null}</details>`;
+  };
+  NL.RecordedTurns=({r})=>{
+    const [open,setOpen]=useState(false),[data,setData]=useState(null),[busy,setBusy]=useState(false),[error,setError]=useState('');
+    const load=async(offset=0)=>{if(busy)return;setBusy(true);setError('');try{
+      const result=await NL.get('/api/run/records?'+NL.qs({run_id:r.run_id,offset}));
+      if(!result.ok)setError(result.error||'Could not read saved exchanges.');
+      else setData(old=>({...result,rows:offset?[...(old?.rows||[]),...result.rows]:result.rows}));
+    }catch(e){setError(e.message)}finally{setBusy(false)}};
+    useEffect(()=>{if(open)load()},[open,r.run_id,r.record_count,r.status,r.remote_records_offset]);
+    return html`<details class="recorded-turns" onToggle=${e=>{if(e.target===e.currentTarget)setOpen(e.currentTarget.open)}}><summary>Saved responses & exchanges${r.record_count?' · '+r.record_count:''}</summary>
+      ${open?html`<button class="link small" onClick=${()=>load()}>Refresh exchanges</button>${error?html`<p role="alert">${error} <button class="link" onClick=${()=>load()}>Retry</button></p>`:null}
+        ${busy&&!data?html`<p class="muted small">Loading…</p>`:null}
+        ${data?.rows.map(entry=>html`<${SavedEntry} key=${entry.id} entry=${entry} run=${r.run_id}/>`)}
+        ${data&&!data.rows.length?html`<p class="muted small">${data.available?'No complete exchange records yet.':'No saved exchanges for this run. Its transcript may still be available.'}</p>`:null}
+        ${data?.skipped?html`<p class="muted small">Some damaged records could not be read.</p>`:null}
+        ${data?.incomplete?html`<p class="muted small">The last record is incomplete. It may still be arriving from the project machine.</p>`:null}
+        ${data?.next!=null?html`<${NL.Btn} small busy=${busy} onClick=${()=>load(data.next)}>Load more exchanges</${NL.Btn}>`:null}
+        ${r.record_error?html`<p role="status" class="muted small">Some exchanges could not be saved: ${r.record_error}</p>`:null}`:null}</details>`;
+  };
   /* ── the run sheet ─────────────────────────────────────────────────────── */
   NL.RunSheet = ({ id, focusSub, onClose }) => {
     const { run: r, lines, err, skipped, reload } = useRun(id);
@@ -316,6 +348,7 @@
       <${Subagents} r=${r} focus=${focusSub} />
       <${Explanations} r=${r} />
       <${NL.RunFiles} r=${r} />
+      <${NL.RecordedTurns} key=${r.run_id} r=${r} />
       <${Actions} r=${r} />
       <div class="convo" ref=${scroller} onScroll=${onScroll}>
         ${skipped ? html`<div class="msg-div"><span>earlier output skipped (${Math.round(skipped / 1024)} KB)</span></div>` : null}
