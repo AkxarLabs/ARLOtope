@@ -192,3 +192,37 @@ inspection. Demo browser actions are intercepted rather than launching real work
 Vendored browser libraries and their licences live in `static/vendor/`: Three.js, Preact, htm,
 marked, DOMPurify and KaTeX. Python tools use the standard library and PyYAML unless a method-specific
 helper declares additional requirements.
+
+
+## Visual activity
+
+Tasks choose rooms; exported activity and trace hooks choose furniture stations and gestures.
+If no activity station is available, the renderer falls back to a task/procedure station, a role
+station or a spare spot. Characters keep a suitable spot through short calls. The activity display
+waits at least eight seconds before switching and may linger for twenty seconds between events.
+Command-name classification is a fallback; absent events cannot reveal an agent's private state.
+
+Walking uses doors, paths and coarse furniture avoidance, with no physics engine or guaranteed
+collision-free routing. Reduced-motion settings place characters at their destinations. A courier
+or a departing child's fade is a presentation effect, not an additional run or a completion record.
+The newt retains its colors in both themes, with more self-illumination at night.
+
+Same-task peer links include active runs and recorded children on the same task visit, excluding
+queued and ended runs. Native session IDs preserve character continuity across runs on the same
+backend and location; without one, the renderer uses run identity. This browser-side continuity
+does not merge records or create a conversation.
+
+The inspector keeps unsent messages while switching work within one tab. Reloading clears those
+drafts. Data views keep labelled last-good results after refresh failures and reset when scope changes.
+Collectors execute the approved bytes; see [collector execution](extending.md#collector-execution).
+
+
+## Conversation archives
+
+The original records are `lab/journal.jsonl` for workflow events, `lab/.bus/runs.jsonl` for run
+transitions, and manifests/transcripts in the owning bus's `agents/` directory. New managed runs
+also save attempt inputs, exported responses and human questions, answers, permission decisions
+and delivered messages in `<run>.d/conversation.jsonl`. This archive retains attempt IDs and survives transcript
+caps and the recent-answer window. It excludes private reasoning and messages the harness never
+exported. Older runs may have only their transcript. Responses are limited to 450,000 characters;
+clipped records are marked. Offline remote mirrors may be stale.

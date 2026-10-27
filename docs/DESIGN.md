@@ -1,6 +1,6 @@
 # Design rationale
 
-Lab connects a research question to agent work, evidence and human decisions. The default interface
+The Lab lets researchers manage agent teams visually while iterating on several projects. The default interface
 is a persistent 3D Lab, with **Studies**, **Library** and **Workflow** for direct access to the same
 records. All agents, History, settings and machine connections are secondary views.
 

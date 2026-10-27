@@ -15,7 +15,7 @@ tasks to it when you need another space. **By machine** repeats the room set for
 
 ![Workflow tasks grouped by room](assets/current/workflow-rooms.webp)
 
-*Demonstration fixture: room grouping presents the workflow without changing its task connections.*
+*Example workflow grouped by room.*
 
 ## Preview a room change
 
@@ -31,7 +31,7 @@ Drafting does not change the live room. The preview uses the application's rende
 
 ![Room activity and clearance preview](assets/current/room-activity-preview.webp)
 
-*Synthetic agents in an unapplied room draft. Bounds are layout aids, not a physics guarantee.*
+*Room draft with sample agents. Clearance guides are layout aids.*
 
 ## Files for custom geometry
 

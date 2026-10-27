@@ -4,6 +4,8 @@ An agent turn, an executor run and a workflow task are different things. A CLI c
 successfully while the assigned task still needs work. The Lab does not guess completion from a
 sentence such as “done.”
 
+Screenshots use demonstration data.
+
 ## What the status means
 
 | What you see | What happened | What to do |
@@ -17,7 +19,6 @@ sentence such as “done.”
 
 ![An unfinished task with its continuation options](assets/current/task-unfinished.webp)
 
-*Synthetic run in the current dashboard; no agent was launched for this example.*
 
 **Task unfinished** is a mechanical check for formally assigned tasks. For an ordered workflow, the
 Lab checks whether the assigned step has an accepted move, wait or finish since assignment. For a
@@ -103,6 +104,11 @@ same request ID while the server retains the session, avoiding a second process 
 Closing the terminal still stops its process. A server restart or expired session requires a new terminal.
 
 ## Dashboard and supervisor recovery
+
+A failed file, record or preview read offers **Retry**. A failed refresh keeps the last loaded
+copy labelled; changing the selected item clears it. Retrying a read does not repeat an upload,
+restart an agent or rerun a command. **Open original file** can help with a browser PDF or HTML
+rendering problem; published HTML keeps its isolated preview permissions.
 
 If an interface script or stylesheet cannot load, a notice offers **Reload the page**, even when the main interface did not start. Reloading retries those files; it does not restart an agent or mark a task complete. If it happens again, inspect the browser's failed requests and server log rather than treating a partial interface as an empty Lab.
 

@@ -3,6 +3,8 @@
 Creating a study saves its question, workflow and materials. Starting an agent is a separate action.
 You can create several studies before launching any work.
 
+Screenshots use demonstration data.
+
 ## Start a task
 
 1. Connect an installed harness in **Settings → Agents & models** and enable launching in
@@ -68,17 +70,12 @@ machine and project. A new conversation with an evidence handoff remains a separ
 it does not restore the full hidden conversation. See [task conversations](agent-workflows.md)
 and [ACP configuration and verification limits](acp.md).
 
-Protocol fixtures check request handling, continuation and failure paths without provider credits.
-Recorded live checks cover Codex publication/interaction, an Antigravity ACP text turn and session
-loading, and opencode ACP session setup. They do not certify every provider's tools, forms, model
-access or native forks. Check your installed agent before assigning a long run.
-
 ## Work on several studies
 
 Repeat **New study** for each question or repository, then start a task in each. Existing tasks
 keep running while you navigate elsewhere. Use **Studies** to see each study's status, **All agents**
 for sessions across studies, and **Inbox** for decisions. Tags organize the list without affecting
-execution. There is no three-study limit.
+execution. Study count is not capped.
 
 The default is **7 task sessions across the Lab**, with a separate default of 7 per study.
 Parallel branches that perform tasks each use a slot. Independent reviewers, gate judges, explainers
@@ -90,18 +87,19 @@ An open task chat process reserves a slot even while waiting for your next messa
 question releases it. Native subagents and independently started terminals are outside the managed
 session cap. See [what counts as a slot](compute.md#agent-slots-and-experiment-jobs).
 
+![Several studies with separate workflows and agent teams](assets/current/studies-teams.webp)
+
+*Example studies running side by side.*
+
 ## Hold or steer a study
 
 **Hold** prevents new agents from starting for that study; existing work keeps running. Use
 **View hold** or the study's **Controls** to release it. Checkpoint decisions can still be recorded
 while held, but starting the next task waits for release.
 
-**Ask agent to focus**, **Request park** and **Request kill** save instructions for an agent's next
-inbox check. They do not start an idle agent, reorder the run queue, stop a process or immediately
-change the workflow state. **Pending instructions** shows them in the study's
-Overview and Controls, including before a project folder exists. The study list shows a pending
-count. **Seen; awaiting action** means an agent has read an instruction without completing it yet.
-Use **Withdraw** to cancel a pending request. Inbox and History also keep these records.
+Steering requests go to an agent's next inbox check; they do not launch an idle agent.
+**Pending instructions** shows them in Overview and Controls. **Seen; awaiting action** means read
+but not completed. Use **Withdraw** to cancel one.
 
 | Action | Effect |
 |---|---|
@@ -119,12 +117,13 @@ capacity, holds, gates and backoff. A priority request does not alter those save
 
 ![Study requests and the separate launch hold](assets/current/study-controls.webp)
 
-*Current local test study; these requests were not submitted for the screenshot.*
 
 These instructions are separate from [human notes](knowledge.md#add-a-human-note), which provide
 context and optional read receipts without queuing work.
 
 ## Know when something needs you
+
+![The shared Inbox with questions and decisions from several studies](assets/current/attention-inbox.webp)
 
 **Inbox** is the durable attention list. It includes questions, tool permissions, workflow decisions,
 unfinished or failed tasks, alerts and escalations. The navigation badge and browser-tab title show

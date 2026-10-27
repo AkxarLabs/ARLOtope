@@ -1,5 +1,5 @@
 site_name: ARLOtope
-site_description: A visual research workspace for scientists using coding agents.
+site_description: Visually manage agent teams and iterate across research projects.
 site_url: https://akxarlabs.github.io/ARLOtope/
 docs_dir: docs
 exclude_docs: |
@@ -17,7 +17,6 @@ theme:
         name: Use light mode
   font: false
   features:
-    - navigation.sections
     - navigation.top
     - navigation.footer
     - content.code.copy
@@ -41,38 +40,40 @@ nav:
   - Home: index.md
   - Start here:
       - First study: getting-started.md
-      - Research-first tour: research-first.md
-      - Dashboard: dashboard.md
+      - How it fits together: research-first.md
+      - Dashboard tour: dashboard.md
+  - Everyday work:
       - Start and follow work: running-work.md
-      - Results & visual summaries: artifacts.md
       - Notes, answers & sources: knowledge.md
-      - Recover interrupted work: recovering-work.md
-  - Do research:
-      - Research workflows: workflow.md
-      - Skills and workflows: skills.md
-      - Discuss a question: discuss.md
-      - Existing & new projects: projects.md
-      - Methodology types: project-types.md
-      - Target-driven studies: compete.md
-      - Approvals & evidence: monitoring.md
-      - Background work: autonomy.md
-  - Shape your process:
+      - Outputs & visual summaries: artifacts.md
+      - Recover work: recovering-work.md
+      - Projects & storage: projects.md
+  - Build workflows:
       - Tasks, agents & rooms: agent-workflows.md
-      - Tags: tags.md
-      - Customization: customising.md
+      - Import and use skills: skills.md
+      - Customize a process: customising.md
       - Room previews: room-design.md
-      - Extensions: extending.md
-      - External research tools: external-frameworks.md
+      - Tags: tags.md
   - Agents & machines:
-      - ACP agents: acp.md
-      - Remote projects: remote-projects.md
+      - Connect an ACP agent: acp.md
+      - Connect a remote project: remote-projects.md
       - Machines & compute: compute.md
       - Platform support: platforms-and-agents.md
   - Reference:
-      - License: licensing.md
+      - Workflow YAML: workflow.md
       - Configuration: configuration.md
-      - Tools: tools.md
-      - Dashboard internals: internals.md
-      - Interface language: ui-copy.md
-      - Design rationale: DESIGN.md
-      - Research workflow limits: research-limits.md
+      - Approvals & evidence: monitoring.md
+      - Background work: autonomy.md
+      - Research methods:
+          - Discuss a question: discuss.md
+          - Methodology types: project-types.md
+          - Target-driven studies: compete.md
+          - External research tools: external-frameworks.md
+          - Workflow limits: research-limits.md
+      - Development:
+          - Extensions: extending.md
+          - Tools: tools.md
+          - Internals: internals.md
+          - Interface language: ui-copy.md
+          - Design rationale: DESIGN.md
+      - License: licensing.md

@@ -2,24 +2,7 @@
 
 Use **Workflow** to compose work, choose who performs it and decide which conversation each task uses. The same definition appears in **Flow**, **List** and **By room**. List shows every task, including workflows with branches or loops; Flow shows their connections. Select a task to change its skill or agent.
 
-## Text definitions and agent designers
-
-The visual editor and agents use the same YAML definitions in `workflow/workflows/`, with shared
-task definitions in `workflow/steps.yaml`. Task methods are Markdown skills. There is no separate
-agent-only workflow language. The [workflow reference](workflow.md) gives examples and fields;
-[external tool definitions](external-frameworks.md) add command-based research engines without
-another scheduler.
-
-An agent designer can propose tasks, skill sequences, roles, conversation sources, parallel
-branches, joins, outcome routes, loops, rooms and checkpoints. **Draft with an agent** gives it the
-existing definitions and a private proposal folder. It validates with `arlo check --design`,
-then the researcher reviews and publishes the proposal in Workflow.
-
-During execution, agents report declared outcomes and the engine follows their routes. An LLM
-judge can select a configured decision route; visit limits bound repeated work. A single task
-can also follow several skills and choose its own working steps. These forms of adaptation do
-not require rewriting the running graph. Changes to the shared graph use the normal proposal,
-validation and publication path; a task is not automatically allowed to publish its own redesign.
+Screenshots use demonstration data.
 
 ## Edit a task
 
@@ -40,11 +23,9 @@ is separate and remains available after saving.
 
 ![The workflow editor with connection handles, Undo and shared room assignments](assets/current/workflow-editor.png)
 
-*Disposable preview with agent launches off: handles draw connections; arrows describe task readiness and routes.*
 
 ![A selected task with grouped settings](assets/current/workflow-task-grouped.png)
 
-*Isolated test Lab: name, skill, instructions and room stay visible. Output files, agents and connections expand in place. No task was launched.*
 
 **Task starting points** offers Literature, Experiment, Analyze, Independent review and Write. These fill ordinary editable task fields; they do not create a new kind of runner. **Duplicate task** copies an existing task. Changing a role preserves your instructions; choosing Reviewer starts fresh with no author-summary handoff. You can explicitly change that context afterward, but inherited context is not an independent review.
 
@@ -63,23 +44,12 @@ designer and custom task roles count normally. See [capacity](compute.md#agent-s
 
 Open **Settings → Agents & models → Agent choices** to save named agent configurations (presets).
 Each selects an agent and, when needed, a model or effort. Several saved choices may use the same
-tool. For another compatible agent, choose **Connect ACP agent** or follow the setup page's
-**Connect another agent with ACP** link.
+tool. For another compatible agent, choose **Connect ACP agent**, enter its program and arguments,
+**Check connection**, then
+**Save agent**. Checking initializes the protocol without sending a model prompt; model access is
+tested when work starts. See [ACP setup](acp.md#connect-an-acp-agent) for commands, sign-in and limits.
 
-Enter a name, the ACP **Program**, and its **Arguments** (one per line). For `opencode acp`, the program is `opencode` and the argument is `acp`. **Check connection** tests the command before saving and does not send a model prompt. Then **Save agent** makes it available in task and role choices without changing the Lab default. **Model & advanced settings** contains model selection, negotiated sign-in methods and the internal preset ID. Sign in through the agent's own login first.
-
-Blank argument lines are ignored when checking or saving; spaces within an argument are preserved.
-Leaving unsaved agent settings asks whether to discard the changes. **Cancel** closes the agent form;
-other unsaved default or role choices still need **Save agent choices**.
-
-Connection checks allow 45 seconds for initialization. Retry a failed check after checking the command or completing sign-in. An executable check or ACP initialization is not proof of model access; that is checked when a task starts.
-
-![Connect an ACP agent without editing JSON](assets/current/acp-connect.png)
-
-![Compact role-to-agent choices with harness names](assets/current/agent-role-rows.png)
-
-*Role choices in an example Lab. A role can inherit the Lab default or use a saved agent choice;
-opening these controls starts no agent.*
+![Role-to-agent choices](assets/current/agent-role-rows.png)
 
 Choose a Lab default and role-specific choices under **Task agent assignments**. **New study → Study settings** saves study preferences; existing studies expose **Agents**. A general study default preserves inherited specialist choices. **Use study default** on a role deliberately removes that inherited specialization. **Workflow → Subagent roles** edits specialist child-agent instructions; their model settings are under **Tool defaults & subagents**.
 
@@ -169,13 +139,9 @@ recorded subagents. **Recorded instructions** opens its saved prompt and skills 
 A stopped agent remains distinct from a completed task. **Decisions & changes** contains the
 workflow events, including reuse, omissions and checkpoint decisions.
 
-The original records are `lab/journal.jsonl` for workflow events, `lab/.bus/runs.jsonl` for run
-transitions, and manifests/transcripts in the owning bus's `agents/` directory. New managed runs
-also save attempt inputs, exported responses and human questions, answers, permission decisions
-and delivered messages in `<run>.d/conversation.jsonl`. This archive retains attempt IDs and survives transcript
-caps and the recent-answer window. It excludes private reasoning and messages the harness never
-exported. Older runs may have only their transcript. Responses are limited to 450,000 characters;
-clipped records are marked. Offline remote mirrors may be stale.
+History reads the original records. New managed runs retain exported exchanges; older runs
+may have only a transcript. Missing, clipped or stale remote records are labelled. See
+[record formats and limits](internals.md#conversation-archives).
 
 **Save history to study** refreshes `studies/<id>/history/workflow.md` and `workflow.json`, visible
 in **Library → Documents → Workflow history**. The JSON contains workflow events, task passes,
@@ -193,7 +159,6 @@ uv run --with pyyaml python tools/study_history.py <study> --save
 
 ![Recorded workflow tasks and their agent sessions](assets/current/study-workflow-history.png)
 
-*Offline test fixture: a stopped task, its retained responses and a linked finding. No research agent was launched.*
 
 ## Questions, checkpoints and permissions
 
@@ -210,3 +175,22 @@ Switch to **By room** after composing tasks. Select tasks and **Group in room**,
 **Download skill** exports a saved composition as a Markdown skill and ZIP of its local resources. Save edits first. The export describes the workflow; Lab execution is still needed for its recorded gates, parallel tasks and native conversation operations.
 
 For a small process, **New workflow → One lead agent** lets one task follow a skill sequence. Use separate tasks when independent contexts, parallel work or recorded transitions matter.
+
+## Text definitions and agent designers
+
+The visual editor and agents use the same YAML definitions in `workflow/workflows/`, with shared
+task definitions in `workflow/steps.yaml`. Task methods are Markdown skills. There is no separate
+agent-only workflow language. The [workflow reference](workflow.md) gives examples and fields;
+[external tool definitions](external-frameworks.md) add command-based research engines without
+another scheduler.
+
+An agent designer can propose tasks, skill sequences, roles, conversation sources, parallel
+branches, joins, outcome routes, loops, rooms and checkpoints. **Draft with an agent** gives it the
+existing definitions and a private proposal folder. It validates with `arlo check --design`,
+then the researcher reviews and publishes the proposal in Workflow.
+
+During execution, agents report declared outcomes and the engine follows their routes. An LLM
+judge can select a configured decision route; visit limits bound repeated work. A single task
+can also follow several skills and choose its own working steps. These forms of adaptation do
+not require rewriting the running graph. Changes to the shared graph use the normal proposal,
+validation and publication path; a task is not automatically allowed to publish its own redesign.

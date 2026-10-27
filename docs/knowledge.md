@@ -2,11 +2,9 @@
 
 Use **Library → Notes & sources** for retained knowledge. Choose **Library study**, a record kind and an optional search. Records live in ordinary files alongside the project or study they concern.
 
-Failed document shelves, records and note reads offer **Retry**. If a refresh fails after loading, the last copy remains labelled. Changing the study or record does not reuse another selection's contents. Adding a note refreshes the shelf without changing the document it discusses.
-
 ![Study-organized notes and saved answers](assets/current/library-records.webp)
 
-*Screenshots show an example Lab.*
+Screenshots use demonstration data.
 
 ## Choose the right action
 

@@ -1,0 +1,11 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="800" height="164" viewBox="0 0 800 164" color="#f2f3ed" role="img" aria-labelledby="title">
+  <title id="title">ARLOtope</title>
+  <g fill="none" stroke="currentColor" stroke-width="6.5" stroke-linecap="round" stroke-linejoin="round">
+    <rect x="9" y="17" width="143" height="126" rx="23"/>
+    <path d="M47 65C44 55 51 42 45 40C37 37 34 49 36 54C21 44 17 58 27 64L39 72C20 63 14 76 25 82L38 87C18 83 17 98 29 99L43 97M114 65C117 55 110 42 116 40C124 37 127 49 125 54C140 44 144 58 134 64L122 72C141 63 147 76 136 82L123 87C143 83 144 98 132 99L118 97"/>
+    <path d="M45 73C61 48 100 48 116 73C136 106 111 129 81 129C50 129 25 106 45 73Z"/>
+    <path d="M76 109Q81 117 86 109"/>
+  </g>
+  <g fill="currentColor"><circle cx="62" cy="99" r="5"/><circle cx="100" cy="99" r="5"/></g>
+  <text x="175" y="125" fill="currentColor" font-family="Georgia, 'Times New Roman', serif" font-size="108" font-weight="700" textLength="615" lengthAdjust="spacingAndGlyphs">ARLOtope</text>
+</svg>

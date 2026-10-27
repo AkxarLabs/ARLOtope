@@ -1,5 +1,5 @@
 {
-  "updated": "2026-10-23",
+  "updated": "2026-10-27",
   "method": "Playwright CLI with Chrome, 1440x1000 viewport. Original Sakana test image retained.",
   "limits": "Screenshots demonstrate UI, not scientific findings or provider/SSH certification. Example records and paths are synthetic.",
   "images": [
@@ -431,6 +431,30 @@
       "sha256": "1802ea743954f0bf4c9710adf80a34e97d1309d8069aee7f19215673347a0206",
       "captured": "2026-10-23",
       "source": "Current local private preview. Guide capture used a disposable browser context; no agent launches, settings changes or approvals."
+    },
+    {
+      "file": "studies-teams.webp",
+      "size": [
+        1440,
+        1000
+      ],
+      "bytes": 42638,
+      "sha256": "0e6fe6ad29f6bfef645dbb9cdfe75f9c811d45537cec05f54a3c15f2a7ea6f39",
+      "captured": "2026-10-27",
+      "source": "Playwright CLI; current dashboard, built-in synthetic demo data, launch-disabled disposable Lab. No real agents, private studies or approvals.",
+      "route": "/?demo#/studies"
+    },
+    {
+      "file": "attention-inbox.webp",
+      "size": [
+        1440,
+        1000
+      ],
+      "bytes": 62272,
+      "sha256": "3427e9a6487618a42a36423a9466f6b697a47278fbaf41582e9ee2eda5585a4b",
+      "captured": "2026-10-27",
+      "source": "Playwright CLI; current dashboard, built-in synthetic demo data, launch-disabled disposable Lab. No real agents, private studies or approvals.",
+      "route": "/?demo#/studies; open Inbox"
     }
   ]
 }

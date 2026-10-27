@@ -2,6 +2,8 @@
 
 Publish a report, figure, table or interactive page when it gives the researcher something useful to inspect. Published copies appear in **Library → Outputs** and link to the producing run and study.
 
+Screenshots use demonstration data.
+
 ## Find and inspect an output
 
 1. Open **Library → Outputs**.
@@ -10,7 +12,6 @@ Publish a report, figure, table or interactive page when it gives the researcher
 
 ![A published demonstration report with separate note and question actions](assets/current/artifact.webp)
 
-*Screenshots show an example Lab.*
 
 HTML pages can have interactive controls inside the preview. Images, PDFs, tables and text have their own viewers. HTML under a run's **Files it changed** can also be previewed; publishing adds a durable Library copy and feedback controls.
 
@@ -42,11 +43,9 @@ Omit `--agent` for the whole run. Add `--hub /path/to/lab` before the command wh
 
 ## When a read fails
 
-Run file lists, Markdown/text previews, activity, technical logs and figure lists distinguish failed reads from empty records. Choose **Retry** after a failure. When a refresh fails, previously loaded data for that same run or study stays visible with a label; switching to another item does not carry that data over. A technical log that has not been created yet is still a genuine empty result.
-
-Image previews offer **Retry** if the image cannot load. HTML and PDF previews check access before opening the embedded file. **Open original file** remains available. A successful access check cannot diagnose every browser PDF problem or an error inside an HTML page; use the original file in those cases. HTML keeps its sandbox when embedded or opened directly.
-
-Conversation reads retry automatically. A failed read appears beside the loaded messages and clears when the connection recovers; it does not mean the agent stopped or the task finished.
+Use **Retry** after a failed preview, or **Open original file** for an HTML or PDF rendering
+problem. A failed conversation read does not mean the agent stopped. See
+[connection and read recovery](recovering-work.md#dashboard-and-supervisor-recovery).
 
 ## Publish a file
 

@@ -1,80 +1,70 @@
 # Customize your research process
 
-Open **Workflow** to adapt how work is done. Begin with a copy of a nearby workflow if you want a reusable variation; use study-specific instructions when only one study should differ.
-
-If a definition or instruction cannot be read, choose **Retry**. A failed read does not create an empty editable instruction. Existing unsaved text stays in the editor during a retry; saving is unavailable until the definition has loaded.
+Use study instructions for a one-off change. Edit a workflow or skill when you want a reusable method.
 
 ## Choose the smallest edit
 
-The shipped research stages are defaults. Your workflow can use any tasks, skills, rooms and
-outcomes, including instructions-only tasks; it does not need an ideation, experiment or writing stage.
-
-| Need | Edit |
+| Need | Where to change it |
 |---|---|
 | Add context for one study | Study **Instructions** |
-| Change an individual task's goal or output | Task inspector |
-| Reuse a method in several tasks | Procedure/skill or its variant |
-| Use another agent or model | [Agent choices](agent-workflows.md#choose-agents) |
-| Return a review to writing | Named outcome and destination |
-| Require a decision before costly work | Checkpoint |
-| Change where work appears | Room grouping or [room design](room-design.md) |
-| Leave context without starting work | [Add note](knowledge.md#add-a-human-note) |
+| Change a task's goal or result | Its inspector in **Workflow → Flow** |
+| Reuse a method | **Workflow → Skills** |
+| Choose another agent or model | [Agent choices](agent-workflows.md#choose-agents) |
+| Branch or return to earlier work | Task connections and named outcomes |
+| Require a decision | Checkpoint |
+| Change the agent's visual location | Room assignment |
+| Leave context without requesting work | [Add note](knowledge.md#add-a-human-note) |
+
+The supplied research stages are defaults. Your workflow can use any tasks and need not include
+ideation, experiments or writing.
 
 ## Edit a shared workflow
 
-1. Select the workflow. Use **Make a copy** for a separate version or **New workflow** for a new starting point. Enter **Workflow name**; **Workflow ID** is generated and can be changed in its disclosure. The new copy opens automatically.
-2. Select a task in **Flow**. Edit its skill, instructions, role, agent, context and expected files.
-3. Drag a task's **+** handle onto another task to connect them. Select an arrow for conversation and waiting choices. Select a task or arrow and use **Delete/Backspace** to remove it; **Undo** or **Ctrl/Cmd+Z** restores edits. **+ Task** adds an unconnected task. **Advanced** contains named outcomes and pass limits; **Context & inputs** contains join choices.
-4. Open a checkpoint diamond or **Add checkpoint** to edit when work waits, its reviewer, evidence and checks.
-5. **Save workflow draft**. Then use **Review & publish** to inspect validation problems, changed files and affected studies before publication.
+1. Select a workflow. Use **Make a copy** for a variation or **New workflow** to start fresh.
+2. Select a task to edit its name, skill, instructions and room. **View instructions** reads the full method.
+3. Drag its **+** handle onto another task to connect them. Select an arrow for context and waiting choices. **+ Task** adds a task.
+4. Select a task or arrow and press Delete/Backspace to remove it. **Undo** or Ctrl/Cmd+Z restores local edits; Escape cancels a connection.
+5. Add checkpoints where decisions belong. Use **Advanced** only for named outcomes, loops or other extra settings.
+6. **Save workflow draft**, then **Review & publish**. Check validation, changed files and affected studies before applying it.
 
-![Direct workflow editing with connection handles and Undo](assets/current/workflow-editor.png)
+![The workflow map and task inspector](assets/current/workflow-editor.png)
 
-*Screenshots show an example Lab.*
+*Example workflow; no agents are running.*
 
-Shared changes are not installed by an agent's recommendation. Review the publication summary, especially changes that loosen a checkpoint. **Change history** can undo the latest publication when it does not conflict with later edits.
-
-The map inspector edits tasks in the selected workflow. **More settings → Task defaults** edits
-shared definitions used by workflows that have not overridden them. Use the map for ordinary task edits.
-
-Removing a connection resets conversation sources that are no longer upstream. Deleting a task
-also removes routes and checkpoint placements or destinations that refer to it. Undo restores the
-local task edit; the publication review shows the resulting definition changes before applying them.
-Text fields keep their normal Delete and Undo behavior. Escape cancels a pending connection.
-
-If a changed file's comparison cannot load, its row shows **Retry** rather than an empty diff.
-Reloading a comparison does not edit or publish the draft.
+**Change history** can undo the latest publication if later changes do not conflict. Deleting a task
+also removes its routes and associated checkpoint placements; the publication review shows the result.
+Text fields keep their normal Delete and Undo behavior.
 
 ## Ask an agent to propose an edit
 
-Expand **Draft with an agent** and explain the method or process you want. **New workflow → Describe it** opens the designer for a new process. The ordinary agent writes a proposal under `lab/.bus/designs/workflow/`. Inspect the proposal and take it into the shared draft, then review and publish. The proposing agent does not publish its own definition. Sending a design request uses an agent turn; opening the form does not.
+Use **Draft with an agent**, or **New workflow → Describe it**. Explain the process you want.
+The designer writes a proposal in a private folder. Inspect it, take it into the shared draft,
+then review and publish. Sending the request uses an agent turn; the designer does not publish for you.
 
-For a single study, its **Instructions** tab saves additional step or procedure guidance in `studies/<slug>/workflow/`. Removing that local guidance restores the Lab's instructions. A study can also choose an existing procedure variant without changing other studies.
+For one study, **Instructions** saves local guidance in `studies/<slug>/workflow/`.
+Removing it restores the Lab's instructions. A study can also select a skill variant without changing
+other studies.
 
 ## Reuse a method
 
-A method is an ordinary skill or skill variant selected by a task. This applies equally to collecting
-data, reviewing evidence, coding, writing or another method. A workflow supplies its default choices;
-a study can select a variant without changing that workflow for everyone else.
+Import a `SKILL.md` folder or make a variant under **Workflow → Skills**.
+Keep the method in the main file and longer optional guidance in `references/`.
+Use task instructions for this assignment and role instructions for responsibility.
+The shared run brief already supplies the workflow state, outcomes and checkpoints.
 
-Keep the method in `SKILL.md`. Put substantial optional guidance in `references/` and say when to read
-each file. Metadata inheritance through `arlotope.like` does not include the parent's instruction body:
-a variant supplies its own body. Lab and study additions supplement the selected method; use a variant
-when replacing the method rather than adding context.
-
-The shared contract tells the agent to load its brief. The brief supplies current workflow state,
-outcomes, checkpoints and custom instructions. Keep those operational rules out of method-specific
-references. Role instructions define responsibility; task instructions define this assignment.
-Relevant project records remain evidence to inspect, rather than being copied into every skill.
-
-If an instruction sheet cannot load, choose **Retry**; it does not open an empty editor over unread instructions. An agent's suggested instruction change shows its comparison only after both the suggestion and current instructions load. **Accept** waits for that comparison; **Decline** remains available when the suggestion itself has loaded.
+A variant supplies its own instruction body. Metadata inheritance through `arlotope.like` does not
+include the parent's body. Use Lab or study additions to supplement a method; use a variant to replace it.
+See [skill structure and project copies](skills.md).
 
 ## Edit the files directly
 
-The UI uses readable files: `workflow/steps.yaml`, `workflow/workflows/*.yaml`, procedure `SKILL.md` files and `lab/workflow/` overlays. After direct edits, run:
+The editor uses `workflow/steps.yaml`, `workflow/workflows/*.yaml`, skill folders and
+`lab/workflow/` overlays. Validate direct edits with:
 
 ```bash
 uv run --with pyyaml python arlo.py check
 ```
 
-Use the dashboard draft path when you want a reviewable publication. **Skills** and **Rooms** are in the Workflow navigation. **More settings** contains shared steps, roles, rules, checks, project types and research instruments. See [workflow file reference](workflow.md) for formats and [extending the Lab](extending.md) for larger additions.
+**More settings → Task defaults** changes shared task definitions; ordinary map edits change the
+selected workflow. Use the [workflow reference](workflow.md) for formats and
+[extensions](extending.md) for new checks, project types or instruments.

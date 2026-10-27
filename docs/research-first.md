@@ -1,48 +1,46 @@
-# Research-first Lab
+# How it fits together
 
-ARLOtope keeps a research question, its evidence and its decisions together while agents work with your existing tools. Start with a study rather than configuring a complete paper pipeline.
+Use one Lab to follow agent teams working on several projects. A **study** holds one research
+question, its workflow and its history. It can start without code or attach an existing repository.
+Create as many studies as you need, then choose when to launch their tasks. Switching views does
+not stop other teams.
 
-For the first-run walkthrough, use [Getting started](getting-started.md). This page explains how the pieces fit.
+## Tasks, skills and agents
 
-## A study is the unit of work
+| Part | Meaning | Example |
+|---|---|---|
+| Workflow | Connected tasks and the routes between them | Collect evidence → Check it → Report |
+| Task | One assignment with instructions and an expected result | Compare the baseline results |
+| Skill | A reusable method a task can use | Evidence review instructions in `SKILL.md` |
+| Role | The agent's responsibility | Analyst or independent reviewer |
+| Agent choice | The harness and optional model settings | A saved Codex configuration |
+| Context | Which conversation the task uses | New, continued or forked |
+| Checkpoint | A decision required before proceeding | Review the plan before full runs |
+| Room | The shared place where a working agent appears | Analysis |
 
-A study has a title, question, workflow and durable record under `studies/<slug>/`. It may attach an existing project or begin without one. Attached projects retain their own code, environment and runner; attachment adds Lab identity files and does not certify their results.
+For example, a collection task and an independent reviewer can share the Study room while using
+different agents. A report task can continue the collector's conversation after the review.
+Rooms show where work happens; connections determine when it runs. Starting a study creates no room.
 
-Creating a study records a starting point. Launching an agent is a separate action. A task can be as small as inspecting a repository or clarifying a hypothesis. Research procedures provide more structure when you need literature review, experiments, analysis or a paper.
+## Your workflow, your starting point
 
-Terminal users can create the same lightweight study:
+Use a supplied workflow, make a copy, or design your own. Tasks can use skills, instructions alone,
+or a sequence of skills for one lead agent. Parallel tasks, named outcomes and loops add structure
+when needed. No particular research stage is required.
 
-```bash
-uv run --with pyyaml python tools/research_start.py --title "Replication study" \
-  --question "Which assumptions explain the published result?" --local /absolute/path/to/project
-```
+Already have an idea, literature review or draft? The starting plan can reuse that work or skip
+unneeded tasks. It uses your workflow's actual task IDs. See
+[starting with existing work](agent-workflows.md#start-with-existing-work).
 
-Omit `--local` for a question-only study, or use `--repo owner/repository` for a public clone. `--workflow` selects a process and `--slug` selects an ID. The dashboard can also clone private repositories through the connected GitHub account. Existing private checkouts can be attached without cloning again.
+## What is kept
 
-## Keep method, execution and decisions distinct
+**Study → History** links task passes, agent sessions, recorded exchanges, decisions and outputs.
+**Library** brings together project files, retained sources, human notes and saved answers.
+Your repository keeps its code, environment and runner. See [project storage](projects.md).
 
-| Piece | What it controls |
-|---|---|
-| Task | The work requested and its expected output |
-| Procedure or skill | Reusable instructions for doing that work |
-| Role | Working instructions such as analyst, writer or reviewer |
-| Agent preset | A configured harness and optional model/effort |
-| Context | A fresh, continued or forked conversation |
-| Checkpoint | Whether a particular transition or kind of work is authorized |
-| Room | Where tasks appear in the visual Lab |
+An agent turn ending does not prove the task is complete. Workflow progression needs a recorded
+outcome. Checkpoints govern that progression; the harness separately controls native tool permissions.
+See [recovery](recovering-work.md) and [approval boundaries](monitoring.md).
 
-A different avatar or room does not change authority. A successful process exit does not prove that an experiment succeeded. A reviewer's recommendation is evidence for a decision, not a researcher-only approval.
-
-## Evidence stays accessible
-
-**Library** brings together outputs, documents and retained records without moving every project file into a new database. Notes are separate files; saved Q&A does not edit the document being discussed. Reports and figures should point to the underlying evidence. Negative and failed attempts belong in the record too.
-
-Agents use their normal shell, file and research tools. Local and remote evidence may have different availability. A summary should disclose missing, clipped or stale records rather than suggest access to private model state.
-
-## Add structure when it helps
-
-Use **Workflow** to adapt tasks, routes and checkpoints. Shared changes stay in a draft until reviewed and published. Per-study instructions and agent preferences let a study differ without changing every other study.
-
-Budgets, autonomous campaigns, native subagents and remote compute remain explicit choices. Workflow checks govern official progression and supported launches; native tool actions also depend on the harness's permissions. The Lab does not provide a universal operating-system sandbox.
-
-See [workflow concepts and files](workflow.md), [tasks and agents](agent-workflows.md), [knowledge records](knowledge.md) and [publishing outputs](artifacts.md).
+Next: [First study](getting-started.md) · [Build a workflow](agent-workflows.md) ·
+[Import a skill](skills.md#reuse-a-skill).

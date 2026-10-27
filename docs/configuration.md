@@ -5,9 +5,8 @@ The repository ships `lab/config.defaults.yaml`. First use copies it to the igno
 implicitly merged with later defaults. Edit settings in the dashboard or local file, and include it
 in your Lab backup. A normal clone needs no template-generation step.
 
-Everything tunable lives in two places. The hub's **`lab/config.yaml`** configures the lab: its agents,
-the executor, campaigns and lab-wide defaults. An **experiment run** reads only its project's files,
-highest precedence first:
+Use **`lab/config.yaml`** for Lab agents, launches and defaults. Generated experiment projects
+resolve their run parameters in this order, highest precedence first:
 
 ```
 -o key=value  >  experiment yaml  >  configs/base.yaml  >  project control.yaml
@@ -31,14 +30,17 @@ uv run --with pyyaml python tools/show_config.py ../arlotope-projects/my-proj
 uv run --with pyyaml python tools/show_config.py ../arlotope-projects/my-proj exp-004.yaml
 ```
 
-…or just run `/configure` and let the agent present it. Edits go through `/configure [slug] set key=value` (or by hand — they're YAML files).
+Use `/configure [slug] set key=value` for an agent-assisted change, or edit the YAML directly.
 
 ## Profiles & budget tiers
 
-A **profile** is a named, *partial* bundle of `lab/config.yaml` overrides (built-ins in `lab/profiles/`). Applying one **stamps its values into `lab/config.yaml` in place — comments preserved** (no new resolution layer). Two composable axes:
+A **profile** applies selected settings to `lab/config.yaml`, preserving comments.
+It is not another configuration layer. Built-in profiles live in `lab/profiles/`:
 
-- **Budget tiers** — `low` · `medium` (the defaults) · `high` — scale *exploration*: how many agents/subagents, ideas, reviewer lenses, drafts, parallel subagents, and how strong the per-role models are. Actual token use depends on the work and backend; these are not billing estimates.
-- **Engine presets** — `claude-opus` · `claude-balanced` · `claude-fast` · `codex` · `opencode` · `mixed` — set *which* headless backend (`agents.programmatic.backend`) + its model. `mixed` puts the strong model on verification (overseer/reviewer) and a cheap one on running.
+- **Budget tiers** (`low`, `medium`, `high`) set exploration depth, parallelism and reviewer counts.
+- **Engine presets** (`claude-*`, `codex`, `opencode`, `mixed`) select a backend and models.
+
+These settings affect work volume; they are not provider billing estimates.
 
 ```bash
 uv run --with pyyaml python tools/profiles.py list
@@ -59,7 +61,9 @@ uv run --with pyyaml python tools/profiles.py save my-preset  # snapshot current
 | **`experiment.multi_seed_n` (floor)** | **3** | **3** | **5** |
 | **`oversight.level` (floor)** | **standard** | **standard** | **strict** |
 
-**The one rule: budget scales exploration, never rigor.** A profile may **never** lower `experiment.multi_seed_n` below 3, set `oversight.level: off`, or touch `eval_frozen` (the floors are `rigor_floors` in `workflow/rules.yaml`) — `tools/profiles.py apply` (and `validate`) **refuses** any that does. A `low` run is *cheaper, not sloppier* — it explores less but is held to the same checkpoints, seeds, and verification. Make your own: apply the closest tier, tweak with `/configure set …`, then `tools/profiles.py save <name>`. See `lab/profiles/README.md`.
+Profile validation refuses to lower `experiment.multi_seed_n` below 3, disable oversight or
+change `eval_frozen`. The floors are in `workflow/rules.yaml`. To save your own profile, apply a
+nearby preset, edit the settings, then run `tools/profiles.py save <name>`.
 
 ## Layer 1 — `lab/config.yaml` (lab-wide defaults)
 
@@ -125,7 +129,7 @@ See [Choose agents](agent-workflows.md#choose-agents) for precedence, saved laun
 
 ### Which tier for which task
 
-The rule of thumb is **volume × judgment**: high-volume, retrieval-shaped work goes `fast`; well-specified execution goes `standard`; low-volume, judgment-heavy verification goes `strong`.
+Use `fast` for routine retrieval, `standard` for specified execution, and `strong` for judgment-heavy review.
 
 | LLM work | Knob | Suggested tier |
 |---|---|---|
@@ -142,12 +146,12 @@ The tier ladder is **Claude-native**: it drives the `model:` frontmatter of Clau
 
 ### Per-project agent models (the spawn-time snapshot)
 
-A spawned project ships **real** role files — `<project>/.claude/agents/<role>.md`. The mechanics (all done in code, no agent tokens):
+Spawned projects receive backend role files. The public template keeps neutral model settings;
+at creation, `tools/role_sync.py` resolves the Lab's current role choices into the project files.
 
-- The shipped **project template** (`templates/project/.claude/agents/`) is always rendered **tier-neutral** (`model: inherit`, no effort line) — so a PI's local `agents.tiers` choice can never leak into the committed, public template.
-- At **spawn**, `tools/spawn_project.py` calls `role_sync.render_project(<dest>)`, which resolves each role key through the hub's *current* `agents.tiers` and writes the concrete `model:` / `effort:` into the new project's role files — a **spawn-time snapshot**. So a project (and any headless agent working inside it, which spawns its own `experiment-runner` / `overseer` subagents) runs them at the resolved tier, not the neutral `inherit`.
-- The **project-layer override is editing that frontmatter directly** in the project's own role file — deliberately *not* a `control.yaml agents:` block (a second config path would add a resolution layer for a rare need).
-- Re-running the hub's `/configure` does **not** retro-edit already-spawned projects (re-run `role_sync.py render-project <dir>` to refresh one); a project's role models are whatever its role files say.
+Edit a project's own role files to change those choices. Reconfiguring the Lab does not update
+existing projects. Use `role_sync.py render-project <dir>` to refresh one explicitly. There is no
+separate `control.yaml agents:` layer.
 
 ### Headless launch backends — `agents.programmatic.*` (optional, PI-owned, OFF by default)
 
@@ -238,10 +242,12 @@ If neither the experiment yaml nor `base.yaml` sets `budget.max_minutes`, the lo
 
 ### Load-time validation & environment capture
 
-Two lightweight reproducibility guards, deliberately in place of a heavyweight config framework (Hydra/OmegaConf — which would also fight `RunContext`'s own run-dir ownership):
+The generated loader checks `stage`, integer `seed` and numeric `budget.max_minutes` after merging.
+Add project-specific checks in `config.py → _validate`.
 
-- **Validation at load** (`config.py → _validate`): after merge, the loader fails fast on the universal mistakes — a `stage` that isn't `SMOKE|PILOT|FULL`, a non-int `seed`, a non-numeric `budget.max_minutes` — instead of KeyError-ing deep inside `experiment.run`. `_validate` is the documented place to add **this project's** required-key/range checks (it's a few readable lines, not a schema DSL).
-- **Environment provenance** (`tracking.py → meta.json.env`): every run records the python version, platform, and (when importable) torch/CUDA + GPU name, alongside the git SHA, dirty-tree `code.patch`, and seed. `uv.lock` pins the dependency closure; this pins the *runtime* facts that matter for replaying GPU-heavy work.
+Each run's `meta.json` records Python, platform, available torch/CUDA/GPU information, Git SHA and
+seed. A dirty tree also produces `code.patch`. Keep `uv.lock` with the project to retain dependency
+versions; matching these records does not alone guarantee identical numerical results.
 
 ## How configs flow through a project's life
 

@@ -1,10 +1,12 @@
 # Your first study
 
-Bring a question or an existing project, give an agent one task, and inspect its work.
+Bring a question or an existing project, start one task, and inspect its results.
+Screenshots use demonstration data.
 
 ## 1. Open the Lab and connect an agent
 
-With Git and uv installed, clone the application and run it:
+Install [Git](https://git-scm.com/downloads) and
+[uv](https://docs.astral.sh/uv/getting-started/installation/), then run:
 
 ```bash
 git clone https://github.com/AkxarLabs/ARLOtope.git
@@ -12,86 +14,75 @@ cd ARLOtope
 uv run --with pyyaml python arlo.py
 ```
 
-There is no template-generation step. First use creates this clone's private `lab/config.yaml`
-from `lab/config.defaults.yaml`. Existing settings are preserved. A second clone can be a separate
-Lab; cloning an existing Lab's source does not copy its ignored research records.
+The dashboard opens in your browser, normally at `http://127.0.0.1:8787`.
+Later, use `./arlo` on macOS/Linux, `.\arlo.cmd` on Windows, or the platform launcher.
+First use creates private settings for this clone; no frontend build is needed.
 
-You can also use `./arlo` on macOS/Linux, `.\arlo.cmd` on Windows, or the platform launcher.
-The browser normally opens at `http://127.0.0.1:8787`. Add the repository to PATH to use `arlo`
-from another folder.
+The ARLO guide introduces the main pages. Reopen it with **?** in the header.
 
-**Show me around** opens the ARLO guide on your first visit. You can return through **?** in the
-header. The guide explains the main pages without changing settings or starting work.
+![The first-visit ARLO guide](assets/current/arlo-guide.webp)
 
-![The ARLO guide introduces agent setup](assets/current/arlo-guide.webp)
-
-For managed tasks, open **Settings → Agents & models** and sign in to an installed agent.
-Use **Connect ACP agent** for another compatible tool. Enable launches in **Limits & permissions**
-when ready. You can create studies and read their files before enabling agents.
+In **Settings → Agents & models**, connect an installed agent and complete its sign-in.
+Use **Connect ACP agent** for another compatible tool. Enable launches in **Limits & permissions**.
+You can create studies before connecting an agent.
 
 ## 2. Create a study from the work you have
 
-Choose **New study**, then select:
+Choose **New study**, then:
 
-- **A research question** to start without a repository.
-- **An existing project** to attach a folder. Choose its machine and use **Browse…**.
-- **A GitHub repository** to clone by name or URL. **Choose repository** lists repositories available
-  through GitHub CLI; **Connect GitHub** opens sign-in if needed. Public URLs work without it.
+| Starting point | What to choose |
+|---|---|
+| A question | **A research question**; no repository needed yet |
+| An existing project | **An existing project**, its machine, then **Browse…** |
+| A GitHub repository | Enter its name or URL, or use **Choose repository**; **Connect GitHub** signs in when needed |
 
-Enter a title and question. **Add a brief or files** accepts supporting materials. Uploads do not
-start an agent. **Agent help → Suggest study details** uses an agent turn; review its suggestion
-before applying it.
+Enter a title and question. **Add a brief or files** accepts supporting materials.
+Optionally use **Agent help → Suggest study details**, then review the suggestion before applying it.
+Uploading files alone starts no agent.
 
-![Study details with a question and project choices](assets/current/start-details.webp)
+![Study details and supporting files](assets/current/start-details.webp)
 
-The **Starting workflow** map shows what will happen. Select a task to inspect it, or open
-**Change workflow**. Already have useful work? Choose **Use existing work** on the relevant task
-and supply references. **Skip at start** leaves a task out without claiming it is done; no reason
-is required. These choices apply at the beginning. If a later loop returns to the task, it runs
-normally. Checkpoints still apply.
+## 3. Check the workflow
 
-![Choose existing work on a workflow task](assets/current/workflow-start.png)
+The **Starting workflow** map shows the tasks. Select one to inspect its instructions,
+or choose **Change workflow**.
 
-Leave **Study settings** closed to use default agents and tags.
+- **Run task:** let an agent do it.
+- **Use existing work:** supply files or references in place of doing it again.
+- **Skip at start:** leave it out; no explanation required.
 
-## 3. Review and create
+Reuse and skip choices apply when the task is first reached. If a later loop returns to it, the
+task runs normally. Checkpoints still apply. Keep **Study settings** closed to use default agents and tags.
 
-Choose **Review study**. Check the question, workflow, files, machine and folder, then **Create study**
-or **Clone & create study**. Use **Back** to correct anything.
+![A workflow task with existing-work choices](assets/current/workflow-start.png)
+
+## 4. Review and create
+
+Choose **Review study**, check the details, then **Create study** or **Clone & create study**.
+Attaching keeps existing code and environments. Cloning downloads source without running it.
+Neither action launches an agent.
 
 ![Review the study before creating it](assets/current/start-review.webp)
 
-Creating a study does not start an agent. Attaching a folder preserves its code and environment;
-cloning downloads source without installing dependencies or running it. **Files added to this
-project** explains the registration records. See [what to keep in Git](knowledge.md#what-to-keep-in-git).
+## 5. Start and follow work
 
-## 4. Start one task
+Choose **Open study**, then its next task. **Run ready tasks** starts eligible branches of a workflow.
+For a separate planning conversation, choose **Plan with an agent** instead.
 
-Choose **Open study**. Start its next task, or use **Run ready tasks** for a workflow with ready
-branches. The saved workflow supplies the instructions and agent choices.
+![The created study and its next actions](assets/current/start-created.webp)
 
-For a preliminary conversation, choose **Plan with an agent** instead. Review the instruction and
-study, change the agent under **Options** if needed, then **Send**. This starts a separate task;
-it does not run the workflow automatically.
+In **Lab**, click a character to inspect its task and conversation. **Inbox** holds questions,
+permissions and checkpoint decisions. **Study → History** keeps task passes and agent attempts.
+An ended agent turn does not finish a task without a recorded outcome.
 
-![Open a created study or plan with an agent](assets/current/start-created.webp)
+![An agent conversation](assets/current/agents-run.webp)
 
-For an existing project, a useful first instruction is: “Read the project instructions and explain
-the current pipeline, evidence and open questions before proposing changes.”
+Open **Library → Outputs** for reports and interactive HTML, **Documents** for files, or
+**Notes & sources** for notes and saved answers. **Visual summary** on a run starts a separate explainer.
 
-## 5. Follow work and read its results
+To work on another project, choose **New study** again. Existing agents keep working.
+[Multiple studies](running-work.md#work-on-several-studies) explains team capacity and shared controls.
 
-In **Lab**, click an agent to see its task and open its conversation. **All agents** lists sessions;
-**Inbox** holds questions, permissions and decisions. If an agent stops without completing its task,
-inspect the attempt before **Continue task** or **New agent with handoff**.
-
-![An agent conversation and its recorded activity](assets/current/agents-run.webp)
-
-**Library → Outputs** shows published pages, including interactive HTML. **Documents** shows existing
-files; **Notes & sources** holds retained notes and saved Q&A. A run's **Visual summary** starts a
-separate explainer without interrupting its agent.
-
-Screenshots use example studies. Next: [dashboard tour](dashboard.md),
-[build a workflow](agent-workflows.md), or [recover interrupted work](recovering-work.md).
-
-Before collecting research, choose a backup location for your [Lab and project records](projects.md#storage-updates-and-backups).
+Next: [Dashboard tour](dashboard.md) · [Build a workflow](agent-workflows.md) ·
+[Recover work](recovering-work.md). Before collecting research, set up
+[backups](projects.md#storage-updates-and-backups) for your Lab and projects.

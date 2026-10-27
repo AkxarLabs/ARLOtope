@@ -5,6 +5,22 @@ project helpers ship with spawned projects. Existing attached repositories keep 
 Method-specific helpers live with their skill; research checks live in `checks/`. Use a command's
 `--help` for its complete arguments.
 
+## Find a command
+
+| I want to… | Tool |
+|---|---|
+| Launch the dashboard or inspect studies | `arlo` / `arlo.py` |
+| Attach a project | `tools/research_start.py` |
+| Read notes or retained sources | `tools/knowledge.py` |
+| Queue, inspect or resume an agent | `tools/executor_cli.py` |
+| Inspect or save workflow history | `tools/study_history.py` |
+| Publish a report | `tools/artifact.py` |
+| Inspect effective settings | `tools/show_config.py` |
+| Validate Lab definitions | `arlo check` |
+
+For dashboard steps, use [Start and follow work](running-work.md). This page covers terminal and
+developer tools. Commands do not require installing a separate ARLOtope package.
+
 ## Checks (`checks/`)
 
 The lab's mechanical rules, one file each — see `checks/README.md`. The guard checks (`append-only`,
@@ -27,9 +43,12 @@ For every claim in the paper's `claims.yaml`, each number must be found in the r
 | `MANUAL` | no match but a derivation is stated — a human must verify; never silently passed | 2 |
 | `FAIL` | artifact missing or no match (closest value reported) | 1 |
 
-`/review-paper` Part A runs this and **blocks** the qualitative review on any FAIL or unresolved MANUAL. This is the mechanical teeth behind "every number traces to an artifact." `--scan-integers` additionally flags bare integers sitting near result words (samples/tasks/runs/seeds/…), excluding years (1900–2099) and structural refs — off by default (integers otherwise swamp the scan with counts and section numbers).
+`/review-paper` Part A runs this and **blocks** the qualitative review on any FAIL or unresolved MANUAL. `--scan-integers` additionally flags bare integers sitting near result words (samples/tasks/runs/seeds/…), excluding years (1900–2099) and structural refs — off by default (integers otherwise swamp the scan with counts and section numbers).
 
-`--scan-novelty` extends the same idea from numbers to **novelty**: it flags priority/superiority claims in `main.tex` prose — *state-of-the-art*, *"first to"*, *outperforms all*, *unprecedented*, *best-known* — that carry no `\cite` (positioning them against the prior work they claim to beat) or `% Cnnn/Nnnn` backing (a traced number, or a `% Nnnn` lit-review novelty pointer). Each is a **WARN (exit 2)** — the discovery-vs-rediscovery gate: `/write-paper` surfaces it while drafting, `/review-paper` + `/finalize` block on an unresolved one, so a "we're first / SOTA" claim must trace to the `/lit-review` novelty verdict exactly as a number traces to an artifact (a mechanical answer to the field's most public failure: rediscovery shipped as discovery). Zero LLM cost — a regex lint, conservative by design (`novel` alone is too common to flag).
+`--scan-novelty` flags priority or superiority claims such as “first to” or “state-of-the-art”
+without a citation or `% Cnnn/Nnnn` evidence pointer. It is a conservative regex check (exit 2),
+not a novelty judgment. The writing procedure surfaces warnings; review and finalization require
+them to be resolved against the literature notes. The word `novel` alone is not flagged.
 
 ### `audit_multiseed.py` · `audit_ablation_coverage.py` · `audit_eval_discipline.py` · `audit_prereg.py` — paper integrity
 
@@ -112,13 +131,16 @@ uv run --with pyyaml python .claude/skills/lit-review/tools/s2.py verify studies
 uv run --with pyyaml python .claude/skills/lit-review/tools/s2.py citecheck studies/<slug>/paper
 ```
 
-Semantic Scholar Graph API with OpenAlex fallback. `search` gives `/lit-review` replayable, logged queries (title/year/venue/citations/TLDR per hit); it exits **3** when *both* backends are unreachable, so an empty result is never mistaken for "no prior work".
+The helper uses Semantic Scholar with OpenAlex fallback:
 
-`bibtex` returns the canonical entry for a paper id — no hand-typed bibliography — through a **keyless fallback chain**: Semantic Scholar `citationStyles` → **doi.org content-negotiation** → **Crossref** transform → **OpenAlex** (reconstructed from fields), so it works with no API key even when S2 is down or throttling a keyless caller. arXiv ids resolve via their DataCite DOI (`10.48550/arXiv.<id>`). `--append <references.bib>` writes the entry straight into the bib (dedup'd by key/DOI) and prints the `cite-key` to add to the paper. When a paper has no usable id/DOI, the resolver prints the **agentic fallback**: web-search the title for its DOI, then `bibtex DOI:<doi> --append …` — you supply the DOI, the script fills the entry.
-
-`verify` is the zero-assumption citation audit `/review-paper` runs: every bib entry title-matched against the real record (pass `--threshold <writing.citation_match_threshold>`), year-checked, and retraction-checked via OpenAlex `is_retracted`. **Any nonzero exit blocks** — NOT-FOUND/RETRACTED *and* MISMATCH (near-miss/wrong-year). A fabricated or mismatched citation is a blocking problem, not an advisory finding.
-
-`citecheck` is the **cite-from-lit-review** lint: every `\cite` in the paper's `.tex` must resolve to a `references.bib` entry (**DANGLING** → exit 1) and to a `studies/<slug>/lit-review.md` note (matched by DOI/arXiv id, else ≥70% title-word overlap; **UNGROUNDED** → exit 2, the by-hand confirm list). Catches a citation that's real but was never in the lit review.
+- **`search`** logs queries and returns paper metadata. Exit 3 means both services were unreachable,
+  not that no related work exists.
+- **`bibtex`** tries Semantic Scholar, DOI content negotiation, Crossref and OpenAlex. `--append`
+  retains unique entries by key/DOI. If identifiers are missing, find the DOI and retry with `DOI:<doi>`.
+- **`verify`** checks title, year and retraction metadata. Use `--threshold` to set the title-match
+  threshold. Any nonzero exit blocks paper review.
+- **`citecheck`** matches paper citations to `references.bib` and literature notes. A missing bibliography
+  entry exits 1; a citation without a matching note exits 2 for manual review.
 
 Env keys: `S2_API_KEY` and `OPENALEX_API_KEY`. Configure research service keys in Settings when a
 service requires them or rate-limits anonymous requests. DOI/Crossref resolution supplies additional
@@ -139,7 +161,9 @@ Prints the lab layer, the project's control.yaml, the effective skill values (co
 uv run --with pyyaml python tools/profiles.py list|show <name>|diff <name>|validate <name>|apply <name>|save <name>
 ```
 
-Named, *partial* bundles of `lab/config.yaml` overrides (built-ins in `lab/profiles/`): budget tiers (`low`/`medium`/`high`, scaling agent/subagent counts, parallelism, per-role model strength) and engine presets (`claude-*`/`codex`/`opencode`/`mixed`, setting the headless backend). `apply` stamps each value into `lab/config.yaml` with comments preserved, re-renders backend role files through `role_sync.py` when `agents.*` changes, and refuses profiles that lower an integrity floor (`multi_seed_n` < 3, `oversight: off`, touching `eval_frozen` — `rigor_floors` in `workflow/rules.yaml`). Backend-specific model behavior still applies. `save` snapshots current settings as a named profile. Backs `/configure profile …`. See [Configuration → Profiles](configuration.md).
+`apply` writes the profile's settings while preserving comments and checks the configured integrity
+floors. Changes under `agents.*` re-render role files. `save` stores current settings as a named
+profile. See [profiles and budget tiers](configuration.md#profiles-budget-tiers).
 
 ### `guard.py` — run the lab's checks
 
@@ -227,7 +251,7 @@ uv run --with pyyaml python tools/new.py workflow|room|role|check|type <name> --
 uv run --with pyyaml python tools/new.py rule     <id>   --text "**Title.** What it says."
 ```
 
-Copies the closest thing the lab already has under a new name, so nobody hand-edits YAML. A copied skill
+Copies the closest thing the lab already has under a new name, as a starting point for further edits. A copied skill
 says `like: <skill>`: it is a variant, used in a workflow (`use:`), for one study (`arlo workflow use`),
 or as a step's work. Then the generated docs are refreshed. The signature guard refuses it from a run.
 
@@ -266,7 +290,12 @@ uv run --with pyyaml python tools/configure.py set <key=value> [--project <slug|
 uv run --with pyyaml python tools/configure.py profile <list|show|diff|apply|save> [<name>]
 ```
 
-The mechanical half of `/configure`. `view` wraps `show_config.py` (the effective config + provenance). `set` stamps ONE value into the right layer — `lab/config.yaml` or a project's `control.yaml` (`--project`) — **preserving comments** (reuses `profiles.stamp`), and **refuses a PI-owned key without `--pi-approved`** (the owners are `pi_owned_config` in `workflow/rules.yaml`, mirrored by the Owner column in [Configuration](configuration.md): `lab.*`/`compute.*`/`agents.*`/`critique.*`/`budgets.*`/`oversight.level`/`writing.page_limit`/`writing.venue`/`eval_frozen`/`loop.mode`/`loop.explore_*`/`ideation.in_project*`/`autopilot.max_concurrent_projects` — but *not* the agent-readable `loop.no_progress_backoff_cycles` etc.). Warns loudly on `eval_frozen=false`, and re-renders the role files after an `agents.*` change. `profile` delegates to `profiles.py` (rigor-floor enforced). The judgment — is this the PI, and should the key change — stays in the skill; the tool makes the owner check unskippable.
+`view` shows effective settings. `set` writes one value to `lab/config.yaml`, or project
+`control.yaml` with `--project`, while preserving comments. Researcher-owned keys from
+`workflow/rules.yaml → pi_owned_config` require explicit authorization and `--pi-approved`.
+The flag records that authorization; it is not permission for an agent to grant itself.
+Agent-setting changes re-render role files; `profile` delegates to profile validation.
+See [configuration ownership](configuration.md).
 
 ### `spawn_project.py` — mechanical project scaffolder
 
@@ -348,9 +377,8 @@ change:
 - shell commands that do any of the above, or run `arlo approve|revoke|changes|approve-collector|ack`,
   `tools/new.py` or `--skip-guard`.
 
-One list drives both the file check and the shell check. It is a speed bump, not a vault: an agent can
-run code, so the kernel also refuses the PI's verbs inside a run, and anything that slips past shows on
-the run's digest and as a flag. If the guard itself fails, it allows the call and raises a flag. Denials
+One list drives both the file check and the shell check. It is a tool-call check, not an OS sandbox: an agent can
+run code, so the kernel also refuses the PI's verbs inside a run, and the run digest can flag observed changes outside the allowed paths. If the guard itself fails, it allows the call and raises a flag. Denials
 are logged to the run's `permissions.jsonl`. See [Autonomy → Headless runs](autonomy.md#headless-runs-the-executor).
 
 ### `lab_profile.py` — this lab's half of running agents
@@ -482,23 +510,23 @@ Reads only `runs/registry.jsonl`; markdown output with seed-aggregated mean ± s
 
 ### `figures.py` — the paper-grade figure & table library (`src/project_pkg/`)
 
-Not a CLI — the module every `scripts/figures/` script imports, so figure code in projects stays a few lines and all figures are consistent by construction:
+Not a CLI — the module every `scripts/figures/` script imports, for shared figure dimensions, styling and artifact readers:
 
 - `new_fig(width="single"|"double")` — axes at **final printed width** (3.3 in / 6.9 in), warm-free venue-neutral style: vector PDF, TrueType fonts (`fonttype 42` — Type 3 fails camera-ready checks), 7–8 pt labels, Okabe-Ito colorblind-safe cycle, constrained layout.
 - `save_fig(fig, name, consumed_runs=[...])` — PDF + review PNG, printing the run ids consumed (provenance for `claims.yaml`).
 - `load_registry()` / `metric_curve(run_id, metric)` / `seed_stats(rows, metric)` — artifact access; headline comparisons must go through `seed_stats`.
 - `format_measurement(mean, std, n)` — sig-fig discipline (std to 2 sig figs, mean to match: `71.28 ± 0.39`).
-- `emit_table(headers, rows, path)` — booktabs `.tex` files the paper `\input`s, so **result numbers never pass through prose generation** (the single most effective anti-transcription-error mechanism in the surveyed systems).
+- `emit_table(headers, rows, path)` — booktabs `.tex` files the paper `\input`s, to generate result tables directly from recorded measurements.
 
 `/make-figures` orchestrates these per paper; matplotlib is imported lazily (add it to the project's pyproject when plotting starts).
 
-### `status.py` — zero-token run monitor
+### `status.py` — run monitor { #statuspy-zero-token-run-monitor }
 
 ```bash
 uv run python scripts/status.py [<run_id>] [--log-interval 60]
 ```
 
-One line: `alive | stalled | done | failed | timeout · elapsed/budget · last metric`. The **only** check `/research-loop` makes while a run is in flight — liveness from `meta.json` + `metrics.jsonl` mtime, no log dumps, no judgment about partial curves. Exit 3 on `stalled` (two in a row → treat the run as failed).
+One line: `alive | stalled | done | failed | timeout · elapsed/budget · last metric`. The lightweight check used while a run is in flight — liveness from `meta.json` + `metrics.jsonl` mtime, no log dumps, no judgment about partial curves. Exit 3 on `stalled` (two in a row → treat the run as failed).
 
 ### `check_project.py` — readiness lint + orientation
 

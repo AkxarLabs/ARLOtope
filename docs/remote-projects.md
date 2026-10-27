@@ -20,8 +20,7 @@ not a new environment or replacement runner.
 
 ![Choose a project folder on the execution machine](assets/current/machine-folder.webp)
 
-*Screenshots use an isolated example Lab. The folder listing is illustrative; no SSH connection
-or agent was started for these images.*
+*Screenshots use demonstration data.*
 
 The host needs OpenSSH, `bash` and Python 3.10+; cloning needs Git. This bootstrap targets
 Linux/macOS-style hosts. Native Windows SSH bootstrap is not implemented. The controller has
@@ -114,7 +113,8 @@ connection; agents still run with their execution accountâ€™s permissions. Labâ€
 OS sandbox for untrusted code. Updated worker builds use separate endpoints; idle old endpoints are
 not automatically removed. Reopen terminals after a worker/dashboard change if their handles expired.
 
-Fixtures exercise packaged workers, HTTP/subprocess execution, outcomes, checkpoints, permissions,
-receipts and continuation. Recorded live SSH testing established interactive login, worker bootstrap
-and repository discovery on a Linux cluster; it did not launch a remote research workflow. Provider
-authentication, full tool use, macOS execution and forced tunnel outages need their own verification.
+Automated tests cover packaged workers, requests, outcomes, checkpoints and recovery. Recorded
+live checks on a Linux cluster covered password/MFA, worker setup, project discovery, a Claude
+task, and recovery of the same session and attempt after a forced tunnel disconnect. This was a
+small connection/task test, not an end-to-end research campaign. Other hosts, provider tools and
+native macOS sign-in flows need separate checks; see [platform scope](platforms-and-agents.md).

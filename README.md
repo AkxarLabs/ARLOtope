@@ -1,21 +1,36 @@
-# ARLOtope
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="docs/assets/brand/arlotope-wordmark-dark.svg">
+  <img src="docs/assets/brand/arlotope-wordmark.svg" alt="ARLOtope" width="480">
+</picture>
 
-<img src="docs/assets/brand/arlotope-wordmark.png" alt="ARLOtope" width="440">
+**Visually manage agent teams across your research projects.**
 
-A local research workspace for scientists working with coding agents. Bring a question or an existing
-project, work with your own tools, and keep a clear record of methods, evidence and decisions.
+Move several research projects forward at once. Build workflows, assign teams, and follow your
+agents in a shared 3D lab. See who is working, where your input is needed, and what each project
+has produced—all while keeping your existing repositories and tools.
 
-Licensed under [AGPL-3.0-only](LICENSE). Commercial use is allowed, with the license's source-sharing
-requirements. Reusable templates retain MIT terms; third-party components retain their own licenses.
-See [licensing](docs/licensing.md).
+[Documentation](https://akxarlabs.github.io/ARLOtope/) ·
+[First study](docs/getting-started.md) · [Build a workflow](docs/agent-workflows.md)
 
-![ARLOtope visual workspace](docs/assets/current/lab-light.webp)
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="docs/assets/current/lab-dark.webp">
+  <img src="docs/assets/current/lab-light.webp" alt="The visual lab with agents working in shared research rooms">
+</picture>
 
-*Current interface with demonstration data.*
+*Dashboard with demonstration studies.*
 
-## Start
+## What you can do
 
-Install [uv](https://docs.astral.sh/uv/) and Git, then clone and launch:
+- **Work across projects.** Run studies side by side, with separate workflows and records. Switch focus without stopping other teams.
+- **Use your own agents.** Claude Code, Codex, opencode and compatible [ACP agents](docs/acp.md), with your own accounts.
+- **Build your process.** Connect tasks, reuse Markdown skills, run parallel agents, and add loops and review checkpoints. Research workflows are included as starting points.
+- **See what is happening.** Follow characters between rooms, inspect conversations, and answer questions from one Inbox.
+- **Keep a research record.** Each study brings together task history, notes, sources and outputs, including interactive HTML reports.
+- **Keep your tools.** Attach existing repositories without replacing their environment or runner. Work locally or over [SSH](docs/remote-projects.md).
+
+## Get started
+
+Install [Git](https://git-scm.com/downloads) and [uv](https://docs.astral.sh/uv/getting-started/installation/), then:
 
 ```bash
 git clone https://github.com/AkxarLabs/ARLOtope.git
@@ -23,104 +38,23 @@ cd ARLOtope
 uv run --with pyyaml python arlo.py
 ```
 
-Or double-click **Start ARLOtope.cmd** on Windows or **start-arlotope.command** on macOS.
-No template setup, package installation step or frontend build is needed. Each clone can be its
-own Lab. First use creates private `lab/config.yaml` from the shipped defaults; it never replaces
-existing settings. Agent tools still need their own installation and sign-in.
+The dashboard opens in your browser. No frontend build is needed. Works on Windows, macOS and Linux.
 
-For a short terminal command, use `./arlo` on macOS/Linux or `.\arlo.cmd` on Windows.
-Add this folder to your PATH to use `arlo` from elsewhere. For example, `arlo status`
-shows your studies and `arlo --stop` stops the dashboard.
+1. Connect an installed agent in **Settings → Agents & models** and enable launches in **Limits & permissions**.
+2. Choose **New study**. Start with a question, browse to an existing folder, or choose a GitHub repository. Add a brief or other files if useful.
+3. Review the workflow, create the study, then start its first task.
 
-The local dashboard opens in your browser.
+Creating a study does not launch an agent. The first-visit ARLO guide shows you around;
+reopen it with **?**. See the [first-study walkthrough](docs/getting-started.md) for screenshots.
 
-The first-visit ARLO guide shows agent setup, workflows and the visual workspace. Reopen it with
-**?** in the header. You can skip it and use **New study** directly:
+## Yours to inspect and change
 
-1. A research question, an existing project on this or a connected machine, or a GitHub `owner/repository`. Private repositories use the connected GitHub account.
-2. A research goal and workflow. Optionally upload a brief or supporting files and ask an agent to suggest details.
-3. Review, then create the study. A GitHub clone downloads source without installing or running it.
+Workflows are YAML, skills are Markdown, and records are plain files. Edit them in the dashboard
+or with your own tools. Agent turns and task completion are tracked separately; interrupted work
+stays visible for [recovery](docs/recovering-work.md).
 
-Attach existing work without moving files, replacing its package manager, or adding a new runner.
-Connect Claude Code, Codex, opencode or an [ACP agent](docs/acp.md) when you want an agent's help.
-Use the CLI's own sign-in. Projects can stay on [remote machines](docs/remote-projects.md) without
-installing another full Lab there.
+Private Lab records are ignored by Git. Back up `lab/`, `studies/` and your project repositories;
+see [storage and backups](docs/projects.md#storage-updates-and-backups).
 
-Build your own workflow with tasks, skills, roles and gates. **Workflow → Skills → Import folder**
-reuses an existing `SKILL.md` folder, including its references and scripts. Selected skills are copied
-into each project's `.agents/skills/`; existing project skills are preserved. See [reusing skills](docs/skills.md#reuse-a-skill).
-Creating a study does not start an agent or approve a checkpoint.
-Use **Browse** to choose project folders. Uploaded materials stay with the study and are available to its agents.
-**Library → Notes & sources** keeps human notes, saved workspace answers and retained papers with
-each study. Notes do not queue work; their optional acknowledgement records that an agent read them.
-See [study knowledge](docs/knowledge.md).
-
-## Research, your way
-
-- **Explore and plan:** discuss topics, review literature, define hypotheses and plan a study.
-- **Work in existing projects:** inspect code, run requested tasks and add structured experiment
-  tracking when useful. New projects can use reproducible templates.
-- **Analyze and communicate:** link results to evidence, generate figures, draft and review papers.
-- **Adapt the process:** add or reorder steps, edit procedures, and configure your own checkpoints.
-  Shared edits stay in a draft until you review and publish them.
-- **Stay in control:** inspect agent conversations, answer questions, review evidence, pause or stop
-  work, and choose budgets and permissions. Background loops and campaigns are optional.
-- **Use research compute:** local commands, SSH, Slurm and custom schedulers remain available.
-
-The visual lab is the primary workspace, with a restrained light/dark interface and three agent
-avatars: newt, scientist and robot. Compose workflows, assign agents, group tasks into rooms and
-refine a room through a small prompt/preview/apply flow.
-See [tasks, agents and rooms](docs/agent-workflows.md).
-
-Use **Library → Outputs → Ask for a visual summary**, or **Visual summary** on a run, to review recorded work
-as an interactive page. [Published outputs](docs/artifacts.md) stay linked to their study and agent;
-feedback goes back to that conversation.
-
-## Plain files, small machinery
-
-Procedures are Markdown skills; workflows and checkpoints are YAML; study history is an append-only
-journal. Code and experiments stay in project repositories, which may live anywhere. The visual
-dashboard needs no frontend build. Agents can also read `AGENTS.md` and follow procedures directly;
-the CLI and executor are available independently.
-
-The checkout holds the application and this Lab's local records. Git ignores `studies/` and
-private `lab/` state, including settings, notes, transcripts and published outputs. Project code
-stays in its own repository, outside the checkout by default. **Ignored does not mean backed up:**
-save `lab/`, `studies/` and your project repositories separately. See [storage and backups](docs/projects.md#storage-updates-and-backups).
-Reusable project scaffolds are optional; attaching or cloning an existing project does not apply one.
-
-```bash
-# Attach a repository without scaffolding it
-uv run --with pyyaml python tools/research_start.py --title "My study" \
-  --question "What would I like to understand?" --local /absolute/path/to/project
-
-# Inspect the lab from a terminal
-uv run --with pyyaml python arlo.py status
-```
-
-For an agent session, start your installed harness in the lab and use `/discuss`, `/ideate`, `/adopt`
-or another procedure. Procedures live in `.claude/skills/` and are readable across harnesses. Native
-integration differs by backend; see [the operating manual](AGENTS.md).
-
-## Interrupted work
-
-An agent turn ending does not complete a workflow task. The workflow advances only after an
-accepted outcome. Quota failures, crashes and unanswered questions remain visible; an assigned
-step with no outcome is marked unfinished. Resume the saved session or start a new agent with a
-handoff. See [recovery](docs/recovering-work.md) for limits, retries and what is preserved.
-
-## Documentation
-
-[Public beta candidate notes](RELEASE_NOTES.md) describe the included features and known limits.
-
-[Getting started](docs/getting-started.md) · [Research-first tour](docs/research-first.md) ·
-[Customizing research](docs/customising.md) · [Workflow format](docs/workflow.md) ·
-[Configuration](docs/configuration.md) · [Compute](docs/compute.md) ·
-[Background work](docs/autonomy.md) · [Notes & sources](docs/knowledge.md) · [Contributing](CONTRIBUTING.md)
-
-The [documentation website](https://akxarlabs.github.io/ARLOtope/) is built from `docs/` with
-`properdocs.yml`. Historical implementation plans stay in the repository and are excluded from the
-public site. Build it locally with `uv run --with properdocs --with mkdocs-material properdocs build --strict`.
-
-The Lab preserves evidence provenance and explicit approvals. Workflow controls govern official
-progression; native tool actions also depend on the agent harness's permissions.
+[Beta notes](RELEASE_NOTES.md) · [Contributing](CONTRIBUTING.md) ·
+[AGPL-3.0-only](LICENSE) ([template and third-party terms](docs/licensing.md))

@@ -19,44 +19,14 @@ required. Skipping a phase does not synthesize its required evidence.
 
 ![Phase controls in the task inspector; example configured-host state](assets/current/external-phase.png)
 
-The phase screenshot shows the current task inspector in an example Lab. The preset can be inspected
-before installation; no Sakana campaign was executed for this image.
+*The task inspector uses demonstration data.*
 
 ## Set up Sakana
 
 Install [The Agentic Scientist](https://github.com/SakanaAI/AI-Scientist-v3/blob/main/docs/install.md)
 separately, preferably at a pinned revision on a connected Linux machine. Its documented Docker,
 agent authentication, data and task-runtime requirements still apply. ARLOtope adds no Sakana,
-Docker, Hydra or frontend dependency. The definition was source-reviewed against upstream
-`df8313889a004f8a44a472e19a833cd547bb828a`. Local checks covered a native one-cycle investigation
-and a shortened Docker workflow: task drafting, one investigation cycle, fresh ARLOtope review
-and an HTML summary. The Docker investigation completed without a qualifying winner. Live
-ablations, final evaluation, post-hoc and paper generation were not tested; the full preset
-and other execution hosts are not certified.
-Native Windows execution is unavailable in this preset; connecting to a Linux worker is supported.
-
-On WSL, keep the installation, project and run directories on the Linux filesystem, such as under
-`~/projects`. Default Windows mounts can fail upstream ownership and permission checks. Installing
-inside WSL does not make a Windows dashboard's local executor a Linux executor; dashboard launches
-still need a supported execution machine.
-
-Run `agsci doctor` from the supervising agent's actual shell, not just a separate host terminal.
-Its scratch-directory ownership checks can fail inside a harness sandbox even when they pass
-on the host. Set `AGENTIC_TEMP_ROOT` to an existing, private, writable directory on that machine;
-its ancestors must also satisfy upstream ownership checks. Keep Python caches writable too.
-Do not disable upstream checks or silently widen the agent's permissions to make preflight pass.
-Docker-controlling agents need explicitly configured access to the host Docker runtime.
-
-Use a coding CLI version compatible with the chosen model and account. Verify its model list and
-a small turn on that host, then set upstream `agent.model` explicitly when its default is unsuitable.
-The ARLOtope supervising agent's model choice does not automatically configure Sakana's internal agent.
-The pinned Headless runtime also needs a working npm Git-dependency install. These are external
-runtime requirements, not dependencies added to the ARLOtope package.
-
-At the reviewed revision, `agsci doctor` reports missing Docker as a failure even for a native
-investigation configuration. A successful standalone native phase therefore does not establish
-readiness for the complete preset. The ARLOtope preflight preserves that failure; install and verify
-the documented Docker runtime before using the full preset.
+Docker, Hydra or frontend dependency. Native Windows execution is unavailable in this preset; connecting to a Linux worker is supported.
 
 In the attached project, create `.arlotope/frameworks.yaml`:
 
@@ -88,6 +58,31 @@ The initial definition uses one internal investigation worker, represented by on
 Parallel internal workers are intentionally not advertised: they need capacity and recovery
 integration before claiming support. The moving character represents the current ARLOtope phase
 task; internal sessions are not separately controllable characters in this first integration.
+
+### Runtime troubleshooting
+
+On WSL, keep the installation, project and run directories on the Linux filesystem, such as under
+`~/projects`. Default Windows mounts can fail upstream ownership and permission checks. Installing
+inside WSL does not make a Windows dashboard's local executor a Linux executor; dashboard launches
+still need a supported execution machine.
+
+Run `agsci doctor` from the supervising agent's actual shell, not just a separate host terminal.
+Its scratch-directory ownership checks can fail inside a harness sandbox even when they pass
+on the host. Set `AGENTIC_TEMP_ROOT` to an existing, private, writable directory on that machine;
+its ancestors must also satisfy upstream ownership checks. Keep Python caches writable too.
+Do not disable upstream checks or silently widen the agent's permissions to make preflight pass.
+Docker-controlling agents need explicitly configured access to the host Docker runtime.
+
+Use a coding CLI version compatible with the chosen model and account. Verify its model list and
+a small turn on that host, then set upstream `agent.model` explicitly when its default is unsuitable.
+The ARLOtope supervising agent's model choice does not automatically configure Sakana's internal agent.
+The pinned Headless runtime also needs a working npm Git-dependency install. These are external
+runtime requirements, not dependencies added to the ARLOtope package.
+
+At the reviewed revision, `agsci doctor` reports missing Docker as a failure even for a native
+investigation configuration. A successful standalone native phase therefore does not establish
+readiness for the complete preset. The ARLOtope preflight preserves that failure; install and verify
+the documented Docker runtime before using the full preset.
 
 ## See internal activity
 
@@ -165,6 +160,16 @@ parallel investigation recovery has restrictions; never delete its state to forc
 A local Docker probe verified handled termination, timeout, explicit retry and receipt reuse
 for a simple foreground container. This is narrower than recovery of Sakana's own container
 wrappers or an interrupted multi-phase campaign; those require separate verification.
+
+## Tested scope
+
+The definition was source-reviewed against upstream
+`df8313889a004f8a44a472e19a833cd547bb828a`. Local checks covered a native one-cycle investigation
+and a shortened Docker workflow: task drafting, one investigation cycle, fresh ARLOtope review
+and an HTML summary. The Docker investigation completed without a qualifying winner. Live
+ablations, final evaluation, post-hoc and paper generation were not tested; the full preset
+and other execution hosts are not certified.
+See [platform verification](platforms-and-agents.md) for the Lab adapters.
 
 ## Add another framework
 

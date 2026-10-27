@@ -1,9 +1,13 @@
 # Monitoring and guardrails
 
-Agents run unattended in this lab, and an agent that can run code can do anything its operating-system user
-can. File rules and pattern matches slow such an agent down; they don't stop it. So the lab keeps a few
-cheap protections around what matters most, relies on each backend's own approval mode for everyday
-safety, and puts most of its effort into showing the PI what every run did.
+Use **Inbox** for questions, permissions, checkpoint decisions and alerts. Open a run to inspect
+its conversation, actions and changed files. This reference explains which controls are enforced
+by the workflow engine, which depend on the harness, and what remains visible for review.
+
+![A checkpoint and the evidence behind its decision](assets/current/checkpoint.webp)
+
+Agents use their execution account's tools and permissions. Lab checks do not provide an
+operating-system sandbox; see [what is not protected](#what-is-not-protected).
 
 `arlo <verb>` is short for `uv run --with pyyaml python arlo.py <verb>`.
 
