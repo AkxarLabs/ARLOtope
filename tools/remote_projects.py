@@ -115,7 +115,7 @@ def bundle():
         files[name + '.py'] = (ROOT / 'tools' / (name + '.py')).read_bytes()
     files['lab_profile.py'] = (ROOT / 'tools/project_profile.py').read_bytes()
     files['executor/__init__.py'] = b'"""Execution-only package; no central scheduler or research kernel."""\n'
-    for name in ('lab', 'live', 'manifest', 'actions', 'procs', 'supervise'):
+    for name in ('lab', 'live', 'manifest', 'actions', 'records', 'procs', 'supervise'):
         files['executor/' + name + '.py'] = (ROOT / 'tools/executor' / (name + '.py')).read_bytes()
     for path in (ROOT / 'tools/executor/backends').glob('*.py'):
         files['executor/backends/' + path.name] = path.read_bytes()

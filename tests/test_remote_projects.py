@@ -125,6 +125,17 @@ def wait(lab, run_id, predicate, seconds=25):
     pytest.fail(json.dumps(m,indent=2))
 
 
+def test_worker_bundle_imports_supervisor_in_isolation(tmp_path):
+    digest, blob = R.bundle()
+    package = tmp_path/(digest+'.pyz')
+    package.write_bytes(blob)
+    result = subprocess.run([sys.executable, '-I', '-c',
+        'import sys; sys.path.insert(0,sys.argv[1]); from executor import supervise, records; print(records.__file__)',
+        str(package)], cwd=tmp_path, capture_output=True, text=True, timeout=30)
+    assert result.returncode == 0, result.stderr
+    assert str(package) in result.stdout
+
+
 def test_worker_bundle_is_execution_only(worker):
     import zipfile
     with zipfile.ZipFile(worker['package']) as z:

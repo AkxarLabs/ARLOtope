@@ -68,6 +68,7 @@ def test_missing_and_partial_evidence_is_explicit(hub,tmp_path):
     lab=configured(hub);source=enqueue(lab,RunSpec('',prompt='Inspect evidence.'))
     info=evidence.describe(lab,source['run_id'])
     assert 'transcript' in info['coverage']['missing']
+    assert 'conversation' in info['coverage']['missing']
     with pytest.raises(ValueError,match='subagent'):evidence.describe(lab,source['run_id'],'invented')
     stream=Path(info['files']['transcript'])
     stream.write_text('{"type":"x"}\n'*100+'{"_truncated":"limit"}\n')
