@@ -223,7 +223,7 @@
     const groups=data.visits.slice().reverse(),run=id=>data.runs.find(r=>r.run_id===id);
     const note=n=>html`<a class="history-note" href=${'#/library?'+NL.qs({view:'records',study:it.id,record:n.id})}><b>${n.title}</b><span class="muted small">${NL.clip(n.text||'',180)}</span></a>`;
     const session=r=>html`<div class="workflow-session" key=${r.run_id}><div class="row wrap"><${NL.AgentAvatar} backend=${r.backend} size=${20}/><button class="link" type="button" onClick=${()=>NL.openRun(r.run_id)}>${r.label||r.run_id} ↗</button><small>${r.backend} · ${NL.runStateLabel(r)}${r.attempt>1?' · '+r.attempt+' attempts':''}</small></div>
-      ${r.last_message?html`<p class="history-response">${NL.clip(r.last_message,350)}</p>`:html`<p class="muted small">No response recorded.</p>`}
+      ${r.last_message?html`<div class="history-response"><${NL.Markdown} literalHtml text=${r.last_message.split(/\r?\n\s*\r?\n/)[0]}/></div>`:html`<p class="muted small">No response recorded.</p>`}
       ${['running','starting','resuming','waiting_input'].includes(r.status)?html`<button class="link small" type="button" onClick=${()=>NL.followAgent(r.run_id)}>Show in lab</button>`:null}
       ${(data.outputs||[]).filter(a=>a.run_id===r.run_id||a.about?.run===r.run_id).map(a=>html`<a class="link small" href=${'#/artifacts/'+a.id}>${a.title} ↗</a>`)}
       ${(data.notes||[]).filter(n=>(n.run||n.about?.run)===r.run_id).map(note)}
