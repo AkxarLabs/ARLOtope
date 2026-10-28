@@ -96,7 +96,7 @@
     const details=()=>{onClose();if(assistant)NL.openAssistant();else if(target.kind==='run')NL.openRun(target.id,target.sub);else NL.openWorker(target.id)};
     const send=async()=>{
       if(!text.trim()||busy)return;setBusy(true);
-      try{const message=(target.sub?'For subagent '+target.sub+' ('+role+'), via its parent: ':'')+text.trim();
+      try{const message=ArloAgents.message(text,target.sub,role);
         const result=await NL.act('/api/run/reply',{run_id:target.id,text:message},'Message sent');if(result.ok)setText('')}
       finally{setBusy(false)}
     };

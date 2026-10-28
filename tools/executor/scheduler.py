@@ -25,6 +25,7 @@ from .manifest import (ACTIVE, TERMINAL, all_runs, emit, now, parse_ts, read_man
                        scheduler_lock, transition, write_manifest)
 from .procs import DETACHED, is_locked, kill_tree, pid_alive, python_exe
 from .spec import RunSpec, SpecError, registry
+from .contexts import waiting_forks
 from . import backends, campaigns, notify, pause
 
 CLI = Path(__file__).resolve().parents[1] / "executor_cli.py"
@@ -402,6 +403,8 @@ def tick(lab: Lab, *, spawn=None, wait: float = 0.0, background_notify: bool = T
                                    x[3].get("created") or ""))
         tnow = time.time()
         for _t, workdir, path, m in queued:
+            if waiting_forks(m, manifests):
+                continue
             nb = parse_ts(m.get("not_before"))
             if nb and nb > tnow:
                 continue

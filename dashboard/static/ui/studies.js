@@ -268,6 +268,7 @@
 
   const Overview = ({ it }) => {
     const s = NL.useLab();
+    const next = NL.nextFor(s,it);
     const workers = NL.workersOf(s, it.id).filter(w => w.status !== 'done');
     return html`<div class="cols">
       <div class="col-main"><${NL.DocReader} scope="study" slug=${it.id} rel="IDEA.md" bare fallback=${html`<${NL.Empty} icon="🌱" title="No idea write-up yet">
@@ -282,7 +283,7 @@
           ${run?html`<div class="row">${(s.agents||[]).some(a=>a.run_id===run.run_id)?html`<button class="link small" onClick=${()=>NL.followAgent(run.run_id)}>Show in lab</button>`:null}<button class="link small" onClick=${()=>NL.openRun(run.run_id)}>Conversation</button></div>`:null}
           ${waits.map(w=>html`<button class="link small" onClick=${()=>NL.openCheckpoint(it.id,w.checkpoint)}>◆ ${w.title}</button>`)}</div>`})}
           ${it.blocked_reason?html`<p class="note note-warn">${it.blocked_reason}</p>`:null}
-          ${it.runnable?.length?html`<${NL.Btn} small disabled=${!!s.holds?.[it.id]} onClick=${()=>NL.act('/api/workflow/run',{study:it.id,retry:true},'Ready tasks queued')}>Run ready tasks</${NL.Btn}>`:null}
+          ${next?html`<${NL.Btn} small onClick=${next.run}>${next.label}</${NL.Btn}>`:null}
         </${NL.Section}>`:null}
         <${NL.Section} title="Now">
           <div class="facts"><div><span>Step</span><b>${NL.taskLabel(it)}</b></div>

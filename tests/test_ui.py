@@ -276,6 +276,48 @@ def test_agent_and_attention_labels_use_the_selected_snapshot_and_preserve_child
 
 
 @pytest.mark.skipif(not NODE, reason='node is needed')
+def test_messages_keep_the_selected_subagent_target():
+    source = (STATIC / 'agent-view.js').read_text(encoding='utf-8')
+    script = 'global.window=global;'+source+'''
+      console.log(JSON.stringify([
+        ArloAgents.message('  Check the evidence.  '),
+        ArloAgents.message('  Check the evidence.  ', 'child-7', 'reviewer')
+      ]));'''
+    result = subprocess.run([NODE, '-e', script], capture_output=True, text=True, timeout=60)
+    assert result.returncode == 0, result.stderr
+    assert json.loads(result.stdout) == ['Check the evidence.',
+        'For subagent child-7 (reviewer), via its parent: Check the evidence.']
+
+
+@pytest.mark.skipif(not NODE, reason='node is needed')
+def test_expired_session_reads_reconnect_once_without_replaying_actions():
+    source = _js()['core']
+    refresh = source[source.index('NL.refresh ='):source.index('/* ── API')]
+    api = source[source.index('const DEMO_READS ='):source.index('NL.useGet =')]
+    script = '''const requests=[],timers=[],notices=[];
+      let message='Access denied',reloaded=0;
+      const store={},emit=()=>{},NL={DEMO:false,toast:m=>notices.push(m)};
+      const location={reload:()=>reloaded++},setTimeout=f=>timers.push(f);
+      const fetch=async(path,options)=>{requests.push([path,options.method||'GET']);
+        return {ok:false,status:403,json:async()=>({error:message})}};
+    ''' + refresh + api + '''
+      (async()=>{
+        await NL.get('/api/private');
+        if(timers.length)throw Error('Unrelated permission failure caused a reload');
+        message='Lab session expired';
+        await NL.get('/api/run');
+        await NL.api('/api/start',{prompt:'test'});
+        await NL.refresh();
+        timers[0]();
+        console.log(JSON.stringify({requests,timers:timers.length,notices: notices.length,reloaded}));
+      })().catch(e=>{console.error(e);process.exitCode=1});'''
+    result = subprocess.run([NODE, '-e', script], capture_output=True, text=True, timeout=60)
+    assert result.returncode == 0, result.stderr
+    assert json.loads(result.stdout) == {'requests': [['/api/private', 'GET'], ['/api/run', 'GET'],
+        ['/api/start', 'POST'], ['/api/state', 'GET']], 'timers': 1, 'notices': 1, 'reloaded': 1}
+
+
+@pytest.mark.skipif(not NODE, reason='node is needed')
 def test_work_list_keeps_queued_and_unrepresented_waits_without_repeating_inbox_waits():
     source = _js()['core']
     accessors = source[source.index('NL.item ='):source.index('NL.backends =')]

@@ -162,14 +162,18 @@ def test_presentation_changes_do_not_invalidate_reuse(hub):
     assert entry.prepare(hub.root, k.model.workflow('custom', hub.root), value)
 
 
-def test_reused_context_is_fresh_with_evidence_not_a_fabricated_session(hub):
+@pytest.mark.parametrize('mode', ['continue', 'native-fork'])
+@pytest.mark.parametrize('note', ['', 'Existing evidence supplied.'])
+def test_reused_context_is_fresh_with_evidence_not_a_fabricated_session(hub, mode, note):
     import executor, lab_profile
     from test_agent_assignments import configure
     k, entry, w = setup(hub, graph=False)
     d = k.define.read(hub.root)
-    d['workflows'][0]['nodes'] = {'inspect': {'context': {'mode': 'continue', 'from': 'collect'}, 'instructions': 'Inspect the existing work'}}
+    d['workflows'][0]['nodes'] = {'inspect': {'context': {'mode': mode, 'from': 'collect'}, 'instructions': 'Inspect the existing work'}}
     k.define.write(hub.root, d);w = k.model.workflow('custom', hub.root)
-    k.studies.new(hub.root, 'sample', entry=plan(entry, hub, w, collect='reuse'), by='pi')
+    starting = plan(entry, hub, w, collect='reuse')
+    starting['tasks']['collect']['note'] = note
+    k.studies.new(hub.root, 'sample', entry=starting, by='pi')
     lab, _ = configure(hub)
     specs = []
     def enqueue(_lab, spec):

@@ -80,6 +80,9 @@ An exception is work explicitly supplied through a study's starting plan: it has
 
 Only one task can own a continued session at a time. Native fork support depends on the harness/version; ACP requires advertised capabilities. A native fork creates another conversation, not an isolated repository or worktree. Use `context.mode: native-fork` for a fork, or `mode: fresh` with `handoff: true` for a summary in a new conversation.
 
+Parallel branches can fork and continue the same source. The Lab creates the fork before
+letting the original conversation advance. They can then work at the same time, within task limits.
+
 ## Connect tasks and outcomes
 
 Arrows choose what runs next. Select an arrow to open its **Connection inspector**. Conversation settings apply to the destination task across all its incoming arrows. **Wait for** appears when multiple tasks feed that destination: choose **All incoming tasks** for parallel branches, or **Any incoming task** for alternative paths. The parallel-task shortcut sets up the waiting join automatically. Waiting for tasks and inheriting their conversation are separate choices.

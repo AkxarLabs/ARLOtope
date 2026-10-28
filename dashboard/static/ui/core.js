@@ -164,19 +164,27 @@
   };
   NL.refresh = async () => {
     if (NL.DEMO) return;   // the demo is its own lab; nothing real is fetched
-    try { const r = await fetch('/api/state', { credentials: 'same-origin' }); if (r.ok) { NL.setState(await r.json()); store.conn = 'live'; } }
+    try { const r = await fetch('/api/state', { credentials: 'same-origin' }); if (r.ok) { NL.setState(await r.json()); store.conn = 'live'; }
+      else if(r.status===403)checkSession(r,await r.json().catch(()=>({}))); }
     catch (e) { store.conn = 'offline'; emit(); }
   };
 
   /* ── API ───────────────────────────────────────────────────────────────── */
   const DEMO_READS = new Set(['/api/read', '/api/libdoc']);   // POSTs that only read: the demo answers them itself
+  let sessionReload = false;
+  const checkSession = (r,j) => {
+    if(r.status!==403 || !/session/.test(j.error||'') || sessionReload)return;
+    sessionReload=true;
+    NL.toast('Reconnecting to the lab…','warn');
+    setTimeout(()=>location.reload(),1200);
+  };
   NL.api = async function api(path, body) {
     if (NL.DEMO && DEMO_READS.has(path)) return NL.demoRead ? NL.demoRead(path, body || {}) : { error: 'not in the demo' };
     if (NL.DEMO) return { error: 'Demo mode: nothing is written.', demo: true };
     try {
       const r = await fetch(path, { method: 'POST', credentials: 'same-origin', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body || {}) });
       const j = await r.json().catch(() => ({ error: `server said ${r.status}` }));
-      if (r.status === 403 && /session/.test(j.error || '')) NL.toast('This page lost its session with the lab. Reloading…', 'warn'), setTimeout(() => location.reload(), 1200);
+      checkSession(r,j);
       return j;
     } catch (e) { return { error: 'Could not reach the lab server. Is it still running?' }; }
   };
@@ -185,6 +193,7 @@
     try {
       const r = await fetch(path, { credentials: 'same-origin' });
       const j = await r.json().catch(() => ({ error: `server said ${r.status}` }));
+      checkSession(r,j);
       return !r.ok ? { error: (j && j.error) || `server said ${r.status}` } : j || { error: 'The server returned an empty response.' };
     } catch (e) { return { error: 'Could not reach the lab server.' }; }
   };
