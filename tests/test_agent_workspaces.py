@@ -60,6 +60,60 @@ def test_graph_definition_roundtrip_and_ambiguous_continuation(hub):
     assert validate(ns)==[]
 
 
+def test_parallel_fork_and_continuation_queue_from_the_same_source(hub):
+    import executor
+    import lab_profile
+    from executor import contexts, manifest
+    from test_agent_assignments import configure
+
+    k = graph(hub)
+    lab, _ = configure(hub)
+    definition = k.define.read(hub.root)
+    tasks = definition['workflows'][0]['nodes']
+    tasks['analysis']['context'] = {'mode': 'continue', 'from': 'seed'}
+    tasks['writing'].update(context={'mode': 'native-fork', 'from': 'seed'}, agent={'role': 'analyst'})
+    k.define.write(hub.root, definition)
+    source_id = lab_profile.start_graph(lab, 'study', executor.enqueue, executor.RunSpec)[0]
+    _, _, path, source = executor.find_run(lab, source_id)
+    source.update(status='completed', session_id='seed-session', attempt=1, conversation_started=True)
+    manifest.write_manifest(path, source)
+    k.studies.move(hub.root, 'study', 'done')
+
+    children = lab_profile.start_graph(lab, 'study', executor.enqueue, executor.RunSpec)
+    runs = [executor.find_run(lab, rid)[3] for rid in children]
+    assert {r['workflow_node'] for r in runs} == {'analysis', 'writing'}
+    fork = next(r for r in runs if r.get('fork_session'))
+    continuation = next(r for r in runs if r.get('resume'))
+    assert fork['context']['source_run'] == continuation['context']['source_run'] == source_id
+    contexts.validate_head(lab, fork)
+
+    # Even a higher-priority continuation must leave the source unchanged for its copy.
+    from test_executor import Spawns
+    continuation['priority'] = 5
+    manifest.write_manifest(executor.find_run(lab, continuation['run_id'])[2], continuation)
+    assert executor.tick(lab, spawn=Spawns())['started'] == [fork['run_id']]
+
+    # The original conversation must remain unchanged until its fork exists.
+    with pytest.raises(executor.SpecError, match='active work'):
+        contexts.validate_head(lab, continuation)
+    fork.update(fork_started=True, conversation_started=True, session_id='fork-session', status='running')
+    manifest.write_manifest(executor.find_run(lab, fork['run_id'])[2], fork)
+    contexts.validate_head(lab, continuation)
+    assert executor.tick(lab, spawn=Spawns())['started'] == [continuation['run_id']]
+
+
+@pytest.mark.parametrize('status,started,blocked', [
+    ('queued', False, True), ('running', False, True), ('waiting_input', False, True),
+    ('running', True, False), ('failed', False, False), ('cancelled', False, False)])
+def test_continuation_waits_only_for_pending_source_copies(status, started, blocked):
+    from executor.contexts import waiting_forks
+    original = {'session_id': 'source', 'backend': 'codex', 'cwd': '/project'}
+    fork = {**original, 'session_id': None, 'fork_session': 'source',
+            'fork_started': started, 'status': status}
+    assert waiting_forks(original, [fork]) is blocked
+    assert not waiting_forks(original, [{**fork, 'cwd': '/other-project'}])
+
+
 def test_mutually_exclusive_outcomes_can_continue_the_same_source():
     from workflow_graph import validate
     ns=[{'id':'source','next':[],'outcomes':{'accept':['write'],'revise':['revise']}},
@@ -120,6 +174,7 @@ def test_assistant_routes_roles_and_subagents_to_real_runs(hub, monkeypatch):
     old = [{'run_id': 'old-' + str(i), 'status': 'completed'} for i in range(35)]
     review = {'run_id': 'review-run', 'subject': 'replication', 'status': 'waiting_input',
               'role': 'reviewer', 'backend': 'acp', 'workflow_node': 'review',
+              'context': {'mode': 'native-fork', 'source_run': 'draft-run'},
               'subagents': [{'id': 'lens-1', 'type': 'novelty', 'status': 'working'}]}
     facts, _ = api.summary({'runs': old + [review], 'agents': [
         {'worker_id': 'terminal-1', 'interactive': True, 'role': 'analyst', 'status': 'working'}],
@@ -127,6 +182,7 @@ def test_assistant_routes_roles_and_subagents_to_real_runs(hub, monkeypatch):
     assert facts['runs'][0]['id'] == 'review-run' and len(facts['runs']) == 30
     assert facts['runs'][0]['link'] == '#/run/review-run'
     assert facts['runs'][0]['subagents'][0]['route_to'] == 'review-run'
+    assert facts['runs'][0]['context'] == {'mode': 'native-fork', 'source_run': 'draft-run'}
     assert facts['terminal_agents'][0]['id'] == 'terminal-1'
     assert facts['artifacts'][0]['link'] == '#/artifacts/report'
 

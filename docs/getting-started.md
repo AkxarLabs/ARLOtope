@@ -44,7 +44,7 @@ Uploading files alone starts no agent.
 
 ## 3. Check the workflow
 
-The **Starting workflow** map shows the tasks. Select one to inspect its instructions,
+The **Starting workflow** map shows the tasks. Select one, then **View instructions** to read its method,
 or choose **Change workflow**.
 
 - **Run task:** let an agent do it.

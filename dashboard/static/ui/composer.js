@@ -106,7 +106,7 @@
     return html`<${NL.Sheet} title="Start task" sub=${sub} onClose=${onClose} wide>
       <div class="asknewt-big">
         <label class="field-label">Ask a question or give an instruction</label>
-        <${NL.Textarea} rows="3" value=${ask} onInput=${setAsk} onSubmit=${sendAsk} autofocus=${!initial && !initSkill}
+        <${NL.Textarea} rows="3" ariaLabel="Ask a question or give an instruction" value=${ask} onInput=${setAsk} onSubmit=${sendAsk} autofocus=${!initial && !initSkill}
           placeholder="e.g. “Compare the last three trial runs of moe and say which setting mattered”. Ctrl+Enter sends." />
         <div class="row"><span class="muted small">Starts a run in ${study ? html`<b>${study.title || study.id}</b>` : 'the lab'}. It can use any procedure; checkpoint decisions follow your workflow.</span><span class="grow"></span>
           <${NL.Btn} kind="primary" disabled=${!ask.trim()} onClick=${sendAsk}>Send</${NL.Btn}></div>

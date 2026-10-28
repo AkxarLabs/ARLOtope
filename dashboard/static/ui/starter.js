@@ -19,6 +19,7 @@
     if(!selected)return null;
     return html`<section class="starting-task" aria-label="Starting task options"><header class="row between"><b>${flow.tasks.find(t=>t.id===selected)?.label||selected}</b><button type="button" class="iconbtn sm" aria-label="Close starting task" onClick=${onClose}>×</button></header>
       ${(flow.tasks||[]).filter(t=>t.id===selected).map(t=>{const c=tasks[t.id]||{action:'run'};return html`<section class="entry-task" key=${t.id}>
+        <${NL.InstructionsButton} node=${t}/>
         <div class="chips" role="group" aria-label="Starting task choice">${[{value:'run',label:'Run task'},{value:'reuse',label:'Use existing work'},{value:'omit',label:'Skip at start'}].map(o=>html`<button type="button" class=${cls('chip-btn',c.action===o.value&&'on')} aria-pressed=${c.action===o.value} onClick=${()=>change(t.id,{action:o.value,note:c.note||'',refs:c.refs||[],outcome:c.outcome||'done'})}>${o.label}</button>`)}</div>
         ${c.action!=='run'?html`
           <p class="muted small">${c.action==='reuse'?'Use your references instead of running this task at the start.':'Continue without running this task at the start.'}</p>
@@ -188,7 +189,7 @@
         ${kind!=='topic'?html`<${NL.MachinePicker} value=${machine} onChange=${v=>{setMachine(v);setLocal('')}} onProject=${p=>{setLocal(p.path);setMachine(p.machine==='local'?'':p.machine);setKind('local');if(!title.trim())setTitle(p.title||'');setId(p.ours?p.study||'':'')}}/>`:null}
         ${kind === 'github' ? html`<${GithubConnection} machine=${machine} connection=${github} onPick=${name=>{setRepo(name);setResolved(null)}}/>
           <${NL.Field} label="GitHub repository" hint="An exact owner/repository or GitHub URL. Private repositories use the connected account on the selected machine."><${NL.Input} value=${repo} onInput=${v => { setRepo(v); setResolved(null); }} placeholder="numpy/numpy" /></${NL.Field}>
-          <${NL.Btn} onClick=${lookup} busy=${busy} disabled=${!repo.trim()}>Look up repository</${NL.Btn}>
+          <${NL.Btn} onClick=${lookup} busy=${busy} disabled=${!repo.trim()||!github.data&&!github.error}>Look up repository</${NL.Btn}>
           ${resolved ? html`<div class="repo-summary"><a class="link" href=${resolved.url} target="_blank" rel="noopener">${resolved.name} ↗</a><p>${resolved.description}</p><span class="muted small">${resolved.language || 'Source repository'}${resolved.private?' · Private':''}${resolved.archived ? ' · Archived' : ''}</span></div>` : null}` : null}
         ${kind === 'local'||kind==='github'&&machine ? html`<div class="project-folder"><${NL.Field} label=${kind==='github'?'New working copy':'Project folder'} hint=${kind==='github'?'Choose a parent folder; a new repository folder will be created inside it.':machine?'An existing folder on the selected machine.':'An existing folder on this computer.'}><${NL.Input} value=${local} onInput=${setLocal} mono placeholder=${machine?'/home/me/research/project':'Choose a project folder'} /></${NL.Field}>
           <${NL.Btn} onClick=${()=>NL.pickFolder({machine,initial:local?(kind==='github'?local.replace(/[\\/][^\\/]+$/,''):local):'~',title:kind==='github'?'Choose clone location':'Choose project folder',onPick:p=>setLocal(kind==='github'?p.replace(/[\\/]$/,'')+'/'+(resolved?.name.split('/')[1]||sid||'project'):p)})}>Browse…</${NL.Btn}></div>` : null}

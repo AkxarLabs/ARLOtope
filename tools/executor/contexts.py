@@ -56,14 +56,15 @@ def prepare(lab, config, backend, workdir, prompt, outputs=(), machine=None):
     sid = source.get('session_id')
     if not sid:
         raise SpecError('The source has no resumable conversation. Choose a new agent with handoff.')
-    assert_available(lab, sid, expected=source, forks=mode=='native-fork')
+    # Queue the future owner while its forks reserve the unchanged source. Admission
+    # waits for the copies; another continuation still cannot claim the session.
+    assert_available(lab, sid, expected=source, forks=mode=='native-fork', reserve_forks=False)
     current = session_head(lab, source)
     if current['run_id'] != source['run_id']:
         raise SpecError('This conversation has newer work in '+current['run_id']+'. Select its latest task, or use a fresh handoff.')
     lineage['source_head'] = {'run': source['run_id'], 'attempt': source.get('attempt', 0)}
     lineage['source_session'] = sid
     if mode == 'native-fork':
-        assert_available(lab, sid, expected=source, forks=True)
         if backend not in ('claude', 'codex', 'opencode', 'acp'):
             raise SpecError('Native fork is not supported by this adapter. Choose a new agent with handoff.')
         from .live import enabled
@@ -71,7 +72,6 @@ def prepare(lab, config, backend, workdir, prompt, outputs=(), machine=None):
             raise SpecError('Native fork requires a live connection for this backend.')
         lineage['method'] = 'native'
         return prompt, {'context': lineage, 'fork_session': sid}
-    assert_available(lab, sid, expected=source)
     return prompt, {'context': lineage, 'session_id': sid, 'resume': {'mode': 'reply', 'text': prompt}}
 
 
@@ -89,7 +89,7 @@ def session_head(lab, source, exclude=None):
     candidates = [m for *_, m in all_runs(lab) if m.get('session_id') == source.get('session_id')
                   and m.get('run_id') != exclude and same_session(source, m)
                   and not ((m.get('context') or {}).get('source_run') and m.get('conversation_started') is False
-                           and m.get('status') in {'failed','killed','timeout'})]
+                           and m.get('status') in {'queued','starting','resuming','failed','killed','timeout'})]
     ancestors = {(m.get('context') or {}).get('source_run') for m in candidates}
     leaves = [m for m in candidates if m['run_id'] not in ancestors]
     if len(leaves) > 1:
@@ -110,14 +110,24 @@ def validate_head(lab, run):
     assert_available(lab, hit[3].get('session_id'), run['run_id'], expected=hit[3], forks=bool(run.get('fork_session')))
 
 
-def assert_available(lab, session_id, exclude=None, *, expected=None, forks=False):
+def assert_available(lab, session_id, exclude=None, *, expected=None, forks=False, reserve_forks=True):
     if not session_id:
         return
     for _target, _where, _path, run in all_runs(lab):
         owns = run.get('session_id') == session_id
-        reserved_fork = not forks and run.get('fork_session') == session_id and not run.get('fork_started')
+        if forks and run.get('status') == 'queued' and run.get('conversation_started') is False and (run.get('context') or {}).get('mode') == 'continue':
+            owns = False  # A future continuation has not changed the native source yet.
+        reserved_fork = reserve_forks and not forks and run.get('fork_session') == session_id and not run.get('fork_started')
         if run.get('run_id') != exclude and (owns or reserved_fork) and (not expected or same_session(expected, run)) and run.get('status') in ACTIVE | PAUSED | {'queued'}:
             raise SpecError('This conversation already has active work. Wait, or fork an independent agent.')
+
+
+def waiting_forks(run, others):
+    """A continued session must not advance until every reserved native copy exists."""
+    return bool(run.get('session_id') and not run.get('fork_session') and any(
+        other.get('fork_session') == run['session_id'] and not other.get('fork_started')
+        and other.get('status') in ACTIVE | PAUSED | {'queued'} and same_session(run, other)
+        for other in others))
 
 
 def assert_current(lab, run):

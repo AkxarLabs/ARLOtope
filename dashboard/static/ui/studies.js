@@ -223,7 +223,7 @@
     const groups=data.visits.slice().reverse(),run=id=>data.runs.find(r=>r.run_id===id);
     const note=n=>html`<a class="history-note" href=${'#/library?'+NL.qs({view:'records',study:it.id,record:n.id})}><b>${n.title}</b><span class="muted small">${NL.clip(n.text||'',180)}</span></a>`;
     const session=r=>html`<div class="workflow-session" key=${r.run_id}><div class="row wrap"><${NL.AgentAvatar} backend=${r.backend} size=${20}/><button class="link" type="button" onClick=${()=>NL.openRun(r.run_id)}>${r.label||r.run_id} ↗</button><small>${r.backend} · ${NL.runStateLabel(r)}${r.attempt>1?' · '+r.attempt+' attempts':''}</small></div>
-      ${r.last_message?html`<p class="history-response">${NL.clip(r.last_message,350)}</p>`:html`<p class="muted small">No response recorded.</p>`}
+      ${r.last_message?html`<div class="history-response"><${NL.Markdown} literalHtml text=${r.last_message.split(/\r?\n\s*\r?\n/)[0]}/></div>`:html`<p class="muted small">No response recorded.</p>`}
       ${['running','starting','resuming','waiting_input'].includes(r.status)?html`<button class="link small" type="button" onClick=${()=>NL.followAgent(r.run_id)}>Show in lab</button>`:null}
       ${(data.outputs||[]).filter(a=>a.run_id===r.run_id||a.about?.run===r.run_id).map(a=>html`<a class="link small" href=${'#/artifacts/'+a.id}>${a.title} ↗</a>`)}
       ${(data.notes||[]).filter(n=>(n.run||n.about?.run)===r.run_id).map(note)}
@@ -268,6 +268,7 @@
 
   const Overview = ({ it }) => {
     const s = NL.useLab();
+    const next = NL.nextFor(s,it);
     const workers = NL.workersOf(s, it.id).filter(w => w.status !== 'done');
     return html`<div class="cols">
       <div class="col-main"><${NL.DocReader} scope="study" slug=${it.id} rel="IDEA.md" bare fallback=${html`<${NL.Empty} icon="🌱" title="No idea write-up yet">
@@ -282,7 +283,7 @@
           ${run?html`<div class="row">${(s.agents||[]).some(a=>a.run_id===run.run_id)?html`<button class="link small" onClick=${()=>NL.followAgent(run.run_id)}>Show in lab</button>`:null}<button class="link small" onClick=${()=>NL.openRun(run.run_id)}>Conversation</button></div>`:null}
           ${waits.map(w=>html`<button class="link small" onClick=${()=>NL.openCheckpoint(it.id,w.checkpoint)}>◆ ${w.title}</button>`)}</div>`})}
           ${it.blocked_reason?html`<p class="note note-warn">${it.blocked_reason}</p>`:null}
-          ${it.runnable?.length?html`<${NL.Btn} small disabled=${!!s.holds?.[it.id]} onClick=${()=>NL.act('/api/workflow/run',{study:it.id,retry:true},'Ready tasks queued')}>Run ready tasks</${NL.Btn}>`:null}
+          ${next?html`<${NL.Btn} small onClick=${next.run}>${next.label}</${NL.Btn}>`:null}
         </${NL.Section}>`:null}
         <${NL.Section} title="Now">
           <div class="facts"><div><span>Step</span><b>${NL.taskLabel(it)}</b></div>

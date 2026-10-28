@@ -293,7 +293,7 @@
     const blocks = useMemo(() => toBlocks(lines), [lines]);
     const scroller = useRef();
     const [stick, setStick] = useState(true);
-    const [reply, setReply] = NL.useDraft('reply:'+id,'');
+    const [reply, setReply] = NL.useDraft('reply:'+id+':'+(focusSub||''),'');
     useEffect(() => { const el = scroller.current; if (el && stick) el.scrollTop = el.scrollHeight; }, [blocks.length, r && r.status, stick]);
     const onScroll = e => { const el = e.target; setStick(el.scrollHeight - el.scrollTop - el.clientHeight < 80); };
     if (!r) return html`<${NL.Sheet} title="Run" onClose=${onClose} wide>${err ? html`<${NL.Empty}>${err}</${NL.Empty}>` : html`<${NL.Spinner} />`}</${NL.Sheet}>`;
@@ -302,8 +302,9 @@
     const budget = r.max_minutes ? r.max_minutes * 60 : null;
     const liveNow = r.transport === 'live' && (active || r.status === 'waiting_input') && r.pid;
     const canReply = r.session_id && (r.status === 'waiting_input' || NL.RUN_DONE.has(r.status) || liveNow);
-    const sendReply = async () => { if (!reply.trim()) return; const x = await NL.act('/api/run/reply', { run_id: r.run_id, text: reply.trim() }); if (x.ok) setReply(''); };
-    const hint = liveNow && active ? 'Message the agent while it works; it reads it after its current step (Ctrl+Enter)'
+    const subagent=(r.subagents||[]).find(a=>a.id===focusSub);
+    const sendReply = async () => { if (!reply.trim()) return; const x = await NL.act('/api/run/reply', { run_id: r.run_id, text: ArloAgents.message(reply,focusSub,subagent?.type) }); if (x.ok) setReply(''); };
+    const hint = focusSub ? 'Message for '+focusSub+', delivered through its parent (Ctrl+Enter)' : liveNow && active ? 'Message the agent while it works; it reads it after its current step (Ctrl+Enter)'
       : r.status === 'waiting_input' ? 'Your turn. Reply in your own words (Ctrl+Enter)' : 'Reply to continue this conversation (Ctrl+Enter to send)';
     const title = NL.runTitle(r);
     const sub = html`<span class="row-wrap"><${NL.RunPill} r=${r} />
@@ -312,7 +313,7 @@
       <span class="mono muted small" title="this run's id">${r.run_id}</span></span>`;
     const footer = html`<div class="runfoot">
       ${r.status === 'waiting_input' && r.pending_question ? null : canReply ? html`<div class="reply">
-        <${NL.Textarea} rows="2" value=${reply} onInput=${setReply} onSubmit=${sendReply} ariaLabel="Message to agent" ariaDescription=${hint} placeholder="Message the agent…" />
+        <${NL.Textarea} rows="2" value=${reply} onInput=${setReply} onSubmit=${sendReply} ariaLabel=${focusSub?'Message via parent':'Message to agent'} ariaDescription=${hint} placeholder=${focusSub?'Message '+focusSub+' via parent…':'Message the agent…'} />
         <${NL.Btn} kind="primary" onClick=${sendReply} disabled=${!reply.trim()}>Send</${NL.Btn}></div>` : null}
       <div class="row">
         ${liveNow && active ? html`<${NL.Btn} onClick=${() => NL.act('/api/run/interrupt', { run_id: r.run_id })} title="Stops the current step. The run stays open for your next message.">⏸ Pause step</${NL.Btn}>` : null}
@@ -331,7 +332,7 @@
         ${r.n_actions ? html`<span><b>${r.n_actions}</b> ${r.n_actions === 1 ? 'action' : 'actions'}</span>` : null}
         ${(r.subagents || []).length ? html`<span>${NL.plural(r.subagents.length, 'subagent')}</span>` : null}
         ${r.usage && r.usage.cost_usd != null ? html`<span>≈ $${(+r.usage.cost_usd).toFixed(2)}</span>` : null}
-        ${r.status === 'queued' ? html`<span>${r.not_before ? 'scheduled for ' + NL.hhmm(r.not_before) : 'starts as soon as a slot is free'}</span>` : null}
+        ${r.status === 'queued' ? html`<span>${r.not_before ? 'scheduled for ' + NL.hhmm(r.not_before) : 'Waiting to start'}</span>` : null}
         ${!r.explains ? html`<span class="grow"></span><${NL.Btn} small onClick=${() => NL.explain(r.run_id)} title="Start a separate explainer; this conversation continues unchanged">Visual summary</${NL.Btn}>` : null}
       </div>
       ${r.reason && !active && !['completed', 'waiting_input', 'queued'].includes(r.status) ? html`<div class="note note-warn">${r.reason}</div>` : null}
@@ -354,7 +355,7 @@
         ${skipped ? html`<div class="msg-div"><span>earlier output skipped (${Math.round(skipped / 1024)} KB)</span></div>` : null}
         ${!blocks.length ? r.status === 'waiting_input' && !r.pending_question && r.last_text
           ? html`<div class="msg"><${NL.Markdown} text=${r.last_text} /></div>`
-          : !err ? html`<div class="muted pad">${r.status === 'queued' ? 'Waiting for a free slot…' : NL.DEMO ? 'The demo has no transcripts. Its latest step is below.' : active ? (r.last_action ? 'Working. Its latest step is below.' : 'Starting up…') : 'No transcript yet.'}</div>` : null : null}
+          : !err ? html`<div class="muted pad">${r.status === 'queued' ? 'Waiting to start…' : NL.DEMO ? 'The demo has no transcripts. Its latest step is below.' : active ? (r.last_action ? 'Working. Its latest step is below.' : 'Starting up…') : 'No transcript yet.'}</div>` : null : null}
         ${err ? html`<div class="note note-warn" role="alert"><p>${err}</p><small>Retrying automatically. Loaded messages stay visible.</small></div>` : null}
         ${blocks.map((b, i) => html`<${Block} key=${i} b=${b} last=${i === blocks.length - 1 && active} />`)}
         ${active && r.last_action ? html`<div class="now"><i class="dot-live"></i> <b>${r.last_action.tool || ''}</b> ${NL.clip(r.last_action.summary, 140)}</div>` : null}

@@ -2,6 +2,7 @@
 (function () {
   'use strict';
   const V = window.ArloAgents = {};
+  V.message = (text, sub, role='general') => (sub ? 'For subagent '+sub+' ('+role+'), via its parent: ' : '')+text.trim();
   V.activities = {read:['▤','reading'],search:['⌕','searching'],edit:['✎','editing'],run:['⚗','running an experiment'],
     bash:['›','at the terminal'],git:['⑂','committing'],spawn:['⇢','briefing a subagent'],ask:['?','asking you'],
     plan:['☰','planning'],skill:['✦','following a procedure'],mcp:['⚙','using a tool'],tool:['•','working']};

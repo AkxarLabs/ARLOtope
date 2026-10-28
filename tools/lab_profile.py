@@ -544,7 +544,9 @@ def start_graph(lab, slug, enqueue, spec_type, retry=False, **options):
     s = studies.study(lab.hub, slug)
     node_map = {n['id']: n for n in nodes(w, model.steps(lab.hub))}
     result = list(judge_runs)
-    for sid in s.get('runnable', []):
+    # Reserve source copies before a sibling claims the conversation to continue it.
+    ready = sorted(s.get('runnable', []), key=lambda sid: (node_map[sid].get('context') or {}).get('mode') != 'native-fork')
+    for sid in ready:
         token = next(t for t in s['active_steps'] if t['id'] == sid)
         if token.get('run_id'):
             from executor import find_run, ACTIVE, PAUSED
@@ -597,7 +599,7 @@ def start_graph(lab, slug, enqueue, spec_type, retry=False, **options):
         task = node.get('instructions') or ''
         if imported:
             task += '\nExisting work selected by the researcher (not agent-generated or independently verified):\n' + '\n'.join(
-                e['node'] + ': ' + e['note'] + '\n' + '\n'.join(e.get('refs', [])) for e in imported)
+                e['node'] + ': ' + (e.get('note') or '') + '\n' + '\n'.join(e.get('refs', [])) for e in imported)
         procedure = node.get('procedure')
         if not task and not procedure and not node.get('skills') and not node.get('outputs') and not node.get('external'):
             if node.get('next'):
