@@ -189,7 +189,7 @@ def test_next_action_names_the_task_and_recovers_an_unfinished_attempt():
 @pytest.mark.skipif(not NODE, reason='node is needed')
 def test_get_rejects_http_and_empty_responses_without_accepting_them_as_data():
     source = _js()['core']
-    get = source[source.index('NL.get ='):source.index('NL.useGet =')]
+    get = source[source.index('const DEMO_READS ='):source.index('NL.useGet =')]
     script = f"""
       const NL = {{}}; {get}
       (async () => {{
