@@ -35,15 +35,29 @@ def _depth_now() -> int:
     return pos_int(os.environ.get("ARLOTOPE_AGENT_DEPTH", "0") or 0, 0, 0)
 
 
-def check_enabled(lab: Lab, *, new_run: bool = True) -> dict:
+def launch_depth(lab: Lab, parent=None) -> int:
+    depth = _depth_now()
+    if parent:
+        try:
+            source = find_run(lab, parent)
+        except (ValueError, TypeError):
+            raise SpecError('The parent run is unavailable.') from None
+        if not source:
+            raise SpecError('The parent run is unavailable.')
+        depth = max(depth, pos_int(source[3].get('depth'), 0, 0) + 1)
+    return depth
+
+
+def check_enabled(lab: Lab, *, new_run: bool = True, parent=None) -> dict:
     """Keep the master switch for execution and the depth cap for creating new agents."""
     prog = lab.prog()
     if not prog.get("enabled"):
         raise SpecError("programmatic launching is off (agents.programmatic.enabled: false) — it is a "
                         "PI-owned opt-in; enable it from the dashboard settings or /configure")
     max_depth = pos_int(prog.get("max_depth", 1), 1, 0)
-    if new_run and _depth_now() >= max_depth:
-        raise SpecError(f"launch depth {_depth_now()} >= max_depth {max_depth} — a launched agent may not "
+    depth = launch_depth(lab, parent) if new_run else 0
+    if new_run and depth >= max_depth:
+        raise SpecError(f"launch depth {depth} >= max_depth {max_depth} — a launched agent may not "
                         "launch further agents; only the top-level orchestrator (the PI) launches")
     return prog
 
@@ -55,7 +69,8 @@ def enqueue(lab: Lab, spec: RunSpec) -> dict:
 
 
 def _enqueue(lab: Lab, spec: RunSpec) -> dict:
-    prog = check_enabled(lab)
+    caller = spec.parent if spec.created_by.startswith('run:') else None
+    prog = check_enabled(lab, parent=caller)
     v = validate(lab, spec)
     import remote_projects
     remote = remote_projects.project(lab.hub, v['subject']) if v['subject'] and v['level'] == 'project' else None
@@ -132,7 +147,7 @@ def _enqueue(lab: Lab, spec: RunSpec) -> dict:
         "max_minutes": max_minutes, "max_turns": spec.max_turns,
         "role": spec.role or "orchestrator", "label": spec.label or (ask_label(prompt) if is_ask else v["skill"]),
         "parent": spec.parent, "campaign": spec.campaign, "priority": int(spec.priority or 0),
-        "created_by": spec.created_by, "created": now(), "depth": _depth_now(),
+        "created_by": spec.created_by, "created": now(), "depth": launch_depth(lab, caller),
         "chain": spec.chain, "chain_step": int(spec.extra.get("chain_step") or 0),
         "repeat_minutes": spec.repeat_minutes, "max_repeats": spec.max_repeats,
         "repeat_index": int(spec.extra.get("repeat_index") or 0),

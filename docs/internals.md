@@ -67,6 +67,10 @@ The native adapters normalize Claude streams, Codex app-server or exec events, a
 or run events. Installed hooks supply additional tracing where supported. ACP uses negotiated
 session updates and client file/terminal requests; it cannot expose activity its agent never reports.
 
+OpenCode loads the signature guard as a local file through its inline JSON configuration. Existing
+config files and directories stay in place; no per-run plugin dependencies are installed. Terminal
+provider errors end the attempt rather than leaving it waiting for a human message.
+
 Worker logs are `<bus>/workers/<worker>.jsonl`. Supervisors fold activity into the run manifest,
 retain the transcript and append a durable action history to `<run>.d/actions.jsonl`. Subagents are
 nested when their parent and identity are available. Outside terminal/editor sessions can appear

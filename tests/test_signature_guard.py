@@ -210,6 +210,23 @@ def test_hook_contract_exit_2_and_logged(hub, tmp_path):
 NODE = __import__("shutil").which("node")
 
 
+def test_opencode_guard_preserves_native_configuration_without_a_new_dependency_directory(tmp_path):
+    from types import SimpleNamespace
+    from executor.backends import opencode
+    directory = tmp_path/'custom-config'
+    directory.mkdir()
+    existing={'plugin':['my-existing-plugin'], 'model':'openrouter/my-model'}
+    attempt=SimpleNamespace(env={'OPENCODE_CONFIG_DIR':str(directory),
+        'OPENCODE_CONFIG_CONTENT':json.dumps(existing)}, bcfg={},rd=tmp_path/'run.d',
+        guard=REPO/'tools/signature_guard.py',python=sys.executable,workdir=tmp_path)
+    opencode.Opencode().prepare(attempt)
+    assert attempt.env['OPENCODE_CONFIG_DIR']==str(directory)
+    configured=json.loads(attempt.env['OPENCODE_CONFIG_CONTENT'])
+    assert configured['model']==existing['model'] and configured['plugin'][0]=='my-existing-plugin'
+    assert configured['plugin'][1]==(attempt.rd/'arlotope-guard.mjs').as_uri()
+    assert not (attempt.rd/'opencode-config').exists()
+
+
 @pytest.mark.skipif(not NODE, reason="node is needed to load the opencode plugin")
 def test_opencode_guard_plugin_blocks_under_node(hub, tmp_path):
     sys.path.insert(0, str(REPO / "tools"))
@@ -218,8 +235,7 @@ def test_opencode_guard_plugin_blocks_under_node(hub, tmp_path):
     p = hub.root / "studies" / "idea-a" / "proposal.md"
     p.write_text("pending\n", encoding="utf-8")
     a = hub.lab / "approvals.jsonl"
-    d = opencode.guard_dir(tmp_path / "run.d", REPO / "tools" / "signature_guard.py", sys.executable)
-    plugin = (d / "plugins" / "arlotope-guard.js").as_uri()
+    plugin = opencode.guard_plugin(tmp_path / "run.d", REPO / "tools" / "signature_guard.py", sys.executable).as_uri()
     js = f"""
 const {{ ARLOtopeGuard }} = await import({json.dumps(plugin)})
 const hooks = await ARLOtopeGuard({{ directory: {json.dumps(str(hub.root))} }})

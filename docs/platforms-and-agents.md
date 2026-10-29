@@ -4,6 +4,10 @@ Lab runs a browser dashboard and Python tools on a controller machine. It can st
 Codex, opencode or an ACP-compatible agent locally, or use an SSH runner beside a remote project.
 Each agent needs its own installation, account and model access.
 
+[API-provider connections](api-providers.md) use Codex for OpenAI, Claude Code for Anthropic,
+and OpenCode for OpenRouter and other providers by default. Each uses its existing task, context,
+permission and recording paths. API billing is an explicit saved agent choice.
+
 ## Set up an agent
 
 Open **Settings → Agents & models**. Install or sign in through the agent’s own flow, then choose

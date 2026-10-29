@@ -322,6 +322,7 @@ def test_opencode_session_translates_server_events_to_run_lines():
     lines, _ = sess.handle({"type": "session.error", "properties": {"sessionID": "ses_r", "error": {
         "name": "APIError", "data": {"message": "429 rate limit"}}}})
     assert sess.error == "429 rate limit" and lines[0]["type"] == "error"
+    assert sess.closed and sess.ended  # A terminal provider error is not a user-input wait.
 
 
 def test_the_codex_app_s_bundled_cli_is_found_newest_first(tmp_path, monkeypatch):

@@ -37,6 +37,9 @@ class Claude(Backend):
               "--allow-dangerously-skip-permissions")
 
     def prepare(self, a: Attempt) -> None:
+        if a.bcfg.get('api_provider')=='anthropic':
+            from native_providers import inject
+            inject('anthropic',a.env)
         # background subagents are waited for only up to a 10-minute ceiling by default; a lab runner in
         # a long PILOT must not be cut off — the executor's own watchdog bounds the run
         a.env.setdefault("CLAUDE_CODE_PRINT_BG_WAIT_CEILING_MS", "0")

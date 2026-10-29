@@ -19,6 +19,7 @@
 # Credentials and machine-local settings. Example environment files may be shared.
 .env
 .env.*
+provider-keys.*
 !.env.example
 !.env.sample
 *.pem

@@ -70,13 +70,15 @@ def launch_run(body: dict, by: str = "dashboard") -> tuple[dict, int]:
         model=body.get("model") or None, effort=body.get("effort") or None, max_minutes=max_minutes,
         chain=str(body.get("chain") or (_default_chain(str(body.get("skill") or ""), str(body.get("target") or "hub"))
                                         if prompt is None else "off")),
-        repeat_minutes=repeat, max_repeats=max_rep, created_by=by)
+        repeat_minutes=repeat, max_repeats=max_rep, parent=body.get('parent') or None,
+        created_by='run:'+str(body['parent']) if body.get('parent') else by,
+        extra={'context':body.get('context') or {'mode':'fresh'}})
     try:
         m = executor.enqueue(_xlab(), spec)
     except executor.SpecError as e:
         return {"error": str(e)}, 400
     ctx.pi_log({"action": "run.launch", "run_id": m["run_id"], "skill": m.get("skill"), "target": m.get("target"),
-             "args": m.get("args"), "backend": m.get("backend"), "by": by,
+             "args": m.get("args"), "backend": m.get("backend"), "by": spec.created_by,
              "prompt": (prompt or "")[:2000] or None})
     ctx.KICK.set()
     return {"ok": True, "run_id": m["run_id"], "position": m.get("position"), "status": m["status"],

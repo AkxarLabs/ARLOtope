@@ -1,6 +1,6 @@
 // ARLOtope signature guard for opencode — the twin of the claude/codex PreToolUse guard hook.
 //
-// The executor copies this file into a per-run OPENCODE_CONFIG_DIR (plugins/arlotope-guard.js), filling in
+// The executor loads a per-run copy of this local plugin, filling in
 // the guard script and interpreter. Before every tool call it pipes ONE Claude-shaped PreToolUse payload
 // to tools/signature_guard.py and waits: exit 2 means "this would forge a PI signature", and throwing
 // from tool.execute.before is how an opencode plugin refuses a tool call (the agent sees the message).
