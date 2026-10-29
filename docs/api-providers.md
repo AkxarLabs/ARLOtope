@@ -13,8 +13,9 @@ run the work. Claude Code, Codex and ACP agents keep their existing sign-in meth
 
 **Refresh models** updates OpenCode's Models.dev catalog. Model versions are not hardcoded in
 ARLOtope. Catalog updates can lag a provider's release; you may enter a model ID already configured
-in OpenCode. Suggestions omit models known not to support tools. Saving a key does not verify
-billing, model access or whether a particular model can complete a task; the first run tests those.
+in OpenCode. Suggestions omit models known not to support tools. Connected providers use OpenCode's
+active model registry; if a model offered before connecting is unavailable afterward, choose again.
+Saving a key does not verify billing, model access or task performance; the first run tests those.
 
 Keys are written through OpenCode's native credential API on the selected machine. The native
 store is normally `~/.local/share/opencode/auth.json`; OpenCode's environment/configuration can change

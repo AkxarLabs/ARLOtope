@@ -14,9 +14,12 @@ def test_catalog_keeps_only_public_metadata_and_refreshes_on_request(monkeypatch
     def server():
         def request(method,path,body=None):
             calls.append((method,path,body))
+            if path=='/config/providers':
+                return {'providers':[{'id':'openrouter','options':{'apiKey':'private'},'models':{
+                    'new/model:free':{'name':'Current model','capabilities':{'toolcall':True}}}}]}
             return {'connected':['openrouter'],'all':[{'id':'openrouter','name':'OpenRouter',
-                'options':{'apiKey':'never-export-this'},'models':{'new/model:free':{
-                    'name':'Current model','capabilities':{'toolcall':True},'apiKey':'also-private'}}}]}
+                'options':{'apiKey':'never-export-this'},'models':{'stale/model':{
+                    'name':'Unavailable model','apiKey':'also-private'}}}]}
         yield request
     monkeypatch.setattr(P,'_server',server)
     monkeypatch.setattr(P,'_cache',None)
@@ -24,12 +27,12 @@ def test_catalog_keeps_only_public_metadata_and_refreshes_on_request(monkeypatch
     assert first['providers'][0]['models'][0]['id']=='new/model:free'
     assert first['providers'][0]['configured']
     assert 'private' not in json.dumps(first) and 'apiKey' not in json.dumps(first)
-    assert P.catalog() is first and len(calls)==1
+    assert P.catalog() is first and len(calls)==2
     refresh=[]
     monkeypatch.setattr(P.shutil,'which',lambda _: '/opencode')
     monkeypatch.setattr(P.subprocess,'Popen',lambda args,**kw: refresh.append(args) or type('R',(),{'wait':lambda self,timeout:0,'poll':lambda self:0})())
     P.catalog(refresh=True)
-    assert refresh==[['/opencode','models','--refresh']] and len(calls)==2
+    assert refresh==[['/opencode','models','--refresh']] and len(calls)==4
 
 
 def test_refresh_timeout_reaps_the_native_process_tree(monkeypatch):

@@ -4,7 +4,7 @@ Live: a server on a random local port with a per-run password; the session is dr
 (prompt_async, question/permission replies, abort) and watched on its event stream (SSE). The
 server's events are translated to `run --format json` lines (root session only: a subagent shows as
 its finished `task` tool; live child activity comes from the lab's tracer plugin,
-.opencode/plugins/arlotope-trace.js, which runs under both). The signature guard is a per-run plugin dir.
+.opencode/plugins/arlotope-trace.js, which runs under both). The signature guard is a per-run local plugin.
 """
 
 from __future__ import annotations
@@ -12,7 +12,6 @@ from __future__ import annotations
 import base64
 import json
 import re
-import shutil
 import threading
 import urllib.request
 import uuid
@@ -38,9 +37,16 @@ class Opencode(Backend):
         if a.bcfg.get("permission"):   # the autonomy posture rides the env, not a flag
             a.env["OPENCODE_PERMISSION"] = json.dumps(a.bcfg["permission"])
         if a.guard:
-            d = guard_dir(a.rd, a.guard, a.python, a.env.get("OPENCODE_CONFIG_DIR"))
-            if d:
-                a.env["OPENCODE_CONFIG_DIR"] = str(d)
+            plugin = guard_plugin(a.rd, a.guard, a.python)
+            if plugin:
+                try:
+                    config = json.loads(a.env.get('OPENCODE_CONFIG_CONTENT') or '{}')
+                    if not isinstance(config, dict) or not isinstance(config.get('plugin', []), list):
+                        raise ValueError()
+                except (ValueError, TypeError):
+                    raise ValueError('OPENCODE_CONFIG_CONTENT must be a JSON object with a plugin array. Use a config file for JSONC.') from None
+                config['plugin'] = [*config.get('plugin', []), plugin.as_uri()]
+                a.env['OPENCODE_CONFIG_CONTENT'] = json.dumps(config)
         a.traced = traced(a.workdir)
 
     def command(self, a: Attempt) -> RunCommand:
@@ -136,20 +142,16 @@ class Opencode(Backend):
         return [{"event": "start", "status": "working", "session_id": sid}] if sid else []
 
 
-def guard_dir(run_dir, guard, python: str, own: str | None = None) -> Path | None:
-    """A per-run OPENCODE_CONFIG_DIR holding the signature-guard plugin (opencode searches it for plugins like a
-    .opencode/ dir, in addition to the global and project config). When the user has a config dir of their own,
-    it is copied in first, so the run keeps their plugins and agents and gains the guard."""
+def guard_plugin(run_dir, guard, python: str) -> Path | None:
+    """Load a local plugin directly; a new config directory triggers native dependency installation."""
     if not GUARD_PLUGIN.is_file():
         return None
-    d = Path(run_dir) / "opencode-config"
-    if own and Path(own).is_dir() and Path(own).resolve() != d.resolve():
-        shutil.copytree(own, d, dirs_exist_ok=True, ignore=shutil.ignore_patterns("node_modules", ".git"))
-    (d / "plugins").mkdir(parents=True, exist_ok=True)
+    plugin = Path(run_dir).resolve() / 'arlotope-guard.mjs'
+    plugin.parent.mkdir(parents=True, exist_ok=True)
     src = GUARD_PLUGIN.read_text(encoding="utf-8")
     src = src.replace("__GUARD__", json.dumps(str(guard))).replace("__PYTHON__", json.dumps(str(python)))
-    (d / "plugins" / "arlotope-guard.js").write_text(src, encoding="utf-8")
-    return d
+    plugin.write_text(src, encoding="utf-8")
+    return plugin
 
 
 def traced(workdir) -> bool:
@@ -327,5 +329,6 @@ class OpencodeSession(live.Session):
         if t == "session.error" and p.get("sessionID") in (None, root):
             err = p.get("error") or {}
             self.error = (err.get("data") or {}).get("message") or err.get("name") or "opencode error"
+            self.close()
             return [{"type": "error", "sessionID": root, "error": err}], []
         return [], []

@@ -34,7 +34,13 @@
     const save=async()=>{
       if(!model.trim()||!selected)return;setBusy(true);setError('');
       try{
-        if(key.trim()){const r=await NL.api('/api/providers',{action:'connect',machine,provider,key:key.trim()});if(r.error)throw Error(r.error);setKey('');setRevision(v=>v+1)}
+        if(key.trim()){
+          const picked=models.some(m=>m.id===model.trim());
+          const r=await NL.api('/api/providers',{action:'connect',machine,provider,key:key.trim()});if(r.error)throw Error(r.error);
+          setKey('');const fresh=await NL.get('/api/providers?'+NL.qs({machine}));setRevision(v=>v+1);
+          if(fresh.error)throw Error(fresh.error);
+          if(picked&&!fresh.providers.find(p=>p.id===provider)?.models.some(m=>m.id===model.trim())){setModel('');throw Error('Provider connected. Choose a model available to this connection.')}
+        }
         else if(!selected.configured)throw Error('Enter a key or connect this provider in OpenCode.');
         const label=name.trim()||selected.name+' · '+model.trim();
         if(await onSave({label,backend:'opencode',model:provider+'/'+model.trim()},makeDefault))markClean();

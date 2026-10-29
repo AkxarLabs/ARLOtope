@@ -100,12 +100,14 @@ def catalog(refresh=False):
                 raise ValueError('Model refresh failed. Retry, or keep using a saved model.')
         with _server() as request:
             data = request('GET', '/provider')
+            active = {p['id']:p for p in request('GET','/config/providers').get('providers',[])}
         connected = set(data.get('connected') or [])
         providers = []
         for item in data.get('all') or []:
+            source = active.get(item['id'], {'models':{}}) if item['id'] in connected else item
             models = [{'id': key, 'name': value.get('name') or key,
                        'tools': (value.get('capabilities') or {}).get('toolcall')}
-                      for key,value in (item.get('models') or {}).items()]
+                      for key,value in (source.get('models') or {}).items()]
             providers.append({'id': item['id'], 'name': item.get('name') or item['id'],
                               'configured': item['id'] in connected, 'models': models})
         providers.sort(key=lambda p:(MAJOR.index(p['id']) if p['id'] in MAJOR else len(MAJOR),p['name']))
