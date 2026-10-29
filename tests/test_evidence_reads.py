@@ -136,6 +136,7 @@ def test_remote_preview_preserves_headers_and_head_size(hub, monkeypatch, expire
     monkeypatch.setattr(server.http.client, 'HTTPConnection', lambda *a, **kw: Connection())
     monkeypatch.setattr(server.ctx, 'REMOTE', SimpleNamespace(lport=1234, cookie='test-session', refresh_cookie=lambda: refreshes.append(True)))
     handler = object.__new__(server.Handler)
+    handler.headers = {}
     handler.path = '/api/artifact/file?id=example'
     handler.command = 'HEAD'
     handler._local_only = lambda: True
