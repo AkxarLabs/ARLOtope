@@ -13,7 +13,7 @@ FIELDS={
          'context':{'type':'object','properties':{'mode':{'enum':['fresh','continue','native-fork']},'run_id':{'type':'string'},'handoff':{'type':'boolean'}}}}),
     '/api/providers': ('Save or remove an API provider connection on the selected machine.',
         {'action':{'enum':['connect','disconnect']},'provider':{'type':'string'},
-         'key':{'type':'string','writeOnly':True,'format':'password'},'machine':{'type':'string'}}),
+         'key':{'type':'string','writeOnly':True,'format':'password'},'machine':{'type':'string'},'backend':{'enum':['codex','claude','opencode']}}),
     '/api/agent-settings': ('Save agent presets or study role assignments.',{'settings':{'type':'object'},'study':{'type':'string'}}),
 }
 

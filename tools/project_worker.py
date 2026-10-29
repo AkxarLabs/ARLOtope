@@ -110,8 +110,8 @@ class Worker:
     def call(self, method, data):
         if method == 'providers':
             import provider_access
-            return (provider_access.catalog(data.get('refresh') is True) if data.get('action')=='catalog'
-                    else provider_access.key(data.get('action'),data.get('provider'),data.get('key')))
+            return (provider_access.view(data.get('provider'),data.get('backend'),data.get('refresh') is True) if data.get('action')=='catalog'
+                    else provider_access.connect(data.get('action'),data.get('provider'),data.get('key'),data.get('backend')))
         if method == 'frameworks':
             from frameworks import installed
             return {'frameworks': installed(data['definitions'], data.get('project')), 'machine': 'remote'}

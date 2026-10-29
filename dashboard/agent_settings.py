@@ -91,6 +91,11 @@ def check(body):
         command = backends.resolve_cli(selected['backend'], selected['options'])
         if not command or not (Path(command[0]).is_file() or shutil.which(command[0])):
             raise ValueError('This agent is not installed. Check its command in the preset.')
+        if selected['options'].get('api_provider'):
+            from native_providers import credential
+            if not credential(selected['options']['api_provider']):
+                raise ValueError('Connect this API provider on the execution machine first.')
+            return {'ok':True, 'message':'Agent and API key found. Model access and billing are checked when starting a task.'}, 200
         if selected['backend'] == 'acp':
             from executor.acp_probe import probe
             return {'ok':True, 'message':'ACP connected. Authentication and model access are checked when starting a task.',

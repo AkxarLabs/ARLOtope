@@ -1,4 +1,4 @@
-"""API providers through OpenCode's native catalog and credential store. No second agent loop."""
+"""Provider discovery and connections for existing agent harnesses. No second agent loop."""
 from contextlib import contextmanager
 import base64
 import http.client
@@ -17,6 +17,31 @@ from urllib.parse import quote
 _cache = None
 _lock = threading.RLock()
 MAJOR = ('openai', 'anthropic', 'google', 'openrouter', 'xai', 'deepseek', 'mistral', 'groq')
+
+
+def choices():
+    names=('OpenAI','Anthropic','Google','OpenRouter','xAI','DeepSeek','Mistral','Groq')
+    return [{'id':pid,'name':name,'backends':[{'openai':'codex','anthropic':'claude'}[pid],'opencode']
+             if pid in ('openai','anthropic') else ['opencode']} for pid,name in zip(MAJOR,names)]
+
+
+def view(provider=None,backend=None,refresh=False):
+    if not provider and not backend:return {'ok':True,'choices':choices()}
+    backend=backend or {'openai':'codex','anthropic':'claude'}.get(provider,'opencode')
+    if backend=='opencode':return {**catalog(refresh),'backend':'opencode'}
+    import native_providers
+    if provider not in native_providers.NATIVE or native_providers.NATIVE[provider][0]!=backend:
+        raise ValueError('Choose a harness that supports this provider.')
+    return native_providers.catalog(provider)
+
+
+def connect(action,provider,value=None,backend=None):
+    backend=backend or {'openai':'codex','anthropic':'claude'}.get(provider,'opencode')
+    if backend=='opencode':return {**key(action,provider,value),'backend':'opencode'}
+    import native_providers
+    if provider not in native_providers.NATIVE or native_providers.NATIVE[provider][0]!=backend:
+        raise ValueError('Choose a harness that supports this provider.')
+    return native_providers.key(action,provider,value)
 
 
 @contextmanager

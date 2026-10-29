@@ -11,7 +11,7 @@ from .spec import SpecError
 
 ID = re.compile(r'^[a-zA-Z0-9][a-zA-Z0-9_-]{0,79}$')
 OPTIONS = ('command', 'model', 'effort', 'reasoning_effort', 'agent', 'variant', 'extra_args',
-           'prompt_via', 'auth_method', 'mode')
+           'prompt_via', 'auth_method', 'mode', 'api_provider')
 
 
 def validate(value):
@@ -25,6 +25,8 @@ def validate(value):
             raise SpecError('Use a short stable ID for each agent preset.')
         if preset.get('backend') not in ('claude', 'codex', 'opencode', 'acp'):
             raise SpecError(f'{key}: choose a supported harness.')
+        if preset.get('api_provider') is not None and (preset.get('backend'),preset['api_provider']) not in (('codex','openai'),('claude','anthropic')):
+            raise SpecError(f'{key}: choose an API provider supported by this harness.')
         for field in ('label', 'model', 'effort', 'auth_method', 'mode', 'agent', 'variant', 'prompt_via'):
             if preset.get(field) is not None and (not isinstance(preset[field], str) or len(preset[field]) > 180):
                 raise SpecError(f'{key}: {field} must be short text.')
@@ -152,7 +154,7 @@ def resolve(lab, spec, subject=None, remote=None):
         raise SpecError(f'{backend} does not expose an effort selector. Use its native settings.')
     options = {key: copy.deepcopy(base.get(key)) for key in OPTIONS}
     options.update(model=model, effort=effort, reasoning_effort=effort)
-    identity = {'backend': backend, 'options': {k: options[k] for k in ('command', 'agent', 'variant', 'auth_method', 'mode')},
+    identity = {'backend': backend, 'options': {k: options[k] for k in ('command', 'agent', 'variant', 'auth_method', 'mode', 'api_provider')},
                 'machine': remote['machine'] if remote else None}
     result = {'preset': preset if selected else None, 'label': (chosen.get('label') or preset) if selected else backend,
               'source': 'This launch' if spec.backend or spec.model else source, 'study': study,

@@ -127,8 +127,11 @@ subagent; include `preset` to choose a saved agent. A note is context, not a que
 
 Save API-backed agent choices through `/api/agent-settings`. `settings.presets` is the complete
 Lab preset map: read it first and merge, preserving other choices. A preset is ordinary data:
-`{label: "My API agent", backend: opencode, model: "openrouter/<model-id>"}`. Set
-`settings.default_preset` or `settings.role_presets` to assign it. Read back the settings to verify.
+`{label: "My API agent", backend: opencode, model: "openrouter/<model-id>"}`. Use
+`backend: codex, api_provider: openai` or `backend: claude, api_provider: anthropic` for a native
+API connection; its model is the native model ID without a provider prefix. Omitting `api_provider`
+uses the native agent's existing sign-in/environment instead. Keys are resolved on the execution host.
+Set `settings.default_preset` or `settings.role_presets` to assign it. Read back the settings to verify.
 
 ## HTTP access and trust
 

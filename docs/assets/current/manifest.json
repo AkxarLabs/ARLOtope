@@ -459,13 +459,13 @@
     {
       "file": "api-provider.png",
       "size": [
-        756,
-        610
+        757,
+        684
       ],
-      "bytes": 37858,
-      "sha256": "c7041ca5341605cc2ac829f9d75f23fc04ebe08a73908bf75d259ab9f863057a",
+      "bytes": 38793,
+      "sha256": "6d3d3f2ec4a73f9a2b22a58af6c1eb3009f5ac27f927d826a3f2b769faa7a94d",
       "captured": "2026-10-29",
-      "source": "Disposable Lab; empty key field and refreshed native OpenCode catalog. No paid inference."
+      "source": "Disposable Lab; OpenAI with native Codex model discovery. Empty key field; no inference."
     }
   ]
 }

@@ -80,7 +80,7 @@ def test_dashboard_and_worker_reuse_the_provider_adapter_without_logging_keys(hu
     remote=[]
     monkeypatch.setattr(api.remote_projects,'rpc',lambda *a: remote.append(a) or {'ok':True,'providers':[]})
     assert api.view({'machine':'compute','refresh':'1'})[1]==200
-    assert remote==[('compute','providers',{'action':'catalog','refresh':True})]
+    assert remote==[('compute','providers',{'action':'catalog','refresh':True,'provider':None,'backend':None})]
     from project_worker import Worker
     Worker().call('providers',{'action':'connect','provider':'openrouter','key':'remote-fixture'})
     assert seen[-1]==('connect','openrouter','remote-fixture')
