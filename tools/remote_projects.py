@@ -78,7 +78,7 @@ def rpc(mid, method, data=None):
     if not info.get('port'):
         raise RemoteError('Connect the project runner on this machine first.')
     try:
-        c = http.client.HTTPConnection('127.0.0.1', int(info['port']), timeout=190 if method == 'clone' else 35)
+        c = http.client.HTTPConnection('127.0.0.1', int(info['port']), timeout=190 if method in ('clone','providers') else 35)
         c.request('POST', '/rpc', json.dumps({'method': method, 'data': data or {}}),
                   {'Content-Type': 'application/json', 'Cookie': info.get('cookie') or ''})
         response = c.getresponse()
@@ -111,7 +111,7 @@ def bundle():
         raise RemoteError('PyYAML license notice is missing. Reinstall PyYAML before bundling the worker.')
     for index, notice in enumerate(notices):
         files['LICENSES/PyYAML' + (str(index) if index else '') + '.txt'] = dependency.locate_file(notice).read_bytes()
-    for name in ('project_worker', 'loopback_http', 'project_identity', 'project_files', 'project_control', 'interactive_terminal', 'terminal', 'labfiles', 'artifact', 'knowledge', 'tagging', 'github_access', 'frameworks', 'framework_activity', 'skill_resources'):
+    for name in ('project_worker', 'loopback_http', 'project_identity', 'project_files', 'project_control', 'interactive_terminal', 'terminal', 'labfiles', 'artifact', 'knowledge', 'tagging', 'github_access', 'frameworks', 'framework_activity', 'skill_resources', 'provider_access'):
         files[name + '.py'] = (ROOT / 'tools' / (name + '.py')).read_bytes()
     files['lab_profile.py'] = (ROOT / 'tools/project_profile.py').read_bytes()
     files['executor/__init__.py'] = b'"""Execution-only package; no central scheduler or research kernel."""\n'

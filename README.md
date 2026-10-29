@@ -22,7 +22,7 @@ has produced—all while keeping your existing repositories and tools.
 ## What you can do
 
 - **Work across projects.** Run studies side by side, with separate workflows and records. Switch focus without stopping other teams.
-- **Use your own agents.** Claude Code, Codex, opencode and compatible [ACP agents](docs/acp.md), with your own accounts.
+- **Use your own agents.** Claude Code, Codex, opencode and compatible [ACP agents](docs/acp.md). Use your accounts or [API keys](docs/api-providers.md), including OpenRouter.
 - **Build your process.** Connect tasks, reuse Markdown skills, run parallel agents, and add loops and review checkpoints. Research workflows are included as starting points.
 - **See what is happening.** Follow characters between rooms, inspect conversations, and answer questions from one Inbox.
 - **Keep a research record.** Each study brings together task history, notes, sources and outputs, including interactive HTML reports.
@@ -52,6 +52,8 @@ reopen it with **?**. See the [first-study walkthrough](docs/getting-started.md)
 Workflows are YAML, skills are Markdown, and records are plain files. Edit them in the dashboard
 or with your own tools. Agent turns and task completion are tracked separately; interrupted work
 stays visible for [recovery](docs/recovering-work.md).
+
+Use the same actions from a terminal or agent with [`arlo api`](docs/api.md).
 
 Private Lab records are ignored by Git. Back up `lab/`, `studies/` and your project repositories;
 see [storage and backups](docs/projects.md#storage-updates-and-backups).

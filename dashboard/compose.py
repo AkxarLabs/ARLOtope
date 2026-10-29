@@ -1065,8 +1065,10 @@ def run_tasks(body):
     if not slug:
         return {'error': 'Choose a study.'}, 400
     try:
+        executor.check_enabled(executor.Lab(ctx.HUB), parent=body.get('parent') or None)
         ids = lab_profile.start_graph(executor.Lab(ctx.HUB), slug, executor.enqueue, executor.RunSpec,
-                                      retry=body.get('retry') is True)
+                                      retry=body.get('retry') is True, parent=body.get('parent') or None,
+                                      created_by='run:'+str(body['parent']) if body.get('parent') else 'dashboard')
         ctx.KICK.set()
         return {'ok': True, 'runs': ids}, 200
     except (ValueError, OSError) as error:

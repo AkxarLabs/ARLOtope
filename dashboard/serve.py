@@ -79,6 +79,8 @@ import ticker  # noqa: E402
 import labtools  # noqa: E402
 import keys  # noqa: E402
 import system  # noqa: E402
+import providers  # noqa: E402
+import api_schema  # noqa: E402
 
 executor = sources.executor   # tools/executor, or None (the dashboard then stays observe-and-sign)
 TOKEN = secrets.token_urlsafe(24)    # this server process's session secret (the cookie below)
@@ -247,15 +249,20 @@ class Handler(BaseHTTPRequestHandler):
         if self.path.startswith("/api/ping"):   # the launcher's "is it up, and which lab?" (no session)
             return self._json({"ok": True, "app": "arlotope", "version": VERSION, "lab": str(ctx.HUB),
                                "name": labs.lab_name(ctx.HUB), "pid": os.getpid()})
+        if self.path.split('?',1)[0]=='/api/session':
+            return self._send(200,b'{"ok":true}', 'application/json',
+                {'Set-Cookie':f'{self._cookie_name()}={TOKEN}; Path=/; HttpOnly; SameSite=Strict'})
         if self.path.startswith("/api/") and not self._has_session():
             return self._json({"error": "no dashboard session; reload the page"}, 403)
         route = self.path.split("?", 1)[0]
-        if ctx.REMOTE is not None and route.startswith("/api/") and not _is_local_route(route):
+        if ctx.REMOTE is not None and self.headers.get('X-Arlotope-Local')!='1' and route.startswith("/api/") and not _is_local_route(route):
             return self._proxy(self.command)
 
         if route in GET_ROUTES:
             try:
                 body, code = GET_ROUTES[route](self._query())
+                if route=='/api/schema':
+                    body['components']['securitySchemes']['localSession']['name']=self._cookie_name()
             except Exception as e:  # noqa: BLE001
                 body, code = {"error": str(e)}, 500
             return self._json(body, code)
@@ -456,7 +463,7 @@ class Handler(BaseHTTPRequestHandler):
         if ctype != "application/json":
             return self._refuse({"error": "requests must be JSON (Content-Type: application/json)"}, 415)
         route = self.path.split("?", 1)[0]
-        if ctx.REMOTE is not None and not _is_local_route(route):
+        if ctx.REMOTE is not None and self.headers.get('X-Arlotope-Local')!='1' and not _is_local_route(route):
             return self._proxy("POST")
         try:
             return self._dispatch_post()
@@ -497,6 +504,8 @@ def _int(v, default: int = 0) -> int:
 
 
 GET_ROUTES = {
+    '/api/schema': lambda q: (api_schema.describe(GET_ROUTES,POST_ROUTES,FILE_ROUTES,compose.OPS),200),
+    '/api/providers': providers.view,
     '/api/knowledge': lambda q: __import__('knowledge_api').list_records(q),
     '/api/agent-settings': lambda q: __import__('agent_settings').view(q),
     '/api/project-machines': lambda q: __import__('project_machines').view(q),
@@ -575,6 +584,7 @@ def _typed(f, ctype: str | None = None):
     return (f, ctype or library._FIG_CTYPE.get(f.suffix.lower(), "application/octet-stream")) if f else None
 
 POST_ROUTES = {
+    '/api/providers': providers.save,
     '/api/knowledge/note': lambda b: __import__('knowledge_api').note(b),
     '/api/agent-settings': lambda b: __import__('agent_settings').save(b),
     '/api/agent-settings/check': lambda b: __import__('agent_settings').check(b),

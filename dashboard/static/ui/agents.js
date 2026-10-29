@@ -24,9 +24,42 @@
   const CommandFields=({value=[],onChange})=>html`<${NL.Field} label="Program"><${NL.Input} value=${value[0]||''} onInput=${v=>onChange([v,...value.slice(1)])} placeholder="Executable name or path"/></${NL.Field}>
     <${NL.Field} label="Arguments" hint="One argument per line; keep spaces within an argument."><${NL.Textarea} rows=${2} value=${value.slice(1).join('\n')} onInput=${v=>onChange([value[0]||'',...v.split('\n')])} placeholder="e.g. acp"/></${NL.Field}>`;
   const cleanAgent=agent=>({...agent,...(agent.command?{command:[agent.command[0],...agent.command.slice(1).filter(x=>x.trim())]}:{})});
+  const ApiProviderForm=({onSave,onCancel})=>{
+    const [machine,setMachine]=useState(''),[provider,setProvider]=useState('openrouter'),[key,setKey]=useState(''),[model,setModel]=useState(''),[name,setName]=useState(''),[makeDefault,setDefault]=useState(false),[revision,setRevision]=useState(0),[busy,setBusy]=useState(false),[error,setError]=useState('');
+    const machines=NL.useGet('/api/project-machines'),read=NL.useGet('/api/providers?'+NL.qs({machine}),revision),data=read.data||read.previous;
+    const selected=data?.providers.find(p=>p.id===provider),models=(selected?.models||[]).filter(m=>m.tools!==false);
+    const markClean=NL.useDirty(!!key||!!model||!!name);
+    useEffect(()=>{setKey('');setModel('');setError('')},[provider,machine]);
+    const refresh=async()=>{setBusy(true);setError('');const r=await NL.get('/api/providers?'+NL.qs({machine,refresh:'1'}));setBusy(false);if(r.error)setError(r.error);else setRevision(v=>v+1)};
+    const save=async()=>{
+      if(!model.trim()||!selected)return;setBusy(true);setError('');
+      try{
+        if(key.trim()){const r=await NL.api('/api/providers',{action:'connect',machine,provider,key:key.trim()});if(r.error)throw Error(r.error);setKey('');setRevision(v=>v+1)}
+        else if(!selected.configured)throw Error('Enter a key or connect this provider in OpenCode.');
+        const label=name.trim()||selected.name+' · '+model.trim();
+        if(await onSave({label,backend:'opencode',model:provider+'/'+model.trim()},makeDefault))markClean();
+      }catch(e){setError(e.message)}finally{setBusy(false)}
+    };
+    const disconnect=async()=>{if(!await NL.confirm({title:'Remove this provider connection?',body:'This removes OpenCode’s connection on the selected machine. Saved agents keep their model settings.',ok:'Remove connection',danger:true}))return;
+      setBusy(true);const r=await NL.api('/api/providers',{action:'disconnect',provider,machine});setBusy(false);if(r.error)setError(r.error);else setRevision(v=>v+1)};
+    return html`<fieldset class="agent-connect"><legend>API provider</legend><p class="muted small">API-backed agents use OpenCode. Keys stay in its credential store on the selected machine.</p>
+      <${NL.Field} label="Machine"><${NL.Select} value=${machine} disabled=${busy} onChange=${setMachine} options=${[{value:'',label:'Lab machine'},...(machines.data?.machines||[]).map(m=>({value:m.id,label:m.name}))]}/></${NL.Field}>
+      ${!data||read.error?html`<${NL.LoadState} ...${read} stale=${!!data}/>`:null}
+      ${data?html`<${NL.Field} label="Provider"><${NL.Select} value=${provider} disabled=${busy} onChange=${setProvider} options=${data.providers.map(p=>({value:p.id,label:p.name+(p.configured?' · configured':'')}))}/></${NL.Field}>
+      <${NL.Field} label="API key" hint=${selected?.configured?'Leave blank to keep the existing connection. A new key replaces it.':'Create a key with this provider.'}><input class="input" type="password" autocomplete="new-password" aria-label="API key" value=${key} disabled=${busy} onInput=${e=>setKey(e.target.value)}/></${NL.Field}>
+      <${NL.Field} label="Model" hint="Choose a current catalog entry, or enter a model configured in OpenCode."><input class="input" list="api-provider-models" aria-label="Model" value=${model} disabled=${busy} onInput=${e=>setModel(e.target.value)} placeholder="Search models…"/><datalist id="api-provider-models">${models.map(m=>html`<option value=${m.id}>${m.name}</option>`)}</datalist></${NL.Field}>
+      <div class="row wrap"><button type="button" class="link small" disabled=${busy} onClick=${refresh}>Refresh models</button><small class="muted">${data.source} · ${models.length} models</small></div>
+      <${NL.Field} label="Agent name"><${NL.Input} value=${name} disabled=${busy} onInput=${setName} placeholder=${(selected?.name||provider)+' · '+(model||'model')}/></${NL.Field}>
+      <label><input type="checkbox" checked=${makeDefault} disabled=${busy} onChange=${e=>setDefault(e.target.checked)}/> Make this the Lab default</label>
+      ${selected?.configured?html`<button type="button" class="link small" disabled=${busy} onClick=${disconnect}>Remove provider connection</button>`:null}`:null}
+      ${error?html`<p role="alert" class="note note-warn">${error}</p>`:null}
+      <div class="row end"><${NL.Btn} disabled=${busy} onClick=${()=>{markClean();onCancel()}}>Cancel</${NL.Btn}><${NL.Btn} kind="primary" busy=${busy} disabled=${!selected||!model.trim()||!key.trim()&&!selected.configured} onClick=${save}>Save agent</${NL.Btn}></div>
+    </fieldset>`;
+  };
   NL.AgentAssignments=({study,onDraft,value,connect})=>{
     const data=NL.useAgentSettings(study),[draft,setDraft]=useState(value||null),[editing,setEditing]=useState(''),[preset,setPreset]=useState({}),[error,setError]=useState(''),[busy,setBusy]=useState(false),[message,setMessage]=useState(''),[connection,setConnection]=useState(null);
     const checkSeq=NL.useRef(0);
+    const [api,setApi]=useState(false);
     const savedDraft=NL.useRef(''),editBaseline=NL.useRef('');
     const draftDirty=!!draft&&JSON.stringify(draft)!==savedDraft.current;
     const markClean=NL.useDirty(!onDraft&&(draftDirty||!!editing&&JSON.stringify([editing,preset])!==editBaseline.current));
@@ -52,8 +85,9 @@
       <details><summary>Task agent assignments <span class="muted small">${Object.keys(draft.role_presets||{}).length?'· '+NL.plural(Object.keys(draft.role_presets).length,'custom choice'):''}</span></summary><p class="muted small">Choose agents for task roles. Specialist child agents use the tool’s subagent settings.</p>
         <div class="agent-role-rows">${Object.entries(data.roles).map(([id,label])=>html`<${NL.Field} key=${id} label=${label}><${NL.Select} value=${Object.hasOwn(draft.role_presets||{},id)?draft.role_presets[id]??'@default':'@inherit'} onChange=${v=>setRole(id,v)} options=${[{value:'@inherit',label:study||onDraft?'Use Lab role setting':'Use general default'},...(study||onDraft?[{value:'@default',label:'Use study default'}]:[]),...choices]}/></${NL.Field}>`)}</div>
       </details>
-      ${!study&&!onDraft?html`<section class="preset-list"><header class="row wrap"><h3 class="grow">Saved agents</h3><${NL.Btn} small disabled=${!!editing} onClick=${()=>begin('acp')}>Connect ACP agent</${NL.Btn}><${NL.Btn} small kind="ghost" disabled=${!!editing} onClick=${()=>begin('codex')}>Add agent preset</${NL.Btn}></header>
-        ${Object.entries(current).map(([id,p])=>html`<div class="preset-row"><div class="grow"><b>${p.label||id}</b><small class="muted">${p.backend}${p.model?' · '+p.model:''}</small></div><button class="link" disabled=${!!editing||busy} onClick=${()=>openPreset(id,{...p})}>Edit</button><button class="link" onClick=${()=>test(p)} disabled=${busy||!!editing}>Test</button><button class="link" disabled=${!!editing||busy} aria-label=${'Remove '+(p.label||id)} onClick=${()=>{const next={...current};delete next[id];change({...draft,presets:next})}}>Remove</button></div>`)}
+      ${!study&&!onDraft?html`<section class="preset-list"><header class="row wrap"><h3 class="grow">Saved agents</h3><${NL.Btn} small disabled=${!!editing||api} onClick=${()=>setApi(true)}>Connect API provider</${NL.Btn}><${NL.Btn} small disabled=${!!editing||api} onClick=${()=>begin('acp')}>Connect ACP agent</${NL.Btn}><${NL.Btn} small kind="ghost" disabled=${!!editing||api} onClick=${()=>begin('codex')}>Add agent preset</${NL.Btn}></header>
+        ${api?html`<${ApiProviderForm} onCancel=${()=>setApi(false)} onSave=${async(p,makeDefault)=>{let id='api-'+p.model.replace(/[^a-zA-Z0-9_-]/g,'-').slice(0,65),n=2,base=id;while(current[id])id=base+'-'+n++;const ok=await save({...draft,presets:{...current,[id]:p},...(makeDefault?{default_preset:id}:{})});if(ok)setApi(false);return ok;}}/>`:null}
+        ${Object.entries(current).map(([id,p])=>html`<div class="preset-row"><div class="grow"><b>${p.label||id}</b><small class="muted">${p.backend}${p.model?' · '+p.model:''}</small></div><button class="link" disabled=${!!editing||busy||api} onClick=${()=>openPreset(id,{...p})}>Edit</button><button class="link" onClick=${()=>test(p)} disabled=${busy||!!editing||api}>Test</button><button class="link" disabled=${!!editing||busy||api} aria-label=${'Remove '+(p.label||id)} onClick=${()=>{const next={...current};delete next[id];change({...draft,presets:next})}}>Remove</button></div>`)}
         ${editing?html`<fieldset class="agent-connect"><legend>${preset.backend==='acp'?'Connect an ACP agent':'Agent preset'}</legend>
         <${NL.Field} label="Name"><${NL.Input} value=${preset.label||''} onInput=${v=>setPreset({...preset,label:v})} placeholder="e.g. My research agent" autofocus/></${NL.Field}>
         <${NL.Field} label="Agent type"><${NL.Select} value=${preset.backend} onChange=${v=>{setPreset({...preset,backend:v,model:'',effort:'',auth_method:''});setConnection(null)}} options=${[{value:'claude',label:'Claude'},{value:'codex',label:'Codex'},{value:'opencode',label:'opencode'},{value:'acp',label:'Other agent (ACP)'}]}/></${NL.Field}>
@@ -68,7 +102,7 @@
         ${connection?.agentInfo?html`<p class="muted small" role="status">Connected to ${connection.agentInfo.title||connection.agentInfo.name}${connection.agentInfo.version?' · '+connection.agentInfo.version:''}</p>`:null}
         <div class="row end wrap"><${NL.Btn} small onClick=${()=>{markClean(draftDirty);setEditing('');setMessage('');setError('');if(connect)NL.go('settings/agents')}}>Cancel</${NL.Btn}><${NL.Btn} small busy=${busy} onClick=${()=>test({...preset})}>Check connection</${NL.Btn}><${NL.Btn} small kind="primary" busy=${busy} onClick=${async()=>{try{const next={...draft,presets:{...current,[editing]:presetValue()}};if(await save(next)){setEditing('');if(connect)NL.go('settings/agents')}}catch(e){setError(e.message)}}}>Save agent</${NL.Btn}></div></fieldset>`:null}</section>`:null}
       ${error?html`<p role="alert" class="note note-warn">${error}</p>`:null}${message?html`<p role="status" class="muted small">${message}</p>`:null}
-      ${!onDraft&&!editing?html`<div class="row end"><${NL.Btn} kind="primary" busy=${busy} onClick=${()=>save()}>Save agent choices</${NL.Btn}></div>`:null}
+      ${!onDraft&&!editing&&!api?html`<div class="row end"><${NL.Btn} kind="primary" busy=${busy} onClick=${()=>save()}>Save agent choices</${NL.Btn}></div>`:null}
     </div>`;
   };
   NL.placeAgentPeek=(panel,anchor)=>{

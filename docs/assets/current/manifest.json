@@ -1,5 +1,5 @@
 {
-  "updated": "2026-10-27",
+  "updated": "2026-10-29",
   "method": "Playwright CLI with Chrome, 1440x1000 viewport. Original Sakana test image retained.",
   "limits": "Screenshots demonstrate UI, not scientific findings or provider/SSH certification. Example records and paths are synthetic.",
   "images": [
@@ -455,6 +455,17 @@
       "captured": "2026-10-27",
       "source": "Playwright CLI; current dashboard, built-in synthetic demo data, launch-disabled disposable Lab. No real agents, private studies or approvals.",
       "route": "/?demo#/studies; open Inbox"
+    },
+    {
+      "file": "api-provider.png",
+      "size": [
+        756,
+        610
+      ],
+      "bytes": 37858,
+      "sha256": "c7041ca5341605cc2ac829f9d75f23fc04ebe08a73908bf75d259ab9f863057a",
+      "captured": "2026-10-29",
+      "source": "Disposable Lab; empty key field and refreshed native OpenCode catalog. No paid inference."
     }
   ]
 }

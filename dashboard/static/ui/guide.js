@@ -3,7 +3,7 @@
   const N=window.NL,{html,useState,useEffect}=N;
   const stops=[
     {title:'Choose your agent',route:'setup',action:'Agents & model settings',open:()=>N.go('settings/agents'),
-      text:'Connect Claude Code, Codex, opencode or an ACP agent. Sign in with its own account, then choose your model in Settings.',
+      text:'Connect Claude Code, Codex, opencode or an ACP agent. Use its sign-in, or connect an API provider and choose a model in Settings.',
       hint:'You decide whether the dashboard can start agents. Set task limits and permissions there too.'},
     {title:'Start a study',route:'start',action:'Open New study',
       text:'Bring a research question, an existing folder or a GitHub repository. Add a brief or files, then review the starting workflow.',

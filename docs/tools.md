@@ -17,6 +17,8 @@ Method-specific helpers live with their skill; research checks live in `checks/`
 | Publish a report | `tools/artifact.py` |
 | Inspect effective settings | `tools/show_config.py` |
 | Validate Lab definitions | `arlo check` |
+| Use any dashboard API from a terminal | `arlo api` ([guide](api.md)) |
+| Open a study in the browser | `arlo open <study>` |
 
 For dashboard steps, use [Start and follow work](running-work.md). This page covers terminal and
 developer tools. Commands do not require installing a separate ARLOtope package.

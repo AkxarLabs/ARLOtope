@@ -356,8 +356,8 @@
         <p class="muted small">A run is one agent task. Leave model fields blank for the agent’s default.</p>
         ${forced ? html`<div class="note note-warn">“One model for every tool” is set to <b class="mono">${forced}</b> above, so it overrides these. Clear it to use them.</div>` : null}
         <div class="agent-models">
-          <b>Claude</b>${model('claude_model', 'e.g. sonnet, opus, claude-sonnet-5-5')}<${NL.Select} value=${v.claude_effort || ''} onChange=${x => set('claude_effort', x)} options=${effortOpts(EFFORT)} />
-          <b>Codex</b>${model('codex_model', 'e.g. gpt-6-luna')}<${NL.Select} value=${v.codex_effort || ''} onChange=${x => set('codex_effort', x)} options=${effortOpts(['', 'minimal', 'low', 'medium', 'high', 'xhigh'])} />
+          <b>Claude</b>${model('claude_model', 'e.g. sonnet or opus')}<${NL.Select} value=${v.claude_effort || ''} onChange=${x => set('claude_effort', x)} options=${effortOpts(EFFORT)} />
+          <b>Codex</b>${model('codex_model', 'Model ID or agent default')}<${NL.Select} value=${v.codex_effort || ''} onChange=${x => set('codex_effort', x)} options=${effortOpts(['', 'minimal', 'low', 'medium', 'high', 'xhigh'])} />
           <b>opencode</b>${model('opencode_model', 'provider/model, e.g. opencode/…')}${model('opencode_variant', 'variant (reasoning effort)')}
         </div></${NL.Section}>
       <${NL.Section} title="Subagents: the specialists a main agent calls on">

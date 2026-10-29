@@ -45,6 +45,13 @@ environment and the correct footer command in their brief, including for unscaff
 
 ## Programmatic agents
 
+With the Lab running, `arlo api routes` lists its HTTP operations. `arlo api GET /api/state`
+reads current work; `arlo api POST /api/compose --data @draft.yaml` edits a workflow draft;
+`arlo api POST /api/assistant/message --data @question.yaml` asks the separate workspace assistant.
+Use `--hub <lab>` after the command to select a Lab. Managed calls retain their parent run and
+nesting limits; PI-owned decisions, study creation and publication remain the PI's. See
+`docs/api.md` for payloads, records and downloads, and `docs/api-providers.md` for API-key agents.
+
 **Shared knowledge.** Notes, saved workspace answers and retained sources are ordinary Markdown
 records, normally in project `.arlotope/knowledge/`. Use the knowledge command supplied in the run
 brief to list/search/read and acknowledge requested human notes. Reading acknowledgement does

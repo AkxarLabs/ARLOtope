@@ -55,6 +55,28 @@ def test_launch_queues_a_run_and_logs(hub, monkeypatch):
     assert m.ctx.KICK.is_set()                                     # the scheduler is woken at once
 
 
+def test_api_child_launch_keeps_depth_and_context(hub, monkeypatch):
+    m = _mod(hub, monkeypatch)
+    parent, _ = m.runops.launch_run({'prompt':'Read evidence', 'confirm':True})
+    body = {'prompt':'Independently check it', 'confirm':True, 'parent':parent['run_id']}
+    out, code = m.runops.launch_run(body)
+    assert code == 400 and 'depth' in out['error']
+    config = hub.lab/'config.yaml'
+    config.write_text(config.read_text().replace('max_depth: 1','max_depth: 2'))
+    out, code = m.runops.launch_run(body)
+    assert code == 200
+    lab = m.executor.Lab(hub.root)
+    child = m.executor.find_run(lab,out['run_id'])[3]
+    assert child['depth'] == 1 and child['parent'] == parent['run_id']
+    assert child['created_by'] == 'run:'+parent['run_id']
+    grandchild, code = m.runops.launch_run({**body,'parent':child['run_id']})
+    assert code == 400 and 'depth' in grandchild['error']
+    # Explicit context reaches the existing validator; it is never silently dropped.
+    out, code = m.runops.launch_run({'prompt':'Continue', 'confirm':True,
+        'context':{'mode':'continue','run_id':'missing'}})
+    assert code == 400 and 'source' in out['error']
+
+
 def test_launch_refusals(hub, monkeypatch):
     m = _mod(hub, monkeypatch)
     assert m.runops.launch_run({"skill": "propose", "target": "idea-a"})[1] == 400             # no confirm

@@ -42,6 +42,9 @@ designer and custom task roles count normally. See [capacity](compute.md#agent-s
 
 ## Choose agents
 
+For an API key, use **Connect API provider** to save an OpenCode agent with a provider/model
+choice. [Provider setup](api-providers.md) covers keys, catalog refresh and remote hosts.
+
 Open **Settings → Agents & models → Agent choices** to save named agent configurations (presets).
 Each selects an agent and, when needed, a model or effort. Several saved choices may use the same
 tool. For another compatible agent, choose **Connect ACP agent**, enter its program and arguments,

@@ -29,6 +29,7 @@ uv run --with pyyaml python tools/upgrade_project.py --all [--check]  # bring ol
 | **Observability** | `lab_bus.py`, `trace_hook.py` | the append-only event bus and directive inbox; the per-agent action tracer (both ship into every project too) |
 | **Coordination** | `hub_writeback.py`, `process_writebacks.py` | the project→hub write-back boundary |
 | **Agents** | `executor/`, `executor_cli.py`, `lab_profile.py`, `role_sync.py` | launch Claude, Codex, opencode or configured ACP agents; provide Lab briefs and campaign coordination; pause launches or hold a study (`executor/pause.py`); render native role files |
+| **Local API** | `api_client.py`, `provider_access.py` | `arlo api` calls the dashboard's existing routes; API providers reuse OpenCode's model catalog and native credentials |
 | **Knowledge** | `knowledge.py`, `project_identity.py` | project identity, plain Markdown notes/sources/answers, search, read acknowledgements and separate workspace-answer persistence |
 | **Remote projects** | `remote_projects.py`, `project_worker.py`, `project_control.py`, `ssh_worker_install.py` | existing SSH connections, a small project execution worker, mirrored run evidence and owning-Lab control requests |
 | **Setup and config** | `spawn_project.py`, `new_lab.py`, `configure.py`, `profiles.py`, `show_config.py`, `check_lab.py`, `upgrade_project.py`, `system_probe.py`, `terminal.py` | stamp projects and labs; owner-aware config; lint; what this machine offers; a terminal for a CLI's sign-in |

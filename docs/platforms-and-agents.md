@@ -4,6 +4,9 @@ Lab runs a browser dashboard and Python tools on a controller machine. It can st
 Codex, opencode or an ACP-compatible agent locally, or use an SSH runner beside a remote project.
 Each agent needs its own installation, account and model access.
 
+[API-provider connections](api-providers.md), including OpenRouter, run through OpenCode's existing
+harness. They use the same task, context, permission and recording paths as other OpenCode runs.
+
 ## Set up an agent
 
 Open **Settings → Agents & models**. Install or sign in through the agent’s own flow, then choose

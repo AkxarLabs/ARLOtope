@@ -13,6 +13,8 @@ on `main`; tagged releases are listed on GitHub.
   continued or forked conversations where the selected harness supports them.
 - Use Claude Code, Codex, opencode or an ACP adapter. Seven task sessions are allowed by default;
   independent reviewers, explainers and assistants do not consume task slots.
+- Connect API providers, including OpenRouter, through OpenCode's native credential store and
+  refreshed model catalog. Operate the same dashboard actions from a terminal with `arlo api`.
 - Keep study-scoped documents, retained sources, human notes, saved Q&A, outputs and workflow
   histories. View Markdown and sandboxed HTML summaries in the dashboard.
 - Connect project machines over SSH. Machine and unified world views change presentation, not

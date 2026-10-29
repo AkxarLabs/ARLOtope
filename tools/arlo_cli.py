@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""`arlo <verb>` — the whole lab from a terminal. Everything the dashboard does has a verb here, and both call
+"""`arlo <verb>` — the whole lab from a terminal. `arlo api` also exposes every dashboard route; both call
 the same code (the kernel in tools/kernel/, tools/panels.py, the executor).
 
     arlo status                              what needs you, what is running, every study and where it stands
@@ -33,6 +33,8 @@ the same code (the kernel in tools/kernel/, tools/panels.py, the executor).
     arlo room <room>                         what a stage group contains
     arlo panels [list] | panel <id> [--study S] | approve-collector <panel> [--yes]
     arlo config [view | set key=value]
+    arlo api routes | api GET /api/state | api POST /api/compose --data @request.yaml
+    arlo open [study] [--print]               open the Lab or a study, or print its browser link
 
 The PI's verbs (approve, revoke, changes, move --to, workflow set/use/rename-step, approve-collector) refuse inside an agent
 run, and ask you to confirm on a terminal (or pass --yes). Output is plain text; most verbs take --json.
@@ -56,45 +58,45 @@ import lab_docs  # noqa: E402
 import panels  # noqa: E402
 from kernel import brief as kbrief, checkpoints, diff, instructions, journal, model, rules, studies, watch  # noqa: E402
 
-# Every dashboard action (POST route) and the verb that does the same thing here — tests/test_cli.py checks that
-# no route is missing. "dashboard-only" marks what only makes sense in a browser.
+# Every dashboard action has a domain command or the shared API client; test_cli checks coverage.
 ROUTE_VERBS = {
-    "/api/knowledge/note": "dashboard-only", "/api/agent-settings": "dashboard-only",
-    "/api/agent-settings/check": "dashboard-only", "/api/checkpoint/gate": "dashboard-only",
-    "/api/assistant/message": "dashboard-only", "/api/assistant/update": "dashboard-only",
-    "/api/room-draft": "dashboard-only", "/api/workflow/run": "dashboard-only",
+    "/api/providers": "api",
+    "/api/knowledge/note": "api", "/api/agent-settings": "api",
+    "/api/agent-settings/check": "api", "/api/checkpoint/gate": "api",
+    "/api/assistant/message": "api", "/api/assistant/update": "api",
+    "/api/room-draft": "api", "/api/workflow/run": "api",
     # The starter has its own small CLI, tools/research_start.py, rather than a new kernel verb.
-    "/api/starter": "dashboard-only", "/api/starter/repository": "dashboard-only", "/api/starter/draft": "dashboard-only",
-    "/api/starter/plan": "dashboard-only", "/api/study/entry/cancel": "dashboard-only",
+    "/api/starter": "api", "/api/starter/repository": "api", "/api/starter/draft": "api",
+    "/api/starter/plan": "api", "/api/study/entry/cancel": "api",
     # Generated history also has tools/study_history.py --save; it is not a kernel verb.
-    "/api/study/history/save": "dashboard-only",
+    "/api/study/history/save": "api",
     "/api/study/tags": "tags",
     "/api/run": "start / ask", "/api/run/answer": "answer", "/api/run/reply": "reply", "/api/run/interrupt": "stop",
-    "/api/run/explain": "dashboard-only", "/api/run/handoff": "dashboard-only",
+    "/api/run/explain": "api", "/api/run/handoff": "api",
     "/api/run/stop": "stop", "/api/run/resume": "resume", "/api/run/cancel": "stop", "/api/run/permission": "answer",
-    "/api/attention/ack": "dashboard-only", "/api/escalation/resolve": "dashboard-only",
+    "/api/attention/ack": "api", "/api/escalation/resolve": "api",
     "/api/executor/enable": "config set agents.programmatic.enabled=true", "/api/lab/pause": "pause / resume",
-    "/api/executor/config": "config set", "/api/labs/open": "dashboard-only", "/api/labs/create": "dashboard-only",
-    "/api/labs/forget": "dashboard-only", "/api/terminal": "dashboard-only",
+    "/api/executor/config": "config set", "/api/labs/open": "api", "/api/labs/create": "api",
+    "/api/labs/forget": "api", "/api/terminal": "api",
     "/api/checkpoint/decide": "approve / changes / revoke", "/api/checkpoint/checks": "checks",
     "/api/study/workflow": "workflow set", "/api/study/use": "workflow use", "/api/study/hold": "hold / release",
     "/api/study/move": "move <study> --to <step>", "/api/flag/ack": "ack",
-    "/api/panel/save": "dashboard-only", "/api/panel/pin": "dashboard-only", "/api/panel/archive": "dashboard-only",
+    "/api/panel/save": "api", "/api/panel/pin": "api", "/api/panel/archive": "api",
     "/api/panel/approve": "approve-collector", "/api/panel/collect": "panel", "/api/panel/design": "start design",
-    "/api/campaign": "start autopilot", "/api/campaign/control": "dashboard-only",
-    "/api/doc/save": "dashboard-only", "/api/workflow/save": "dashboard-only", "/api/workflow/proposal": "dashboard-only",
-    "/api/compose": "dashboard-only", "/api/lab/config": "config set", "/api/keys": "dashboard-only",
-    "/api/notify": "dashboard-only", "/api/notify/test": "dashboard-only", "/api/setup/complete": "dashboard-only",
+    "/api/campaign": "start autopilot", "/api/campaign/control": "api",
+    "/api/doc/save": "api", "/api/workflow/save": "api", "/api/workflow/proposal": "api",
+    "/api/compose": "api", "/api/lab/config": "config set", "/api/keys": "api",
+    "/api/notify": "api", "/api/notify/test": "api", "/api/setup/complete": "api",
     "/api/server/stop": "arlo.py --stop", "/api/system/scheduler": "config set",
-    "/api/directive": "reply", "/api/artifact/reply": "reply", "/api/artifact/seen": "dashboard-only",
-    "/api/withdraw": "dashboard-only", "/api/command": "start", "/api/tool": "dashboard-only", "/api/read": "checkpoint",
-    "/api/libdoc": "dashboard-only", "/api/claims": "dashboard-only",
+    "/api/directive": "reply", "/api/artifact/reply": "reply", "/api/artifact/seen": "api",
+    "/api/withdraw": "api", "/api/command": "start", "/api/tool": "api", "/api/read": "checkpoint",
+    "/api/libdoc": "api", "/api/claims": "api",
     # remote machines and the in-browser terminal: in a terminal, ssh and your shell already do these
-    **{f"/api/machines/{x}": "dashboard-only" for x in ("add", "add-lab", "create-lab", "disconnect", "install-uv",
+    **{f"/api/machines/{x}": "api" for x in ("add", "add-lab", "create-lab", "disconnect", "install-uv",
                                                                   "local", "open", "probe", "remove", "use")},
-    "/api/fleet/keep": "dashboard-only",
-    **{f"/api/project-machines/{x}": "dashboard-only" for x in ("connect", "disconnect", "inspect", "terminal", "browse", "projects")},
-    **{f"/api/term/{x}": "dashboard-only" for x in ("open", "write", "resize", "close", "read")},
+    "/api/fleet/keep": "api",
+    **{f"/api/project-machines/{x}": "api" for x in ("connect", "disconnect", "inspect", "terminal", "browse", "projects")},
+    **{f"/api/term/{x}": "api" for x in ("open", "write", "resize", "close", "read")},
 }
 
 
@@ -674,6 +676,24 @@ def cmd_log(a) -> int:
     return 0
 
 
+def cmd_open(a):
+    from api_client import Client
+    from urllib.parse import quote
+    import webbrowser
+    try:
+        client=Client(_hub(a),a.port)
+        if a.study:
+            status,_headers,raw=client.request('GET','/api/state')
+            if status!=200 or not any(item['id']==a.study for item in json.loads(raw).get('items',[])):
+                return _err('Choose an existing study.')
+        url=f'http://127.0.0.1:{client.port}/#/'+('study/'+quote(a.study,safe='') if a.study else '')
+        print(url)
+        if not a.print_link: webbrowser.open(url)
+        return 0
+    except (ValueError,OSError) as error:
+        return _err(str(error))
+
+
 def build() -> argparse.ArgumentParser:
     ap = argparse.ArgumentParser(prog="arlo", description="ARLOtope from a terminal",
                                  formatter_class=argparse.RawDescriptionHelpFormatter, epilog=__doc__.split("\n\n", 1)[1])
@@ -684,6 +704,7 @@ def build() -> argparse.ArgumentParser:
     def add(name, fn, *args, **kw):
         p = sub.add_parser(name, **kw)
         p.add_argument("--json", action="store_true", default=argparse.SUPPRESS)
+        p.add_argument('--hub',default=argparse.SUPPRESS,help='Lab folder')
         for x in args:
             if isinstance(x, tuple):
                 p.add_argument(*x[0], **x[1])
@@ -695,6 +716,12 @@ def build() -> argparse.ArgumentParser:
     yes = (["--yes", "-y"], {"action": "store_true"})
     note = (["--note"], {"default": ""})
     opt = lambda name: ([name], {"default": None})  # noqa: E731
+    import api_client
+    add('api',api_client.command, (['method'],{'choices':['GET','POST','HEAD','routes']}),
+        (['path'],{'nargs':'?'}),opt('--data'),(['--query'],{'action':'append'}),
+        (['--secret'],{'action':'append','help':'prompt privately for a body field'}),
+        (['--port'],{'type':int}),(['--timeout'],{'type':float,'default':180}),opt('--output'))
+    add('open',cmd_open,(['study'],{'nargs':'?'}),(['--port'],{'type':int}),(['--print'],{'action':'store_true','dest':'print_link'}))
     add("status", cmd_status)
     add("studies", cmd_studies)
     import knowledge
@@ -743,13 +770,14 @@ def build() -> argparse.ArgumentParser:
 VERBS = {"status", "studies", "log", "tags", "new", "move", "next", "brief", "checkpoint", "approve", "revoke", "changes", "approved",
          "checks", "approvals", "flags", "ack", "start", "ask", "runs", "run", "answer", "reply", "stop", "resume", "pause", "hold",
          "release", "workflow", "project", "extension", "propose", "check", "docs", "room", "panels", "panel",
-         "approve-collector", "config"}
+         "approve-collector", "config", "api", "open"}
 
 
 def main(argv=None) -> int:
     a = build().parse_args(argv)
     from labfiles import ensure_config
-    ensure_config(_hub(a))
+    if a.verb not in ('api','open'):
+        ensure_config(_hub(a))
     return a.fn(a)
 
 

@@ -24,6 +24,8 @@ The ARLO guide introduces the main pages. Reopen it with **?** in the header.
 
 In **Settings → Agents & models**, connect an installed agent and complete its sign-in.
 Use **Connect ACP agent** for another compatible tool. Enable launches in **Limits & permissions**.
+For OpenAI, Anthropic, Google, OpenRouter or another API key, use
+**Connect API provider** with [OpenCode installed](api-providers.md).
 You can create studies before connecting an agent.
 
 ## 2. Create a study from the work you have

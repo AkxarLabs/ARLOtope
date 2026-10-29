@@ -55,11 +55,13 @@ nav:
       - Room previews: room-design.md
       - Tags: tags.md
   - Agents & machines:
+      - Use an API provider: api-providers.md
       - Connect an ACP agent: acp.md
       - Connect a remote project: remote-projects.md
       - Machines & compute: compute.md
       - Platform support: platforms-and-agents.md
   - Reference:
+      - Terminal & HTTP API: api.md
       - Workflow YAML: workflow.md
       - Configuration: configuration.md
       - Approvals & evidence: monitoring.md
