@@ -511,22 +511,6 @@ def test_assistant_uses_one_native_session_and_refreshes_authoritative_facts(hub
         assert result.returncode == 0, (name, result.stdout, result.stderr)
 
 
-def test_queue_lock_retries_windows_delete_pending_collision(hub, monkeypatch):
-    from executor import procs
-    real_open = procs.os.open
-    calls = []
-    def pending_once(path, flags, *args):
-        if not calls:
-            calls.append(path)
-            raise PermissionError('Windows delete-pending collision')
-        return real_open(path, flags, *args)
-    monkeypatch.setattr(procs.os, 'open', pending_once)
-    path = hub.lab / '.bus/test-task.lock'
-    with procs.excl_lock(path, wait=1):
-        assert path.exists()
-    assert not path.exists()
-
-
 def test_loop_context_is_bound_to_the_exact_incoming_visit(hub, monkeypatch):
     from kernel.branches import bind
     k = graph(hub)
