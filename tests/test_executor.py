@@ -399,14 +399,34 @@ def test_runlock_exclusive_and_freed_when_holder_dies(tmp_path):
             holder.kill()
 
 
-def test_excl_lock_reclaims_stale(tmp_path):
+def test_excl_lock_is_never_stolen_from_a_live_holder_and_frees_when_it_dies(tmp_path):
     f = tmp_path / ".x.lock"
-    f.write_text("dead", encoding="utf-8")
+    f.write_text("left by a crash long ago", encoding="utf-8")
     old = time.time() - 600
     os.utime(f, (old, old))
-    with procs.excl_lock(f, wait=1):
-        assert f.exists()
-    assert not f.exists()
+    with procs.excl_lock(f, wait=1):   # a leftover file is not a holder
+        with pytest.raises(TimeoutError):
+            with procs.excl_lock(f, wait=0.2):   # another thread or open in this process waits too
+                pass
+    holder = subprocess.Popen([sys.executable, "-c",
+                               "import sys, time; sys.path.insert(0, sys.argv[1]);"
+                               "from executor.procs import excl_lock\n"
+                               "with excl_lock(sys.argv[2]):\n print('held', flush=True); time.sleep(60)",
+                               str(REPO / "tools"), str(f)], stdout=subprocess.PIPE, text=True, **procs.NEW_GROUP)
+    try:
+        assert holder.stdout.readline().strip() == "held"
+        os.utime(f, (old, old))   # a slow holder (a long pass) looks old: it still keeps the lock
+        with pytest.raises(TimeoutError):
+            with procs.excl_lock(f, wait=0.5):
+                pass
+        procs.kill_tree(holder.pid)
+        holder.wait(timeout=15)
+        with procs.excl_lock(f, wait=5):   # the kernel released it on death
+            pass
+        assert not f.exists()
+    finally:
+        if holder.poll() is None:
+            holder.kill()
 
 
 # ── scheduler: caps, priorities, brake, reconcile (injected spawn) ───────────

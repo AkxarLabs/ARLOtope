@@ -133,10 +133,12 @@ def graceful_stop(proc: subprocess.Popen, grace: float = 10.0) -> None:
 
 
 class RunLock:
-    """An exclusive, non-blocking OS lock on `<run>.d/lock`, held for a supervisor's whole life.
+    """An exclusive, non-blocking OS lock on a file: `<run>.d/lock`, held for a supervisor's whole life,
+    and every `excl_lock`.
 
-    `try_acquire()` → True if we now hold it. A second process gets False while the holder lives;
-    the kernel frees it when the holder dies, which is how reconcile detects a dead supervisor.
+    `try_acquire()` → True if we now hold it. Anyone else (another process, or another open of the file in
+    this one) gets False while the holder lives; the kernel frees it when the holder dies, which is how
+    reconcile detects a dead supervisor.
     """
 
     def __init__(self, path: Path):
@@ -145,7 +147,10 @@ class RunLock:
 
     def try_acquire(self) -> bool:
         self.path.parent.mkdir(parents=True, exist_ok=True)
-        fh = open(self.path, "a+b")  # noqa: SIM115 — held open for the lock's lifetime
+        try:
+            fh = open(self.path, "a+b")  # noqa: SIM115 — held open for the lock's lifetime
+        except PermissionError:   # Windows: the file is being deleted by a holder that just released it
+            return False
         try:
             fh.seek(0, os.SEEK_END)
             if fh.tell() == 0:
@@ -202,33 +207,40 @@ def is_locked(path: Path) -> bool:
 
 
 @contextlib.contextmanager
-def excl_lock(path: Path, *, wait: float = 30.0, stale_after: float = 120.0):
-    """A cross-process mutex via O_EXCL create (an O_EXCL lock file). A crashed holder's
-    lock older than `stale_after` seconds is reclaimed. Raises TimeoutError if still busy after `wait`."""
+def excl_lock(path: Path, *, wait: float = 30.0):
+    """A mutex between processes and threads: the OS lock of `RunLock` on `path`. The kernel frees it the
+    instant its holder dies, so a crashed holder never blocks anyone and a slow live one is never robbed
+    (there is nothing to reclaim). Raises TimeoutError if still busy after `wait`.
+
+    The file is removed on release. A waiter may then hold a lock on a file that no longer has the name, so
+    it counts only while `path` is still that file."""
     path = Path(path)
-    path.parent.mkdir(parents=True, exist_ok=True)
     deadline = time.time() + wait
-    fd = None
-    while fd is None:
-        try:
-            fd = os.open(str(path), os.O_CREAT | os.O_EXCL | os.O_WRONLY)
-        except (FileExistsError, PermissionError):
-            # Windows may report access denied while another holder's file is delete-pending.
-            with contextlib.suppress(OSError):
-                if time.time() - path.stat().st_mtime > stale_after:
-                    path.unlink()
-                    continue
-            if time.time() > deadline:
-                raise TimeoutError(f"lock busy: {path.name}") from None
-            time.sleep(0.05)
+    while True:
+        lock = RunLock(path)
+        if lock.try_acquire() and _names(lock, path):
+            break
+        lock.release()
+        if time.time() > deadline:
+            raise TimeoutError(f"lock busy: {path.name}")
+        time.sleep(0.05)
     try:
-        os.write(fd, str(os.getpid()).encode())
         yield
     finally:
-        with contextlib.suppress(OSError):
-            os.close(fd)
-        with contextlib.suppress(OSError):
-            path.unlink()
+        if os.name != "nt":   # POSIX: unlink while still holding it, so no newcomer can lock the old file
+            with contextlib.suppress(OSError):
+                path.unlink()
+        lock.release()
+        if os.name == "nt":   # Windows refuses while anyone has it open (a waiter then simply takes it)
+            with contextlib.suppress(OSError):
+                path.unlink()
+
+
+def _names(lock: RunLock, path: Path) -> bool:
+    try:
+        return os.path.samestat(os.fstat(lock._fh.fileno()), os.stat(path))
+    except OSError:
+        return False
 
 
 def _ephemeral(exe: str) -> bool:
