@@ -2,11 +2,18 @@
 journal), and where a study's project repo lives — plus the few defensive readers everything shares. Every lab function takes
 the hub root, so a tool (or a test) can point it anywhere. pyyaml is used for YAML; the rest is stdlib.
 
+    arlotope_home() / home_path(*p)    the per-user folder (ARLOTOPE_HOME or ~/.arlotope), and a path in it
     read_text(path)                    the text ("" when unreadable; bad bytes replaced, never raised)
+    read_json(path, default)           a JSON file, or the default when missing or malformed
+    home_rows / save_home_rows(name)   the labs.json / machines.json registries in that folder
     read_jsonl(path, tail=None)        the dict lines of a JSONL file (torn/invalid lines skipped)
     load_yaml(path)                    a YAML file as a dict ({} when missing, malformed or not a mapping)
-    to_int / to_float(v, default)      a number, or the default
-    now() / parse_ts(ts)               the lab's local timestamp format, and back to epoch seconds
+    write_atomic / write_json          replace a file all-or-nothing (private=True: owner-only)
+    append_jsonl(path, rec)            add one record to a JSONL file, best-effort
+    inside(root, path)                 the path stays within root and is not itself a symlink
+    safe_id(value)                     a study / run / checkpoint id that is safe to put in a path, or None
+    pos_int / pos_float(v, default)    a finite number, or the default
+    now(epoch=None) / parse_ts(ts)     the lab's local timestamp format, and back to epoch seconds
     read_env(path)                     KEY=value lines (lab/.env.local)
     config(hub)                        lab/config.yaml
     registry_rows(hub)                 every study as a row {id, title, state, workflow, project, updated, next}
@@ -21,7 +28,12 @@ the hub root, so a tool (or a test) can point it anywhere. pyyaml is used for YA
 
 from __future__ import annotations
 
+import contextlib
 import json
+import math
+import os
+import re
+import secrets
 import time
 from contextlib import contextmanager
 from contextvars import ContextVar
@@ -52,6 +64,15 @@ def cached_read(key, read):
     if key not in cache:
         cache[key] = read()
     return cache[key]
+
+
+def arlotope_home() -> Path:
+    """The per-user ARLOtope folder: labs, machines, panels, keys, workers, logs."""
+    return Path(os.environ.get("ARLOTOPE_HOME") or Path.home() / ".arlotope")
+
+
+def home_path(*parts) -> Path:
+    return arlotope_home().joinpath(*parts)
 
 
 def read_text(path) -> str:
@@ -105,25 +126,114 @@ def load_yaml(path) -> dict:
     return data if isinstance(data, dict) else {}
 
 
-def to_int(v, default: int = 0) -> int:
+def pos_int(value, default: int, minimum: int) -> int:
+    """A config knob as an int: unparseable -> default; below `minimum` -> `minimum`."""
     try:
-        return int(v)
+        v = int(value)
     except (TypeError, ValueError):
+        return default
+    return max(v, minimum)
+
+
+def pos_float(value, default: float = 0.0) -> float:
+    """A config knob as a finite float: unparseable, NaN or infinite -> default."""
+    try:
+        v = float(value)
+    except (TypeError, ValueError):
+        return default
+    return v if math.isfinite(v) else default
+
+
+_SAFE_ID = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._-]{0,119}$")
+
+
+def safe_id(value) -> str | None:
+    """A study / run / checkpoint id that is safe to turn into a path (no separators, no leading dot, no
+    '..'): the stripped id, or None — a non-string fails validation instead of raising."""
+    if not isinstance(value, str):
+        return None
+    value = value.strip()
+    return value if _SAFE_ID.match(value) and ".." not in value else None
+
+
+def inside(root, path) -> bool:
+    """`path` stays within `root` once resolved, and is not itself a symlink."""
+    path = Path(path)
+    return not path.is_symlink() and path.resolve().is_relative_to(Path(root).resolve())
+
+
+def write_atomic(path, data, *, mode: int | None = None) -> None:
+    """Replace `path` with `data` (bytes, or text written as UTF-8 with no newline translation) so a
+    reader sees the old file or the new one, never half of one. A unique temp file in the same folder
+    keeps concurrent writers apart; `mode` (e.g. 0o600) applies from creation, so a secret is never
+    readable between the write and the rename. Windows can transiently deny the rename (antivirus,
+    indexer): retry briefly."""
+    path = Path(path)
+    path.parent.mkdir(parents=True, exist_ok=True)
+    tmp = path.with_name(f"{path.name}.{secrets.token_hex(4)}.tmp")
+    flags = os.O_WRONLY | os.O_CREAT | os.O_EXCL | getattr(os, "O_BINARY", 0)
+    try:
+        with os.fdopen(os.open(tmp, flags, 0o666 if mode is None else mode), "wb") as stream:
+            stream.write(data.encode("utf-8") if isinstance(data, str) else data)
+        for attempt in range(10):
+            try:
+                os.replace(tmp, path)
+                return
+            except PermissionError:
+                if attempt == 9:
+                    raise
+                time.sleep(0.02 * (attempt + 1))
+    except BaseException:
+        with contextlib.suppress(OSError):
+            tmp.unlink()
+        raise
+
+
+def write_json(path, obj, private: bool = False) -> None:
+    """`obj` as indented JSON, atomically (`private`: readable by the owner only)."""
+    write_atomic(path, json.dumps(obj, indent=2, default=str), mode=0o600 if private else None)
+
+
+def read_json(path, default=None):
+    """A JSON file's value, or `default` when it is missing or malformed."""
+    try:
+        return json.loads(read_text(path))
+    except ValueError:
         return default
 
 
-def to_float(v, default: float = 0.0) -> float:
+def home_rows(name: str) -> list[dict]:
+    """The rows of a per-user registry in the ARLOtope home (`labs` -> labs.json, `machines` -> machines.json)."""
+    data = read_json(home_path(f"{name}.json"), {})
+    return [r for r in (data.get(name) if isinstance(data, dict) else None) or [] if isinstance(r, dict)]
+
+
+def save_home_rows(name: str, rows: list[dict], private: bool = False) -> None:
+    write_json(home_path(f"{name}.json"), {name: rows}, private)
+
+
+def append_jsonl(path, rec: dict) -> bool:
+    """Add one record to a JSONL file as a single write to an O_APPEND handle, so concurrent writers never
+    tear or interleave a line. Best-effort: False when it could not be written (the bus must never break
+    the lab)."""
+    line = (json.dumps(rec, default=str) + "\n").encode("utf-8")
     try:
-        return float(v)
-    except (TypeError, ValueError):
-        return default
+        Path(path).parent.mkdir(parents=True, exist_ok=True)
+        fd = os.open(path, os.O_WRONLY | os.O_CREAT | os.O_APPEND | getattr(os, "O_BINARY", 0), 0o666)
+        try:
+            return os.write(fd, line) == len(line)
+        finally:
+            os.close(fd)
+    except OSError:
+        return False
 
 
 TS_FORMAT = "%Y-%m-%dT%H:%M:%S"
 
 
-def now() -> str:
-    return time.strftime(TS_FORMAT)
+def now(epoch: float | None = None) -> str:
+    """The lab's local timestamp, for `epoch` (default: now)."""
+    return time.strftime(TS_FORMAT, time.localtime(epoch))
 
 
 def parse_ts(ts) -> float | None:

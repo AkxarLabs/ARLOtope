@@ -16,7 +16,6 @@ server, and nothing reaches back into it.
 from __future__ import annotations
 
 import importlib
-import json
 import re
 import sys
 import threading
@@ -66,14 +65,7 @@ def set_remote(conn) -> None:
 
 # Every WRITE path builds a filesystem path from a client-supplied idea/target, so the id must be a bare
 # registry-style slug — no separators, no leading dot, no '..'.
-ID_OK = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._-]{0,79}$")
-
-
-def safe_id(s) -> str | None:
-    if not isinstance(s, str):   # a non-string JSON value (number/list) must fail validation, not
-        return None              # AttributeError on .strip() (which would surface as a 500, not a 400)
-    s = s.strip()
-    return s if ID_OK.match(s) and ".." not in s else None
+safe_id = labfiles.safe_id
 
 
 _UNSAFE = re.compile(r"[^A-Za-z0-9._-]")
@@ -99,17 +91,11 @@ def pdir(slug: str | None) -> Path | None:
 def pi_log(rec: dict) -> None:
     """Append-only audit trail of PI actions taken through the dashboard. `default=str` keeps it robust
     to YAML-parsed values (e.g. an `expires:` date) that aren't natively JSON-serializable."""
-    (LAB / ".bus").mkdir(parents=True, exist_ok=True)
-    rec["ts"] = ts()
-    with (LAB / ".bus" / "pi-actions.jsonl").open("a", encoding="utf-8") as f:
-        f.write(json.dumps(rec, default=str) + "\n")
+    labfiles.append_jsonl(LAB / ".bus" / "pi-actions.jsonl", {**rec, "ts": ts()})
 
 
 def emit_hub(kind: str, **fields) -> None:
-    (LAB / ".bus").mkdir(parents=True, exist_ok=True)
-    rec = {"ts": ts(), "source": "hub", "kind": kind, **fields}
-    with (LAB / ".bus" / "events.jsonl").open("a", encoding="utf-8") as f:
-        f.write(json.dumps(rec) + "\n")
+    labfiles.append_jsonl(LAB / ".bus" / "events.jsonl", {"ts": ts(), "source": "hub", "kind": kind, **fields})
 
 
 def no_executor() -> tuple[dict, int]:
@@ -144,8 +130,7 @@ def read(p: Path) -> str | None:
 def write_keep_eol(p: Path, original: str, text: str) -> None:
     """Write `text` with the line endings `original` used."""
     eol = "\r\n" if "\r\n" in original else "\n"
-    with p.open("w", encoding="utf-8", newline="") as f:
-        f.write(text.replace("\r\n", "\n").replace("\n", eol))
+    labfiles.write_atomic(p, text.replace("\r\n", "\n").replace("\n", eol))
 
 
 def row(slug: str) -> dict | None:

@@ -35,11 +35,10 @@ if hasattr(sys.stdout, "reconfigure"):
     sys.stdout.reconfigure(encoding="utf-8", errors="replace")
 
 HERE = Path(__file__).resolve().parent
+sys.path.insert(0, str(HERE / "tools"))
+import labfiles  # noqa: E402 — stdlib-only, so this launcher runs on any Python
+
 PORTS = range(8787, 8800)
-
-
-def home() -> Path:
-    return Path(os.environ.get("ARLOTOPE_HOME") or (Path.home() / ".arlotope"))
 
 
 def lab_key(hub: Path) -> str:
@@ -47,18 +46,24 @@ def lab_key(hub: Path) -> str:
 
 
 def state_file(hub: Path) -> Path:
-    return home() / "servers" / f"{lab_key(hub)}.json"
+    return labfiles.home_path("servers", f"{lab_key(hub)}.json")
 
 
-def stable_python() -> str:
-    """A Python that outlives this launcher (see tools/executor/procs.py python_exe): this one, unless it
-    is uv's throwaway environment — then ~/.arlotope/py. The dashboard, its detached supervisors and hooks
-    all run on it."""
-    import importlib.util  # noqa: PLC0415 — procs.py is stdlib-only; loaded by path (no package import)
+def _procs():
+    """tools/executor/procs.py (detached spawning, tree kill, the stable Python), loaded by path: it is
+    stdlib-only, and the executor package it lives in needs pyyaml, which this launcher may not have yet."""
+    import importlib.util  # noqa: PLC0415
     spec = importlib.util.spec_from_file_location("arlotope_procs", HERE / "tools" / "executor" / "procs.py")
     procs = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(procs)
-    return procs.python_exe()
+    return procs
+
+
+def stable_python() -> str:
+    """A Python that outlives this launcher (see procs.python_exe): this one, unless it is uv's throwaway
+    environment — then the one in the ARLOtope home. The dashboard, its detached supervisors and hooks all
+    run on it."""
+    return _procs().python_exe()
 
 
 def ping(port: int, timeout: float = 0.6) -> dict | None:
@@ -128,12 +133,6 @@ def running_for(hub: Path, port: int | None = None) -> tuple[int, dict] | None:
     return None
 
 
-def _procs():
-    sys.path.insert(0, str(HERE / "tools"))
-    from executor import procs   # noqa: E402 — detached spawning + tree kill, per platform
-    return procs
-
-
 def stop(hub: Path) -> dict:
     hit = running_for(hub)
     try:
@@ -171,7 +170,7 @@ def background(hub: Path, port: int | None, demo: bool) -> dict:
     port = port or next((p for p in PORTS if port_free(p)), None)
     if port is None:
         return {"error": "no free port in 8787–8799 — pass --port"}
-    logs = home() / "logs"
+    logs = labfiles.home_path("logs")
     logs.mkdir(parents=True, exist_ok=True)
     log = (logs / f"{lab_key(hub)}.log").open("ab")
     argv = [sys.executable, str(Path(__file__).resolve()), "--hub", str(hub), "--port", str(port), "--no-browser",
@@ -182,8 +181,7 @@ def background(hub: Path, port: int | None, demo: bool) -> dict:
     for _ in range(150):
         info = ping(port, 0.3)
         if info:
-            st = {"pid": info.get("pid") or child.pid, "port": port, "lab": str(hub), "started": time.strftime("%Y-%m-%dT%H:%M:%S")}
-            return {"ok": True, "port": port, "pid": st["pid"], "lab": str(hub), "name": info.get("name"), "already": False}
+            return {"ok": True, "port": port, "pid": info.get("pid") or child.pid, "lab": str(hub), "name": info.get("name"), "already": False}
         if child.poll() is not None:
             break
         time.sleep(0.1)
@@ -192,7 +190,6 @@ def background(hub: Path, port: int | None, demo: bool) -> dict:
 
 def main() -> int:
     if len(sys.argv) > 1 and not sys.argv[1].startswith("-"):   # `arlo <verb> …` — the lab from a terminal
-        sys.path.insert(0, str(HERE / "tools"))
         import arlo_cli  # noqa: PLC0415
         if sys.argv[1] in arlo_cli.VERBS:
             return arlo_cli.main(sys.argv[1:])
@@ -218,9 +215,7 @@ def main() -> int:
                               env={**os.environ, "ARLOTOPE_REEXEC": "1"}).returncode
     hub = Path(a.hub).expanduser().resolve()
     say = (lambda d: print(json.dumps(d))) if a.json else None
-    sys.path.insert(0, str(HERE / 'tools'))
-    from labfiles import ensure_config
-    if not ensure_config(hub).exists():
+    if not labfiles.ensure_config(hub).exists():
         msg = (f"{hub} is not an ARLOtope lab (no lab/config.yaml). Open the dashboard from a lab folder, "
                "or create one from the dashboard's Labs page.")
         (say or print)({"error": msg} if say else msg)
@@ -297,9 +292,7 @@ def main() -> int:
     import serve   # noqa: E402 — the dashboard server, in this process
     sys.argv = ["serve.py", "--hub", str(hub), "--port", str(port), *(["--demo"] if a.demo else [])]
     state = state_file(hub)
-    state.parent.mkdir(parents=True, exist_ok=True)
-    state.write_text(json.dumps({'port': port, 'pid': os.getpid(), 'lab': str(hub),
-                                 'started': time.strftime('%Y-%m-%dT%H:%M:%S')}), encoding='utf-8')
+    labfiles.write_json(state, {'port': port, 'pid': os.getpid(), 'lab': str(hub), 'started': labfiles.now()})
     try:
         return serve.main()
     finally:

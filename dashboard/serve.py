@@ -494,13 +494,6 @@ def _res(out: dict) -> tuple[dict, int]:
     return out, 400 if out.get("error") else 200
 
 
-def _int(v, default: int = 0) -> int:
-    try:
-        return int(v or default)
-    except (TypeError, ValueError):
-        return default
-
-
 
 
 GET_ROUTES = {
@@ -518,7 +511,7 @@ GET_ROUTES = {
     '/api/starter/draft': starter.draft_view,
     "/api/state": lambda q: (_snapshot_cached(), 200),
     "/api/run": lambda q: runops.run_detail(q.get("run_id", "")),
-    "/api/run/tail": lambda q: runops.run_tail(q.get("run_id", ""), _int(q.get("offset"))),
+    "/api/run/tail": lambda q: runops.run_tail(q.get("run_id", ""), labfiles.pos_int(q.get("offset"), 0, 0)),
     "/api/run/log": lambda q: runops.run_log(q.get("run_id", "")),
     "/api/run/files": runops.run_files,
     "/api/run/actions": runops.run_actions,
