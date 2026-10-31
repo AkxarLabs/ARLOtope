@@ -25,7 +25,7 @@ HUB = Path(__file__).resolve().parents[1]
 
 def _out(argv: list[str], timeout: float = 20) -> str:
     try:
-        r = subprocess.run(argv, capture_output=True, text=True, timeout=timeout)
+        r = subprocess.run(argv, capture_output=True, text=True, encoding="utf-8", errors="replace", timeout=timeout)
         return r.stdout if r.returncode == 0 else ""
     except (OSError, subprocess.SubprocessError):
         return ""

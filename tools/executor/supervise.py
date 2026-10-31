@@ -24,9 +24,9 @@ from pathlib import Path
 
 from . import actions, backends, live, records
 from .lab import Lab, labfiles, pos_float, pos_int, profile
-from .manifest import (append_jsonl, emit, now, read_manifest, run_dir, transition, worker_line,
-                       write_manifest)
-from .procs import NEW_GROUP, NO_WINDOW, RunLock, graceful_stop, kill_tree, python_exe
+from labfiles import append_jsonl, now, write_json
+from .manifest import emit, read_manifest, run_dir, transition, worker_line
+from .procs import NEW_GROUP, NO_WINDOW, RunLock, graceful_stop, kill_tree, popen, python_exe
 
 MIN_ATTEMPT_SECONDS = 300          # a resumed attempt always gets at least 5 minutes
 MAX_SUBAGENTS = 60
@@ -61,11 +61,10 @@ def run_process(cmd: list[str], *, cwd: Path, env: dict, stream_path: Path, back
     res = ProcResult()
     t0 = time.time()
     try:
-        proc = subprocess.Popen(cmd, cwd=str(cwd), env=env,
-                                stdin=subprocess.PIPE if (stdin_text is not None or live) else subprocess.DEVNULL,
-                                stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
-                                text=True, encoding="utf-8", errors="replace",
-                                **(popen_flags if popen_flags is not None else NEW_GROUP))
+        proc = popen(cmd, cwd=str(cwd), env=env,
+                     stdin=subprocess.PIPE if (stdin_text is not None or live) else subprocess.DEVNULL,
+                     stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True,
+                     **(popen_flags if popen_flags is not None else NEW_GROUP))
     except (FileNotFoundError, PermissionError, OSError):
         res.cli_missing = True
         return res
@@ -207,7 +206,7 @@ class _State:
         with self.lock:
             if force or time.time() - self._last >= 1.0:
                 self.m["heartbeat"] = now()
-                write_manifest(self.path, self.m)
+                write_json(self.path, self.m)
                 self._last = time.time()
 
     def transition(self, to: str, *, by: str = "supervisor", reason: str | None = None, **fields) -> None:

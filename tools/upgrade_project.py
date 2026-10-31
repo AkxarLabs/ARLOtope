@@ -34,6 +34,7 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 import role_sync  # noqa: E402
+from executor import procs  # noqa: E402
 from executor.lab import Lab  # noqa: E402
 
 if hasattr(sys.stdout, "reconfigure"):
@@ -63,10 +64,10 @@ def _template_history(rel: str) -> set[bytes]:
     path = f"templates/project/{rel}"
     seen: set[bytes] = set()
     try:
-        revs = subprocess.run(["git", "-C", str(HUB), "rev-list", "HEAD", "--", path], capture_output=True,
-                              text=True, timeout=60).stdout.split()
+        revs = procs.run(["git", "-C", str(HUB), "rev-list", "HEAD", "--", path], capture_output=True,
+                         text=True, timeout=60).stdout.split()
         for rev in revs[:200]:
-            r = subprocess.run(["git", "-C", str(HUB), "show", f"{rev}:{path}"], capture_output=True, timeout=60)
+            r = procs.run(["git", "-C", str(HUB), "show", f"{rev}:{path}"], capture_output=True, timeout=60)
             if r.returncode == 0:
                 seen.add(_norm(r.stdout))
     except (OSError, subprocess.TimeoutExpired):

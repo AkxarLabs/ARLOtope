@@ -25,6 +25,7 @@ import time
 from dataclasses import dataclass, field
 from pathlib import Path
 
+from .. import procs
 from ..lab import profile   # the lab's hooks: its signature guard, tracer and bus (tools/lab_profile.py)
 
 DEFAULT = "claude"
@@ -233,7 +234,6 @@ def resolve_cli(backend: str, bcfg: dict | None = None) -> list[str] | None:
     return None
 
 
-_NO_WINDOW = getattr(subprocess, "CREATE_NO_WINDOW", 0) if os.name == "nt" else 0
 _VERSION_CACHE: dict[tuple, tuple[float, tuple | None]] = {}
 _AUTH_CACHE: dict[tuple, tuple[float, dict | None]] = {}
 
@@ -255,8 +255,7 @@ def cli_version(prefix: list[str] | None) -> tuple | None:
         return hit[1]
     ver = None
     try:
-        out = subprocess.run([*prefix, "--version"], capture_output=True, text=True, timeout=20,
-                             encoding="utf-8", errors="replace", creationflags=_NO_WINDOW)
+        out = procs.run([*prefix, "--version"], capture_output=True, text=True, timeout=20)
         m = re.search(r"(\d+)\.(\d+)\.(\d+)", (out.stdout or "") + (out.stderr or ""))
         ver = tuple(int(x) for x in m.groups()) if m else None
     except (OSError, subprocess.SubprocessError):
@@ -280,8 +279,7 @@ def cli_auth(prefix: list[str] | None, ttl: float = 60.0, backend: str = DEFAULT
     if hit and time.time() - hit[0] < ttl:
         return hit[1]
     try:
-        out = subprocess.run([*prefix, *b.auth_args], capture_output=True, text=True, timeout=20,
-                             encoding="utf-8", errors="replace", stdin=subprocess.DEVNULL, creationflags=_NO_WINDOW)
+        out = procs.run([*prefix, *b.auth_args], capture_output=True, text=True, timeout=20, stdin=subprocess.DEVNULL)
         info = b.auth(out)
     except (OSError, subprocess.SubprocessError, ValueError):
         info = None

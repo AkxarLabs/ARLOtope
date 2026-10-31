@@ -24,6 +24,7 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parent))  # tools/ — reuse the profiles helpers
 import profiles  # noqa: E402 — stamp / _fmt / _sync_agent_model / AGENT_FILE
 import labfiles  # noqa: E402 — the lab's files, read one way (tools/labfiles.py)
+from executor import procs  # noqa: E402
 from kernel import rules  # noqa: E402 — the lab's rules (workflow/rules.yaml)
 
 if hasattr(sys.stdout, "reconfigure"):
@@ -107,8 +108,7 @@ def cmd_set(a) -> int:
     where = target.relative_to(HUB) if target.is_relative_to(HUB) else target
     print(f"[configure] set {key} = {profiles._fmt(value)} in {where}")
     if key.startswith("agents.") and target == (LAB / "config.yaml"):
-        r = subprocess.run([sys.executable, str(HUB / "tools" / "role_sync.py"), "render"],
-                           capture_output=True, text=True)
+        r = procs.run([sys.executable, str(HUB / "tools" / "role_sync.py"), "render"], capture_output=True, text=True)
         sys.stdout.write(r.stdout)
     return 0
 

@@ -46,16 +46,16 @@ def connect(action,provider,value=None,backend=None):
 
 @contextmanager
 def _server():
-    from executor.procs import NO_WINDOW, kill_tree
+    from executor.procs import NO_WINDOW, kill_tree, popen
     cli = shutil.which('opencode')
     if not cli:
         raise ValueError('Install OpenCode to use API providers, then retry: https://opencode.ai/docs/')
     password = secrets.token_urlsafe(24)
     env = {**os.environ, 'OPENCODE_SERVER_PASSWORD': password, 'OPENCODE_SERVER_USERNAME': 'opencode',
            'OPENCODE_DISABLE_AUTOUPDATE': '1'}
-    process = subprocess.Popen([cli, 'serve', '--hostname', '127.0.0.1', '--port', '0'],
+    process = popen([cli, 'serve', '--hostname', '127.0.0.1', '--port', '0'],
         cwd=Path.home(), env=env, stdin=subprocess.DEVNULL, stdout=subprocess.PIPE,
-        stderr=subprocess.STDOUT, text=True, encoding='utf-8', errors='replace', **NO_WINDOW)
+        stderr=subprocess.STDOUT, text=True, **NO_WINDOW)
     lines = queue.Queue(maxsize=64)
     def drain():
         for line in process.stdout:
@@ -106,13 +106,13 @@ def catalog(refresh=False):
         if not refresh and _cache and time.monotonic()-_cache[0] < 60:
             return _cache[1]
         if refresh:
-            from executor.procs import NO_WINDOW, kill_tree
+            from executor.procs import NO_WINDOW, kill_tree, popen
             cli = shutil.which('opencode')
             if not cli:
                 raise ValueError('Install OpenCode to use API providers: https://opencode.ai/docs/')
             process = None
             try:
-                process = subprocess.Popen([cli, 'models', '--refresh'], cwd=Path.home(),
+                process = popen([cli, 'models', '--refresh'], cwd=Path.home(),
                     stdin=subprocess.DEVNULL, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, **NO_WINDOW)
                 result = process.wait(timeout=60)
             except (OSError, subprocess.TimeoutExpired):

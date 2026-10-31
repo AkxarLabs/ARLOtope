@@ -4,14 +4,16 @@ import os
 import shutil
 import subprocess
 
+from executor import procs
+
 
 def _run(args):
     cli = shutil.which('gh')
     if not cli:
         raise ValueError('Install GitHub CLI, or attach an existing checkout. Public repository URLs work without signing in.')
     try:
-        result = subprocess.run([cli, *args], capture_output=True, text=True, encoding='utf-8', errors='replace',
-                                timeout=15, env={**os.environ, 'GH_PROMPT_DISABLED': '1'})
+        result = procs.run([cli, *args], capture_output=True, text=True,
+                           timeout=15, env={**os.environ, 'GH_PROMPT_DISABLED': '1'})
     except (OSError, subprocess.TimeoutExpired):
         raise ValueError('GitHub did not respond. Retry, or attach a local checkout.') from None
     if result.returncode:

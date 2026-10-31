@@ -22,7 +22,6 @@ from __future__ import annotations
 
 import argparse
 import os
-import subprocess
 import sys
 import time
 from pathlib import Path
@@ -31,6 +30,7 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parent))  # tools/ — reuse the role_sync resolver
 import role_sync  # noqa: E402 — render_project resolves the hub tiers into the new project's role files
 import labfiles  # noqa: E402 — the lab's files, read one way (tools/labfiles.py)
+from executor import procs  # noqa: E402
 from kernel import model, studies  # noqa: E402 — where the study stands; recording its project
 
 if hasattr(sys.stdout, "reconfigure"):
@@ -147,8 +147,7 @@ def _runs_nonempty(dest: Path) -> bool:
 def _has_commits(dest: Path) -> bool:
     if not (dest / ".git").exists():
         return False
-    r = subprocess.run(["git", "-C", str(dest), "rev-parse", "--verify", "HEAD"],
-                       capture_output=True, text=True)
+    r = procs.run(["git", "-C", str(dest), "rev-parse", "--verify", "HEAD"], capture_output=True, text=True)
     return r.returncode == 0
 
 
@@ -157,7 +156,7 @@ def initialize(dest: Path, *, run_smoke: bool = True) -> dict:
     results: dict = {}
 
     def _step(name, cmd):
-        r = subprocess.run(cmd, cwd=str(dest), capture_output=True, text=True)
+        r = procs.run(cmd, cwd=str(dest), capture_output=True, text=True)
         results[name] = {"ok": r.returncode == 0, "code": r.returncode,
                          "out": (r.stdout or "")[-1500:], "err": (r.stderr or "")[-1500:]}
         return results[name]["ok"]
@@ -224,9 +223,9 @@ def run(a) -> int:
         return 0
     green = all(res.get(k, {}).get("ok") for k in ("uv-sync", "smoke", "pytest", "check-project"))
     if green:
-        subprocess.run(["git", "add", "-A"], cwd=str(dest), capture_output=True)
-        subprocess.run(["git", "commit", "-m", "scaffold: spawn from ARLOtope template, smoke green"],
-                       cwd=str(dest), capture_output=True)
+        procs.run(["git", "add", "-A"], cwd=str(dest), capture_output=True)
+        procs.run(["git", "commit", "-m", "scaffold: spawn from ARLOtope template, smoke green"],
+                  cwd=str(dest), capture_output=True)
         print("[spawn] committed green scaffold. Next: fill PLAN.md from the proposal, then report the outcome "
               "(`arlo move <slug> done`).")
         return 0
