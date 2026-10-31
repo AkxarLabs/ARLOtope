@@ -10,7 +10,7 @@ and appends ONE compact line to a per-worker log:
 `<bus>` is resolved from the hook's `cwd`: the hub's `lab/.bus` for a hub session, a
 project's `.bus` for a project session (a git worktree `<proj>-wt-*` maps back to the
 main project so its workers land where the dashboard reads). One file per worker =
-clean, separated logs the optional Vivarium dashboard renders as one sprite + one
+clean, separated logs the dashboard renders as one sprite + one
 action history per agent/subagent.
 
 Contract — this NEVER blocks a tool call:

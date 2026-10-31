@@ -748,9 +748,9 @@ A real Sakana native investigation completed after moving installation/run state
 WSL mount, using npm 11 for the pinned Headless Git dependency, and matching the coding CLI version
 to the available model catalog. Keep the old pin and failed attempts for diagnosis. CLI sign-in,
 model visibility, a tiny model turn, native phase completion, declared evidence checks and full
-container-preset readiness are separate tests. Missing Docker still fails the real Newts preflight;
+container-preset readiness are separate tests. Missing Docker still fails the real ARLOtope preflight;
 a successful native run must not silently bypass it. Evidence: output/artifacts/sakana-install-2026-10-20.md
-and output/verification/sakana-live/{upstream-tests.txt,live-investigation-compatible.json,real-evidence-check.json,newts-check.json}.
+and output/verification/sakana-live/{upstream-tests.txt,live-investigation-compatible.json,real-evidence-check.json,arlotope-check.json}.
 
 ## 2026-10-20 — RECIPE: separate task completion from completed-output feedback
 

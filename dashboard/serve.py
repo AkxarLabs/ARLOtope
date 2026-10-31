@@ -708,7 +708,7 @@ def main() -> int:
     cfg = ctx.config().get("dashboard") or {}
     parser = argparse.ArgumentParser()
     parser.add_argument("--hub", default=None, help="serve another lab (its hub root); default: this repo")
-    parser.add_argument("--port", type=int, default=int(cfg.get("port", 8787)))
+    parser.add_argument("--port", type=int, default=8787)
     parser.add_argument("--demo", action="store_true",
                         help="enable the synthetic demo world (debugging/showcase; visit /?demo). "
                              "Off by default; also enabled by ARLOTOPE_DEMO=1.")

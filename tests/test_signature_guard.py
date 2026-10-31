@@ -20,7 +20,7 @@ import pytest
 
 from conftest import REPO, load
 
-MARK = "<!-- PI Gate 1 approved via Vivarium dashboard 2026-09-01T10:00:00 -->"
+MARK = "<!-- PI Gate 1 approved via the dashboard 2026-09-01T10:00:00 -->"
 REC = json.dumps({"ts": "2026-09-01T10:00:00", "study": "idea-a", "checkpoint": "approve-proposal",
                   "decision": "approved", "by": "pi", "via": "dashboard"})
 

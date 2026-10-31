@@ -117,6 +117,6 @@ output/artifacts/quick-audit-2026-10-19.md. No product fix made during the quick
 
 Q01 now checks captured custom-collector bytes and executes their temporary sibling copy. An
 edit before checking is refused; one at launch cannot replace the checked script. The original
-path is exposed as NEWTS_COLLECTOR; cwd/sibling resources remain. This covers script bytes, not
+path is exposed as ARLOTOPE_COLLECTOR; cwd/sibling resources remain. This covers script bytes, not
 their other dependencies. Evidence: output/verification/evidence-recovery/collector-race.json and
 verified-tests.txt. The original finding is retained above as history.
