@@ -208,8 +208,6 @@ def test_a_run_can_publish_but_never_write_the_pis_reply(hub, monkeypatch):
     w = lambda p, c: {"hook_event_name": "PreToolUse", "tool_name": "Write", "cwd": str(hub.root), "tool_input": {"file_path": str(p), "content": c}}  # noqa: E731
     assert g.decide(w(d / "reply.json", '{"choice": "Yes"}'))
     assert g.decide(w(d / "seen", ""))
-    assert g.decide({"hook_event_name": "PreToolUse", "tool_name": "Bash", "cwd": str(hub.root),
-                     "tool_input": {"command": f"echo x > lab/.bus/artifacts/{d.name}/reply.json"}})
     assert g.decide(w(d / "artifact.json", "{}")) is None                       # its own artifact is the run's
 
 

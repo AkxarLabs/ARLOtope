@@ -1,6 +1,8 @@
 """Monitoring: what every run did, and flags when something notable happens.
 
     snapshot(dirs)                     where each repo stood when a run started (git HEAD, what was dirty)
+    fingerprint(hub)                   what only the PI changes (the lab's definition), file by file — an attempt's
+                                       supervisor compares it before and after, and a change holds the lab
     digest(hub, m, snap, …)            after the run: a computed summary — outcome, time, cost, files changed,
                                        commands, denials, flags — never the agent's own account
     flag(hub, level, say, …)           raise a flag: info (the digest only) · warn · block (the journal, and
@@ -26,6 +28,8 @@ from __future__ import annotations
 import fnmatch
 import hashlib
 import json
+import os
+import re
 import subprocess
 from pathlib import Path
 
@@ -158,6 +162,48 @@ def snapshot(dirs: list[Path], hub=None) -> dict:
             state['dirty_content'] = {p: _content(root / p) for p in state['dirty']
                                       if _in_scope(root, p, state['scopes'])}
     return out
+
+
+def fingerprint(hub, settings: bool = True) -> dict[str, str]:
+    """{hub-relative path: sha256} of every file of the lab's definition (rules.definition) and its settings —
+    lab/config.yaml and the role files rendered from it, left out when `settings` is False. A pattern is looked for
+    under its literal leading folder (one file when it names one exactly); a pattern that is not a regex is skipped."""
+    hub, out = Path(hub), {}
+    pats = [p for p, _ in rules.definition(hub)] + [rules.CONFIG]
+    for rx in pats if settings else [p for p in pats if p not in (rules.CONFIG, *rules.RENDERED)]:
+        try:
+            match = re.compile(rx).search
+        except re.error:
+            continue
+        lead, exact = _lead(rx)
+        for f in [hub / lead] if exact else _files(hub / lead.rpartition("/")[0]):
+            rel = f.relative_to(hub).as_posix()
+            if rel not in out and match(rel) and (f.is_file() or f.is_symlink()):
+                out[rel] = _content(f)
+    return out
+
+
+_SKIP = {".git", ".bus", "node_modules", "__pycache__"}
+_META = set(".^$*+?{}[]|()\\")
+
+
+def _files(folder: Path):
+    for d, sub, names in os.walk(folder):
+        sub[:] = [s for s in sub if s not in _SKIP]
+        yield from (Path(d) / n for n in names)
+
+
+def _lead(rx: str) -> tuple[str, bool]:
+    """A regex's literal start (`^\\.claude/skills/` → `.claude/skills/`), and whether that is all of it."""
+    s, out, i = rx.removeprefix("^"), "", 0
+    while i < len(s):
+        if s[i] == "\\" and i + 1 < len(s) and not s[i + 1].isalnum():
+            out, i = out + s[i + 1], i + 2
+        elif s[i] in _META:
+            break
+        else:
+            out, i = out + s[i], i + 1
+    return out, s[i:] == "$"
 
 
 def changes(snap: dict) -> dict:

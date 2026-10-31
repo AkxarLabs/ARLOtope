@@ -18,14 +18,16 @@ operating-system sandbox; see [what is not protected](#what-is-not-protected).
 `tools/signature_guard.py` checks tool calls in supervised native runs (Claude: the run's settings
 file; Codex: `-c hooks.PreToolUse` flags; opencode: a per-run plugin). The ACP client applies the same
 guard to file writes and terminal commands requested through its client tools. It does not observe
-arbitrary actions performed inside an ACP agent's own tools. The guard denies an observed call that would
-write a protected path, from an edit tool or from a shell command that looks like a write (`>`, `cp`,
-`mv`, `sed -i`, `write_text`, …). One list drives both checks:
+arbitrary actions performed inside an ACP agent's own tools. The guard denies an edit tool's write to a
+protected path. It is an early warning: a shell command or a script can write any file, so the protections
+below that hold are checked from outside the agent (signed approvals, the definition's fingerprint). The
+protected paths (`tools/kernel/rules.py`):
 
-- **The floor**, fixed in the guard: `lab/journal.jsonl`, `lab/REGISTRY.md`, `lab/approvals.jsonl`, the
-  dashboard's and the keeper's records under `lab/.bus/`, `workflow/`, `.claude/skills/` and
-  `.claude/agents/`, the Codex and opencode role folders, `agent-roles/`, `checks/`, `extensions/`, and the guard itself (`tools/signature_guard.py`, the opencode guard plugin), so a
-  run can't switch it off through those checked calls.
+- **The floor**, which no rules.yaml lowers: the records (`lab/journal.jsonl`, `lab/REGISTRY.md`,
+  `lab/approvals.jsonl`, the dashboard's and the keeper's records under `lab/.bus/`) and the lab's
+  definition (`workflow/`, `.claude/skills/` and `.claude/agents/`, the Codex and opencode role folders,
+  `agent-roles/`, `checks/`, `extensions/`, and the guard itself: `tools/signature_guard.py`, the opencode
+  guard plugin).
 - **`protected_paths` in `workflow/rules.yaml`**: the agent manuals, `templates/`, the PI's instructions
   (`lab/workflow/`, `studies/*/workflow/`), `lab/templates/`, `lab/rooms3d/` and `lab/panels/`.
 - **`lab/config.yaml`**, except in the procedures listed under `config_procedures` (`setup-lab`,
@@ -34,8 +36,8 @@ write a protected path, from an edit tool or from a shell command that looks lik
 A procedure can confine its own runs with `writes:` in its frontmatter (globs, relative to the lab). The
 workflow designer (`/design`) declares `lab/.bus/designs/workflow/**`; the room designer
 (`/design-room`) declares `lab/.bus/room-drafts/**`. Their runs may write their drafts and
-the system's temp folder, and nothing else, through an edit tool or a shell redirect (`>`, `tee`,
-`Out-File`). Whatever such a run changes elsewhere anyway (a script it ran) raises a `writes-outside` flag.
+the system's temp folder, and nothing else, through an edit tool. Whatever such a run changes elsewhere
+anyway (a shell command, a script it ran) raises a `writes-outside` flag.
 
 It also denies the PI's verbs in a shell command: `arlo approve`, `revoke`, `changes`,
 `approve-collector`, `ack`, `hold`, `release` and `pause`, and `tools/new.py`. Each denial is logged to the run's `permissions.jsonl`
@@ -44,6 +46,24 @@ and counted in its digest.
 **It fails open.** If the guard itself errors, it allows the call, logs the error, and raises a `warn`
 flag, because a broken guard must not wedge an unattended lab. Interactive sessions don't load it: the PI
 is present there.
+
+### The definition's fingerprint
+
+Each attempt's supervisor hashes every file of the lab's definition (the floor's and `protected_paths`)
+and its settings (`lab/config.yaml` and the role files rendered from it, outside the `config_procedures`)
+before the agent starts, keeps the hashes in its
+own memory, and compares them when the agent's process ends. A change, however it was made, raises a
+`block` flag naming the files, with `hold: true` on the lab itself: nothing new starts until you
+acknowledge it. A change you make yourself while a run is working is flagged the same way; acknowledge it.
+
+### Signed approvals
+
+The kernel signs each approval it records outside an agent run with an HMAC under a per-user key,
+`journal.key` in the ARLOtope home (`~/.arlotope`, owner-only, never in a run's environment). Every
+reader of the journal counts an approval only with a valid signature, and only once, so a line an agent
+appends, or an old approval appended again after a revoke, approves nothing. Refusals and revocations
+count unsigned (they only hold work back), as do a study's `auto` approvals, which a run's own
+`arlo move` records when an automatic checkpoint's checks pass.
 
 ### The kernel refuses the PI's actions inside a run
 
@@ -62,7 +82,7 @@ its recorded decision and evidence. Neither lets a working agent approve its own
 Graph tasks additionally track the owning run, node visit, incoming lineage and output freshness.
 Before the executor starts anything for a study, `check_launch` (`tools/lab_profile.py`) refuses it when:
 
-- an open flag with `hold: true` holds the study;
+- an open flag with `hold: true` holds the study, or the lab (a change to its definition during a run);
 - the procedure is a step's work (its `do:`) and the study isn't at that step;
 - the procedure is a step's work and the study is shelved or finished;
 - the procedure is a step's work and no such study has been filed.
@@ -93,9 +113,12 @@ allowance (`max_minutes`, with a five-minute attempt minimum) and the concurrenc
 
 ## What is not protected
 
-- **An agent can run code.** The guard sees the agent's tool calls, and its shell check is a pattern match.
-  A script the agent writes and then runs can change any file its user can. The journal is not
-  tamper-proof.
+- **An agent can run code** as the lab's user. A script it writes and runs can change any file that
+  user can: the fingerprint and the signatures make such a change visible or worthless, not impossible.
+  An agent that reads the signing key from the ARLOtope home, or runs `arlo approve` with the run's
+  environment stripped, can still forge an approval; keeping that out of reach takes a separate OS
+  account for agents. Records other than approvals and the definition (a campaign's state, an
+  artifact's reply) are guarded only against edit tools.
 - **`during:` checkpoints are cooperative.** The brief tells the agent to stop; a watch flags work done
   past it afterwards when that checkpoint has a matching watch.
 - **Output checks do not validate scientific meaning.** Presence and graph freshness are checked;
