@@ -160,10 +160,10 @@
     const dr = d.draft || {};
     const [note, setNote] = useState('');
     const probs = dr.problems || [], ch = dr.changes || [], affects = dr.affects || [];
-    const publish = async () => {
+    const publish = NL.useSubmit(async () => {
       const r = await edit({ op: 'publish', note }, false);
       if (r.ok) { NL.toast(r.note, 'ok'); onClose(); NL.refresh(); }
-    };
+    });
     return html`<${NL.Sheet} wide kicker="Workflow" title="Review your draft" sub="Running agents keep their current version. You can undo this publish." onClose=${onClose}
       footer=${html`<${NL.Btn} kind="ghost" onClick=${async () => { await discard(); if (!(C.d.draft || {}).active) onClose(); }}>Discard draft</${NL.Btn}>
         <${NL.Btn} kind="primary" disabled=${!!probs.length || !ch.length} onClick=${publish}>Publish ${ch.length ? NL.plural(ch.length, 'change') : ''}</${NL.Btn}>`}>
@@ -907,10 +907,10 @@
     const k = KIND_OF[kind];
     const blank = kind === 'type' && !opts.length;    // nothing to copy yet: compose.py starts it blank
     const list = opts.filter(o => !q || `${o.id} ${o.title} ${o.sub}`.toLowerCase().includes(q.toLowerCase()));
-    const make = async () => {
+    const make = NL.useSubmit(async () => {
       const r = await edit({ op: 'copy', kind, like: blank ? '' : like, name: nm, title: title || undefined, plain: kind === 'room' || plain }, blank ? `Added ${nm}. Now fill in its TYPE.md.` : `Made ${nm} from ${like}. Now make it its own.`);
       if (r.ok) { onClose(); go(kind, kind === 'check' ? nm.replace(/-/g, '_') : nm); }
-    };
+    });
     return html`<div class="dialog dialog-wide cmp-new"><h3>A new ${k.one}</h3>
       ${blank ? null : html`<p class="muted">${kind === 'procedure' ? 'Start from the closest one the lab has. The new one is a variant of it: it keeps everything the original has, and you change what makes yours different.' : 'Start from the closest one the lab has. The copy keeps everything; you change what makes yours different.'}</p>`}
       ${blank ? html`<p class="note">The lab has no project type to start from yet, so this one starts blank: a TYPE.md for you to fill in.</p>` : html`<${NL.Field} label="Start from">${opts.length > 6 ? html`<input class="input" placeholder="Find…" value=${q} onInput=${e => setQ(e.target.value)} />` : null}

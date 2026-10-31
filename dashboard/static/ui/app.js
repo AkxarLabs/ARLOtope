@@ -159,8 +159,8 @@
         ${s.lab_info?.path?html`<${NL.Guide} key=${s.lab_info.path} lab=${s} home=${showLab}/>`:null}
         ${['home','world','study','workflow','library','artifacts','runs'].includes(page)?html`<${NL.WorkContext}/>`:null}
         ${connection === 'offline' || connection === 'reconnecting' ? html`<div class="connection-note" role="status">Reconnecting. Showing the last known state.</div>` : null}
-        ${labSeen.current ? html`<div class="lab-mount" hidden=${!showLab}><${LabView} active=${showLab} /><${NL.LabDesk}/></div>` : null}
-        ${!showLab ? html`<${Component} args=${route.args} query=${route.query} error=${route.error} />` : null}
+        ${labSeen.current ? html`<div class="lab-mount" hidden=${!showLab}><${NL.Boundary}><${LabView} active=${showLab} /><${NL.LabDesk}/></${NL.Boundary}></div>` : null}
+        ${!showLab ? html`<${NL.Boundary} key=${page}><${Component} args=${route.args} query=${route.query} error=${route.error} /></${NL.Boundary}>` : null}
         <footer class="lab-footer"><nav aria-label="Resources"><a href="#/runs">All agents</a><a href="#/history">History</a><a href="#/labs">Machines</a></nav></footer>
       </main><${NL.AssistantButton}/><${NL.OverlayHost} /><${NL.Toasts} />`;
   };

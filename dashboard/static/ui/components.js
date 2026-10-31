@@ -2,7 +2,7 @@
 (function () {
   'use strict';
   const NL = window.NL;
-  const { html, useState, useEffect, useLayoutEffect, useRef, useMemo, cls } = NL;
+  const { html, useState, useEffect, useLayoutEffect, useRef, useMemo, useCallback, useErrorBoundary, cls } = NL;
 
   // Recent inspector forms survive switching readers; kept only in this browser tab's memory.
   const drafts=new Map();
@@ -15,15 +15,32 @@
     return [value,change];
   };
 
+  /** One in-flight guard for anything that sends. The function this returns ignores calls (button, Enter, Ctrl+Enter) while
+      the last one is still pending and hands back that pending promise; give the same one to the button and the keyboard. */
+  NL.useSubmit = (fn, onBusy) => {
+    const latest = useRef(), pending = useRef(null);
+    latest.current = { fn, onBusy };
+    return useCallback((...args) => {
+      if (pending.current) return pending.current;
+      const { fn, onBusy } = latest.current, r = fn?.(...args);
+      if (!r || typeof r.then !== 'function') return r;
+      onBusy?.(true);
+      return pending.current = r.finally(() => { pending.current = null; onBusy?.(false); });
+    }, []);
+  };
+
   NL.Btn = ({ children, onClick, kind, small, disabled, title, type, busy, icon }) => {
     const [working, setWorking] = useState(false);
-    const click = async e => {
-      if (!onClick || working) return;
-      const r = onClick(e);
-      if (r && typeof r.then === 'function') { setWorking(true); try { await r; } finally { setWorking(false); } }
-    };
+    const click = NL.useSubmit(onClick, setWorking);
     return html`<button type=${type || 'button'} class=${cls('btn', kind && 'btn-' + kind, small && 'btn-sm', (busy || working) && 'is-busy')}
       disabled=${disabled || busy || working} title=${title} onClick=${click}>${icon ? html`<span class="btn-ico" aria-hidden="true">${icon}</span>` : null}${children}</button>`;
+  };
+
+  /** A render error in a part of the page shows this card there instead of blanking the whole app. */
+  NL.Boundary = ({ children, className }) => {
+    const [error] = useErrorBoundary(e => console.error('This part of the page failed to draw:', e));
+    return error ? html`<div class=${className} role="alert"><${NL.Empty} title="This part failed">
+      <p>Something here could not be drawn. Reloading the page usually fixes it.</p><${NL.Btn} onClick=${() => location.reload()}>Reload</${NL.Btn}></${NL.Empty}></div>` : children;
   };
 
   /* line icons (stroke = the text colour): NL.Icon name="search" */
@@ -132,16 +149,16 @@
     return html`<${Tag} class=${cls('field', error && 'field-error')}><span class="field-label">${label}</span>${content}${hint ? html`<span class="field-hint">${hint}</span>` : null}${error ? html`<span class="field-err">${error}</span>` : null}</${Tag}>`;
   };
   NL.Input = ({ value, onInput, placeholder, type, autofocus, onEnter, mono, min, max, disabled, ariaLabel, ariaDescription }) => {
-    const ref = useRef();
+    const ref = useRef(), enter = NL.useSubmit(onEnter);
     useEffect(() => { if (autofocus && ref.current) ref.current.focus(); }, []);
     return html`<input ref=${ref} aria-label=${ariaLabel} aria-description=${ariaDescription} class=${cls('input', mono && 'mono')} type=${type || 'text'} value=${value ?? ''} placeholder=${placeholder} min=${min} max=${max} disabled=${disabled}
-      onInput=${e => onInput && onInput(e.target.value)} onKeyDown=${e => { if (e.key === 'Enter' && onEnter) { e.preventDefault(); onEnter(); } }} />`;
+      onInput=${e => onInput && onInput(e.target.value)} onKeyDown=${e => { if (e.key === 'Enter' && onEnter) { e.preventDefault(); enter(); } }} />`;
   };
   NL.Textarea = ({ value, onInput, placeholder, rows, autofocus, onSubmit, mono, ariaLabel, ariaDescription }) => {
-    const ref = useRef();
+    const ref = useRef(), submit = NL.useSubmit(onSubmit);
     useEffect(() => { if (autofocus && ref.current) ref.current.focus(); }, []);
     return html`<textarea ref=${ref} aria-label=${ariaLabel} aria-description=${ariaDescription} class=${cls('input', 'textarea', mono && 'mono')} rows=${rows || 4} value=${value ?? ''} placeholder=${placeholder}
-      onInput=${e => onInput && onInput(e.target.value)} onKeyDown=${e => { if (onSubmit && e.key === 'Enter' && (e.metaKey || e.ctrlKey)) { e.preventDefault(); onSubmit(); } }}></textarea>`;
+      onInput=${e => onInput && onInput(e.target.value)} onKeyDown=${e => { if (onSubmit && e.key === 'Enter' && (e.metaKey || e.ctrlKey)) { e.preventDefault(); submit(); } }}></textarea>`;
   };
   NL.Select = ({ value, onChange, options, disabled, ariaLabel, ariaDescription }) => html`<select aria-label=${ariaLabel} aria-description=${ariaDescription} class="input select" value=${value} disabled=${disabled} onChange=${e => onChange(e.target.value)}>
     ${options.map(o => typeof o === 'string' ? html`<option value=${o}>${o}</option>` : html`<option value=${o.value} disabled=${o.disabled}>${o.label}</option>`)}</select>`;
@@ -251,7 +268,7 @@
     if (!list.length) return null;
     return html`${list.map((layer, i) => html`<div data-layer-id=${layer.id} key=${layer.id} class=${cls('layer', 'layer-' + layer.kind)} style=${{ zIndex: 100 + i * 2 }}>
       <div class="scrim" onClick=${() => NL.close(layer.id)}></div>
-      <${layer.Comp} key=${layer.key||layer.id} ...${layer.props} onClose=${() => NL.close(layer.id)} layerId=${layer.id} /></div>`)}`;
+      <${NL.Boundary} className="dialog"><${layer.Comp} key=${layer.key||layer.id} ...${layer.props} onClose=${() => NL.close(layer.id)} layerId=${layer.id} /></${NL.Boundary}></div>`)}`;
   };
 
   NL.Toasts = () => {
