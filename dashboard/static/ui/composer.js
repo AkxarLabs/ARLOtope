@@ -72,9 +72,9 @@
     const [intent, setIntent] = useState(initial || (initSkill ? 'study' : null));
     const [target, setTarget] = useState(initTarget || '');
     const [skill, setSkill] = useState(initSkill || '');
-    const [arg, setArg] = useState(initArgs || '');
+    const [arg, setArg] = NL.useDraft('start:' + (initTarget || '') + ':arg:' + (initArgs || ''), initArgs || '');
     const [opts, setOpts] = useState(DEFAULT_OPTS);
-    const [ask, setAsk] = useState('');
+    const [ask, setAsk] = NL.useDraft('start:' + (initTarget || '') + ':ask', '');
     const INTENTS = NL.intents();
     const it = INTENTS.find(i => i.id === intent);
     const study = target && target !== 'hub' ? NL.item(s, target) : null;
@@ -93,13 +93,13 @@
       if (cfg && cfg.args && cfg.args.includes('text') && arg.trim()) body.args = arg.trim();
       if (it.arg === 'text' && arg.trim()) body.args = arg.trim();
       const r = await NL.launch(body);
-      if (r) onClose();
+      if (r) { setArg(''); onClose(); }
     });
     const sendAsk = NL.useSubmit(async () => {
       if (!ask.trim()) return;
-      if (NL.quickAnswer && NL.quickAnswer(ask.trim(), NL.getState())) { onClose(); return NL.open(NL.AnswerSheet, { text: ask.trim(), target, onAgent: () => NL.launch({ prompt: ask.trim(), target: target && target !== 'hub' ? target : 'hub', ...optBody({ ...opts, chain: 'off' }) }) }, { key: 'answer' }); }
+      if (NL.quickAnswer && NL.quickAnswer(ask.trim(), NL.getState())) { setAsk(''); onClose(); return NL.open(NL.AnswerSheet, { text: ask.trim(), target, onAgent: () => NL.launch({ prompt: ask.trim(), target: target && target !== 'hub' ? target : 'hub', ...optBody({ ...opts, chain: 'off' }) }) }, { key: 'answer' }); }
       const r = await NL.launch({ prompt: ask.trim(), target: target && target !== 'hub' ? target : 'hub', ...optBody({ ...opts, chain: 'off' }) });
-      if (r) onClose();
+      if (r) { setAsk(''); onClose(); }
     });
     const sub = it && it.campaign ? 'Agents use the selected project’s machine and account. A campaign may approve only the checkpoints you let it, within the limits you set; everything else waits for you.'
       : 'Agents use the selected project’s machine and account. Checkpoints follow your workflow’s approval settings.';
@@ -137,16 +137,16 @@
 
   const AskConfirm = ({ text, target, onSent, onClose }) => {
     const s = NL.useLab();
-    const [t, setT] = useState(text);
+    const [t, setT] = NL.useDraft('ask:' + target + ':' + text, text);
     const [tgt, setTgt] = useState(target);
     const [opts, setOpts] = useState(DEFAULT_OPTS);
-    const go = NL.useSubmit(async () => { const r = await NL.launch({ prompt: t.trim(), target: tgt || 'hub', ...optBody({ ...opts, chain: 'off' }) }); if (r) { onSent && onSent(); onClose(); } });
+    const go = NL.useSubmit(async () => { const r = await NL.launch({ prompt: t.trim(), target: tgt || 'hub', ...optBody({ ...opts, chain: 'off' }) }); if (r) { setT(''); onSent && onSent(); onClose(); } });
     return html`<div class="dialog dialog-wide"><h3>New instruction</h3>
       <${NL.Field} label="Instruction"><${NL.Textarea} rows="4" value=${t} onInput=${setT} onSubmit=${go} autofocus /></${NL.Field}>
       <${StudyPicker} label="Study" value=${tgt} onChange=${setTgt} allowLab />
       <${LaunchOptions} opts=${opts} setOpts=${setOpts} target=${tgt} />
       <p class="muted small">A run on your account. It can use any lab procedure but cannot approve checkpoints.</p>
-      <div class="dialog-actions"><${NL.Btn} onClick=${onClose}>Cancel</${NL.Btn}><${NL.Btn} kind="primary" disabled=${!t.trim()} onClick=${go}>Send</${NL.Btn}></div></div>`;
+      <div class="dialog-actions"><${NL.Btn} onClick=${() => { setT(''); onClose(); }}>Cancel</${NL.Btn}><${NL.Btn} kind="primary" disabled=${!t.trim()} onClick=${go}>Send</${NL.Btn}></div></div>`;
   };
 
   /* ── Plan a campaign (writes and approves lab/campaigns/<date>-<slug>.md) ───── */

@@ -2,7 +2,7 @@
 (function () {
   const N=window.NL,{html,useState,useEffect,useRef}=N;
   N.AssistantPanel=({onClose,initialText='',initialStudy='',initialRun='',initialAgent='',initialDocument=null,initialReference=null,initialScope=false})=>{
-    const lab=N.useLab(),read=N.usePoll('/api/assistant',5000),data=read.data||read.previous,load=read.reload,[text,setText]=useState(initialText),[busy,setBusy]=useState(false),[error,setError]=useState('');
+    const lab=N.useLab(),read=N.usePoll('/api/assistant',5000),data=read.data||read.previous,load=read.reload,[text,setText]=N.useDraft('assistant:'+initialText,initialText),[busy,setBusy]=useState(false),[error,setError]=useState('');
     const [study,setStudy]=useState(initialStudy),[run,setRun]=useState(initialRun),[agent,setAgent]=useState(initialAgent),[document,setDocument]=useState(initialDocument),[reference,setReference]=useState(initialReference),[backend,setBackend]=useState(''),[preset,setPreset]=useState(''),[model,setModel]=useState(''),[fresh,setFresh]=useState(false),initialized=useRef(false);
     useEffect(()=>{if(read.data&&!initialized.current){initialized.current=true;const c=read.data.selection||{},explicitFocus=initialScope||initialDocument||initialReference||initialAgent;setStudy(explicitFocus?(initialStudy||''):initialStudy||(initialRun?'':c.study)||'');setRun(initialRun||(initialStudy||explicitFocus?'':c.run)||'');setAgent(initialAgent||(explicitFocus?'':c.agent)||'');setBackend(c.backend||'');setPreset(c.preset||'');setModel(c.model||'')}},[read.data]);
     const send=N.useSubmit(async()=>{if(!text.trim())return;setError('');
