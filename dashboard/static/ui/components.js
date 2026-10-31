@@ -26,6 +26,13 @@
       disabled=${disabled || busy || working} title=${title} onClick=${click}>${icon ? html`<span class="btn-ico" aria-hidden="true">${icon}</span>` : null}${children}</button>`;
   };
 
+  /** A render error in a part of the page shows this card there instead of blanking the whole app. */
+  NL.Boundary = ({ children, className }) => {
+    const [error] = NL.useErrorBoundary(e => console.error('This part of the page failed to draw:', e));
+    return error ? html`<div class=${className} role="alert"><${NL.Empty} title="This part failed">
+      <p>Something here could not be drawn. Reloading the page usually fixes it.</p><${NL.Btn} onClick=${() => location.reload()}>Reload</${NL.Btn}></${NL.Empty}></div>` : children;
+  };
+
   /* line icons (stroke = the text colour): NL.Icon name="search" */
   const ICONS = {
     search: 'M10.5 17a6.5 6.5 0 1 0 0-13 6.5 6.5 0 0 0 0 13zM15.3 15.3 20 20',
@@ -251,7 +258,7 @@
     if (!list.length) return null;
     return html`${list.map((layer, i) => html`<div data-layer-id=${layer.id} key=${layer.id} class=${cls('layer', 'layer-' + layer.kind)} style=${{ zIndex: 100 + i * 2 }}>
       <div class="scrim" onClick=${() => NL.close(layer.id)}></div>
-      <${layer.Comp} key=${layer.key||layer.id} ...${layer.props} onClose=${() => NL.close(layer.id)} layerId=${layer.id} /></div>`)}`;
+      <${NL.Boundary} className="dialog"><${layer.Comp} key=${layer.key||layer.id} ...${layer.props} onClose=${() => NL.close(layer.id)} layerId=${layer.id} /></${NL.Boundary}></div>`)}`;
   };
 
   NL.Toasts = () => {
