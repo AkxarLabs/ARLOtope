@@ -36,6 +36,8 @@ import sys
 import time
 from pathlib import Path
 
+from labfiles import append_jsonl, now
+
 if hasattr(sys.stdout, "reconfigure"):
     sys.stdout.reconfigure(encoding="utf-8", errors="replace")
 
@@ -84,22 +86,14 @@ def revision(h: Path) -> str:
         return '0'
 
 
-def _now() -> str:
-    return time.strftime("%Y-%m-%dT%H:%M:%S")
-
-
 def _emit(h: Path, kind: str, detail: str, data: dict) -> None:
-    try:    # the lab's event bus, best effort — the dashboard reads the artifact folder either way
-        bus = h / "lab" / ".bus"
-        rec = {"ts": _now(), "source": "hub", "kind": kind, "detail": detail, "data": data}
-        if data.get("run_id"):
-            rec["run_id"] = data["run_id"]
-        if data.get("study"):
-            rec["idea"] = data["study"]
-        with (bus / "events.jsonl").open("a", encoding="utf-8") as f:
-            f.write(json.dumps(rec) + "\n")
-    except OSError:
-        pass
+    """A nudge on the lab's event bus, best effort — the dashboard reads the artifact folder either way."""
+    rec = {"ts": now(), "source": "hub", "kind": kind, "detail": detail, "data": data}
+    if data.get("run_id"):
+        rec["run_id"] = data["run_id"]
+    if data.get("study"):
+        rec["idea"] = data["study"]
+    append_jsonl(h / "lab" / ".bus" / "events.jsonl", rec)
 
 
 def publish(title: str, file: str | None = None, *, kind: str | None = None, study: str | None = None,
@@ -158,7 +152,7 @@ def publish(title: str, file: str | None = None, *, kind: str | None = None, stu
         name = "content" + src.suffix.lower()
         (d / name).write_bytes(content)
     m = {"id": aid, "title": title, "kind": kind, "file": name, "source_path": str(src.resolve()) if src else None,
-         "size": (d / name).stat().st_size if name else 0, "created": _now(), "study": study,
+         "size": (d / name).stat().st_size if name else 0, "created": now(), "study": study,
          "run_id": os.environ.get("ARLOTOPE_RUN_ID") or None, "skill": os.environ.get("ARLOTOPE_RUN_SKILL") or None,
          "note": (note or "").strip()[:MAX_NOTE] or None, "question": question, "choices": choices, "about": about or None}
     m.update({k: context[k] for k in ('run_id', 'skill', 'source_path', 'source_machine', 'request_id') if k in context})

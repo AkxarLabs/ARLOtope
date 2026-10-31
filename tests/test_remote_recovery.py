@@ -5,6 +5,7 @@ import sys
 import time
 from types import SimpleNamespace
 
+import labfiles
 import pytest
 
 from conftest import REPO
@@ -26,7 +27,7 @@ def state(tmp_path, monkeypatch):
     rd = agents / 'run.d'
     rd.mkdir(parents=True)
     manifest = agents / 'run.json'
-    W.atomic(manifest, {'run_id': 'run', 'status': 'killed', 'attempt': 1})
+    labfiles.write_json(manifest, {'run_id': 'run', 'status': 'killed', 'attempt': 1})
     monkeypatch.setattr(W.subprocess, 'Popen', lambda *a, **kw: SimpleNamespace(pid=54321))
     return worker, args, rd, manifest
 
@@ -81,10 +82,10 @@ def test_delayed_stop_for_an_old_attempt_cannot_stop_the_new_one(state):
 def test_poll_preserves_parked_questions_but_reconciles_lost_supervisors(state, status, pid, expected):
     worker, args, rd, manifest = state
     question = {'tool_use_id': 'question', 'input': {'questions': [{'question': 'Which method?'}]}}
-    W.atomic(manifest, {'run_id': 'run', 'status': status, 'attempt': 1, 'pid': pid,
+    labfiles.write_json(manifest, {'run_id': 'run', 'status': status, 'attempt': 1, 'pid': pid,
                         'pending_question': question})
     receipt = rd / 'dispatch-0.json'
-    W.atomic(receipt, {'run_id': 'run'})
+    labfiles.write_json(receipt, {'run_id': 'run'})
     os.utime(receipt, (time.time() - 60, time.time() - 60))
     result = worker.call('poll', args)['manifest']
     assert result['status'] == expected
@@ -93,13 +94,13 @@ def test_poll_preserves_parked_questions_but_reconciles_lost_supervisors(state, 
 
 def test_finished_status_written_before_lock_release_wins_over_reconciliation(state, monkeypatch):
     worker, args, rd, manifest = state
-    W.atomic(manifest, {'run_id': 'run', 'status': 'running', 'attempt': 1, 'pid': 54321})
+    labfiles.write_json(manifest, {'run_id': 'run', 'status': 'running', 'attempt': 1, 'pid': 54321})
     receipt = rd / 'dispatch-0.json'
-    W.atomic(receipt, {'run_id': 'run'})
+    labfiles.write_json(receipt, {'run_id': 'run'})
     os.utime(receipt, (time.time() - 60, time.time() - 60))
     from executor import procs
     def finished(_path):
-        W.atomic(manifest, {'run_id': 'run', 'status': 'completed', 'attempt': 1, 'pid': None})
+        labfiles.write_json(manifest, {'run_id': 'run', 'status': 'completed', 'attempt': 1, 'pid': None})
         return False
     monkeypatch.setattr(procs, 'is_locked', finished)
     assert worker.call('poll', args)['manifest']['status'] == 'completed'
@@ -107,7 +108,7 @@ def test_finished_status_written_before_lock_release_wins_over_reconciliation(st
 
 def test_stop_a_parked_remote_question_without_a_supervisor(state):
     worker, args, rd, manifest = state
-    W.atomic(manifest, {'run_id': 'run', 'status': 'waiting_input', 'attempt': 1, 'pid': None,
+    labfiles.write_json(manifest, {'run_id': 'run', 'status': 'waiting_input', 'attempt': 1, 'pid': None,
                         'pending_question': {'tool_use_id': 'question'}})
     worker.call('command', {**args, 'id': 'stop-1', 'item': {'kind': 'stop', 'attempt': 1}})
     result = worker.call('poll', args)['manifest']

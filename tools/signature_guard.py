@@ -29,12 +29,12 @@ import os
 import re
 import sys
 import tempfile
-import time
 from pathlib import Path
 
 HERE = Path(__file__).resolve().parent
 HUB = Path(os.environ.get("ARLOTOPE_HUB") or HERE.parent).resolve()
 sys.path.insert(0, str(HERE))
+from labfiles import append_jsonl, now  # noqa: E402
 
 # the floor no rules.yaml can lower: the kernel's records, and the core of the definition (workflow/ holds
 # rules.yaml itself; skills, roles and checks are what every agent runs under)
@@ -206,12 +206,8 @@ def _log(decision: str, tool: str, why: str) -> None:
     rd = os.environ.get("ARLOTOPE_RUN_DIR")
     if not rd:
         return
-    try:
-        with (Path(rd) / "permissions.jsonl").open("a", encoding="utf-8") as f:
-            f.write(json.dumps({"ts": time.strftime("%Y-%m-%dT%H:%M:%S"), "tool": tool, "decision": decision,
-                                "by": "signature-guard", "summary": why[:300]}) + "\n")
-    except OSError:
-        pass
+    append_jsonl(Path(rd) / "permissions.jsonl", {"ts": now(), "tool": tool, "decision": decision,
+                                                   "by": "signature-guard", "summary": why[:300]})
 
 
 def main() -> int:

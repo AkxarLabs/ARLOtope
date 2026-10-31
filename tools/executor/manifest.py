@@ -18,7 +18,6 @@ State machine (see docs/dashboard.md):
 
 from __future__ import annotations
 
-import contextlib
 import json
 import os
 import re
@@ -52,42 +51,12 @@ def uses_slot(run: dict) -> bool:
     """Only live task execution uses capacity; parked questions release it."""
     return is_live(run) and not is_support(run)
 
-_ID_OK = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._-]{0,119}$")
-
-
-now, parse_ts = labfiles.now, labfiles.parse_ts
-
-
-def safe_id(s) -> str | None:
-    """A run id / target slug that is safe to turn into a path (no separators, no '..')."""
-    if not isinstance(s, str):
-        return None
-    s = s.strip()
-    return s if _ID_OK.match(s) and ".." not in s else None
-
 
 def slugify(s: str, n: int = 60) -> str:
     return re.sub(r"[^A-Za-z0-9._-]+", "-", str(s)).strip("-.")[:n] or "run"
 
 
 # ── files ────────────────────────────────────────────────────────────────────
-
-def write_manifest(path: Path, manifest: dict) -> None:
-    """Atomic replace; Windows can transiently deny the rename (AV/indexer) — retry briefly."""
-    path = Path(path)
-    tmp = path.with_suffix(f".json.{os.getpid()}.tmp")
-    tmp.write_text(json.dumps(manifest, indent=2, default=str), encoding="utf-8")
-    for attempt in range(10):
-        try:
-            os.replace(tmp, path)
-            return
-        except PermissionError:
-            if attempt == 9:
-                with contextlib.suppress(OSError):
-                    tmp.unlink()
-                raise
-            time.sleep(0.02 * (attempt + 1))
-
 
 def read_manifest(path: Path, patience: float = 0.0) -> dict | None:
     """Read a manifest, never crashing. A reader can race the atomic replace on Windows (a sharing
@@ -124,28 +93,18 @@ def list_manifests(agents_dir: Path) -> list[tuple[Path, dict]]:
     return out
 
 
-def append_jsonl(path: Path, rec: dict) -> None:
-    """Best-effort append (a single write() of one line — atomic enough on every OS for our sizes)."""
-    try:
-        Path(path).parent.mkdir(parents=True, exist_ok=True)
-        with Path(path).open("a", encoding="utf-8") as f:
-            f.write(json.dumps(rec, default=str) + "\n")
-    except OSError:
-        pass
-
-
 def emit(lab: Lab, workdir: Path, kind: str, **fields) -> None:
     """One bus event on the run's own bus, in the canonical lab_bus.py shape. Best-effort."""
-    rec = {"ts": now(), "source": lab.source_of(workdir), "kind": kind}
+    rec = {"ts": labfiles.now(), "source": lab.source_of(workdir), "kind": kind}
     rec.update({k: v for k, v in fields.items() if v is not None})
-    append_jsonl(lab.bus_of(workdir) / "events.jsonl", rec)
+    labfiles.append_jsonl(lab.bus_of(workdir) / "events.jsonl", rec)
 
 
 def worker_line(wlog: Path, **fields) -> None:
     """One worker-log line in the exact schema tools/trace_hook.py writes and the dashboard reads."""
-    rec = {"ts": now()}
+    rec = {"ts": labfiles.now()}
     rec.update({k: v for k, v in fields.items() if v is not None})
-    append_jsonl(wlog, rec)
+    labfiles.append_jsonl(wlog, rec)
 
 
 # ── transitions ──────────────────────────────────────────────────────────────
@@ -159,10 +118,10 @@ def transition(lab: Lab, path: Path, m: dict, to: str, *, by: str, reason: str |
     frm = m.get("status")
     m.update(fields)
     m["status"] = to
-    m["status_ts"] = now()
+    m["status_ts"] = labfiles.now()
     m["reason"] = reason
-    write_manifest(path, m)
-    append_jsonl(lab.runs_ledger, {
+    labfiles.write_json(path, m)
+    labfiles.append_jsonl(lab.runs_ledger, {
         "ts": m["status_ts"], "run_id": m.get("run_id") or m.get("agent_id"), "target": m.get("target"),
         "from": frm, "to": to, "reason": reason, "by": by, "attempt": m.get("attempt"), "pid": m.get("pid"),
     })
@@ -197,7 +156,7 @@ def new_run_id(agents_dir: Path, base: str) -> tuple[str, Path]:
 
 def find_run(lab: Lab, run_id: str) -> tuple[str, Path, Path, dict] | None:
     """Locate a run across the hub and every project: (target, workdir, manifest_path, manifest)."""
-    rid = safe_id(run_id)
+    rid = labfiles.safe_id(run_id)
     if not rid:
         return None
     for target, workdir, adir in lab.all_agent_dirs():

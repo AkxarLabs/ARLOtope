@@ -30,10 +30,9 @@ from pathlib import Path
 
 from kernel import brief as kbrief   # (tools/ is on sys.path: the executor puts it there)
 from kernel import checkpoints, journal, model, studies, watch
-from labfiles import read_jsonl
+from labfiles import read_jsonl, safe_id
 
 TOOLS = Path(__file__).resolve().parent
-_SLUG = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._-]{0,120}$")
 
 
 def runtime_file(hub, relative):
@@ -41,9 +40,6 @@ def runtime_file(hub, relative):
     local = Path(hub) / relative
     return local if local.is_file() else model.CODE / relative
 
-
-def safe_id(s) -> str | None:
-    return s if isinstance(s, str) and _SLUG.match(s) and ".." not in s else None
 
 # ── what may run ─────────────────────────────────────────────────────────────────────────────────
 def registry(hub=None) -> dict[str, dict]:
@@ -332,7 +328,7 @@ def campaign_members(lab, st: dict, brief: str) -> None:
     found = set()
     for line in log.splitlines():
         cells = [c.strip().strip("`") for c in line.strip().strip("|").split("|")]
-        if len(cells) >= 2 and _SLUG.match(cells[1] or "") and cells[1] not in ("idea", "---"):
+        if len(cells) >= 2 and safe_id(cells[1]) and cells[1] not in ("idea", "---"):
             found.add(cells[1])
     rows = {r.get("id"): r for r in lab.registry_rows()}
     for slug in found:

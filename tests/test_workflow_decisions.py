@@ -215,11 +215,12 @@ def test_finished_turn_is_not_an_accepted_outcome(hub):
 
 
 def test_ordered_followup_uses_a_journal_cursor_not_second_precision_timestamps(hub):
+    import labfiles
     from task_completion import flag_runs
     k,_=setup(hub,ordered=True)
     k.studies.move_to(hub.root,'sample','analysis')
     run={'run_id':'ordered-owner','status':'completed','subject':'sample','assigned_step':'analysis',
-         'assigned_journal_index':len(k.journal.events(hub.root,'sample')), 'started':k.journal.now()}
+         'assigned_journal_index':len(k.journal.events(hub.root,'sample')), 'started':labfiles.now()}
     assert flag_runs(hub.root,[run])[0]['needs_followup']
 
 

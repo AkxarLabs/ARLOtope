@@ -25,7 +25,7 @@ import urllib.request
 from pathlib import Path
 
 from .lab import Lab, labfiles, profile
-from .manifest import now
+from labfiles import now, write_json
 from .procs import excl_lock
 
 CHECK_EVERY = 15.0
@@ -140,10 +140,8 @@ def _check(lab: Lab, force: bool) -> list[dict]:
         active = {it['id'] for it in current}
         keep = set(list(delivered)[-500:]) | active
         delivered = {iid: value for iid, value in delivered.items() if iid in keep}
-        tmp = state_path(lab).with_suffix(".tmp")
         ids = [iid for iid, reached in delivered.items() if channels <= set(reached)]
-        tmp.write_text(json.dumps({"ids": ids, "channels": delivered, "ts": now()}), encoding="utf-8")
-        tmp.replace(state_path(lab))
+        write_json(state_path(lab), {"ids": ids, "channels": delivered, "ts": now()})
     return out
 
 

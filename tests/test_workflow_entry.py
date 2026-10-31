@@ -1,4 +1,5 @@
 """Entry decisions use arbitrary task graphs, checkpoints and the existing journal."""
+import labfiles
 import pytest
 
 from conftest import kernel
@@ -204,7 +205,7 @@ def test_join_handoff_keeps_real_context_and_imported_references(hub, monkeypatc
     root.mkdir(parents=True, exist_ok=True)
     (root / 'inspection.md').write_text('Inspection evidence', encoding='utf-8')
     k.branches.bind(hub.root, 'sample', 'inspect', 'inspection-run')
-    executor.manifest.write_manifest(lab.agents_dir(lab.hub) / 'inspection-run.json', {
+    labfiles.write_json(lab.agents_dir(lab.hub) / 'inspection-run.json', {
         'run_id': 'inspection-run', 'target': 'hub', 'subject': 'sample', 'schema': 2,
         'level': 'hub', 'workflow_node': 'inspect', 'cwd': str(root), 'backend': 'claude',
         'status': 'completed', 'last_message': 'Inspected the evidence.'})

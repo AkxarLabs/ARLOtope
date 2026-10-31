@@ -8,6 +8,7 @@ Launches only ENQUEUE here (nothing is spawned): the scheduler thread is never s
 
 from __future__ import annotations
 
+import labfiles
 import json
 from pathlib import Path
 import sys
@@ -135,7 +136,7 @@ def test_run_tail_offsets_whole_lines_and_subagent_labels(hub, monkeypatch):
     lab = m.executor.Lab(hub.root)
     _t, _w, path, man = m.executor.find_run(lab, rid)
     man["subagents"] = {"tuS": {"type": "experiment-runner", "description": "exp-004"}}
-    m.executor.manifest.write_manifest(path, man)
+    labfiles.write_json(path, man)
     stream = path.parent / man["stream"]
     lines = [{"_attempt": 1, "ts": "t"},
              {"type": "system", "subtype": "init", "session_id": "abcdef123"},

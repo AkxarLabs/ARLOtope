@@ -29,6 +29,8 @@ import json
 import subprocess
 from pathlib import Path
 
+import labfiles
+
 from . import journal, rules
 
 LEVELS = ("info", "warn", "block")
@@ -41,7 +43,7 @@ def flag(hub, level: str, say: str, study: str | None = None, run: str | None = 
     level = level if level in LEVELS else "warn"
     f = {"level": level, "say": str(say)[:300], "study": study, "run": run, "source": source,
          "detail": str(detail or "")[:600] or None, "hold": bool(hold) or None, "rule": rule}
-    f["id"] = hashlib.sha256(json.dumps([journal.now(), f], sort_keys=True).encode()).hexdigest()[:10]
+    f["id"] = hashlib.sha256(json.dumps([labfiles.now(), f], sort_keys=True).encode()).hexdigest()[:10]
     if level == "info":
         return f
     by = source if journal.ID.match(source or "") else "watch"
@@ -75,9 +77,9 @@ def holding(hub, study: str) -> list[dict]:
 
 # ── what a run changed ───────────────────────────────────────────────────────────────────────────
 def _git(cwd: Path, *args: str) -> str | None:
+    from executor.procs import run  # noqa: PLC0415 — the executor imports this package
     try:
-        r = subprocess.run(["git", *args], cwd=str(cwd), capture_output=True, text=True, timeout=15,
-                           encoding="utf-8", errors="replace")
+        r = run(["git", *args], cwd=str(cwd), capture_output=True, text=True, timeout=15)
     except (OSError, subprocess.TimeoutExpired):
         return None
     return r.stdout if r.returncode == 0 else None
@@ -361,7 +363,7 @@ def _minutes(m: dict) -> float | None:
     from datetime import datetime  # noqa: PLC0415
     try:
         a = datetime.fromisoformat(str(m["started"])[:19])
-        b = datetime.fromisoformat(str(m.get("finished") or journal.now())[:19])
+        b = datetime.fromisoformat(str(m.get("finished") or labfiles.now())[:19])
         return round((b - a).total_seconds() / 60, 1)
     except (KeyError, ValueError, TypeError):
         return None

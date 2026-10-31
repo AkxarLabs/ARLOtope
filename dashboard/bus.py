@@ -70,8 +70,8 @@ def _append(target: str, rec: dict, bus: Path | None = None) -> dict:
         # project dir yet) falls back to the hub bus, and without this the agent inbox can't tell what
         # it was aimed at (e.g. which of two proposals a gate1_approved refers to).
         rec.setdefault("target", target)
-        with path.open("a", encoding="utf-8") as f:
-            f.write(json.dumps(rec) + "\n")
+        if not ctx.labfiles.append_jsonl(path, rec):
+            raise OSError(f"could not write {path.name}")
     return rec
 
 
@@ -179,10 +179,8 @@ def resolve_escalation(body: dict) -> tuple[dict, int]:
     bus = ctx.LAB / ".bus" if src in ("hub", "") else ((ctx.pdir(src) / ".bus") if (ctx.safe_id(src) and ctx.pdir(src)) else None)
     if bus is None:
         return {"error": f"unknown source '{src}'"}, 400
-    bus.mkdir(parents=True, exist_ok=True)
-    with (bus / "events.jsonl").open("a", encoding="utf-8") as f:
-        f.write(json.dumps({"ts": ctx.ts(), "source": src or "hub",
-                            "kind": "escalation_resolved", "detail": "handled by the PI (dashboard)",
-                            "data": {"ref": ref}}) + "\n")
+    ctx.labfiles.append_jsonl(bus / "events.jsonl", {"ts": ctx.ts(), "source": src or "hub",
+                                                     "kind": "escalation_resolved", "detail": "handled by the PI (dashboard)",
+                                                     "data": {"ref": ref}})
     ctx.pi_log({"action": "escalation.resolve", "ref": ref, "source": src})
     return {"ok": True}, 200

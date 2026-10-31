@@ -17,8 +17,9 @@ import json
 import os
 import subprocess
 import sys
-import time
 from pathlib import Path
+
+import labfiles
 
 from . import journal, model, rules, studies
 
@@ -46,7 +47,6 @@ def project_dir(hub, slug: str) -> Path | None:
         p = Path(s["project"])
         return p if p.is_absolute() else (Path(hub) / p).resolve()
     sys.path.insert(0, str(TOOLS))
-    import labfiles  # noqa: PLC0415
     cand = labfiles.projects_root(hub) / slug
     return cand if cand.exists() else None
 
@@ -120,6 +120,7 @@ def argv(hub, slug: str, name: str, params: dict | None = None) -> list[str] | N
 def run_checks(hub, slug: str, cp: dict, timeout: float = 600, names: list | None = None) -> dict:
     """{name: {code, out}} for each check (0 = passed; anything else blocks a delegated or automatic
     approval). `names`: entries as a checkpoint lists them (a name, or {name: {params}}). Cached for the sheet."""
+    from executor.procs import run  # noqa: PLC0415 — the executor imports this package
     hub = Path(hub)
     res = {}
     for item in names if names is not None else cp.get("checks") or []:
@@ -129,15 +130,15 @@ def run_checks(hub, slug: str, cp: dict, timeout: float = 600, names: list | Non
             res[name] = {"code": 127, "out": f"no audit or check called {name}"}
             continue
         try:
-            r = subprocess.run(cmd, cwd=str(hub), capture_output=True, text=True, timeout=timeout,
-                               encoding="utf-8", errors="replace", env=dict(os.environ, ARLOTOPE_HUB=str(hub.resolve())))
+            r = run(cmd, cwd=str(hub), capture_output=True, text=True, timeout=timeout,
+                    env=dict(os.environ, ARLOTOPE_HUB=str(hub.resolve())))
             res[name] = {"code": r.returncode, "out": ((r.stdout or "") + (r.stderr or "")).strip()[-1200:]}
         except (OSError, subprocess.TimeoutExpired) as e:
             res[name] = {"code": 124, "out": str(e)[:300]}
     if names is None:
         f = _cache(hub, slug, cp["id"])
         f.parent.mkdir(parents=True, exist_ok=True)
-        f.write_text(json.dumps({"ts": journal.now(), "results": res}, indent=1), encoding="utf-8")
+        f.write_text(json.dumps({"ts": labfiles.now(), "results": res}, indent=1), encoding="utf-8")
     return res
 
 

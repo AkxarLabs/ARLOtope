@@ -14,6 +14,7 @@ import sys
 import time
 from pathlib import Path
 
+import labfiles
 import pytest
 
 from conftest import REPO, approve, kernel, load
@@ -454,8 +455,8 @@ def test_daily_brake(hub):
     a, b = _queue(lab, 2)
     path = executor.find_run(lab, a)[2]
     m = manifest.read_manifest(path)
-    m["attempts"] = [{"n": 1, "started": manifest.now(), "wall_seconds": 5}]
-    manifest.write_manifest(path, m)
+    m["attempts"] = [{"n": 1, "started": labfiles.now(), "wall_seconds": 5}]
+    labfiles.write_json(path, m)
     rep = executor.tick(lab, spawn=Spawns())
     assert rep["brake"] and "daily run cap" in rep["brake"] and rep["started"] == []
     items = executor.attention.collect(lab, brake_reason=rep["brake"])
@@ -660,7 +661,7 @@ def test_reconcile_never_overwrites_a_run_that_just_finished(hub):
     rid = _queue(lab, 1)[0]
     _t, workdir, path, m = executor.find_run(lab, rid)
     stale = dict(m, status="running")
-    manifest.transition(lab, path, m, "completed", by="supervisor", finished=manifest.now())
+    manifest.transition(lab, path, m, "completed", by="supervisor", finished=labfiles.now())
     assert scheduler.reconcile_manifest(lab, workdir, path, stale) is False
     assert executor.find_run(lab, rid)[3]["status"] == "completed"
 
@@ -672,7 +673,7 @@ def test_reconcile_requeues_a_run_whose_supervisor_died_before_starting(hub):
     manifest.transition(lab, path, m, "starting", by="scheduler")
     rd = manifest.run_dir(path.parent, rid)
     rd.mkdir(parents=True, exist_ok=True)
-    (rd / "spawn.json").write_text(json.dumps({"pid": 999999991, "ts": manifest.now()}), encoding="utf-8")
+    (rd / "spawn.json").write_text(json.dumps({"pid": 999999991, "ts": labfiles.now()}), encoding="utf-8")
     assert scheduler.reconcile_manifest(lab, workdir, path, m) is True
     m = executor.find_run(lab, rid)[3]
     assert m["status"] == "queued" and m["spawn_retries"] == 1 and "re-queued" in m["reason"]

@@ -19,7 +19,7 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
-from .manifest import append_jsonl, now
+from labfiles import append_jsonl, now
 
 FILE = "actions.jsonl"
 MAX_TEXT = 400

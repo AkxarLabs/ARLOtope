@@ -46,10 +46,7 @@ def save(body):
             if value.get('default_preset') and value['default_preset'] not in (cfg['presets'] or {}):
                 raise ValueError('Choose an existing preset.')
             path = assignments.study_path(lab, body['study'])
-            path.parent.mkdir(parents=True, exist_ok=True)
-            temporary = path.with_suffix('.tmp')
-            temporary.write_text(yaml.safe_dump(value, sort_keys=False), encoding='utf-8')
-            temporary.replace(path)
+            ctx.labfiles.write_atomic(path, yaml.safe_dump(value, sort_keys=False))
         else:
             assignments.validate(value)
             known = value.get('presets') or {}

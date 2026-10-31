@@ -118,7 +118,7 @@ def main() -> int:
                             f"\n- [{_today()}] ({slug}) {f[key]} (reconciled {bid})\n")
                     applied = True
             if applied:
-                _append(log, f"\nHUB-WRITEBACK-DONE: {bid} {time.strftime('%Y-%m-%dT%H:%M:%S')}\n")
+                _append(log, f"\nHUB-WRITEBACK-DONE: {bid} {labfiles.now()}\n")
             else:
                 # an empty/malformed block: do NOT retire it — that would discard the deferred insight.
                 print(f"  ! {slug}: pending {bid} parsed to no fields — NOT marking done; fix the block",

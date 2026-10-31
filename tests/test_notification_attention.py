@@ -5,6 +5,7 @@ import shutil
 import subprocess
 import sys
 
+import labfiles
 import pytest
 
 from conftest import REPO, kernel, load
@@ -24,8 +25,8 @@ def test_background_notifications_include_authoritative_lab_attention(hub, monke
     k.studies.move(hub.root, 'study', 'done')
     flag = k.watch.flag(hub.root, 'warn', 'Review changed evidence', study='study')
     published = artifact.publish('Choose a source', question='Which source?', choices=['A', 'B'], study='study', h=hub.root)
-    manifest.append_jsonl(hub.lab / '.bus/events.jsonl', {
-        'kind': 'escalation', 'source': 'study', 'ts': manifest.now(), 'detail': 'Need the original data',
+    labfiles.append_jsonl(hub.lab / '.bus/events.jsonl', {
+        'kind': 'escalation', 'source': 'study', 'ts': labfiles.now(), 'detail': 'Need the original data',
         'data': {'id': 'data-request', 'severity': 'high'}})
     monkeypatch.setattr(lab_attention.panels, 'alert_items', lambda _hub: [
         {'panel': 'compute', 'title': 'Compute', 'say': 'Job needs attention', 'study': 'study', 'level': 'warn'}])
@@ -53,11 +54,11 @@ def test_permission_request_id_reuse_in_a_new_attempt_is_new_attention(hub):
     rid = _queue(lab, 1)[0]
     _target, _workdir, path, run = manifest.find_run(lab, rid)
     run.update(status='running', attempt=1, pending_permissions=[{'id': 'server-1', 'tool': 'Read'}])
-    manifest.write_manifest(path, run)
+    labfiles.write_json(path, run)
     first = next(row for row in attention.collect(lab) if row['kind'] == 'permission')
     attention.ack(lab, first['id'], 'seen')
     run['attempt'] = 2
-    manifest.write_manifest(path, run)
+    labfiles.write_json(path, run)
     second = next(row for row in attention.collect(lab) if row['kind'] == 'permission')
     assert first['id'] != second['id'] and not second['seen']
 
@@ -183,11 +184,11 @@ def test_final_supervisor_flushes_attention_without_a_dashboard_or_more_work(hub
     lab = setup(hub)
     rid = _queue(lab, 1)[0]
     _target, _workdir, path, run = manifest.find_run(lab, rid)
-    run.update(status=status, finished=manifest.now(), reason='Provider stopped', pid=None)
-    manifest.write_manifest(path, run)
+    run.update(status=status, finished=labfiles.now(), reason='Provider stopped', pid=None)
+    labfiles.write_json(path, run)
     if status == 'completed':
-        manifest.append_jsonl(lab.bus / 'events.jsonl', {
-            'kind': 'run_report', 'run_id': rid, 'ts': manifest.now(), 'data': {'needs_pi': 'other'}})
+        labfiles.append_jsonl(lab.bus / 'events.jsonl', {
+            'kind': 'run_report', 'run_id': rid, 'ts': labfiles.now(), 'data': {'needs_pi': 'other'}})
     monkeypatch.delenv('ARLOTOPE_NO_AUTOTICKER', raising=False)
     monkeypatch.setattr(notify, 'config', lambda _lab: {'ntfy': 'intercepted'})
     sent = []
@@ -211,7 +212,7 @@ def test_final_tick_hands_delayed_work_to_a_live_ticker_instead_of_its_own_lease
     rid = _queue(lab, 1)[0]
     _target, _workdir, path, run = manifest.find_run(lab, rid)
     run['not_before'] = '2099-01-01T00:00:00'
-    manifest.write_manifest(path, run)
+    labfiles.write_json(path, run)
     monkeypatch.delenv('ARLOTOPE_NO_AUTOTICKER', raising=False)
     monkeypatch.setattr(notify, 'config', lambda _lab: {})
     monkeypatch.setattr(scheduler, 'pid_alive', lambda pid: pid in (os.getpid(), 8123))
@@ -267,7 +268,7 @@ def test_remote_supervisor_leaves_final_delivery_to_the_owner(hub, monkeypatch):
     rid = _queue(lab, 1)[0]
     _target, _workdir, path, run = manifest.find_run(lab, rid)
     run.update(status='starting', remote_owner={'hub': 'owner'})
-    manifest.write_manifest(path, run)
+    labfiles.write_json(path, run)
     monkeypatch.setattr(supervise, '_attempt', lambda *_args: 0)
     monkeypatch.setattr(scheduler, 'supervisor_finished', lambda _lab: pytest.fail('Worker imported owner services'))
     assert supervise.supervise(lab, rid, 'hub') == 0

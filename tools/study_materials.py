@@ -10,6 +10,8 @@ import shutil
 import uuid
 from pathlib import Path
 
+from labfiles import inside, write_json
+
 FILE_LIMIT = 5 * 1024 * 1024
 TOTAL_LIMIT = 20 * 1024 * 1024
 MAX_FILES = 20
@@ -34,9 +36,7 @@ def load(hub, value):
 
 def save(path, meta):
     meta['version'] = meta.get('version', 0) + 1
-    temp = path / 'draft.json.tmp'
-    temp.write_text(json.dumps(meta, indent=2), encoding='utf-8')
-    temp.replace(path / 'draft.json')
+    write_json(path / 'draft.json', meta)
 
 
 def new(hub):
@@ -53,7 +53,7 @@ def file_path(path, item):
     if not NAME.fullmatch(name):
         raise ValueError('Invalid material filename.')
     file = path / 'materials' / name
-    if file.is_symlink() or not file.resolve().is_relative_to(path.resolve()) or not file.is_file() or file.stat().st_size > FILE_LIMIT:
+    if not inside(path, file) or not file.is_file() or file.stat().st_size > FILE_LIMIT:
         raise ValueError('A material is missing or too large. Add it again.')
     return file
 
@@ -126,7 +126,7 @@ def suggestion(path, meta):
     if not isinstance(value, str) or not ID.fullmatch(value):
         raise ValueError('Invalid analysis ID.')
     source = path / 'analyses' / value / 'suggestion.json'
-    if source.is_symlink() or not source.resolve().is_relative_to(path.resolve()) or not source.is_file():
+    if not inside(path, source) or not source.is_file():
         return None
     if source.stat().st_size > 32000:
         raise ValueError('The agent suggestion is too large. Ask it for a shorter version.')

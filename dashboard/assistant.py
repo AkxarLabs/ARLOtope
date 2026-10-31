@@ -16,20 +16,6 @@ def _path():
     return ctx.HUB / 'lab/.bus/assistant.json'
 
 
-def _read():
-    try:
-        return json.loads(_path().read_text(encoding='utf-8'))
-    except (OSError, ValueError):
-        return {}
-
-
-def _save(data):
-    path = _path(); path.parent.mkdir(parents=True, exist_ok=True)
-    temporary = path.with_suffix('.tmp')
-    temporary.write_text(json.dumps(data, indent=2), encoding='utf-8')
-    temporary.replace(path)
-
-
 def summary(snapshot):
     """Compact facts, not a model's memory. Exclude the assistant's own activity to avoid feedback loops."""
     projects = snapshot.get('items', snapshot.get('projects', [])) or []
@@ -75,7 +61,7 @@ def _run(record):
 
 def view(q=None):
     facts, revision = summary(sources.snapshot())
-    record = _read()
+    record = ctx.labfiles.read_json(_path(), {})
     run = _run(record)
     import knowledge
     warnings=knowledge.retry_answers(Lab(ctx.HUB))
@@ -91,9 +77,8 @@ def view(q=None):
         latest=run.get('last_result') if run else None
         if latest and latest['id'] in saved.get('responses',[]):
             from executor.manifest import run_dir
-            from project_identity import read
             hit=find_run(Lab(ctx.HUB),run['run_id'])
-            answer=(read(run_dir(hit[2].parent,run['run_id'])/latest['file'],{}) or {}).get('text','')
+            answer=(ctx.labfiles.read_json(run_dir(hit[2].parent,run['run_id'])/latest['file'],{}) or {}).get('text','')
         question={**question,'status':saved.get('status')}
     return {'ok': True, 'facts': facts, 'revision': revision, 'changed': revision != record.get('revision'),
             'automatic': bool(record.get('automatic')), 'run_id': record.get('run_id'),
@@ -217,7 +202,7 @@ def _deliver(record, text, facts, revision, options):
     record['question']=question_ref
     knowledge.dispatch(ctx.HUB,selection['study'] or None,'update',id=question['id'],binding={'run':run['run_id']})
     record['messages'] = (record.get('messages', []) + [{'text': text, 'ts': ctx.ts()}])[-30:]
-    _save(record)
+    ctx.labfiles.write_json(_path(), record)
     ctx.KICK.set()
     return {'ok': True, 'run_id': record['run_id']}
 
@@ -244,7 +229,7 @@ def send(body):
     try:
         with excl_lock(ctx.HUB / 'lab/.bus/.assistant.lock'):
             facts, revision = summary(sources.snapshot())
-            return _deliver(_read(), text.strip(), facts, revision, body), 200
+            return _deliver(ctx.labfiles.read_json(_path(), {}), text.strip(), facts, revision, body), 200
     except (ValueError, OSError) as error:
         return {'error': str(error)}, 400
 
@@ -253,10 +238,10 @@ def update(body):
     """Explicit opt-in briefings, bounded to one per five minutes and no overlapping turn."""
     try:
         with excl_lock(ctx.HUB / 'lab/.bus/.assistant.lock'):
-            record = _read()
+            record = ctx.labfiles.read_json(_path(), {})
             if 'automatic' in body:
                 record['automatic'] = body['automatic'] is True
-                _save(record)
+                ctx.labfiles.write_json(_path(), record)
             if not record.get('automatic'):
                 return {'ok': True, 'automatic': False}, 200
             run = _run(record)

@@ -1,5 +1,6 @@
 """Managed-session admission across studies, chat parking and workflow branches."""
 import yaml
+import labfiles
 import pytest
 
 from test_executor import Spawns, _queue, setup
@@ -23,7 +24,7 @@ def test_seven_studies_start_and_an_explicit_capacity_change_releases_the_eighth
     # Native children belong to their harness; they do not become executor sessions.
     _, _, path, parent = executor.find_run(lab, queued[0])
     parent['subagents'] = {str(i): {'status': 'working'} for i in range(12)}
-    manifest.write_manifest(path, parent)
+    labfiles.write_json(path, parent)
     config = lab.config()
     config['agents']['programmatic']['max_concurrent_total'] = 8
     (hub.lab/'config.yaml').write_text(yaml.safe_dump(config), encoding='utf-8')
@@ -36,12 +37,12 @@ def test_open_chat_reserves_a_slot_until_parked(hub, monkeypatch):
     executor.tick(lab, spawn=Spawns())
     _, _, path, chat = executor.find_run(lab, queued[0])
     chat.update(status='waiting_input', pid=424242)
-    manifest.write_manifest(path, chat)
+    labfiles.write_json(path, chat)
     monkeypatch.setattr(scheduler, 'is_locked', lambda _path: True)
     assert executor.tick(lab, spawn=Spawns())['started'] == []
     assert _health(lab, monkeypatch)['active'] == 7
     chat['pid'] = None
-    manifest.write_manifest(path, chat)
+    labfiles.write_json(path, chat)
     assert executor.tick(lab, spawn=Spawns())['started'] == queued[7:]
 
 
@@ -62,10 +63,10 @@ def test_lost_open_chat_supervisor_releases_capacity_but_parked_question_survive
     rid = _queue(lab, 1)[0]
     _, workdir, path, run = executor.find_run(lab, rid)
     run.update(status='waiting_input', pid=None, session_id='saved-session')
-    manifest.write_manifest(path, run)
+    labfiles.write_json(path, run)
     assert not scheduler.reconcile_manifest(lab, workdir, path, run)
     run['pid'] = 99999999
-    manifest.write_manifest(path, run)
+    labfiles.write_json(path, run)
     assert scheduler.reconcile_manifest(lab, workdir, path, run)
     result = manifest.read_manifest(path)
     assert result['status'] == 'failed' and result['pid'] is None
@@ -84,7 +85,7 @@ def test_support_starts_when_all_task_slots_are_full(hub, monkeypatch, support):
     queued = _queue(lab, 9)
     _, _, path, helper = executor.find_run(lab, queued[-1])
     helper.update(support)
-    manifest.write_manifest(path, helper)
+    labfiles.write_json(path, helper)
     started = executor.tick(lab, spawn=Spawns())['started']
     assert started == queued[:7] + queued[8:]
     assert executor.find_run(lab, queued[7])[3]['status'] == 'queued'
@@ -99,7 +100,7 @@ def test_support_does_not_consume_per_study_or_unscoped_capacity(hub, subject):
     for rid in queued[:2]:
         _, _, path, helper = executor.find_run(lab, rid)
         helper.update(assistant=True, subject=subject)
-        manifest.write_manifest(path, helper)
+        labfiles.write_json(path, helper)
     assert executor.tick(lab, spawn=Spawns())['started'] == queued
 
 
@@ -108,8 +109,8 @@ def test_support_remains_live_for_recovery_accounting_and_ticker(hub, monkeypatc
     rid = _queue(lab, 1)[0]
     _, workdir, path, helper = executor.find_run(lab, rid)
     helper.update(assistant=True, status='waiting_input', pid=99999999, session_id='support-session',
-                  attempts=[{'started': manifest.now()}])
-    manifest.write_manifest(path, helper)
+                  attempts=[{'started': labfiles.now()}])
+    labfiles.write_json(path, helper)
     monkeypatch.setattr(scheduler, 'is_locked', lambda _path: True)
     assert manifest.is_live(helper) and not manifest.uses_slot(helper)
     assert scheduler.has_work(lab)

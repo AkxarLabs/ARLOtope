@@ -32,14 +32,13 @@ revoke/hold), both under the scheduler lock; the signature guard denies agents.
 from __future__ import annotations
 
 import json
-import os
-import re
 import sys
 import time
 from pathlib import Path
 
 from .lab import HUB_TARGET, Lab, pos_float, pos_int, profile, read_jsonl
-from .manifest import ACTIVE, TERMINAL, all_runs, now, parse_ts, read_manifest, run_dir, transition
+from labfiles import now, parse_ts, read_json, safe_id, write_json
+from .manifest import ACTIVE, TERMINAL, all_runs, read_manifest, run_dir, transition
 from .procs import is_locked
 from .spec import RunSpec, SpecError, registry
 from . import pause
@@ -53,11 +52,11 @@ def _session_up(path, m: dict) -> bool:
     return m.get("transport") == "live" and is_locked(run_dir(Path(path).parent, m["run_id"]) / "lock")
 RETRYABLE = {"timeout", "usage_limit", "transient"}
 MAX_CHILD_RETRIES = 3
-_NAME_RE = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._-]{0,120}$")
 
 
-def _iso(epoch: float) -> str:
-    return time.strftime("%Y-%m-%dT%H:%M:%S", time.localtime(epoch))
+def _valid_name(name) -> bool:
+    """A campaign or study name that is already a safe id (no stripping: it becomes a file name as given)."""
+    return bool(name) and safe_id(name) == name
 
 
 def state_dir(lab: Lab) -> Path:
@@ -65,24 +64,17 @@ def state_dir(lab: Lab) -> Path:
 
 
 def state_path(lab: Lab, name: str) -> Path:
-    if not _NAME_RE.match(name or ""):
+    if not _valid_name(name):
         raise ValueError(f"bad campaign name {name!r}")
     return state_dir(lab) / f"{name}.json"
 
 
 def load(lab: Lab, name: str) -> dict | None:
-    try:
-        return json.loads(state_path(lab, name).read_text(encoding="utf-8"))
-    except (OSError, ValueError):
-        return None
+    return read_json(state_path(lab, name))
 
 
 def save(lab: Lab, st: dict) -> None:
-    p = state_path(lab, st["name"])
-    p.parent.mkdir(parents=True, exist_ok=True)
-    tmp = p.with_suffix(".json.tmp")
-    tmp.write_text(json.dumps(st, indent=1), encoding="utf-8")
-    os.replace(tmp, p)
+    write_json(state_path(lab, st["name"]), st)
 
 
 def all_states(lab: Lab) -> list[dict]:
@@ -107,7 +99,7 @@ def create(lab: Lab, brief_rel: str, *, hours: float = 12, agent_minutes: float 
         raise ValueError(f"campaign {name} is already being kept")
     t = time.time()
     st = {"schema": 1, "name": name, "file": brief_rel, "status": "active", "created": now(),
-          "deadline": _iso(t + hours * 3600) if hours else None,
+          "deadline": now(t + hours * 3600) if hours else None,
           "budget": {"agent_minutes": pos_float(agent_minutes, 0.0), "max_cycles": pos_int(max_cycles, 0, 0),
                      "spend_usd": max(0.0, pos_float(spend_usd, 0.0))},
           "cycle_minutes": pos_float(cycle_minutes, 90.0) or 90.0, "repeat_minutes": pos_float(repeat_minutes, 20.0),
@@ -162,7 +154,7 @@ def control(lab: Lab, name: str, action: str, study: str | None = None, text: st
             qs[int(index)].update(answer=str(text).strip()[:2000], answered_at=now(), delivered=False)
             _event(st, "the PI answered a question — the next pass gets it")
         elif action in ("hold", "unhold"):
-            if not study or not _NAME_RE.match(study):
+            if not _valid_name(study):
                 raise ValueError("which study?")
             st.setdefault("studies", {}).setdefault(study, {})["hold"] = action == "hold"
             _event(st, f"{study}: {'held from' if action == 'hold' else 'released for'} campaign approvals")
@@ -278,7 +270,7 @@ def _update_waits(lab: Lab, st: dict, mine: list) -> None:
 def _requeue(lab: Lab, path: Path, m: dict, not_before: float, why: str, extra_minutes: float) -> None:
     used = _wall_min(m)
     transition(lab, path, m, "queued", by="campaign", reason=why, resume={"mode": "continue"},
-               post_processed=False, not_before=_iso(not_before),
+               post_processed=False, not_before=now(not_before),
                campaign_retries=int(m.get("campaign_retries") or 0) + 1,
                max_minutes=round(used + extra_minutes, 1))
 
@@ -395,7 +387,7 @@ def _account(lab: Lab, st: dict, last: dict) -> None:
         nb = fin + 60
     elif kind == "usage_limit":
         nb = (pos_float(last.get("limit_reset"), 0.0) or fin + 30 * 60) + 120
-        _event(st, f"usage limit — the next cycle waits until {_iso(nb)[11:16]}")
+        _event(st, f"usage limit — the next cycle waits until {now(nb)[11:16]}")
     elif kind in ("auth", "cli_missing"):
         st["status"] = "paused"
         st["paused_reason"] = str(last.get("reason") or "the agent CLI needs you (sign in / install)")
@@ -410,7 +402,7 @@ def _account(lab: Lab, st: dict, last: dict) -> None:
     rec["kind"] = None if status == "completed" else kind
     st.setdefault("cycles", []).append(rec)
     st["cycles"] = st["cycles"][-200:]
-    st["next_cycle_at"] = _iso(nb) if nb else None
+    st["next_cycle_at"] = now(nb) if nb else None
     if st["status"] == "paused":
         _event(st, f"paused: {st.get('paused_reason')}")
 
@@ -495,7 +487,7 @@ def _keep_one(lab: Lab, st: dict, runs: list, out: dict, enqueue) -> None:
     spec = RunSpec(skill=profile.campaign_driver(lab.hub), target=HUB_TARGET, args=st["file"], backend=st.get("backend"),
                    model=st.get("model"), max_minutes=st.get("cycle_minutes"), campaign=name,
                    parent=last["run_id"] if last else None, created_by="campaign",
-                   extra={"campaign_cycle": n, "campaign_final": final, "not_before": _iso(max(nb, time.time())),
+                   extra={"campaign_cycle": n, "campaign_final": final, "not_before": now(max(nb, time.time())),
                           "campaign_delegates": list(st.get("delegates") or []),
                           "pi_answers": [{"question": q.get("question"), "answer": q["answer"]} for q in answers]})
     try:
