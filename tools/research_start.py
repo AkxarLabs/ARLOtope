@@ -16,6 +16,7 @@ from pathlib import Path
 import yaml
 
 import labfiles
+from executor import procs
 from kernel import model, studies
 
 
@@ -187,8 +188,7 @@ def create(hub: Path, *, title: str, question: str, slug: str = '', workflow: st
                 else:
                     argv = ['git', 'clone', '--', 'https://github.com/' + canonical + '.git', str(checkout)]
                 try:
-                    result = subprocess.run(argv, capture_output=True, text=True, encoding='utf-8',
-                                            errors='replace', env=env, timeout=180)
+                    result = procs.run(argv, capture_output=True, text=True, env=env, timeout=180)
                 except (OSError, subprocess.TimeoutExpired) as error:
                     raise StartError('Cloning did not finish. Retry, or attach a local checkout.') from error
                 if result.returncode:

@@ -14,6 +14,8 @@ of lab plugs in by replacing this file.
     after_cycle(lab, st, children, out, enqueue, keeper)   approvals a campaign asked for, after each keeper pass
     start_step(lab, slug, enqueue, keeper, **kw)   queue the work of the step a study just moved to
     next_command(lab, m)                  after a run about a study: its next step's procedure, if it moved
+    run_dirs · watch_start · watch_finish   the places a run can change, and its digest (the lab's monitoring)
+    definition(lab, m) · definition_changed(lab, m, before)   what only the PI changes, around each attempt
     needs_pi_title(hub, kind)             the run footer's needs_pi, as Needs you shows it
     run_env(m, env)                       the lab's part of a run's environment
     GUARD, TRACER, bus_script(), trace_script()   the hooks a run carries: the signature guard, the tracer, the bus
@@ -24,16 +26,14 @@ from __future__ import annotations
 
 import json
 import re
-import time
 from task_completion import flag_runs
 from pathlib import Path
 
 from kernel import brief as kbrief   # (tools/ is on sys.path: the executor puts it there)
-from kernel import checkpoints, journal, model, studies, watch
-from labfiles import read_jsonl
+from kernel import checkpoints, journal, model, rules, studies, watch
+from labfiles import read_jsonl, safe_id
 
 TOOLS = Path(__file__).resolve().parent
-_SLUG = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._-]{0,120}$")
 
 
 def runtime_file(hub, relative):
@@ -41,9 +41,6 @@ def runtime_file(hub, relative):
     local = Path(hub) / relative
     return local if local.is_file() else model.CODE / relative
 
-
-def safe_id(s) -> str | None:
-    return s if isinstance(s, str) and _SLUG.match(s) and ".." not in s else None
 
 # ── what may run ─────────────────────────────────────────────────────────────────────────────────
 def registry(hub=None) -> dict[str, dict]:
@@ -67,9 +64,12 @@ def campaign_driver(hub=None) -> str | None:
 
 
 def check_launch(lab, skill: str, subject: str | None) -> None:
-    """Nothing starts for a study a flag holds. A procedure that is a step's work (its `do`) runs for a study only
-    where the study stands: at that step, not shelved or finished. (What a step merely offers, drivers and
-    utilities run anywhere.) Raises ValueError."""
+    """Nothing starts while a flag holds the lab, nor for a study a flag holds. A procedure that is a step's work
+    (its `do`) runs for a study only where the study stands: at that step, not shelved or finished. (What a step
+    merely offers, drivers and utilities run anywhere.) Raises ValueError."""
+    held = watch.holding(lab.hub, "lab")
+    if held:
+        raise ValueError(f"the lab is held by a flag: {held[0]['say']} — the PI acknowledges it first")
     if not subject or not safe_id(subject):
         return
     s = studies.study(lab.hub, subject)
@@ -332,7 +332,7 @@ def campaign_members(lab, st: dict, brief: str) -> None:
     found = set()
     for line in log.splitlines():
         cells = [c.strip().strip("`") for c in line.strip().strip("|").split("|")]
-        if len(cells) >= 2 and _SLUG.match(cells[1] or "") and cells[1] not in ("idea", "---"):
+        if len(cells) >= 2 and safe_id(cells[1]) and cells[1] not in ("idea", "---"):
             found.add(cells[1])
     rows = {r.get("id"): r for r in lab.registry_rows()}
     for slug in found:
@@ -396,7 +396,7 @@ def next_command(lab, m: dict) -> tuple[bool, str | None]:
 
 
 # ── monitoring: what every run did ───────────────────────────────────────────────────────────────
-def _dirs(lab, m: dict, workdir: Path) -> list[Path]:
+def run_dirs(lab, m: dict, workdir: Path) -> list[Path]:
     """The repos a run can change: its workdir, the lab, and its study's project."""
     out = [Path(workdir), lab.hub]
     if m.get("subject") and safe_id(m["subject"]):
@@ -408,12 +408,30 @@ def _dirs(lab, m: dict, workdir: Path) -> list[Path]:
 
 def watch_start(lab, m: dict, workdir: Path) -> dict:
     """Where each repo the run can change stood as it started (git), for the digest."""
-    return watch.snapshot(_dirs(lab, m, workdir), lab.hub)
+    return watch.snapshot(run_dirs(lab, m, workdir), lab.hub)
+
+
+def definition(lab, m: dict) -> dict:
+    """What only the PI changes, file by file: the lab's definition, and its settings (with the role files rendered
+    from them) unless the run's procedure is one whose job is changing them with the PI (config_procedures)."""
+    return watch.fingerprint(lab.hub, settings=m.get("skill") not in rules.config_procedures(lab.hub))
+
+
+def definition_changed(lab, m: dict, before: dict) -> dict | None:
+    """After an attempt: when what only the PI changes changed while it worked (a script, a shell redirect, git —
+    whatever the guard didn't see), a block flag that holds the lab until the PI has looked."""
+    after = definition(lab, m)
+    changed = sorted(k for k in before.keys() | after.keys() if before.get(k) != after.get(k))
+    if not changed:
+        return None
+    return watch.flag(lab.hub, "block", f"the lab's definition changed during run {m.get('run_id')} — nothing new "
+                      "starts until you have looked", run=m.get("run_id"), detail="; ".join(changed[:20]), hold=True,
+                      rule="definition-changed")
 
 
 def watch_finish(lab, m: dict, workdir: Path, run_dir: Path | None = None) -> dict:
     """The run's digest: what it did, computed — and the flags its watches raised."""
-    dirs = _dirs(lab, m, workdir)
+    dirs = run_dirs(lab, m, workdir)
     project = dirs[2] if len(dirs) > 2 else None
     return watch.digest(lab.hub, m, m.get("watch_start") or {}, [lab.bus_of(d) for d in dirs], project, run_dir)
 
@@ -520,7 +538,7 @@ def start_graph(lab, slug, enqueue, spec_type, retry=False, **options):
     """Dispatch eligible graph tasks; each reports through the ordinary study journal."""
     from kernel.branches import nodes
     from executor import contexts
-    from kernel.entry import apply, pending
+    from kernel.entry import apply
     apply(lab.hub, slug)
     s = studies.study(lab.hub, slug)
     if not s or s['finished']:

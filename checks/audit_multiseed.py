@@ -53,7 +53,7 @@ def multi_seed_n(project_dir: Path) -> int:
     n = seeds.get("multi_seed_n") if isinstance(seeds, dict) else None
     if n:
         return int(n)
-    n = ((labfiles.load_yaml(HUB / "lab" / "config.yaml").get("experiment") or {}).get("multi_seed_n"))
+    n = ((labfiles.config(HUB).get("experiment") or {}).get("multi_seed_n"))
     return int(n) if n else 3
 
 

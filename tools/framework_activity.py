@@ -1,8 +1,14 @@
-"""Read-only, declarative JSONL activity for external tools. Never executes commands."""
+"""Read-only, declarative JSONL activity for external tools. Never executes commands.
+
+A project on another machine reads its own activity there (`read`); what comes back is data (`remote`)."""
 from __future__ import annotations
 
 import json
 from pathlib import Path
+
+from labfiles import inside, pos_int
+
+RUNS = '.arlotope/framework-runs'
 
 
 def field(record, path):
@@ -18,7 +24,7 @@ def read(definition, project, study, phase):
     if not all(isinstance(v, str) and ID.fullmatch(v) for v in (definition['id'], study, phase)):
         raise ValueError('Invalid framework activity scope.')
     project = Path(project).resolve()
-    root = project / '.arlotope/framework-runs' / study / definition['id'] / 'run'
+    root = project / RUNS / study / definition['id'] / 'run'
     if not root.resolve().is_relative_to(project):
         raise ValueError('Activity must remain inside its project.')
     recipe = definition.get('activity') or {}
@@ -32,7 +38,7 @@ def read(definition, project, study, phase):
     for pattern in recipe.get('files', []):
         relative = pattern.replace('{phase}', phase)
         path = root / relative
-        if path.is_symlink() or not path.resolve().is_relative_to(root.resolve()):
+        if not inside(root, path):
             raise ValueError('Activity file escapes its run directory.')
         try:
             with path.open('rb') as stream:
@@ -63,10 +69,37 @@ def read(definition, project, study, phase):
                 'cycle':field(raw, fields['cycle']), 'source':relative})
     events.sort(key=lambda row:row['time'])
     clipped |= len(events)>160
-    events = events[-160:]
+    return _activity(definition, phase, root, events[-160:], clipped, malformed)
+
+
+def _activity(definition, phase, root, events, clipped, malformed):
     return {'framework':definition['id'], 'phase':phase, 'title':definition.get('title',definition['id']),
             'root':str(root), 'events':events, 'current':events[-1] if events else None,
-            'clipped':clipped, 'malformed':malformed, 'supported':bool(recipe)}
+            'clipped':clipped, 'malformed':malformed, 'supported':bool(definition.get('activity'))}
+
+
+def remote(result, query):
+    """What a machine reported for `query` (request's), as data: read's shape rebuilt from it — text and numbers,
+    each event's source one of the definition's own files — with the root and the machine this Lab decides, so a
+    link built from them opens that machine's run folder, never a place the machine named (a local file, a share)."""
+    definition, phase, machine = query['definition'], query['phase'], query['machine']
+    if not isinstance(result, dict) or result.get('error'):
+        error = result.get('error') if isinstance(result, dict) else 'The machine reported unreadable activity.'
+        return {'error': str(error)[:300], 'machine': machine}
+    sources = {p.replace('{phase}', phase) for p in (definition.get('activity') or {}).get('files', []) if isinstance(p, str)}
+    rows = result.get('events') if isinstance(result.get('events'), list) else []
+    events = [_event(e, sources) for e in rows[-160:] if isinstance(e, dict)]
+    root = f"{query['project']}/{RUNS}/{query['study']}/{definition['id']}/run"
+    return {**_activity(definition, phase, root, events, bool(result.get('clipped')),
+                        pos_int(result.get('malformed'), 0, 0)), 'machine': machine}
+
+
+def _event(e, sources):
+    def scalar(v):
+        return v if isinstance(v, (int, float)) and not isinstance(v, bool) else str(v)[:40] if isinstance(v, str) else None
+    return {**{k: str(e.get(k) or '')[:n] for k, n in (('time', 64), ('event', 100), ('label', 200), ('state', 40), ('kind', 40))},
+            'worker': scalar(e.get('worker')), 'cycle': scalar(e.get('cycle')),
+            'source': e['source'] if e.get('source') in sources else ''}
 
 
 def request(hub, run):
@@ -92,14 +125,12 @@ def view(hub, run, *, refresh=False):
         query = request(hub, run)
         if not query:
             return None
-        machine = query.pop('machine')
-        if machine:
-            if not refresh:
-                return run.get('external_activity')
-            import remote_projects
-            result = remote_projects.rpc(machine, 'framework-activity', query)
-        else:
-            result = read(**query)
-        return {**result, 'machine':machine}
+        ask = {k: v for k, v in query.items() if k != 'machine'}
+        if not query['machine']:
+            return {**read(**ask), 'machine': ''}
+        if not refresh:
+            return run.get('external_activity')   # remote_projects.sync keeps it, already taken as data
+        import remote_projects
+        return remote(remote_projects.rpc(query['machine'], 'framework-activity', ask), query)
     except (OSError, ValueError, KeyError, TypeError) as error:
         return {'error':str(error)}

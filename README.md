@@ -10,6 +10,7 @@ agents in a shared 3D lab. See who is working, where your input is needed, and w
 has produced—all while keeping your existing repositories and tools.
 
 [Documentation](https://akxarlabs.github.io/ARLOtope/) ·
+[Install](docs/install.md) ·
 [First study](docs/getting-started.md) · [Build a workflow](docs/agent-workflows.md)
 
 <picture>
@@ -30,7 +31,21 @@ has produced—all while keeping your existing repositories and tools.
 
 ## Get started
 
-Install [Git](https://git-scm.com/downloads) and [uv](https://docs.astral.sh/uv/getting-started/installation/), then:
+**Windows** (PowerShell):
+
+```powershell
+irm https://github.com/AkxarLabs/ARLOtope/releases/latest/download/install.ps1 | iex
+```
+
+**macOS and Linux**:
+
+```bash
+curl -fsSL https://github.com/AkxarLabs/ARLOtope/releases/latest/download/install.sh | sh
+```
+
+Then run `arlo` or open the ARLOtope launcher. See [installing](docs/install.md) for where things live,
+updating and uninstalling. To work from source instead, install
+[Git](https://git-scm.com/downloads) and [uv](https://docs.astral.sh/uv/getting-started/installation/), then:
 
 ```bash
 git clone https://github.com/AkxarLabs/ARLOtope.git

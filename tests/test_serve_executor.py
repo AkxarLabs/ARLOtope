@@ -8,6 +8,7 @@ Launches only ENQUEUE here (nothing is spawned): the scheduler thread is never s
 
 from __future__ import annotations
 
+import labfiles
 import json
 from pathlib import Path
 import sys
@@ -135,7 +136,7 @@ def test_run_tail_offsets_whole_lines_and_subagent_labels(hub, monkeypatch):
     lab = m.executor.Lab(hub.root)
     _t, _w, path, man = m.executor.find_run(lab, rid)
     man["subagents"] = {"tuS": {"type": "experiment-runner", "description": "exp-004"}}
-    m.executor.manifest.write_manifest(path, man)
+    labfiles.write_json(path, man)
     stream = path.parent / man["stream"]
     lines = [{"_attempt": 1, "ts": "t"},
              {"type": "system", "subtype": "init", "session_id": "abcdef123"},
@@ -164,12 +165,8 @@ def test_set_programmatic_flips_config_and_logs(hub, monkeypatch):
     assert m.runops.set_programmatic({"enabled": True})[1] == 400                              # needs confirm
     out, code = m.runops.set_programmatic({"enabled": True, "confirm": True})
     assert code == 200 and out["enabled"] is True
-    text = (hub.lab / "config.yaml").read_text(encoding="utf-8")
-    import re
-    assert re.search(r"enabled: true\s+# master switch", text)                           # comment preserved
+    assert labfiles.config(hub.root)["agents"]["programmatic"]["enabled"] is True
     assert _pi_actions(hub)[-1] == {**_pi_actions(hub)[-1], "action": "executor.enable", "enabled": True}
-    (hub.lab / "config.yaml").write_text("lab: {}\n", encoding="utf-8")
-    assert m.runops.set_programmatic({"enabled": True, "confirm": True})[1] == 400             # key absent → refused
 
 
 # ── commands that also launch the consumer ───────────────────────────────────

@@ -5,8 +5,8 @@
     uv run --with pyyaml python tools/configure.py profile <list|show|diff|apply|save> [<name>]
 
 `view` prints the effective 3-layer config with provenance (via tools/show_config.py). `set` stamps
-ONE value into the right layer — `lab/config.yaml`, or a project's `control.yaml` with `--project` —
-preserving comments (reuses tools/profiles.stamp), and **refuses a PI-owned key without
+ONE value into the right layer — `lab/config.yaml` (labfiles.set_config; `null` puts a setting back to its
+default), or a project's `control.yaml` with `--project` (comments preserved, tools/profiles.stamp) — and **refuses a PI-owned key without
 `--pi-approved`** (owners per docs/configuration.md). Setting `eval_frozen=false` warns loudly. After an
 `agents.*` change it
 re-renders the backend role files (tools/role_sync.py). `profile` delegates to tools/profiles.py
@@ -24,6 +24,7 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parent))  # tools/ — reuse the profiles helpers
 import profiles  # noqa: E402 — stamp / _fmt / _sync_agent_model / AGENT_FILE
 import labfiles  # noqa: E402 — the lab's files, read one way (tools/labfiles.py)
+from executor import procs  # noqa: E402
 from kernel import rules  # noqa: E402 — the lab's rules (workflow/rules.yaml)
 
 if hasattr(sys.stdout, "reconfigure"):
@@ -94,21 +95,23 @@ def cmd_set(a) -> int:
             print(f"[configure] no project for {a.project!r}")
             return 1
         target = pdir / "control.yaml"
+        if not target.exists():
+            print(f"[configure] no config file at {target}")
+            return 1
+        new, changed = profiles.stamp(target.read_text(encoding="utf-8-sig"), key.split("."), value)
+        if not changed:
+            print(f"[configure] key path '{key}' not found in {target.name} — check the name, or add it by hand")
+            return 1
+        target.write_text(new, encoding="utf-8", newline="")
     else:
         target = LAB / "config.yaml"
-    if not target.exists():
-        print(f"[configure] no config file at {target}")
-        return 1
-    new, changed = profiles.stamp(target.read_text(encoding="utf-8-sig"), key.split("."), value)
-    if not changed:
-        print(f"[configure] key path '{key}' not found in {target.name} — check the name, or add it by hand")
-        return 1
-    target.write_text(new, encoding="utf-8", newline="")
+        if err := labfiles.set_config(HUB, {key: value}):
+            print(f"[configure] {err}")
+            return 1
     where = target.relative_to(HUB) if target.is_relative_to(HUB) else target
     print(f"[configure] set {key} = {profiles._fmt(value)} in {where}")
-    if key.startswith("agents.") and target == (LAB / "config.yaml"):
-        r = subprocess.run([sys.executable, str(HUB / "tools" / "role_sync.py"), "render"],
-                           capture_output=True, text=True)
+    if key.startswith("agents.") and not a.project:
+        r = procs.run([sys.executable, str(HUB / "tools" / "role_sync.py"), "render"], capture_output=True, text=True)
         sys.stdout.write(r.stdout)
     return 0
 

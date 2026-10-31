@@ -6,10 +6,10 @@ the kernel's (tools/kernel/instructions.py, brief.py); this is their API.
 from __future__ import annotations
 
 import re
-import subprocess
 import sys
 
 import ctx  # noqa: E402
+from executor import procs  # noqa: E402
 import sources  # noqa: E402
 from kernel import brief as kbrief, instructions, model  # noqa: E402
 
@@ -201,7 +201,7 @@ def workflow_save(body: dict) -> tuple[dict, int]:
         return {"error": str(e)}, 400
     warnings = []
     if kind == "role":
-        r = subprocess.run([sys.executable, str(hub / "tools" / "role_sync.py"), "render"], cwd=str(hub),
+        r = procs.run([sys.executable, str(hub / "tools" / "role_sync.py"), "render"], cwd=str(hub),
                            capture_output=True, text=True, timeout=120)
         if r.returncode != 0:
             warnings.append("saved, but re-rendering the role files failed: " + (r.stderr or r.stdout)[-300:])
@@ -223,7 +223,7 @@ def workflow_proposal(body: dict) -> tuple[dict, int]:
     except (OSError, ValueError) as e:
         return {"error": str(e)}, 400
     if rec["kind"] == "role" and accept:
-        subprocess.run([sys.executable, str(ctx.HUB / "tools" / "role_sync.py"), "render"], cwd=str(ctx.HUB),
+        procs.run([sys.executable, str(ctx.HUB / "tools" / "role_sync.py"), "render"], cwd=str(ctx.HUB),
                        capture_output=True, timeout=120)
     ctx.emit_hub("instruction_resolved", idea=rec.get("study"), detail=f"{rec['status']}: {rec['kind']} {rec['name']}")
     ctx.pi_log({"action": "workflow.proposal", "id": pid, "accept": accept, "kind": rec["kind"], "name": rec["name"],

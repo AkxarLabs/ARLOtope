@@ -8,6 +8,7 @@ import sys
 import time
 from pathlib import Path
 
+import labfiles
 import pytest
 import yaml
 
@@ -74,7 +75,7 @@ def test_settled_remote_history_skips_polling_but_pending_work_still_syncs(hub, 
     if pending == 'final': source['post_processed'] = False
     if pending == 'resume': source['status'] = 'queued'
     if pending == 'undrained': source['remote_settled'] = False
-    manifest.write_manifest(path, source)
+    labfiles.write_json(path, source)
     monkeypatch.setattr(R, 'rewrite', lambda lab, run, text: text)
     calls = []
     def rpc(hub, slug, verb, **params):
@@ -91,6 +92,33 @@ def test_settled_remote_history_skips_polling_but_pending_work_still_syncs(hub, 
     if not pending:
         R.sync(lab)
         assert calls == []
+
+
+def test_a_machines_activity_is_kept_only_when_asked_and_only_as_data(hub, monkeypatch):
+    """Activity this Lab did not ask for is dropped; what it asked for keeps no path or machine the remote named
+    (the page's Source link would otherwise open a local file, or a network share)."""
+    import framework_activity
+    from executor import Lab, manifest
+    hub.add_registry_row('s', project=R.uri('box', '/work'))
+    lab = Lab(hub.root)
+    path = lab.agents_dir(lab.project_workdir('s'))/'remote-run.json'
+    manifest.run_dir(path.parent, 'remote-run').mkdir(parents=True)
+    source = {'schema': 2, 'run_id': 'remote-run', 'target': 's', 'subject': 's', 'status': 'running',
+              'stream': 'remote-run.stream.jsonl', 'remote': {'machine': 'box', 'path': '/work'}, 'remote_dispatched': True}
+    labfiles.write_json(path, source)
+    hostile = {'root': '//attacker.invalid/share', 'machine': '', 'events': [{'label': 'x', 'source': 'C:/Windows/win.ini'}]}
+    monkeypatch.setattr(R, 'call', lambda *a, **k: {'found': True, 'manifest': source, 'stream': '', 'offset': 0,
+                                                     'requests': [], 'external_activity': hostile})
+    R.sync(lab)
+    got = manifest.read_manifest(path)
+    assert got['remote_status'] == 'connected' and 'external_activity' not in got       # never asked for
+    definition = {'id': 'tool', 'activity': {'files': ['events.jsonl']}}
+    monkeypatch.setattr(framework_activity, 'request', lambda hub, m: {'definition': definition, 'project': '/work',
+                                                                        'study': 's', 'phase': 'work', 'machine': 'box'})
+    R.sync(lab)
+    got = manifest.read_manifest(path)['external_activity']
+    assert got['machine'] == 'box' and got['root'] == '/work/.arlotope/framework-runs/s/tool/run'
+    assert got['current']['label'] == 'x' and got['current']['source'] == ''
 
 
 def test_remote_skill_package_retains_binary_resources_and_project_edits(hub, worker):
@@ -327,7 +355,7 @@ def test_remote_visual_summary_is_published_once_to_the_owning_lab(hub, worker):
 
 def test_message_after_remote_exit_is_admitted_as_a_resume(hub, worker):
     import executor, research_start
-    from executor.manifest import find_run, write_manifest
+    from executor.manifest import find_run
     root = worker['root'] / 'project'
     root.mkdir()
     research_start.create(hub.root, title='Remote study', question='Test', local=str(root), machine='box')
@@ -339,7 +367,7 @@ def test_message_after_remote_exit_is_admitted_as_a_resume(hub, worker):
     # The controller's last poll still says running when the PI sends a follow-up.
     hit = find_run(lab, m['run_id'])
     stale = dict(hit[3], status='running', post_processed=True, remote_settled=True)
-    write_manifest(hit[2], stale)
+    labfiles.write_json(hit[2], stale)
     executor.reply(lab, m['run_id'], 'WRITE_RESULT')
     R.sync(lab)  # Delivers into the already-finished worker's inbox.
     queued = wait(lab, m['run_id'], lambda m: m['status'] == 'queued')
@@ -418,7 +446,7 @@ def test_remote_brief_includes_procedure_catalog_and_helpers(hub, tmp_path):
 
 
 def test_worker_detects_crash_from_its_own_supervisor_lock(tmp_path):
-    from project_worker import Worker, atomic
+    from project_worker import Worker
     from executor.procs import RunLock
     root = tmp_path / 'project'
     root.mkdir()
@@ -427,8 +455,8 @@ def test_worker_detects_crash_from_its_own_supervisor_lock(tmp_path):
     worker.call('attach', data)
     agents = root / '.bus/arlotope/lab-a/agents'
     rd = agents / 'run-a.d'
-    atomic(agents / 'run-a.json', {'status': 'running', 'attempt': 1})
-    atomic(rd / 'dispatch-0.json', {'accepted': True})
+    labfiles.write_json(agents / 'run-a.json', {'status': 'running', 'attempt': 1})
+    labfiles.write_json(rd / 'dispatch-0.json', {'accepted': True})
     old = time.time() - 60
     os.utime(rd / 'dispatch-0.json', (old, old))
     lock = RunLock(rd / 'lock')
@@ -441,7 +469,7 @@ def test_worker_detects_crash_from_its_own_supervisor_lock(tmp_path):
 
 
 def test_worker_settles_only_after_final_bytes_and_requests_are_drained(tmp_path):
-    from project_worker import Worker, atomic
+    from project_worker import Worker
     from executor.procs import RunLock
     root = tmp_path/'project'
     root.mkdir()
@@ -450,7 +478,7 @@ def test_worker_settles_only_after_final_bytes_and_requests_are_drained(tmp_path
     worker.call('attach', data)
     agents = root/'.bus/arlotope/lab-a/agents'
     rd = agents/'run-a.d'
-    atomic(agents/'run-a.json', {'status': 'completed', 'attempt': 1})
+    labfiles.write_json(agents/'run-a.json', {'status': 'completed', 'attempt': 1})
     rd.mkdir(parents=True, exist_ok=True)
     content = b'{"event":"fixture"}\n'*40000
     (agents/'run-a.stream.jsonl').write_bytes(content)
@@ -467,7 +495,7 @@ def test_worker_settles_only_after_final_bytes_and_requests_are_drained(tmp_path
         assert not worker.call('poll', data)['settled']
     finally:
         lock.release()
-    atomic(rd/'controller/request-a.request.json', {'id': 'request-a', 'verb': 'artifact'})
+    labfiles.write_json(rd/'controller/request-a.request.json', {'id': 'request-a', 'verb': 'artifact'})
     assert not worker.call('poll', data)['settled']
     worker.call('response', {**data, 'id': 'request-a', 'response': {'ok': True}})
     assert worker.call('poll', data)['settled']
@@ -542,7 +570,7 @@ def test_controller_mirrors_conversation_bytes_without_duplicate_replays(hub,mon
     source={'schema':2,'run_id':'mirror-run','target':'s','subject':'s','status':'completed',
             'stream':'mirror-run.stream.jsonl','remote':{'machine':'box','path':'/work'},
             'remote_dispatched':True,'remote_status':'connected','post_processed':False}
-    manifest.write_manifest(path,source)
+    labfiles.write_json(path,source)
     content=b'{"id":"reply","kind":"response","text":"A durable answer","attempt":1}\n'
     offsets=[]
     def rpc(hub,slug,verb,**params):

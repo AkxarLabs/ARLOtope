@@ -2,15 +2,17 @@
 from __future__ import annotations
 
 import base64
+import contextlib
 import hashlib
 import http.client
 import io
 import json
-import os
 import shlex
 import zipfile
 from pathlib import Path, PureWindowsPath
 from urllib.parse import quote, unquote, urlsplit
+
+import labfiles
 
 ROOT = Path(__file__).resolve().parents[1]
 SCHEME = 'arlotope+ssh'
@@ -43,7 +45,6 @@ def uri(machine, path):
 
 
 def project(hub, slug):
-    import labfiles
     row = labfiles.row(hub, slug)
     return location((row or {}).get('project'))
 
@@ -59,11 +60,7 @@ def spool(hub, slug):
 
 
 def machines():
-    path = Path(os.environ.get('ARLOTOPE_HOME') or Path.home() / '.arlotope') / 'machines.json'
-    try:
-        return json.loads(path.read_text(encoding='utf-8')).get('machines', [])
-    except (ValueError, OSError):
-        return []
+    return labfiles.home_rows('machines')
 
 
 def machine(mid):
@@ -192,7 +189,7 @@ def rewrite(lab, m, text):
 
 
 def dispatch(lab, path, m):
-    from executor.manifest import read_manifest, run_dir, write_manifest
+    from executor.manifest import run_dir
     loc, rid = m['remote'], m['run_id']
     from executor.contexts import validate_head
     validate_head(lab, m)
@@ -243,16 +240,30 @@ def dispatch(lab, path, m):
                   instructions={k: rewrite(lab, m, v) for k, v in instructions.items()}, config=config,
                   resources={p.relative_to(rd / 'skills').as_posix(): base64.b64encode(p.read_bytes()).decode()
                              for p in (rd / 'skills').rglob('*') if p.is_file()})
-    m['remote_dispatched'] = True
-    m.pop('remote_dispatch_pending', None)
-    m['remote_status'] = 'connected'
-    write_manifest(path, m)
+    done = {'remote_dispatched': True, 'remote_dispatch_pending': False, 'remote_status': 'connected'}
+    m.update(done)
+    _commit(lab, path, done)
     return result
+
+
+def _commit(lab, path, fields, remote=None):
+    """Apply what the machine said to the run's CURRENT record, under the scheduler lock. The machine was asked
+    without that lock, so a Stop, an Answer or a reply made meanwhile must survive: only `fields` change, and
+    the remote run's progress (`remote`) never lands on a run queued for its next turn here."""
+    from executor.manifest import read_manifest, scheduler_lock
+    with scheduler_lock(lab):
+        m = read_manifest(path)
+        if m is None:
+            return
+        if remote and m.get('status') != 'queued':
+            m.update(remote)
+        m.update(fields)
+        labfiles.write_json(path, m)
 
 
 def _request(lab, m, request):
     from kernel import studies, branches
-    verb, args = request['verb'], request.get('values') or []
+    verb, args = request.get('verb'), request.get('values') or []
     slug, rid = m['subject'], m['run_id']
     if request.get('run_id') != rid:
         raise RemoteError('This request belongs to another run.')
@@ -319,117 +330,154 @@ def _request(lab, m, request):
             result = studies.move(lab.hub, slug, args[0], note=note, by='run:' + rid)
         return {'result': result}
     if verb == 'emit':
-        from executor.manifest import append_jsonl, now
         kind = (args or ['note'])[0]
         if kind not in ('run_report', 'note', 'escalation', 'writeback'):
             raise RemoteError('This event is not available to a project run.')
         data = dict(x.split('=', 1) for x in request.get('data', []) if '=' in x)
-        append_jsonl(lab.project_workdir(slug) / '.bus/events.jsonl', {'ts': now(), 'kind': kind,
+        labfiles.append_jsonl(lab.project_workdir(slug) / '.bus/events.jsonl', {'ts': labfiles.now(), 'kind': kind,
             'source': slug, 'idea': slug, 'run_id': rid, 'detail': request.get('detail', ''), 'data': data})
         return {'result': {'ok': True}}
     raise RemoteError('Unsupported controller request.')
 
 
-def sync(lab):
-    """Refresh remote mirrors, deliver queued input and settle task-scoped controller requests."""
-    from executor.manifest import TERMINAL, all_runs, read_manifest, run_dir, write_manifest
-    for _, _, path, m in all_runs(lab):
-        if not m.get('remote'):
-            continue
-        rd = run_dir(path.parent, m['run_id'])
-        try:
-            if (m.get('status') in TERMINAL and m.get('post_processed') and m.get('remote_settled')
-                    and m.get('remote_status') == 'connected'
-                    and not m.get('remote_dispatch_pending') and not (rd/'stop').exists()
-                    and not any((rd/'inbox').glob('*.json'))):
-                continue  # Settled history is local; replies and disconnected/final syncs still poll.
-            if m.get('remote_dispatch_pending'):
-                dispatch(lab, path, m)
-            if not m.get('remote_dispatched'):
+# What a remote machine may tell this Lab about a run: its progress, as data. Everything that names a
+# place or an identity (run_id, subject, target, stream, cwd, skill, judge, workflow_node, backend, pid,
+# last_result's file, …) stays the controller's own.
+REMOTE_FIELDS = frozenset({
+    'status', 'status_ts', 'reason', 'heartbeat', 'attempt', 'attempts', 'transport', 'started', 'finished',
+    'exit_code', 'wall_seconds', 'failure_kind', 'limit_reset', 'not_before', 'no_live', 'resume',
+    'session_id', 'model_used', 'cli', 'cli_version', 'conversation_started', 'fork_started',
+    'pending_question', 'pending_questions', 'pending_permissions', 'external_interactions', 'qa', 'assumed',
+    'delivery_uncertain', 'undelivered_input', 'knowledge_question', 'knowledge_error', 'watch_error',
+    'last_message', 'last_text', 'last_action', 'n_actions', 'in_tool', 'denials', 'usage', 'limits', 'subagents',
+})
+
+
+def remote_progress(remote):
+    """The allowlisted fields of a manifest a remote machine returned, with a status this Lab knows."""
+    from executor.manifest import STATUSES
+    if not isinstance(remote, dict) or remote.get('status') not in STATUSES:
+        raise RemoteError('The remote run reported an unreadable state.')
+    return {k: v for k, v in remote.items() if k in REMOTE_FIELDS}
+
+
+def sync(lab, only=None):
+    """Refresh remote mirrors, deliver queued input and settle task-scoped controller requests, for every remote
+    run (or the run records in `only`). One sync at a time, and never under the scheduler lock: a slow machine
+    holds up no Stop or Answer here. A machine that cannot be reached marks its runs disconnected; anything
+    unexpected does too, and comes back as [(what, error)] for the scheduler to report. One run's failure never
+    stops the others. Every local path comes from this Lab's own record of the run; the remote supplies only data."""
+    from executor.manifest import all_runs
+    from executor.procs import excl_lock
+    lock = excl_lock(lab.bus / '.remote-sync.lock', wait=0.01)
+    try:
+        lock.__enter__()
+    except TimeoutError:
+        return []   # another scheduler is talking to the machines right now
+    failures = []
+    try:
+        for _, _, path, m in all_runs(lab):
+            if not m.get('remote') or (only is not None and path not in only):
                 continue
-            from kernel import studies
-            state = studies.study(lab.hub, m['subject'])
-            outputs = studies.study_outputs(lab.hub, dict(state, step=m.get('workflow_node') or state['step']))
-            from framework_activity import request as activity_request
             try:
-                activity = activity_request(lab.hub, m)
-            except (OSError, ValueError, KeyError, TypeError) as error:
-                activity = None
-                m['external_activity'] = {'error':str(error)}
-            if activity:
-                activity.pop('machine')
-            poll = call(lab.hub, m['target'], 'poll', run_id=m['run_id'], offset=m.get('remote_offset', 0),
-                        actions_offset=m.get('remote_actions_offset', 0), records_offset=m.get('remote_records_offset',0),
-                        study_files=outputs, framework_activity=activity)
-            if not poll.get('found'):
-                raise RemoteError('The remote run is unavailable; no replacement was started.')
-            current = read_manifest(path) or m
-            m = current
-            remote = poll['manifest']
-            if remote.get('status') == 'queued' and remote.get('resume'):
-                current['post_processed'] = False  # A late message creates another turn to process.
-            # A completed old attempt must never overwrite a locally queued resume.
-            if current.get('status') != 'queued':
-                preserved = {k: current[k] for k in ('cwd', 'remote', 'remote_dispatched', 'remote_offset', 'remote_actions_offset', 'remote_records_offset', 'post_processed') if k in current}
-                m.update(remote, **preserved)
-            m['remote_status'], m['remote_error'] = 'connected', None
-            m['remote_settled'] = poll.get('settled') is True
-            if 'external_activity' in poll:
-                m['external_activity'] = poll['external_activity']
-            blob = base64.b64decode(poll['stream'])
-            stream = path.parent / m['stream']
-            # Offset is committed with the manifest; truncate a replayed tail after an interrupted sync.
-            with stream.open('r+b' if stream.exists() else 'w+b') as f:
-                f.seek(int(m.get('remote_offset', 0)))
-                f.write(blob)
-                f.truncate()
-            m['remote_offset'] = poll['offset']
-            for name, filename in (('actions','actions.jsonl'), ('records','conversation.jsonl')):
-                if name not in poll:continue
-                activity = rd/filename
-                content = base64.b64decode(poll[name])
-                with activity.open('r+b' if activity.exists() else 'w+b') as mirror:
-                    mirror.seek(int(m.get('remote_'+name+'_offset', 0)))
-                    mirror.write(content)
-                    mirror.truncate()
-                m['remote_'+name+'_offset'] = poll[name+'_offset']
-            for rel, content in poll.get('study_files', {}).items():
-                if rel not in outputs:
-                    continue
-                dest = (lab.hub / rel).resolve()
-                if not dest.is_relative_to((lab.hub / 'studies' / m['subject']).resolve()):
-                    continue
-                dest.parent.mkdir(parents=True, exist_ok=True)
-                dest.write_bytes(base64.b64decode(content))
-            for req in poll['requests']:
-                receipt = rd / 'controller-receipts' / (req['id'] + '.json')
-                if receipt.exists():
-                    response = json.loads(receipt.read_text(encoding='utf-8'))
-                else:
-                    try:
-                        response = _request(lab, m, req)
-                    except ValueError as error:
-                        response = {'code': 1, 'text': str(error)}
-                    from project_worker import atomic
-                    atomic(receipt, response)
-                call(lab.hub, m['target'], 'response', run_id=m['run_id'], id=req['id'], response=response)
-            for item in (rd / 'inbox').glob('*.json'):
-                message = json.loads(item.read_text(encoding='utf-8'))
-                if isinstance(message.get('text'), str):
-                    message['text'] = rewrite(lab, m, message['text'])
-                call(lab.hub, m['target'], 'command', run_id=m['run_id'], id=item.stem,
-                     item=message)
-                m['remote_settled'] = False
-                item.unlink()  # Worker durably accepted it; remote live delivery has its own receipt.
-            if (rd / 'stop').exists():
-                attempt = int(m.get('attempt', 0)) + (m.get('status') in ('starting', 'resuming'))
-                call(lab.hub, m['target'], 'command', run_id=m['run_id'], id='stop-' + str(attempt),
-                     item={'kind': 'stop', 'attempt': attempt})
-                m['remote_settled'] = False
-            write_manifest(path, m)
-        except (RemoteError, OSError) as error:
-            m['remote_status'], m['remote_error'] = 'disconnected', str(error)
-            write_manifest(path, m)
+                _sync_run(lab, path, m)
+            except Exception as error:  # noqa: BLE001 — one run never stops the others
+                expected = isinstance(error, (RemoteError, OSError))
+                if not expected:
+                    failures.append(('remote run ' + str(m.get('run_id')), error))
+                with contextlib.suppress(OSError):
+                    _commit(lab, path, {'remote_status': 'disconnected',
+                                        'remote_error': str(error) if expected else f'{type(error).__name__}: {error}'})
+    finally:
+        lock.__exit__(None, None, None)
+    return failures
+
+
+def _sync_run(lab, path, m):
+    from executor.manifest import TERMINAL, run_dir
+    rd = run_dir(path.parent, m['run_id'])
+    if (m.get('status') in TERMINAL and m.get('post_processed') and m.get('remote_settled')
+            and m.get('remote_status') == 'connected'
+            and not m.get('remote_dispatch_pending') and not (rd/'stop').exists()
+            and not any((rd/'inbox').glob('*.json'))):
+        return  # Settled history is local; replies and disconnected/final syncs still poll.
+    if m.get('remote_dispatch_pending'):
+        dispatch(lab, path, m)
+    if not m.get('remote_dispatched'):
+        return
+    fields = {}
+    from kernel import studies
+    state = studies.study(lab.hub, m['subject'])
+    outputs = studies.study_outputs(lab.hub, dict(state, step=m.get('workflow_node') or state['step']))
+    import framework_activity
+    try:
+        activity = framework_activity.request(lab.hub, m)
+    except (OSError, ValueError, KeyError, TypeError) as error:
+        activity = None
+        fields['external_activity'] = {'error': str(error)}
+    poll = call(lab.hub, m['target'], 'poll', run_id=m['run_id'], offset=m.get('remote_offset', 0),
+                actions_offset=m.get('remote_actions_offset', 0), records_offset=m.get('remote_records_offset', 0),
+                study_files=outputs,
+                framework_activity=activity and {k: v for k, v in activity.items() if k != 'machine'})
+    if not poll.get('found'):
+        raise RemoteError('The remote run is unavailable; no replacement was started.')
+    remote = remote_progress(poll['manifest'])
+    if m.get('status') != 'queued':   # as _commit will see it (a completed old attempt never overwrites a resume)
+        m = {**m, **remote}
+    if remote['status'] == 'queued' and remote.get('resume'):
+        fields['post_processed'] = False  # A late message creates another turn to process.
+    fields.update(remote_status='connected', remote_error=None, remote_settled=poll.get('settled') is True)
+    if activity and 'external_activity' in poll:   # asked for; kept as data (the root and machine are this Lab's)
+        fields['external_activity'] = framework_activity.remote(poll['external_activity'], activity)
+    # Mirror appended bytes at this Lab's own offsets, which are committed with the manifest;
+    # truncating drops a replayed tail after an interrupted sync.
+    for key, mirror, chunk in (('remote_offset', path.with_suffix('.stream.jsonl'), poll['stream']),
+                               ('remote_actions_offset', rd/'actions.jsonl', poll.get('actions')),
+                               ('remote_records_offset', rd/'conversation.jsonl', poll.get('records'))):
+        if chunk is None:
+            continue
+        content = base64.b64decode(chunk)
+        with mirror.open('r+b' if mirror.exists() else 'w+b') as f:
+            f.seek(int(m.get(key, 0)))
+            f.write(content)
+            f.truncate()
+        fields[key] = int(m.get(key, 0)) + len(content)
+    for rel, content in poll.get('study_files', {}).items():
+        if rel not in outputs:
+            continue
+        dest = (lab.hub / rel).resolve()
+        if not dest.is_relative_to((lab.hub / 'studies' / m['subject']).resolve()):
+            continue
+        dest.parent.mkdir(parents=True, exist_ok=True)
+        dest.write_bytes(base64.b64decode(content))
+    for req in poll['requests']:
+        cid = labfiles.safe_id(req.get('id')) if isinstance(req, dict) else None
+        if not cid:
+            continue  # No id this Lab can name a receipt by; an honest worker never sends one.
+        receipt = rd / 'controller-receipts' / (cid + '.json')
+        if receipt.exists():
+            response = json.loads(receipt.read_text(encoding='utf-8'))
+        else:
+            try:
+                response = _request(lab, m, req)
+            except ValueError as error:
+                response = {'code': 1, 'text': str(error)}
+            labfiles.write_json(receipt, response)
+        call(lab.hub, m['target'], 'response', run_id=m['run_id'], id=cid, response=response)
+    for item in (rd / 'inbox').glob('*.json'):
+        message = json.loads(item.read_text(encoding='utf-8'))
+        if isinstance(message.get('text'), str):
+            message['text'] = rewrite(lab, m, message['text'])
+        call(lab.hub, m['target'], 'command', run_id=m['run_id'], id=item.stem,
+             item=message)
+        fields['remote_settled'] = False
+        item.unlink()  # Worker durably accepted it; remote live delivery has its own receipt.
+    if (rd / 'stop').exists():
+        attempt = int(m.get('attempt', 0)) + (m.get('status') in ('starting', 'resuming'))
+        call(lab.hub, m['target'], 'command', run_id=m['run_id'], id='stop-' + str(attempt),
+             item={'kind': 'stop', 'attempt': attempt})
+        fields['remote_settled'] = False
+    _commit(lab, path, fields, remote)
 
 
 def file_states(hub, slug, files):

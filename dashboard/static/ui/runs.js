@@ -128,14 +128,14 @@
     const f=question.input.elicitation,fields=f.requestedSchema?.properties||{},required=f.requestedSchema?.required||[];
     const [values,setValues]=NL.useDraft('form:'+r.run_id+':'+question.tool_use_id,()=>Object.fromEntries(Object.entries(fields).filter(([,v])=>'default' in v).map(([k,v])=>[k,v.default]))),[error,setError]=useState(''),[busy,setBusy]=useState(false);
     const update=(k,v)=>setValues(old=>({...old,[k]:v}));
-    const send=async action=>{
+    const send=NL.useSubmit(async action=>{
       setBusy(true);setError('');
       try{const content=Object.fromEntries(Object.entries(values).filter(([k,v])=>v!==undefined&&(v!==''||required.includes(k))));
         required.forEach(k=>{if(!(k in content)&&(fields[k]?.type||'string')==='string'&&!fields[k]?.enum&&!fields[k]?.oneOf)content[k]='';if(!(k in content)&&fields[k]?.type==='array')content[k]=[]});
         const x=await NL.api('/api/run/answer',{run_id:r.run_id,request_id:question.tool_use_id,action,...(f.mode==='form'?{content}:{})});
         if(x.error)setError(x.error);else{NL.toast(action==='accept'?'Response sent':'Request '+(action==='decline'?'declined':'cancelled'));NL.refresh()}}
       finally{setBusy(false)}
-    };
+    });
     return html`<form class="ask" onSubmit=${e=>{e.preventDefault();send('accept')}}>
       <div class="ask-h"><span class="ask-ico">?</span>${f.message||'The agent needs your input'}</div>
       ${f.mode==='url'?html`<p>Open ${new URL(f.url).hostname} to continue.</p><p class="path-wrap"><code>${f.url}</code></p>`:
@@ -171,7 +171,7 @@
     });
     const answers = () => { const o = { ...ans }; for (const [k, v] of Object.entries(other)) if (v.trim()) o[k] = v.trim();for(const k of Object.keys(skipped))if(skipped[k])o[k]='Skipped by user.'; return o; };
     const complete=qs.every(q=>{const a=answers()[q.question];return Array.isArray(a)?a.length:!!a});
-    const send = async () => {
+    const send = NL.useSubmit(async () => {
       if (!qs.length) {
         if (!free.trim()) return NL.toast('Type your answer first', 'warn');
         const x = await NL.act('/api/run/answer', { run_id: r.run_id, request_id:pq.tool_use_id, text: free.trim() }, 'Sent. The agent carries on.');
@@ -182,7 +182,7 @@
       if (!complete) return NL.toast('Answer or skip each question', 'warn');
       const x = await NL.act('/api/run/answer', { run_id: r.run_id, request_id:pq.tool_use_id, answers: a }, 'Sent. The agent carries on.');
       return x;
-    };
+    });
     return html`<div class="ask">
       <div class="ask-h"><span class="ask-ico">?</span> ${r.pid ? 'The agent is asking you. It waits for your answer.' : 'The agent asked you. Your answer resumes it.'}</div>
       ${qs.map(q => html`<fieldset class="ask-q"><legend>${q.header ? html`<span class="ask-tag">${q.header}</span>` : null}${q.question}</legend>
@@ -294,6 +294,11 @@
     const scroller = useRef();
     const [stick, setStick] = useState(true);
     const [reply, setReply] = NL.useDraft('reply:'+id+':'+(focusSub||''),'');
+    const sendReply = NL.useSubmit(async () => {
+      if (!r || !reply.trim()) return;
+      const x = await NL.act('/api/run/reply', { run_id: r.run_id, text: ArloAgents.message(reply, focusSub, (r.subagents || []).find(a => a.id === focusSub)?.type) });
+      if (x.ok) setReply('');
+    });
     useEffect(() => { const el = scroller.current; if (el && stick) el.scrollTop = el.scrollHeight; }, [blocks.length, r && r.status, stick]);
     const onScroll = e => { const el = e.target; setStick(el.scrollHeight - el.scrollTop - el.clientHeight < 80); };
     if (!r) return html`<${NL.Sheet} title="Run" onClose=${onClose} wide>${err ? html`<${NL.Empty}>${err}</${NL.Empty}>` : html`<${NL.Spinner} />`}</${NL.Sheet}>`;
@@ -302,8 +307,6 @@
     const budget = r.max_minutes ? r.max_minutes * 60 : null;
     const liveNow = r.transport === 'live' && (active || r.status === 'waiting_input') && r.pid;
     const canReply = r.session_id && (r.status === 'waiting_input' || NL.RUN_DONE.has(r.status) || liveNow);
-    const subagent=(r.subagents||[]).find(a=>a.id===focusSub);
-    const sendReply = async () => { if (!reply.trim()) return; const x = await NL.act('/api/run/reply', { run_id: r.run_id, text: ArloAgents.message(reply,focusSub,subagent?.type) }); if (x.ok) setReply(''); };
     const hint = focusSub ? 'Message for '+focusSub+', delivered through its parent (Ctrl+Enter)' : liveNow && active ? 'Message the agent while it works; it reads it after its current step (Ctrl+Enter)'
       : r.status === 'waiting_input' ? 'Your turn. Reply in your own words (Ctrl+Enter)' : 'Reply to continue this conversation (Ctrl+Enter to send)';
     const title = NL.runTitle(r);

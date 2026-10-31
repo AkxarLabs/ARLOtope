@@ -3,6 +3,7 @@ import json
 import sys
 from pathlib import Path
 
+import labfiles
 import pytest
 import yaml
 
@@ -75,12 +76,12 @@ def test_legacy_model_and_cancelled_continuation(hub):
     assert assignments.resolve(lab,RunSpec('',backend='claude'))['model']=='legacy-model'
     source=enqueue(lab,RunSpec('',prompt='First.'))
     _,_,path,source=manifest.find_run(lab,source['run_id'])
-    source.update(status='completed',session_id='session');manifest.write_manifest(path,source)
+    source.update(status='completed',session_id='session');labfiles.write_json(path,source)
     child=enqueue(lab,RunSpec('',prompt='Second.',extra={'context':{'mode':'continue','run_id':source['run_id']}}))
     _,_,path,child=manifest.find_run(lab,child['run_id'])
-    child['status']='killed';manifest.write_manifest(path,child)
+    child['status']='killed';labfiles.write_json(path,child)
     contexts.assert_current(lab,source)
-    child['status']='failed';manifest.write_manifest(path,child)
+    child['status']='failed';labfiles.write_json(path,child)
     contexts.assert_current(lab,source)
 
 
@@ -88,7 +89,7 @@ def test_continuation_keeps_configuration_and_rejects_wrong_profile(hub):
     lab,cfg=configure(hub)
     run=enqueue(lab,RunSpec('',prompt='Draft.',preset='lead'))
     _,_,path,run=manifest.find_run(lab,run['run_id'])
-    run.update(status='completed',session_id='session');manifest.write_manifest(path,run)
+    run.update(status='completed',session_id='session');labfiles.write_json(path,run)
     cfg['agents']['programmatic']['presets']['lead']['model']='changed'
     (hub.lab/'config.yaml').write_text(yaml.safe_dump(cfg))
     spec=RunSpec('',prompt='Revise.',extra={'context':{'mode':'continue','run_id':run['run_id']}})
@@ -105,13 +106,13 @@ def test_causal_context_can_resume_writer_after_independent_review(hub):
     writer={'run_id':'writer','target':'hub','schema':2,'level':'hub','workflow_node':'draft',
             'cwd':str(lab.hub),'backend':'claude','session_id':'writer-session','status':'completed','attempt':1}
     reviewer={**writer,'run_id':'review','workflow_node':'review','session_id':'reviewer-session','input_runs':['writer']}
-    for run in (writer,reviewer):manifest.write_manifest(adir/(run['run_id']+'.json'),run)
+    for run in (writer,reviewer):labfiles.write_json(adir/(run['run_id']+'.json'),run)
     selected=contexts.workflow_sources(lab,{'review':'review'},{'from':'draft'},'revise')
     assert selected[0]['run_id']=='writer'
     text,lineage=contexts.prepare(lab,{'mode':'continue','run_id':'writer'},'claude',lab.hub,'Revise.')
     assert lineage['session_id']=='writer-session'
     updated={**writer,'run_id':'revise','workflow_node':'revise','context':{'source_run':'writer'}}
-    manifest.write_manifest(adir/'revise.json',updated)
+    labfiles.write_json(adir/'revise.json',updated)
     with pytest.raises(SpecError,match='newer work'):
         contexts.prepare(lab,{'mode':'continue','run_id':'writer'},'claude',lab.hub,'Old context.')
     with pytest.raises(SpecError,match='newer work'):contexts.assert_current(lab,writer)
@@ -122,22 +123,22 @@ def test_fork_revalidation_and_namespace(hub):
     for name in ('auth-a','auth-b'):
         early={'run_id':name,'target':'hub','schema':2,'level':'hub','cwd':str(lab.hub),
                'backend':'acp','session_id':None,'status':'waiting_input'}
-        manifest.write_manifest(adir/(name+'.json'),early)
+        labfiles.write_json(adir/(name+'.json'),early)
     contexts.assert_current(lab,early)  # Separate authentication requests are not a shared conversation.
     source={'run_id':'source','target':'hub','schema':2,'level':'hub','cwd':str(lab.hub),'backend':'claude',
             'session_id':'same-id','status':'completed','attempt':1}
-    manifest.write_manifest(adir/'source.json',source)
+    labfiles.write_json(adir/'source.json',source)
     other={**source,'run_id':'other','backend':'acp','status':'running'}
-    manifest.write_manifest(adir/'other.json',other)
+    labfiles.write_json(adir/'other.json',other)
     _,data=contexts.prepare(lab,{'mode':'native-fork','run_id':'source'},'claude',lab.hub,'Fork.')
     fork={**source,**data,'session_id':None,'run_id':'fork','status':'queued'}
-    manifest.write_manifest(adir/'fork.json',fork)
+    labfiles.write_json(adir/'fork.json',fork)
     with pytest.raises(SpecError,match='active work'):contexts.assert_current(lab,source)
-    fork['session_id']='allocated-but-not-started';manifest.write_manifest(adir/'fork.json',fork)
+    fork['session_id']='allocated-but-not-started';labfiles.write_json(adir/'fork.json',fork)
     with pytest.raises(SpecError,match='active work'):contexts.assert_current(lab,source)
-    fork['fork_started']=True;manifest.write_manifest(adir/'fork.json',fork)
+    fork['fork_started']=True;labfiles.write_json(adir/'fork.json',fork)
     contexts.assert_current(lab,source)
-    manifest.write_manifest(adir/'source.json',{**source,'attempt':2})
+    labfiles.write_json(adir/'source.json',{**source,'attempt':2})
     with pytest.raises(SpecError,match='changed while queued'):contexts.validate_head(lab,fork)
 
 
@@ -193,7 +194,7 @@ def test_graph_join_can_handoff_multiple_completed_sources(hub,monkeypatch):
     for task in ('analysis','writing'):
         rid='run-'+task
         bind(hub.root,'study',task,rid)
-        manifest.write_manifest(lab.agents_dir(lab.hub)/(rid+'.json'),{
+        labfiles.write_json(lab.agents_dir(lab.hub)/(rid+'.json'),{
             'run_id':rid,'target':'hub','subject':'study','schema':2,'level':'hub','workflow_node':task,
             'cwd':str(lab.hub),'backend':'claude','status':'completed','last_message':task+' evidence'})
         monkeypatch.setenv('ARLOTOPE_RUN_SUBJECT','study');monkeypatch.setenv('ARLOTOPE_RUN_NODE',task);monkeypatch.setenv('ARLOTOPE_RUN_ID',rid)

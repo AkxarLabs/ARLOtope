@@ -11,6 +11,8 @@ import shutil
 import uuid
 import yaml
 
+import labfiles
+
 KINDS = ('document','source','note','answer','output','log')
 MAX_TEXT = 500_000
 MAX_FILE = 4*MAX_TEXT+65536
@@ -22,8 +24,7 @@ def now():
 
 def project_folder(root):
     root=Path(root).resolve()
-    from project_identity import read
-    config=read(root/'.arlotope/project.json', {})
+    config=labfiles.read_json(root/'.arlotope/project.json', {})
     if not isinstance(config,dict):raise ValueError('The project configuration must be a mapping.')
     rel=config.get('knowledge_dir','.arlotope/knowledge')
     if not isinstance(rel,str) or Path(rel).is_absolute():
@@ -59,12 +60,12 @@ def _file(folder, identifier):
     if not isinstance(identifier,str) or not identifier or len(identifier)>500 or Path(identifier).is_absolute() or '..' in Path(identifier).parts or '\\' in identifier:
         raise ValueError('Choose a record ID.')
     path=Path(folder)/(identifier if identifier.endswith('.md') else identifier+'.md')
-    if path.is_symlink() or not path.resolve().is_relative_to(Path(folder).resolve()):
+    if not labfiles.inside(folder,path):
         raise ValueError('The record is outside its knowledge folder.')
     if not path.exists() and Path(folder).is_dir():
         matches=[]
         for candidate in Path(folder).rglob('*.md'):
-            if candidate.is_symlink() or not candidate.resolve().is_relative_to(Path(folder).resolve()):continue
+            if not labfiles.inside(folder,candidate):continue
             try:
                 if read_file(candidate)[0].get('id')==identifier:matches.append(candidate)
             except (OSError,ValueError,yaml.YAMLError):continue
@@ -93,10 +94,7 @@ def read_file(path):
 def _write(path, meta, text):
     content='---\n'+yaml.safe_dump(meta,sort_keys=False,allow_unicode=True)+'---\n\n'+text.rstrip()+'\n'
     if len(content.encode('utf-8'))>MAX_FILE:raise ValueError('This record is too large; start a separate record.')
-    path.parent.mkdir(parents=True,exist_ok=True)
-    temporary=path.with_name(path.name+'.'+uuid.uuid4().hex+'.tmp')
-    temporary.write_text(content,encoding='utf-8')
-    os.replace(temporary,path)
+    labfiles.write_atomic(path,content)
 
 
 def create(folder, *, kind='note', text='', title='', studies=None, tags=None, about=None,
@@ -138,7 +136,7 @@ def listing(folder, *, query='', kind='', tag='', offset=0, limit=100, **_):
     folder=Path(folder);rows=[]
     for path in sorted(folder.rglob('*.md')) if folder.is_dir() else []:
         meta={}
-        if path.is_symlink() or not path.resolve().is_relative_to(folder.resolve()):continue
+        if not labfiles.inside(folder,path):continue
         try:
             meta,text=read_file(path)
             entry={**meta,'id':meta.get('id') or path.relative_to(folder).with_suffix('').as_posix(),'kind':meta.get('kind','document'),
@@ -242,9 +240,8 @@ def _dispatch(hub, study, action='list', **data):
 
 def save_answer(lab, question, result):
     """Keep a durable delivery receipt before writing to a possibly offline project."""
-    from project_identity import atomic
     pending=lab.hub/'lab/.bus/knowledge-pending'/ (result['id']+'.json')
-    atomic(pending,{'question':question,'result':result})
+    labfiles.write_json(pending,{'question':question,'result':result})
     _deliver_answer(lab,pending,question,result)
 
 
@@ -256,10 +253,9 @@ def _deliver_answer(lab,path,question,result):
 
 
 def retry_answers(lab):
-    from project_identity import read
     errors=[]
     for path in (lab.hub/'lab/.bus/knowledge-pending').glob('*.json'):
-        item=read(path)
+        item=labfiles.read_json(path)
         try:
             if item:_deliver_answer(lab,path,item['question'],item['result'])
         except (OSError,ValueError) as error:errors.append(str(error))
@@ -268,8 +264,7 @@ def retry_answers(lab):
 
 def sync_answer(lab, run=None):
     """Materialize a workspace reply once; transcripts remain the execution evidence."""
-    from project_identity import read
-    record=read(lab.hub/'lab/.bus/assistant.json',{})
+    record=labfiles.read_json(lab.hub/'lab/.bus/assistant.json',{})
     if run is None:
         if not record.get('run_id'):return
         from executor.manifest import find_run
@@ -284,7 +279,7 @@ def sync_answer(lab, run=None):
         from executor.manifest import find_run,run_dir
         hit=find_run(lab,run['run_id'])
         if not hit:return
-        saved=read(run_dir(hit[2].parent,run['run_id'])/result['file'])
+        saved=labfiles.read_json(run_dir(hit[2].parent,run['run_id'])/result['file'])
         if saved and saved.get('text'):
             save_answer(lab,saved.get('question') or question,saved)
     elif run.get('status') in ('completed','failed','killed','timeout'):

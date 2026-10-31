@@ -58,9 +58,7 @@ def _env_write(have: dict) -> None:
     lines = ["# This lab's keys — written by the dashboard. Research keys are inherited by runs; ARLOTOPE_* lines",
              "# (notifications) never are. Never commit."]
     lines += [f"{k}={v}" for k, v in have.items()]
-    p = _env_path()
-    p.parent.mkdir(parents=True, exist_ok=True)
-    p.write_text("\n".join(lines) + "\n", encoding="utf-8")
+    ctx.labfiles.write_atomic(_env_path(), "\n".join(lines) + "\n", mode=0o600)   # holds secrets: owner-only
     _ensure_gitignored()
 
 

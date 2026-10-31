@@ -350,6 +350,8 @@ def test_create_open_and_switch_labs(m, hub, tmp_path):
         assert code == 200, out
         assert (dest / "lab" / "config.yaml").exists() and not (dest / ".github").exists()
         assert m.ctx.labfiles.load_yaml(dest / "lab" / "config.yaml")["lab"]["name"] == "Second lab"
+        assert set(m.ctx.labfiles.load_yaml(dest / "lab" / "config.yaml")["lab"]) == {"name", "projects_root"}   # only its own changes
+        assert (dest / "lab" / "REGISTRY.md").exists() and "no findings yet" in (dest / "lab" / "knowledge" / "FINDINGS.md").read_text(encoding="utf-8")
         listed, _ = m.labs.labs_list()
         assert any(Path(l["path"]).resolve() == dest.resolve() for l in listed["labs"])
         out, code = m.labs.labs_open({"path": str(dest)})

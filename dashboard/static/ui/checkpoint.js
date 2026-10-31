@@ -24,7 +24,7 @@
     const s = NL.useLab();
     const it = NL.item(s, study) || { id: study, title: study };
     const { data: r, error, reload: load } = NL.useGet(`/api/checkpoint?${NL.qs({ study, id })}`, JSON.stringify((it.checkpoints || {})[id] || {}));
-    const [note, setNote] = useState('');
+    const [note, setNote] = NL.useDraft('checkpoint:' + study + ':' + id + ':note', '');
     const [changes, setChanges] = useState(false);
     const [checking, setChecking] = useState(false);
     const [typed, setTyped] = useState('');
@@ -105,7 +105,7 @@
     const it = NL.item(s, slug) || { id: slug };
     const [doc, setDoc] = useState(null);
     const [mode, setMode] = useState('execute');
-    const [note, setNote] = useState('');
+    const [note, setNote] = NL.useDraft('loop:' + slug + ':note', '');
     const load = () => NL.api('/api/libdoc', { scope: 'project', slug, rel: 'LOOP_BRIEF.md' }).then(setDoc);
     useEffect(() => { load(); }, [slug]);
     const rec = (it.checkpoints || {})[LOOP];
@@ -113,6 +113,7 @@
     const go = async launch => {
       const r = await NL.act('/api/checkpoint/decide', { study: slug, checkpoint: LOOP, decision: 'approved', confirm: true,
         note: `mode: ${mode}.${note.trim() ? ' ' + note.trim() : ''}` }, 'Loop approved');
+      if (r.ok) setNote('');
       if (r.ok && launch) NL.launch({ skill: 'research-loop', target: slug });
       return r;
     };
@@ -136,13 +137,13 @@
   const MoveSheet = ({ it, onClose }) => {
     const steps = [...NL.stepsOf(it), ...Object.keys(NL.STEPS).filter(k => NL.isShelved(k))];
     const [to, setTo] = useState(it.was && steps.includes(it.was) ? it.was : steps.includes(it.state) ? it.state : steps[0]);
-    const [note, setNote] = useState('');
+    const [note, setNote] = NL.useDraft('move:' + it.id + ':note', '');
     const go = async () => {
       const r = await NL.act('/api/study/move', { study: it.id, to, note: note.trim(), confirm: true });
-      if (r.ok) onClose();
+      if (r.ok) { setNote(''); onClose(); }
     };
     return html`<${NL.Sheet} kicker=${NL.isShelved(it.state) ? 'Bring it back' : 'Move it'} title=${it.title || it.id} onClose=${onClose}
-      footer=${html`<${NL.Btn} kind="ghost" onClick=${onClose}>Cancel</${NL.Btn}><${NL.Btn} kind="primary" disabled=${!note.trim() || (to === it.state && !(it.waiting || []).length && !it.asks)} onClick=${go}>Move to ${NL.STATE_LABEL[to] || to}</${NL.Btn}>`}>
+      footer=${html`<${NL.Btn} kind="ghost" onClick=${() => { setNote(''); onClose(); }}>Cancel</${NL.Btn}><${NL.Btn} kind="primary" disabled=${!note.trim() || (to === it.state && !(it.waiting || []).length && !it.asks)} onClick=${go}>Move to ${NL.STATE_LABEL[to] || to}</${NL.Btn}>`}>
       <p class="muted">Now at <b>${NL.taskLabel(it)}</b>${it.was ? html`, left from <b>${NL.STATE_LABEL[it.was] || it.was}</b>` : null}. Your move is the decision: no checkpoint on the way is asked, and the move is recorded with your reason.</p>
       <${NL.Field} label="To"><${NL.Select} value=${to} onChange=${setTo} options=${steps.map(st => ({value:st,label:NL.STATE_LABEL[st]||st}))}/></${NL.Field}>
       <${NL.Field} label="Why (recorded)"><${NL.Textarea} rows="2" value=${note} onInput=${setNote} placeholder="e.g. new evidence from …" /></${NL.Field}>

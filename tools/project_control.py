@@ -7,6 +7,8 @@ import time
 import uuid
 from pathlib import Path
 
+from labfiles import write_json
+
 
 def control(argv):
     if argv and argv[0] == 'log':
@@ -48,9 +50,7 @@ def request(payload):
     queue = folder / 'controller'
     queue.mkdir(exist_ok=True)
     record = {'id': request_id, 'run_id': os.environ['ARLOTOPE_RUN_ID'], **payload}
-    temp = queue / (request_id + '.tmp')
-    temp.write_text(json.dumps(record), encoding='utf-8')
-    temp.replace(queue / (request_id + '.request.json'))
+    write_json(queue / (request_id + '.request.json'), record)
     response = queue / (request_id + '.response.json')
     # A missing controller never becomes an implicit permission to continue.
     deadline = time.monotonic() + 300

@@ -4,6 +4,8 @@ import subprocess
 import sys
 from pathlib import Path
 
+from labfiles import write_json
+
 
 def main():
     spec = json.loads(Path(sys.argv[1]).read_text(encoding='utf-8'))
@@ -20,8 +22,7 @@ def main():
                         sys.stdout.buffer.write(line);sys.stdout.buffer.flush()
                     continue
                 if isinstance(value, dict) and value.get('arlotope_worker_session'):
-                    from project_worker import private_json
-                    private_json(Path(spec['sessionfile']), value)
+                    write_json(Path(spec['sessionfile']), value, private=True)
                 elif b'"cookie"' not in line:
                     sys.stdout.buffer.write(line);sys.stdout.buffer.flush()
         return proc.wait()

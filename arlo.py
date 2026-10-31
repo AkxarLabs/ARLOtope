@@ -23,6 +23,7 @@ import hashlib
 import http.client
 import json
 import os
+import signal
 import socket
 import subprocess
 import sys
@@ -35,11 +36,10 @@ if hasattr(sys.stdout, "reconfigure"):
     sys.stdout.reconfigure(encoding="utf-8", errors="replace")
 
 HERE = Path(__file__).resolve().parent
+sys.path.insert(0, str(HERE / "tools"))
+import labfiles  # noqa: E402 — stdlib-only, so this launcher runs on any Python
+
 PORTS = range(8787, 8800)
-
-
-def home() -> Path:
-    return Path(os.environ.get("ARLOTOPE_HOME") or (Path.home() / ".arlotope"))
 
 
 def lab_key(hub: Path) -> str:
@@ -47,34 +47,57 @@ def lab_key(hub: Path) -> str:
 
 
 def state_file(hub: Path) -> Path:
-    return home() / "servers" / f"{lab_key(hub)}.json"
+    return labfiles.home_path("servers", f"{lab_key(hub)}.json")
 
 
-def stable_python() -> str:
-    """A Python that outlives this launcher (see tools/executor/procs.py python_exe): this one, unless it
-    is uv's throwaway environment — then ~/.arlotope/py. The dashboard, its detached supervisors and hooks
-    all run on it."""
-    import importlib.util  # noqa: PLC0415 — procs.py is stdlib-only; loaded by path (no package import)
+def _procs():
+    """tools/executor/procs.py (detached spawning, tree kill, the stable Python), loaded by path: it is
+    stdlib-only, and the executor package it lives in needs pyyaml, which this launcher may not have yet."""
+    import importlib.util  # noqa: PLC0415
     spec = importlib.util.spec_from_file_location("arlotope_procs", HERE / "tools" / "executor" / "procs.py")
     procs = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(procs)
-    return procs.python_exe()
+    return procs
+
+
+def stable_python() -> str:
+    """A Python that outlives this launcher (see procs.python_exe): this one, unless it is uv's throwaway
+    environment — then the one in the ARLOtope home. The dashboard, its detached supervisors and hooks all
+    run on it."""
+    return _procs().python_exe()
+
+
+def _local(port: int, method: str, path: str, timeout: float, **request):
+    """One request to a dashboard on this machine → (status, Set-Cookie, body). Loopback only: no OS proxy
+    settings, no redirects."""
+    conn = http.client.HTTPConnection('127.0.0.1', port, timeout=timeout)
+    try:
+        conn.request(method, path, **request)
+        response = conn.getresponse()
+        return response.status, response.getheader('Set-Cookie') or '', response.read()
+    finally:
+        conn.close()
 
 
 def ping(port: int, timeout: float = 0.6) -> dict | None:
-    # Loopback discovery must not consult OS proxy settings or follow redirects.
-    conn = http.client.HTTPConnection('127.0.0.1', port, timeout=timeout)
     try:
-        conn.request('GET', '/api/ping')
-        response = conn.getresponse()
-        if response.status != 200:
-            return None
-        data = json.loads(response.read().decode('utf-8'))
+        status, _cookie, body = _local(port, 'GET', '/api/ping', timeout)
+        data = json.loads(body.decode('utf-8')) if status == 200 else None
         return data if isinstance(data, dict) and data.get('app') == 'arlotope' else None
     except (OSError, ValueError, http.client.HTTPException):
         return None
-    finally:
-        conn.close()
+
+
+def ask_to_stop(port: int) -> bool:
+    """Stop the dashboard on `port` the way Settings → Stop server does (POST /api/server/stop, with the session
+    the dashboard gives this machine's own processes)."""
+    try:
+        _status, cookie, _body = _local(port, 'GET', '/api/session', 5)
+        status, _cookie, _body = _local(port, 'POST', '/api/server/stop', 10, body=b'{"confirm": true}',
+                                        headers={'Content-Type': 'application/json', 'Cookie': cookie.split(';', 1)[0]})
+        return status == 200
+    except (OSError, http.client.HTTPException):
+        return False
 
 
 def port_free(port: int) -> bool:
@@ -128,13 +151,10 @@ def running_for(hub: Path, port: int | None = None) -> tuple[int, dict] | None:
     return None
 
 
-def _procs():
-    sys.path.insert(0, str(HERE / "tools"))
-    from executor import procs   # noqa: E402 — detached spawning + tree kill, per platform
-    return procs
-
-
 def stop(hub: Path) -> dict:
+    """Stop this lab's dashboard and nothing else. It is asked to shut down (it hands queued work to a background
+    scheduler first); only one that does not answer, or does not exit, is killed — that process alone. Never a
+    tree kill: on Windows that also ends the detached supervisors it started, and with them every agent run."""
     hit = running_for(hub)
     try:
         st = json.loads(state_file(hub).read_text(encoding="utf-8"))
@@ -143,14 +163,20 @@ def stop(hub: Path) -> dict:
     pid = (hit[1].get("pid") if hit else None) or st.get("pid")
     if not pid:
         return {"ok": True, "note": "not running"}
-    try:
-        _procs().kill_tree(int(pid))
-    except Exception as e:  # noqa: BLE001
-        return {"error": f"could not stop pid {pid}: {e}"}
-    for _ in range(40):
-        if not (hit and ping(hit[0], 0.3)):
-            break
+    procs = _procs()
+    asked = bool(hit) and ask_to_stop(hit[0])
+    deadline = time.time() + (30 if asked else 0)
+    while procs.pid_alive(pid) and time.time() < deadline:
         time.sleep(0.1)
+    if procs.pid_alive(pid):
+        try:
+            os.kill(int(pid), signal.SIGTERM)   # Windows: TerminateProcess on this one process
+        except (OSError, ValueError) as e:
+            return {"error": f"could not stop pid {pid}: {e}"}
+        for _ in range(50):
+            if not procs.pid_alive(pid):
+                break
+            time.sleep(0.1)
     try:
         state_file(hub).unlink()
     except OSError:
@@ -171,7 +197,7 @@ def background(hub: Path, port: int | None, demo: bool) -> dict:
     port = port or next((p for p in PORTS if port_free(p)), None)
     if port is None:
         return {"error": "no free port in 8787–8799 — pass --port"}
-    logs = home() / "logs"
+    logs = labfiles.home_path("logs")
     logs.mkdir(parents=True, exist_ok=True)
     log = (logs / f"{lab_key(hub)}.log").open("ab")
     argv = [sys.executable, str(Path(__file__).resolve()), "--hub", str(hub), "--port", str(port), "--no-browser",
@@ -182,8 +208,7 @@ def background(hub: Path, port: int | None, demo: bool) -> dict:
     for _ in range(150):
         info = ping(port, 0.3)
         if info:
-            st = {"pid": info.get("pid") or child.pid, "port": port, "lab": str(hub), "started": time.strftime("%Y-%m-%dT%H:%M:%S")}
-            return {"ok": True, "port": port, "pid": st["pid"], "lab": str(hub), "name": info.get("name"), "already": False}
+            return {"ok": True, "port": port, "pid": info.get("pid") or child.pid, "lab": str(hub), "name": info.get("name"), "already": False}
         if child.poll() is not None:
             break
         time.sleep(0.1)
@@ -192,7 +217,6 @@ def background(hub: Path, port: int | None, demo: bool) -> dict:
 
 def main() -> int:
     if len(sys.argv) > 1 and not sys.argv[1].startswith("-"):   # `arlo <verb> …` — the lab from a terminal
-        sys.path.insert(0, str(HERE / "tools"))
         import arlo_cli  # noqa: PLC0415
         if sys.argv[1] in arlo_cli.VERBS:
             return arlo_cli.main(sys.argv[1:])
@@ -218,9 +242,7 @@ def main() -> int:
                               env={**os.environ, "ARLOTOPE_REEXEC": "1"}).returncode
     hub = Path(a.hub).expanduser().resolve()
     say = (lambda d: print(json.dumps(d))) if a.json else None
-    sys.path.insert(0, str(HERE / 'tools'))
-    from labfiles import ensure_config
-    if not ensure_config(hub).exists():
+    if not labfiles.ensure_lab_files(hub).exists():
         msg = (f"{hub} is not an ARLOtope lab (no lab/config.yaml). Open the dashboard from a lab folder, "
                "or create one from the dashboard's Labs page.")
         (say or print)({"error": msg} if say else msg)
@@ -297,9 +319,7 @@ def main() -> int:
     import serve   # noqa: E402 — the dashboard server, in this process
     sys.argv = ["serve.py", "--hub", str(hub), "--port", str(port), *(["--demo"] if a.demo else [])]
     state = state_file(hub)
-    state.parent.mkdir(parents=True, exist_ok=True)
-    state.write_text(json.dumps({'port': port, 'pid': os.getpid(), 'lab': str(hub),
-                                 'started': time.strftime('%Y-%m-%dT%H:%M:%S')}), encoding='utf-8')
+    labfiles.write_json(state, {'port': port, 'pid': os.getpid(), 'lab': str(hub), 'started': labfiles.now()})
     try:
         return serve.main()
     finally:

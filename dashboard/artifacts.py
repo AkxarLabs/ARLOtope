@@ -44,22 +44,6 @@ def snapshot_view(limit: int = 40) -> list[dict]:
         return []
 
 
-def attention_items() -> list[dict]:
-    """An unanswered question an agent left with an artifact waits in Needs you, like a run's question."""
-    out = []
-    try:
-        for m in _tool().all_artifacts(ctx.HUB, limit=None, state='asking'):
-            if m.get("question") and not m.get("reply"):
-                out.append({"id": f"artifact:{m['id']}", "kind": "artifact", "sev": "warn", "ts": m.get("created"),
-                            "target": m.get("study") or "hub", "idea": m.get("study"), "run_id": m.get("run_id"),
-                            "skill": m.get("skill"), "title": m["title"],
-                            "body": f"asks you: {m.get('question') or m['title']}. The agent keeps working.",
-                            "detail": {"artifact": m["id"]}, "actions": [{"id": "artifact", "label": "answer"}]})
-    except Exception:  # noqa: BLE001
-        pass
-    return out
-
-
 def list_artifacts(q: dict | None = None) -> tuple[dict, int]:
     q = q or {}
     rows = _tool().all_artifacts(ctx.HUB, limit=101, study='' if q.get('study') == '@lab' else q.get('study') or None,
@@ -77,7 +61,7 @@ def get(q: dict) -> tuple[dict, int]:
     if not m:
         return {"error": "no such artifact"}, 404
     out = {"ok": True, "artifact": m}
-    f = _file(m)
+    f = _tool().content(m, ctx.HUB)
     if f and m["kind"] in ("md", "text", "table"):
         text = f.read_text(encoding="utf-8", errors="replace")[:MAX_TEXT]
         if m["kind"] == "table":
@@ -89,18 +73,11 @@ def get(q: dict) -> tuple[dict, int]:
     return out, 200
 
 
-def _file(m: dict):
-    if not m.get("file"):
-        return None
-    f = _tool().root(ctx.HUB) / m["id"] / m["file"]
-    return f if f.is_file() else None
-
-
 def file_route(q: dict):
     """GET /api/artifact/file?id= → (path, content type). HTML and SVG are served sandboxed (serve.py adds a
     CSP sandbox for them), so a page an agent made can never act as the dashboard."""
     m = _tool().load(str(q.get("id") or ""), ctx.HUB)
-    f = m and _file(m)
+    f = m and _tool().content(m, ctx.HUB)
     if not f:
         return None
     ct = CTYPES.get(f.suffix.lower(), "application/octet-stream")
@@ -151,11 +128,6 @@ def reply(body: dict) -> tuple[dict, int]:
     (d / "seen").touch()
     t.changed(ctx.HUB)
     ctx.pi_log({"action": "artifact.reply", "artifact": m["id"], "choice": choice})
-    try:
-        with (ctx.LAB / ".bus" / "events.jsonl").open("a", encoding="utf-8") as f:
-            f.write(json.dumps({"ts": ctx.ts(), "source": "hub", "kind": "artifact_reply", "run_id": m.get("run_id"),
-                                "detail": f"the PI replied to “{m['title']}”", "data": {"id": m["id"]}}) + "\n")
-    except OSError:
-        pass
+    ctx.emit_hub("artifact_reply", run_id=m.get("run_id"), detail=f"the PI replied to “{m['title']}”", data={"id": m["id"]})
     ctx.KICK.set()
     return {"ok": True, "reply": rep}, 200

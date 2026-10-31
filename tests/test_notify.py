@@ -9,6 +9,7 @@ import sys
 from conftest import REPO
 
 sys.path.insert(0, str(REPO / "tools"))
+import labfiles  # noqa: E402
 import executor  # noqa: E402
 from executor import manifest, notify  # noqa: E402
 from executor.supervise import _env_local  # noqa: E402
@@ -42,7 +43,7 @@ def test_nothing_is_sent_without_a_destination_or_for_info_items(hub, inbox):
     lab = setup(hub)
     rid = _queue(lab, 1)[0]
     _t, _w, path, m = executor.find_run(lab, rid)
-    manifest.transition(lab, path, m, "completed", by="test", finished=manifest.now())
+    manifest.transition(lab, path, m, "completed", by="test", finished=labfiles.now())
     assert notify.check(lab, force=True) == []                      # not configured
     (hub.lab / ".env.local").write_text(f"ARLOTOPE_NOTIFY_NTFY={base}/t\n", encoding="utf-8")
     assert notify.check(lab, force=True) == [] and not got         # a finished run is not "needs you"

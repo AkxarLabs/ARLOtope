@@ -1,11 +1,9 @@
-"""Labs on this computer (list / open / create / forget — ~/.arlotope/labs.json, ARLOTOPE_HOME overrides), the
+"""Labs on this computer (list / open / create / forget — labs.json in the ARLOtope home), the
 consoles for a CLI's own sign-in or install, and stopping the server.
 """
 
 from __future__ import annotations
 
-import json
-import os
 import threading
 from pathlib import Path
 
@@ -16,25 +14,8 @@ import attention  # noqa: E402
 executor = sources.executor   # tools/executor, or None
 
 
-def _labs_file() -> Path:
-    home = Path(os.environ.get("ARLOTOPE_HOME") or (Path.home() / ".arlotope"))
-    return home / "labs.json"
-
-
 def _labs_load() -> list[dict]:
-    try:
-        data = json.loads(_labs_file().read_text(encoding="utf-8"))
-        return [d for d in data.get("labs", []) if isinstance(d, dict) and d.get("path")]
-    except (OSError, json.JSONDecodeError, AttributeError):
-        return []
-
-
-def _labs_save(labs: list[dict]) -> None:
-    f = _labs_file()
-    f.parent.mkdir(parents=True, exist_ok=True)
-    tmp = f.with_suffix(".tmp")
-    tmp.write_text(json.dumps({"labs": labs}, indent=2), encoding="utf-8")
-    os.replace(tmp, f)
+    return [d for d in ctx.labfiles.home_rows("labs") if d.get("path")]
 
 
 def lab_name(hub: Path) -> str:
@@ -57,7 +38,7 @@ def _lab_summary(hub: Path) -> dict:
 def remember_lab(hub: Path) -> None:
     labs = [d for d in _labs_load() if Path(d["path"]).resolve() != hub.resolve()]
     labs.insert(0, {"path": str(hub.resolve()), "opened": ctx.ts()})
-    _labs_save(labs[:30])
+    ctx.labfiles.save_home_rows("labs", labs[:30])
 
 
 def labs_list() -> tuple[dict, int]:
@@ -89,8 +70,8 @@ def labs_open(body: dict) -> tuple[dict, int]:
         hub = hub.resolve()
     except OSError:
         return {"error": f"can't read {raw}"}, 400
-    from labfiles import ensure_config
-    if not (hub / "lab").is_dir() or not ensure_config(hub).exists():
+    from labfiles import ensure_lab_files
+    if not (hub / "lab").is_dir() or not ensure_lab_files(hub).exists():
         return {"error": f"{hub} is not a ARLOtope (no lab/config.yaml there)"}, 400
     ctx.set_remote(None)
     ctx.switch_hub(hub)
@@ -125,7 +106,7 @@ def labs_create(body: dict) -> tuple[dict, int]:
 def labs_forget(body: dict) -> tuple[dict, int]:
     raw = str(body.get("path") or "")
     labs = [d for d in _labs_load() if str(Path(d["path"])).lower() != str(Path(raw)).lower()]
-    _labs_save(labs)
+    ctx.labfiles.save_home_rows("labs", labs)
     return {"ok": True}, 200
 
 

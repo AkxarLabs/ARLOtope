@@ -18,7 +18,11 @@ def _draft(value):
 
 
 def _meta(folder):
-    return json.loads((folder / 'draft.json').read_text(encoding='utf-8'))
+    """The draft's record. The designer agent can edit it, so its room must still be a room ID."""
+    meta = json.loads((folder / 'draft.json').read_text(encoding='utf-8'))
+    if not isinstance(meta, dict) or not isinstance(meta.get('room'), str) or not R.ID.fullmatch(meta['room']):
+        raise ValueError('This draft names an invalid room.')
+    return meta
 
 
 def drafts(q=None):
@@ -50,11 +54,11 @@ def op(body):
             existing = R.read(ctx.HUB).get(rid, {}).get('definition')
             definition = existing or {'base': rid, 'key': rid, 'size': [10,7], 'floor': 'boards', 'accent': 'blue',
                 'props': [{'c':'roundTable','at':[0,0]}, {'c':'bookshelf','at':[-3,-2.8]}, {'c':'plant','at':[4,2]}]}
-            (folder / 'room.json').write_text(json.dumps(definition, indent=2), encoding='utf-8')
+            ctx.labfiles.write_json(folder / 'room.json', definition)
             old_module = ctx.HUB / 'lab/rooms' / rid / 'extra.js'
             if old_module.is_file(): shutil.copyfile(old_module, folder / 'extra.js')
             meta = {'id':did,'room':rid,'request':str(body.get('text') or '')[:3000], 'created':ctx.ts()}
-            (folder / 'draft.json').write_text(json.dumps(meta,indent=2),encoding='utf-8')
+            ctx.labfiles.write_json(folder / 'draft.json', meta)
             (folder / 'README.md').write_text('Read docs/room-design.md. Edit room.json and optionally extra.js here. '
                 'Preview: /static/lab-view.html?roomdraft='+did+' . Use normal shell/browser tools for feedback. '
                 'Do not apply the draft or edit unrelated resources.\nRequest: '+meta['request'],encoding='utf-8')
@@ -62,7 +66,7 @@ def op(body):
         folder = _draft(body.get('id')); meta = _meta(folder)
         if action == 'save':
             definition = R.validate(body.get('definition'))
-            (folder / 'room.json').write_text(json.dumps(definition,indent=2),encoding='utf-8')
+            ctx.labfiles.write_json(folder / 'room.json', definition)
         elif action == 'agent':
             text = str(body.get('text') or meta['request']).strip()
             if not text or len(text)>3000: raise ValueError('Describe the room change in up to 3000 characters.')
@@ -86,7 +90,7 @@ def op(body):
             else:
                 run = enqueue(Lab(ctx.HUB),RunSpec(skill='',prompt=prompt,role='designer',label='Design room: '+meta['room']))
             meta['run_id']=run['run_id']
-            (folder/'draft.json').write_text(json.dumps(meta,indent=2),encoding='utf-8');ctx.KICK.set()
+            ctx.labfiles.write_json(folder / 'draft.json', meta);ctx.KICK.set()
         elif action == 'apply':
             if body.get('confirm') is not True: raise ValueError('Review the preview and confirm application.')
             data = R.validate(json.loads((folder/'room.json').read_text(encoding='utf-8')))
@@ -94,8 +98,8 @@ def op(body):
                 destination = ctx.HUB/'lab/rooms'/meta['room'];destination.mkdir(parents=True,exist_ok=True)
                 if (folder/'extra.js').is_file(): shutil.copyfile(folder/'extra.js',destination/'extra.js')
                 elif (destination/'extra.js').is_file(): (destination/'extra.js').unlink()
-                temp=destination/'room.json.tmp';temp.write_text(json.dumps(data,indent=2),encoding='utf-8');temp.replace(destination/'room.json')
-            meta['applied']=ctx.ts();(folder/'draft.json').write_text(json.dumps(meta,indent=2),encoding='utf-8')
+                ctx.labfiles.write_json(destination/'room.json',data)
+            meta['applied']=ctx.ts();ctx.labfiles.write_json(folder / 'draft.json', meta)
             ctx.pi_log({'action':'room.apply','room':meta['room'],'draft':meta['id']})
         else: raise ValueError('Choose create, save, agent or apply.')
         return {'ok':True,**meta},200

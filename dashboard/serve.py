@@ -49,6 +49,11 @@ if hasattr(sys.stdout, "reconfigure"):
 
 HERE = Path(__file__).resolve().parent
 STATIC = HERE / "static"
+# The 3D lab frame runs room code an agent wrote, with the whole lab state posted into it: it keeps its opaque
+# sandbox and may load its own scripts, styles, fonts and images, but may not talk to any network or post a form.
+LAB_VIEW_CSP = ("sandbox allow-scripts; default-src 'none'; script-src 'self' 'unsafe-inline' blob:; style-src 'self' 'unsafe-inline'; "
+                "img-src 'self' data: blob:; font-src 'self' data:; connect-src 'none'; form-action 'none'; frame-src 'none'; "
+                "object-src 'none'; base-uri 'none'")
 sys.path.insert(0, str(HERE))
 
 # The dashboard's modules — each one area of the product; all share ctx (the lab being shown), none
@@ -96,14 +101,25 @@ def _is_local_route(route: str) -> bool:
     return route in LOCAL_ONLY_EXACT or route.startswith(LOCAL_ONLY_PREFIXES)
 
 
+# A remote lab's dashboard is another machine's: what it answers is data, never code on this origin.
 def _inject_remote(raw: bytes, conn) -> bytes:
+    """A remote snapshot, re-encoded here as JSON and tagged with where it came from; anything else is null."""
     try:
         obj = json.loads(raw)
     except (ValueError, UnicodeDecodeError):
-        return raw
+        return b"null"
     if isinstance(obj, dict):
         obj["remote"] = conn.info()
     return json.dumps(obj).encode("utf-8")
+
+
+def _remote_headers(ctype: str) -> dict:
+    """Whatever the remote claims, the browser must not sniff it, and any page it carries runs in an opaque
+    sandbox. PDFs are left unsandboxed: browsers won't render one sandboxed, and it runs no script here."""
+    headers = {"X-Content-Type-Options": "nosniff"}
+    if ctype.split(";")[0].strip().lower() != "application/pdf":
+        headers["Content-Security-Policy"] = "sandbox allow-scripts"
+    return headers
 
 
 # A short shared snapshot cache. ThreadingHTTPServer serves each SSE client on its own thread and each
@@ -322,7 +338,8 @@ class Handler(BaseHTTPRequestHandler):
                 if method == "HEAD" or b"session" in body:  # HEAD has no error body to inspect.
                     conn.refresh_cookie()
                     continue
-                return self._send(403, body, r.getheader("Content-Type") or "application/json")
+                ctype = r.getheader("Content-Type") or "application/json"
+                return self._send(403, body, ctype, _remote_headers(ctype))
             break
         ctype = r.getheader("Content-Type") or "application/octet-stream"
         if streaming and r.status == 200:
@@ -350,7 +367,7 @@ class Handler(BaseHTTPRequestHandler):
         hc.close()
         if route == "/api/state" and ctype.startswith("application/json"):
             data = _inject_remote(data, conn)
-        headers = {name: r.getheader(name) for name in ("Content-Security-Policy", "X-Content-Type-Options") if r.getheader(name)}
+        headers = _remote_headers(ctype)
         if method == "HEAD" and r.getheader("Content-Length"):
             headers["Content-Length"] = r.getheader("Content-Length")
         return self._send(r.status, data, ctype, headers)
@@ -421,7 +438,7 @@ class Handler(BaseHTTPRequestHandler):
                 from urllib.parse import urlencode
                 return self._send(302, b'', 'text/plain', {'Location': '/?' + urlencode({'roomdraft': q['roomdraft']})})
             body = _with_rooms3d(body.decode("utf-8"), "world3d/rooms/").encode("utf-8")
-            headers['Content-Security-Policy'] = 'sandbox allow-scripts'
+            headers['Content-Security-Policy'] = LAB_VIEW_CSP
         # Only public assets are cached. Revalidate every load so edits are visible immediately.
         etag = '"' + hashlib.sha256(body).hexdigest() + '"'
         headers.update({'ETag': etag, 'Cache-Control': 'no-cache'})
@@ -494,13 +511,6 @@ def _res(out: dict) -> tuple[dict, int]:
     return out, 400 if out.get("error") else 200
 
 
-def _int(v, default: int = 0) -> int:
-    try:
-        return int(v or default)
-    except (TypeError, ValueError):
-        return default
-
-
 
 
 GET_ROUTES = {
@@ -518,7 +528,7 @@ GET_ROUTES = {
     '/api/starter/draft': starter.draft_view,
     "/api/state": lambda q: (_snapshot_cached(), 200),
     "/api/run": lambda q: runops.run_detail(q.get("run_id", "")),
-    "/api/run/tail": lambda q: runops.run_tail(q.get("run_id", ""), _int(q.get("offset"))),
+    "/api/run/tail": lambda q: runops.run_tail(q.get("run_id", ""), labfiles.pos_int(q.get("offset"), 0, 0)),
     "/api/run/log": lambda q: runops.run_log(q.get("run_id", "")),
     "/api/run/files": runops.run_files,
     "/api/run/actions": runops.run_actions,
@@ -708,7 +718,7 @@ def main() -> int:
     cfg = ctx.config().get("dashboard") or {}
     parser = argparse.ArgumentParser()
     parser.add_argument("--hub", default=None, help="serve another lab (its hub root); default: this repo")
-    parser.add_argument("--port", type=int, default=int(cfg.get("port", 8787)))
+    parser.add_argument("--port", type=int, default=8787)
     parser.add_argument("--demo", action="store_true",
                         help="enable the synthetic demo world (debugging/showcase; visit /?demo). "
                              "Off by default; also enabled by ARLOTOPE_DEMO=1.")

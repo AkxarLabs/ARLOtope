@@ -3,7 +3,9 @@ from __future__ import annotations
 
 import json
 from pathlib import Path
-import uuid
+
+import labfiles
+from labfiles import write_atomic
 
 
 def _passes(events, workflow, graph_workflows=(), remaps=None):
@@ -137,7 +139,7 @@ def read(hub, slug):
         notes_error=None
     except (OSError,ValueError,RuntimeError) as error:
         notes=[];notes_error=str(error)
-    return {'schema':1,'study':slug,'workflow':study['workflow'],'generated_at':journal.now(),
+    return {'schema':1,'study':slug,'workflow':study['workflow'],'generated_at':labfiles.now(),
             'finished':study['finished'],'events':events,'visits':list(visits.values()),
             'runs':sorted(runs,key=lambda r:r.get('created','')),'run_transitions':transitions,'outputs':outputs,
             'notes':notes,'notes_error':notes_error,
@@ -184,11 +186,7 @@ def save(hub, slug):
         raise ValueError('History snapshot must be a regular file.')
     for name,content in files:
         target=folder/name
-        temp=target.with_suffix('.'+uuid.uuid4().hex+'.tmp')
-        try:
-            temp.write_text(content,encoding='utf-8');temp.replace(target)
-        finally:
-            temp.unlink(missing_ok=True)
+        write_atomic(target,content)
     return {'ok':True,'path':str(folder/'workflow.md'),'rel':'history/workflow.md'}
 
 

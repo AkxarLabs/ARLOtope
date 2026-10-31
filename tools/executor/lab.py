@@ -20,23 +20,7 @@ DEFAULT_HUB = Path(__file__).resolve().parents[2]
 HUB_TARGET = "hub"
 
 
-load_yaml, read_jsonl = labfiles.load_yaml, labfiles.read_jsonl   # re-exported: executor modules import them from here
-
-
-def pos_int(value, default: int, minimum: int) -> int:
-    """Parse a numeric config knob defensively: unparseable -> default; below minimum -> clamped."""
-    try:
-        v = int(value)
-    except (TypeError, ValueError):
-        return default
-    return v if v >= minimum else minimum
-
-
-def pos_float(value, default: float) -> float:
-    try:
-        return float(value)
-    except (TypeError, ValueError):
-        return default
+load_yaml, read_jsonl, pos_int, pos_float = labfiles.load_yaml, labfiles.read_jsonl, labfiles.pos_int, labfiles.pos_float   # re-exported: executor modules import them from here
 
 
 class Lab:
@@ -60,10 +44,6 @@ class Lab:
         """agents.programmatic — the executor's whole config surface."""
         p = (self.config().get("agents") or {}).get("programmatic")
         return p if isinstance(p, dict) else {}
-
-    def dashboard_cfg(self) -> dict:
-        d = self.config().get("dashboard")
-        return d if isinstance(d, dict) else {}
 
     # ── registry / projects ─────────────────────────────────────────────────
     def registry_rows(self) -> list[dict]:

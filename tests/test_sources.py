@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import json
 
+import labfiles
 import pytest
 
 from conftest import kernel, load
@@ -432,7 +433,7 @@ def test_a_run_that_stopped_at_a_during_checkpoint_makes_the_study_wait(hub, mon
     lab = ex.Lab(hub.root)
     run = ex.enqueue(lab, ex.RunSpec(skill="experiment", target="demo"))
     _t, _w, path, man = ex.find_run(lab, run["run_id"])
-    ex.manifest.transition(lab, path, man, "completed", by="test", finished=ex.manifest.now(),
+    ex.manifest.transition(lab, path, man, "completed", by="test", finished=labfiles.now(),
                            report={"needs_pi": "approve-full-runs", "summary": "pilots met the bar"})
     snap = m.snapshot()
     assert snap["items"][0]["waiting"] == ["approve-full-runs"] and snap["checkpoints_waiting"] == 1

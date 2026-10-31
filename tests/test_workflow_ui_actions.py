@@ -3,6 +3,7 @@ import json
 import shutil
 import subprocess
 
+import labfiles
 import pytest
 
 from conftest import REPO, kernel, load
@@ -26,7 +27,7 @@ def test_human_approval_dispatches_all_ready_nodes_with_their_context(hub, monke
     first = lab_profile.start_graph(lab, 'study', executor.enqueue, executor.RunSpec)[0]
     _, _, path, source = executor.find_run(lab, first)
     source.update(status='completed', session_id='source-session')
-    executor.manifest.write_manifest(path, source)
+    labfiles.write_json(path, source)
     k.studies.move(hub.root, 'study', 'done')
     assert k.studies.study(hub.root, 'study')['runnable'] == ['analysis']
 

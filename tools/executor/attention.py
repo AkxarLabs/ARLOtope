@@ -1,7 +1,7 @@
 """One "needs you" queue for everything a run can want from the PI.
 
 Item: {id, kind, sev, ts, target, idea, run_id, title, body, detail, actions[]}
-  kind ∈ question · permission · assumed · denied · crashed · report · needs_pi · brake   (run-derived, here)
+  kind ∈ question · permission · assumed · denied · crashed · report · needs_pi · brake · scheduler   (here)
        + checkpoint · escalation · stalled · subagent        (lab-derived, merged in by dashboard/sources.py)
   sev  ∈ block (the lab is waiting on you) · warn · info
   id   is stable (derived from the underlying record), so a dismissal is durable, and a genuinely new
@@ -12,11 +12,13 @@ Acks: lab/.bus/attention-acks.jsonl  {ts, id, action: dismiss|seen, by}
 
 from __future__ import annotations
 
+import hashlib
 import time
 from pathlib import Path
 
 from .lab import Lab, profile, read_jsonl
-from .manifest import append_jsonl, now, parse_ts, run_dir
+from labfiles import append_jsonl, now, parse_ts
+from .manifest import run_dir
 
 SEV_ORDER = {"block": 0, "warn": 1, "info": 2}
 
@@ -82,6 +84,10 @@ def run_items(lab: Lab, runs: list[tuple[Path, dict]]) -> list[dict]:
                              "The permission mode is PI-owned config (agents.programmatic.permission_mode).",
                              detail={"count": den, "recent": denied[-5:]},
                              actions=[{"id": "dismiss", "label": "dismiss"}]))
+        if m.get("post_error"):   # the scheduler could not follow it up (chain, repeat, report)
+            out.append(_item("scheduler", "warn", f"post:{rid}:{att}", m, f"{label} finished, but its follow-up failed",
+                             body=m["post_error"] + " · nothing was chained or repeated after it",
+                             actions=[{"id": "tail", "label": "transcript"}, {"id": "dismiss", "label": "dismiss"}]))
         kept = bool(m.get("campaign")) and str(m.get("created_by") or "").startswith("campaign")
         if st in ("failed", "timeout", "killed") and m.get("reason") != "cancelled" and not kept:
             # (a campaign's own runs are retried by its keeper; a campaign that needs you says so itself)
@@ -132,6 +138,20 @@ def brake_item(reason: str | None) -> list[dict]:
              "detail": {}, "actions": [{"id": "dismiss", "label": "dismiss"}]}]
 
 
+def scheduler_item(lab: Lab) -> list[dict]:
+    """What the scheduler's last pass could not do (a run, a machine, the pass itself), while it lasts. Everything
+    else kept going; the scheduler's log has the details."""
+    from .scheduler import LEASE_STALE_S, lease   # noqa: PLC0415
+    d = lease(lab)
+    errors = d.get("errors") or []
+    if not errors or d.get("age") is None or d["age"] > LEASE_STALE_S:
+        return []
+    return [{"id": "scheduler:" + hashlib.sha1("\n".join(errors).encode("utf-8")).hexdigest()[:12],
+             "kind": "scheduler", "sev": "warn", "ts": now(), "target": "hub", "idea": None, "run_id": None,
+             "skill": None, "title": "The scheduler could not do everything", "body": " · ".join(errors)[:600],
+             "detail": {"errors": errors}, "actions": [{"id": "dismiss", "label": "dismiss"}]}]
+
+
 def load_acks(lab: Lab) -> dict[str, str]:
     acks: dict[str, str] = {}
     for a in read_jsonl(lab.acks_ledger, tail=5000):
@@ -168,4 +188,4 @@ def collect(lab: Lab, runs: list[tuple[Path, dict]] | None = None, extra: list[d
     if runs is None:
         from .manifest import all_runs
         runs = [(p, m) for _t, _w, p, m in all_runs(lab)]
-    return apply_acks(lab, run_items(lab, runs) + (extra or []) + brake_item(brake_reason))
+    return apply_acks(lab, run_items(lab, runs) + (extra or []) + brake_item(brake_reason) + scheduler_item(lab))

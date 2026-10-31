@@ -1,9 +1,11 @@
 # Configuration
 
-The repository ships `lab/config.defaults.yaml`. First use copies it to the ignored local
-`lab/config.yaml`; all Lab settings use that local file. Existing settings are never overwritten or
-implicitly merged with later defaults. Edit settings in the dashboard or local file, and include it
-in your Lab backup. A normal clone needs no template-generation step.
+The repository ships `lab/config.defaults.yaml`, which documents every setting. Your own changes live in
+the ignored local `lab/config.yaml`, which holds **only the settings you changed**: the Lab reads the
+defaults with that file laid over them (sections merge; a list or value replaces; `key: null` goes back
+to the default), so a new default reaches you unless you overrode it. The Settings page writes the file;
+editing it by hand is fine. A file that does not parse keeps the last good settings and Settings says
+so. Include `lab/config.yaml` in your Lab backup. A normal clone needs no template-generation step.
 
 Use **`lab/config.yaml`** for Lab agents, launches and defaults. Generated experiment projects
 resolve their run parameters in this order, highest precedence first:
@@ -45,7 +47,7 @@ These settings affect work volume; they are not provider billing estimates.
 ```bash
 uv run --with pyyaml python tools/profiles.py list
 uv run --with pyyaml python tools/profiles.py diff high      # what would change
-uv run --with pyyaml python tools/profiles.py apply high      # stamp into lab/config.yaml (+ sync agent models)
+uv run --with pyyaml python tools/profiles.py apply high      # set it in lab/config.yaml (+ sync agent models)
 uv run --with pyyaml python tools/profiles.py save my-preset  # snapshot current settings as a named profile
 ```
 …or `/configure profile <list|show|diff|apply|save> <name>`.
@@ -98,7 +100,6 @@ See [Choose agents](agent-workflows.md#choose-agents) for precedence, saved laun
 | `compute.scheduler.slurm.*` | — | PI | `partition`, `account`, `qos`, `gpus_per_run`/`gres`, `cpus_per_task`, `mem`, `constraint`, `time_grace_minutes`, `extra_args`, `setup` (shell lines run first in each job) |
 | `compute.scheduler.custom.*` | — | PI | `submit` (`{script}`), `state` / `cancel` (`{job}`), `header`, `setup`, for PBS, LSF or site wrappers |
 | `compute.scheduler.poll_seconds` · `max_queue_hours` | 30 · 48 | PI | how often a waiting run checks its job; when to give up on a job that never started |
-| `dashboard.port` | 8787 | agent-readable | default port for the [Lab dashboard](dashboard.md) (`dashboard/serve.py`) — a cosmetic local-only knob (no `dashboard.` prefix in `configure.py`) |
 | `dashboard.editor` | `vscode` | agent-readable | editor for the dashboard's "open in editor" deep-links: `vscode` \| `cursor` \| `vscodium` \| `windsurf` \| `none` (local-only `<scheme>://file/<abs>`) |
 | `agents.tiers.{strong,standard,fast}` | inherit | PI | the model **ladder** — each tier names a model: an alias (`sonnet` \| `opus` \| `haiku` \| `fable`), a full pinned id (e.g. `claude-haiku-4-5-20251001`), or `inherit` (the session model). The per-role keys below resolve through this at render time; all three ship `inherit` → **zero behavior change until you set a ladder** |
 | `agents.reviewer_model` | strong | PI | model for `fresh-context-reviewer` (→ its `.claude/agents/*.md` `model:` frontmatter). Value: tier name (`strong` \| `standard` \| `fast`) \| alias (`sonnet` \| `opus` \| `haiku` \| `fable`) \| full pinned id \| `inherit` |

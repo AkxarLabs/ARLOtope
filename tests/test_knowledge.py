@@ -2,6 +2,7 @@
 import json
 import sys
 from pathlib import Path
+import labfiles
 import pytest
 import yaml
 from conftest import REPO, load
@@ -48,7 +49,7 @@ def test_identity_conflicts_identify_the_selected_project_without_mutation(tmp_p
         identity.write_text(json.dumps(data), encoding='utf-8')
     else:
         args[{'lab': 'lab_id', 'owner': 'owner', 'study': 'study'}[conflict]] = 'different'
-    paths = [root/'.arlotope/project.json', I.home()/'projects.json']
+    paths = [root/'.arlotope/project.json', labfiles.home_path('projects.json')]
     before = {path: path.read_bytes() for path in paths}
     with pytest.raises(ValueError) as error:
         I.register(root, **args)

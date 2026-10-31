@@ -24,9 +24,9 @@ from pathlib import Path
 
 from . import actions, backends, live, records
 from .lab import Lab, labfiles, pos_float, pos_int, profile
-from .manifest import (append_jsonl, emit, now, read_manifest, run_dir, transition, worker_line,
-                       write_manifest)
-from .procs import NEW_GROUP, NO_WINDOW, RunLock, graceful_stop, kill_tree, python_exe
+from labfiles import append_jsonl, now, write_json
+from .manifest import emit, read_manifest, run_dir, transition, worker_line
+from .procs import NEW_GROUP, NO_WINDOW, RunLock, graceful_stop, kill_tree, popen, python_exe
 
 MIN_ATTEMPT_SECONDS = 300          # a resumed attempt always gets at least 5 minutes
 MAX_SUBAGENTS = 60
@@ -61,11 +61,10 @@ def run_process(cmd: list[str], *, cwd: Path, env: dict, stream_path: Path, back
     res = ProcResult()
     t0 = time.time()
     try:
-        proc = subprocess.Popen(cmd, cwd=str(cwd), env=env,
-                                stdin=subprocess.PIPE if (stdin_text is not None or live) else subprocess.DEVNULL,
-                                stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
-                                text=True, encoding="utf-8", errors="replace",
-                                **(popen_flags if popen_flags is not None else NEW_GROUP))
+        proc = popen(cmd, cwd=str(cwd), env=env,
+                     stdin=subprocess.PIPE if (stdin_text is not None or live) else subprocess.DEVNULL,
+                     stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True,
+                     **(popen_flags if popen_flags is not None else NEW_GROUP))
     except (FileNotFoundError, PermissionError, OSError):
         res.cli_missing = True
         return res
@@ -207,7 +206,7 @@ class _State:
         with self.lock:
             if force or time.time() - self._last >= 1.0:
                 self.m["heartbeat"] = now()
-                write_manifest(self.path, self.m)
+                write_json(self.path, self.m)
                 self._last = time.time()
 
     def transition(self, to: str, *, by: str = "supervisor", reason: str | None = None, **fields) -> None:
@@ -380,7 +379,6 @@ def _prepare(lab: Lab, b, st: _State, workdir: Path, rd: Path, is_live: bool):
 
 
 def _run(lab: Lab, b, st: _State, workdir: Path, adir: Path, rd: Path, is_live: bool) -> int:
-    m, run_id = st.m, st.m["run_id"]
     a = _prepare(lab, b, st, workdir, rd, is_live)
     if isinstance(a, int):
         return a
@@ -416,11 +414,13 @@ def _run_attempt(lab: Lab, b, st: _State, workdir: Path, adir: Path, rd: Path, i
             lab, workdir, kind, detail=detail or run_id, idea=m.get("subject"), data={"run_id": run_id, **d}),
             log=lambda obj: append_jsonl(stream, obj))
     rec = _Recorder(lab, st, workdir, conv, None if cmd.fires_hooks else (lab.bus_of(workdir) / "workers" / f"{run_id}.jsonl"), rd)
+    before = profile.definition(lab, m)   # held here, out of the agent's reach, and compared once it has ended
     res = run_process(cmd.argv, cwd=a.workdir, env=a.env, stream_path=stream, backend=b.name,
                       max_seconds=max(max_minutes * 60 - used, MIN_ATTEMPT_SECONDS),
                       max_bytes=pos_int(prog.get("max_transcript_mb", 200), 200, 0) * 1024 * 1024,
                       stdin_text=cmd.stdin_text, on_spawn=rec.on_spawn, on_event=rec.on_event, stop_file=stop_file,
                       heartbeat=lambda: st.write(force=True), popen_flags=NO_WINDOW, live=sess, conv=conv)
+    profile.definition_changed(lab, m, before)
     if is_live and not getattr(b, 'live_only', False) and not (res.started or res.stopped or res.parked or res.breached) and res.rc and res.wall < 60:
         # the live session never got going here (an old CLI, a flag it doesn't know): retry one-shot
         _say(f"live session ended at start-up (exit {res.rc}) — retrying this attempt one-shot")

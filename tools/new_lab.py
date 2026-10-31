@@ -3,7 +3,7 @@
     uv run --with pyyaml python tools/new_lab.py <dest> [--name "My lab"] [--projects-root ../my-lab-projects]
 
 Normal installation is `git clone` followed by `arlo`. This optional local-copy helper exports this
-checkout's committed files (`git archive HEAD`), creates private settings, and starts a separate Git
+checkout's committed files (`git archive HEAD`), gives it empty private lab files, and starts a separate Git
 history. It does not copy local research or settings from the source Lab.
 """
 
@@ -11,7 +11,6 @@ from __future__ import annotations
 
 import argparse
 import io
-import re
 import shutil
 import subprocess
 import tarfile
@@ -19,8 +18,6 @@ from pathlib import Path
 
 HUB = Path(__file__).resolve().parents[1]
 SKIP_TOP = {".github"}                      # the template's own CI is not the new lab's
-EMPTY_KNOWLEDGE = {"FAILURES.md": "*(no failures recorded yet)*", "FINDINGS.md": "*(no findings yet)*",
-                   "OPEN-QUESTIONS.md": "*(no open questions yet)*", "REFERENCES.md": "*(no references yet)*"}
 
 
 def _git(args: list[str], cwd: Path) -> subprocess.CompletedProcess:
@@ -75,37 +72,15 @@ def _reset_state(dest: Path) -> None:
     for d in (dest / "studies").iterdir() if (dest / "studies").is_dir() else []:
         if d.is_dir():
             shutil.rmtree(d)
-    # the template may itself be someone's working lab: no studies (an empty journal and registry), an empty
-    # knowledge base
     for rel in ("lab/journal.jsonl", "lab/approvals.jsonl", "lab/journal.jsonl.pre-kernel", "lab/approvals.jsonl.pre-kernel"):
         (dest / rel).unlink(missing_ok=True)
-    import sys  # noqa: PLC0415
-    sys.path.insert(0, str(Path(__file__).resolve().parent))
-    from kernel import studies  # noqa: PLC0415
-    studies.render_registry(dest)
-    for fname, empty in EMPTY_KNOWLEDGE.items():
-        f = dest / "lab" / "knowledge" / fname
-        if not f.exists():
-            continue
-        text = f.read_text(encoding="utf-8-sig")
-        head = re.split(r"\n---\n", text, maxsplit=1)[0]
-        f.write_text(f"{head}\n---\n\n{empty}\n", encoding="utf-8", newline="")
 
 
 def _set_config(dest: Path, name: str | None, projects_root: str | None) -> None:
-    from labfiles import ensure_config
-    cfg = ensure_config(dest)
-    text = cfg.read_text(encoding="utf-8-sig")
-    if projects_root:
-        text = re.sub(r'^(\s*projects_root:\s*)"[^"]*"', lambda m: f'{m.group(1)}"{projects_root}"', text, count=1, flags=re.M)
-    if name:
-        safe = name.replace("\\", "").replace('"', "'")[:80]
-        if re.search(r"^\s+name:", text.split("\ncompute:", 1)[0], re.M):
-            text = re.sub(r'^(\s+name:\s*).*$', lambda m: f'{m.group(1)}"{safe}"', text, count=1, flags=re.M)
-        else:
-            text = re.sub(r"^(lab:[^\n]*\n)", lambda m: f'{m.group(1)}  name: "{safe}"                # shown in the dashboard\n',
-                          text, count=1, flags=re.M)
-    cfg.write_text(text, encoding="utf-8", newline="")
+    import labfiles  # noqa: PLC0415
+    labfiles.ensure_lab_files(dest)
+    if err := labfiles.set_config(dest, {"lab.projects_root": projects_root, "lab.name": name and name[:80]}):
+        raise ValueError(err)
 
 
 def create_lab(dest: str | Path, name: str | None = None, projects_root: str | None = None,
