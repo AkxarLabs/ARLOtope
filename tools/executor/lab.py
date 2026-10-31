@@ -45,10 +45,6 @@ class Lab:
         p = (self.config().get("agents") or {}).get("programmatic")
         return p if isinstance(p, dict) else {}
 
-    def dashboard_cfg(self) -> dict:
-        d = self.config().get("dashboard")
-        return d if isinstance(d, dict) else {}
-
     # ── registry / projects ─────────────────────────────────────────────────
     def registry_rows(self) -> list[dict]:
         return labfiles.registry_rows(self.hub)

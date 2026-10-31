@@ -24,7 +24,6 @@ from __future__ import annotations
 
 import json
 import re
-import time
 from task_completion import flag_runs
 from pathlib import Path
 
@@ -516,7 +515,7 @@ def start_graph(lab, slug, enqueue, spec_type, retry=False, **options):
     """Dispatch eligible graph tasks; each reports through the ordinary study journal."""
     from kernel.branches import nodes
     from executor import contexts
-    from kernel.entry import apply, pending
+    from kernel.entry import apply
     apply(lab.hub, slug)
     s = studies.study(lab.hub, slug)
     if not s or s['finished']:

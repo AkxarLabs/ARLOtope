@@ -397,15 +397,6 @@ def waits_at(cp: dict, wid: str | None = None, hub=None) -> str | None:
     return path[path.index(b) - 1] if b in path and path.index(b) > 0 else None
 
 
-def is_end(sid: str, wid: str | None = None, hub=None) -> bool:
-    """A shelf, or the last step of the workflow's path."""
-    s = step(sid, hub)
-    if s and s["shelf"]:
-        return True
-    path = workflow(wid, hub)["path"] if workflows(hub) else []
-    return bool(path) and path[-1] == sid
-
-
 def roles(hub=None) -> dict[str, str]:
     """{subagent role: its label} — agent-roles/<role>.yaml (the lab's own, else this code's)."""
     h = hub_of(hub)

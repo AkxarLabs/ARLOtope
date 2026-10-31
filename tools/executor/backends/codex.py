@@ -10,7 +10,6 @@ the TUI), trusted per run.
 from __future__ import annotations
 
 import re
-import json
 
 from .. import live
 from ..lab import profile
