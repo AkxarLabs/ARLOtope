@@ -71,7 +71,6 @@
 .wf-room-groups .wf-node,.wf-list .wf-node{position:relative}
 .wf-room-groups .wf-node{margin-bottom:14px}
 .wf-list{padding:10px;display:flex;flex-wrap:wrap;gap:12px;align-items:flex-start}
-.workflow-editor-sheet.sheet-wide{width:min(1280px,calc(100vw - 24px))}
 @media(max-width:760px){
  .wf-workbench.has-inspector{grid-template-columns:minmax(0,1fr)}
  .wf-inspector{border-left:0;border-top:1px solid var(--edge);max-height:520px}
