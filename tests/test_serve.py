@@ -413,9 +413,10 @@ def test_claims_map_blocks_artifact_traversal(hub, monkeypatch):
     paper = hub.root / "studies" / "demo" / "paper"
     paper.mkdir(parents=True, exist_ok=True)
     (paper / "claims.yaml").write_text(
-        "claims:\n  - id: C001\n    project: demo\n    artifacts:\n      - ../secret.json\n", encoding="utf-8")
-    a = m.review.claims_map("demo")["claims"][0]["artifacts"][0]
-    assert a["exists"] is False and "abs" not in a     # escapes the project → never surfaced
+        "claims:\n  - id: C001\n    project: demo\n    artifacts:\n      - ../secret.json\n"
+        "      - //attacker.invalid/share/x.json\n", encoding="utf-8")
+    for a in m.review.claims_map("demo")["claims"][0]["artifacts"]:
+        assert a["exists"] is False and "abs" not in a     # escapes the project → never surfaced (nor looked at)
 
 
 # ── the Library (tree + document reader) ──────────────────────────────────────

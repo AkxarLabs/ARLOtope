@@ -392,7 +392,7 @@ def next_command(lab, m: dict) -> tuple[bool, str | None]:
 
 
 # ── monitoring: what every run did ───────────────────────────────────────────────────────────────
-def _dirs(lab, m: dict, workdir: Path) -> list[Path]:
+def run_dirs(lab, m: dict, workdir: Path) -> list[Path]:
     """The repos a run can change: its workdir, the lab, and its study's project."""
     out = [Path(workdir), lab.hub]
     if m.get("subject") and safe_id(m["subject"]):
@@ -404,12 +404,12 @@ def _dirs(lab, m: dict, workdir: Path) -> list[Path]:
 
 def watch_start(lab, m: dict, workdir: Path) -> dict:
     """Where each repo the run can change stood as it started (git), for the digest."""
-    return watch.snapshot(_dirs(lab, m, workdir), lab.hub)
+    return watch.snapshot(run_dirs(lab, m, workdir), lab.hub)
 
 
 def watch_finish(lab, m: dict, workdir: Path, run_dir: Path | None = None) -> dict:
     """The run's digest: what it did, computed — and the flags its watches raised."""
-    dirs = _dirs(lab, m, workdir)
+    dirs = run_dirs(lab, m, workdir)
     project = dirs[2] if len(dirs) > 2 else None
     return watch.digest(lab.hub, m, m.get("watch_start") or {}, [lab.bus_of(d) for d in dirs], project, run_dir)
 

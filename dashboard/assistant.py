@@ -129,8 +129,8 @@ def _deliver(record, text, facts, revision, options):
         selected_artifact=ctx.tool('artifact').load(reference['artifact'],ctx.HUB)
         if not selected_artifact or (selected_artifact.get('study') or '')!=selection['study']:
             raise SpecError('Choose the study that owns this output.')
-        artifact_file=ctx.tool('artifact').root(ctx.HUB)/selected_artifact['id']/selected_artifact.get('file','')
-        selected_artifact={**selected_artifact,'published_file':str(artifact_file)}
+        artifact_file=ctx.tool('artifact').content(selected_artifact,ctx.HUB)
+        selected_artifact={**selected_artifact,'published_file':str(artifact_file) if artifact_file else None}
     if document:
         if not isinstance(document,dict) or document.get('scope') not in ('lab','study','project'):
             raise SpecError('Choose a document from the Library.')

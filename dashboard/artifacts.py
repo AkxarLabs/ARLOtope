@@ -77,7 +77,7 @@ def get(q: dict) -> tuple[dict, int]:
     if not m:
         return {"error": "no such artifact"}, 404
     out = {"ok": True, "artifact": m}
-    f = _file(m)
+    f = _tool().content(m, ctx.HUB)
     if f and m["kind"] in ("md", "text", "table"):
         text = f.read_text(encoding="utf-8", errors="replace")[:MAX_TEXT]
         if m["kind"] == "table":
@@ -89,18 +89,11 @@ def get(q: dict) -> tuple[dict, int]:
     return out, 200
 
 
-def _file(m: dict):
-    if not m.get("file"):
-        return None
-    f = _tool().root(ctx.HUB) / m["id"] / m["file"]
-    return f if f.is_file() else None
-
-
 def file_route(q: dict):
     """GET /api/artifact/file?id= → (path, content type). HTML and SVG are served sandboxed (serve.py adds a
     CSP sandbox for them), so a page an agent made can never act as the dashboard."""
     m = _tool().load(str(q.get("id") or ""), ctx.HUB)
-    f = m and _file(m)
+    f = m and _tool().content(m, ctx.HUB)
     if not f:
         return None
     ct = CTYPES.get(f.suffix.lower(), "application/octet-stream")
