@@ -53,7 +53,7 @@
   /* a question a pass left: answer it here and the next pass gets the answer */
   const CampaignQuestion = ({ c, q }) => {
     const [text, setText] = useState('');
-    const send = async () => { if (!text.trim()) return; const x = await act(c, 'answer', { index: q.index, text: text.trim() }); if (x && x.ok) setText(''); };
+    const send = NL.useSubmit(async () => { if (!text.trim()) return; const x = await act(c, 'answer', { index: q.index, text: text.trim() }); if (x && x.ok) setText(''); });
     return html`<div class=${cls('inrow', q.answer ? 'sev-info' : 'sev-warn')}><div class="inrow-main"><span class="inrow-ico">?</span><span class="inrow-t"><b>${q.question}</b>
       <small>${when(q.ts)}${q.answer ? html` · you answered: <b>${NL.clip(q.answer, 120)}</b>${q.delivered ? ' (the next pass got it)' : ' (the next pass gets it)'}` : ' · your answer goes to the next pass'}</small></span></div>
       ${q.answer ? null : html`<div class="row grow"><${NL.Input} value=${text} onInput=${setText} onEnter=${send} placeholder="Your answer…" /><${NL.Btn} small kind="primary" onClick=${send} disabled=${!text.trim()}>Answer</${NL.Btn}></div>`}</div>`;

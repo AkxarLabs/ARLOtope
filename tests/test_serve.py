@@ -155,8 +155,9 @@ def test_renderer_is_opaque_and_static_modules_allow_its_origin(hub, monkeypatch
     sent = []
     handler._send = lambda *args: sent.append(args)
     handler._serve_static('lab-view.html')
-    assert sent[-1][3]['Content-Security-Policy'] == 'sandbox allow-scripts'
-    assert 'allow-same-origin' not in sent[-1][3]['Content-Security-Policy']
+    csp = sent[-1][3]['Content-Security-Policy']
+    assert csp.startswith('sandbox allow-scripts;') and 'allow-same-origin' not in csp
+    assert "connect-src 'none'" in csp and "form-action 'none'" in csp and "default-src 'none'" in csp
     handler._serve_static('vendor/three/three.module.min.js')
     assert sent[-1][3]['Access-Control-Allow-Origin'] == '*'
 

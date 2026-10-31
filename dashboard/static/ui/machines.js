@@ -157,7 +157,7 @@
     const [mode, setMode] = useState(null);
     const status=STATE[m.worker?.state],r=status?{tone:status[0],text:status[1]}:reach(m);
     const probe = async () => { const x = await NL.api('/api/machines/probe', { id: m.id }); NL.toast(x.ok ? 'Checked' : (x.error || 'unreachable'), x.ok ? 'ok' : 'warn'); reload(); };
-    const addLab = async () => { const x = await NL.act('/api/machines/add-lab', { id: m.id, path: path.trim() }); if (x.ok) { setPath(''); setMode(null); reload(); } };
+    const addLab = NL.useSubmit(async () => { const x = await NL.act('/api/machines/add-lab', { id: m.id, path: path.trim() }); if (x.ok) { setPath(''); setMode(null); reload(); } });
     const create = async () => {
       if (!newName.trim() || !newPath.trim()) return NL.toast('A name and a folder', 'warn');
       if (!await NL.confirm({ title: `Create “${newName.trim()}” on ${m.name}?`, ok: 'Create it', body: html`<p>Copies this template's committed files to <span class="mono">${newPath.trim()}</span> on ${m.name} over SSH, then sets it up as an empty lab (it needs <span class="mono">python3</span> and <span class="mono">git</span> there).</p>` })) return;
@@ -183,17 +183,15 @@
     const [host, setHost] = useState('');
     const [name, setName] = useState('');
     const [busy, setBusy] = useState(false);
-    const add = async () => {
+    const add = NL.useSubmit(async () => {
       if (!host.trim()) return;
-      setBusy(true);
       const x = await NL.api('/api/machines/add', { host: host.trim(), name: name.trim() || host.trim(), probe:false });
-      setBusy(false);
       if (!x.ok) return NL.toast(x.error, 'bad');
       setHost(''); setName(''); reload?.();
       if(onAdded)onAdded(x.machine);else NL.openMachineSetup(x.machine.id,{autoConnect:true});
-    };
+    }, setBusy);
     return html`<${NL.Section} title="Add a machine"><div class="form">
-      <${NL.Field} label="SSH host"><input class="input mono" list=${listId} value=${host} onInput=${e => setHost(e.target.value)} onKeyDown=${e=>e.key==='Enter'&&!busy&&add()} placeholder="SSH alias or user@host" />
+      <${NL.Field} label="SSH host"><input class="input mono" list=${listId} value=${host} onInput=${e => setHost(e.target.value)} onKeyDown=${e=>e.key==='Enter'&&add()} placeholder="SSH alias or user@host" />
           <datalist id=${listId}>${(suggestions || []).map(h => html`<option value=${h} />`)}</datalist></${NL.Field}>
       <details><summary>Display name</summary><${NL.Field} label="Name"><${NL.Input} value=${name} onInput=${setName} placeholder=${host || 'GPU box'} onEnter=${add} /></${NL.Field}></details>
       <p class="muted small">Uses your SSH settings. Adds a small runner in ~/.arlotope.</p>
