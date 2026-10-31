@@ -19,7 +19,7 @@ _SCHED: dict = {"thread": None, "stop": None}
 
 
 _SCHED_HUBS: set = set()   # labs opened in this server session: their queues keep moving after a switch
-ctx.on_change(lambda old, new: _SCHED_HUBS.update({old, new}))
+ctx.on_change(lambda old, new: _SCHED_HUBS.update(h for h in (old, new) if (h / "lab" / "config.yaml").exists()))   # not the app folder an installed copy starts from
 
 
 def alive() -> bool:
