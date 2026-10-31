@@ -86,7 +86,7 @@
     const proc = theSkill ? NL.PROC[theSkill] || {} : {};
     const needsProject = cfg && cfg.level === 'project';
     const blocked = needsProject && study && !study.has_project ? 'Attach or create a project folder before running this skill.' : null;
-    const go = async () => {
+    const go = NL.useSubmit(async () => {
       if (!theSkill) return;
       const body = { skill: theSkill, ...optBody(opts) };
       if (it.study || it.target) { if (target && target !== 'hub') body.target = target; else if (it.study) return NL.toast('Choose a study', 'warn'); }
@@ -94,13 +94,13 @@
       if (it.arg === 'text' && arg.trim()) body.args = arg.trim();
       const r = await NL.launch(body);
       if (r) onClose();
-    };
-    const sendAsk = async () => {
+    });
+    const sendAsk = NL.useSubmit(async () => {
       if (!ask.trim()) return;
       if (NL.quickAnswer && NL.quickAnswer(ask.trim(), NL.getState())) { onClose(); return NL.open(NL.AnswerSheet, { text: ask.trim(), target, onAgent: () => NL.launch({ prompt: ask.trim(), target: target && target !== 'hub' ? target : 'hub', ...optBody({ ...opts, chain: 'off' }) }) }, { key: 'answer' }); }
       const r = await NL.launch({ prompt: ask.trim(), target: target && target !== 'hub' ? target : 'hub', ...optBody({ ...opts, chain: 'off' }) });
       if (r) onClose();
-    };
+    });
     const sub = it && it.campaign ? 'Agents use the selected project’s machine and account. A campaign may approve only the checkpoints you let it, within the limits you set; everything else waits for you.'
       : 'Agents use the selected project’s machine and account. Checkpoints follow your workflow’s approval settings.';
     return html`<${NL.Sheet} title="Start task" sub=${sub} onClose=${onClose} wide>
@@ -140,7 +140,7 @@
     const [t, setT] = useState(text);
     const [tgt, setTgt] = useState(target);
     const [opts, setOpts] = useState(DEFAULT_OPTS);
-    const go = async () => { const r = await NL.launch({ prompt: t.trim(), target: tgt || 'hub', ...optBody({ ...opts, chain: 'off' }) }); if (r) { onSent && onSent(); onClose(); } };
+    const go = NL.useSubmit(async () => { const r = await NL.launch({ prompt: t.trim(), target: tgt || 'hub', ...optBody({ ...opts, chain: 'off' }) }); if (r) { onSent && onSent(); onClose(); } });
     return html`<div class="dialog dialog-wide"><h3>New instruction</h3>
       <${NL.Field} label="Instruction"><${NL.Textarea} rows="4" value=${t} onInput=${setT} onSubmit=${go} autofocus /></${NL.Field}>
       <${StudyPicker} label="Study" value=${tgt} onChange=${setTgt} allowLab />

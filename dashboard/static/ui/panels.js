@@ -163,7 +163,7 @@
 
   NL.DescribeBar = ({ what, placeholder, onSend }) => {
     const [text,setText]=useState('');
-    const send=async()=>{ if(!text.trim()||!onSend)return; const result=await onSend(text.trim()); if(result&&result.ok!==false)setText(''); };
+    const send=NL.useSubmit(async()=>{ if(!text.trim()||!onSend)return; const result=await onSend(text.trim()); if(result&&result.ok!==false)setText(''); });
     return html`<div class="form"><${NL.Field} label="What would you like to change?"><${NL.Textarea} rows=${3} value=${text} onInput=${setText} onSubmit=${send} placeholder=${placeholder} /></${NL.Field}>
       <div class="row end"><${NL.Btn} disabled=${!text.trim()} onClick=${send}>Draft with an agent</${NL.Btn}></div></div>`;
   };

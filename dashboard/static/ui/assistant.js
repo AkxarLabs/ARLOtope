@@ -5,9 +5,8 @@
     const lab=N.useLab(),read=N.usePoll('/api/assistant',5000),data=read.data||read.previous,load=read.reload,[text,setText]=useState(initialText),[busy,setBusy]=useState(false),[error,setError]=useState('');
     const [study,setStudy]=useState(initialStudy),[run,setRun]=useState(initialRun),[agent,setAgent]=useState(initialAgent),[document,setDocument]=useState(initialDocument),[reference,setReference]=useState(initialReference),[backend,setBackend]=useState(''),[preset,setPreset]=useState(''),[model,setModel]=useState(''),[fresh,setFresh]=useState(false),initialized=useRef(false);
     useEffect(()=>{if(read.data&&!initialized.current){initialized.current=true;const c=read.data.selection||{},explicitFocus=initialScope||initialDocument||initialReference||initialAgent;setStudy(explicitFocus?(initialStudy||''):initialStudy||(initialRun?'':c.study)||'');setRun(initialRun||(initialStudy||explicitFocus?'':c.run)||'');setAgent(initialAgent||(explicitFocus?'':c.agent)||'');setBackend(c.backend||'');setPreset(c.preset||'');setModel(c.model||'')}},[read.data]);
-    const send=async()=>{if(!text.trim()||busy)return;setBusy(true);setError('');
-      try{const r=await N.api('/api/assistant/message',{text,study,run,agent,backend,model,preset,fresh,document,reference});if(r.error)setError(r.error);else{setText('');setFresh(false);await load()}}
-      finally{setBusy(false)}};
+    const send=N.useSubmit(async()=>{if(!text.trim())return;setError('');
+      const r=await N.api('/api/assistant/message',{text,study,run,agent,backend,model,preset,fresh,document,reference});if(r.error)setError(r.error);else{setText('');setFresh(false);await load()}},setBusy);
     const projects=data?.facts?.projects||[],runs=(data?.facts?.runs||[]).filter(r=>!study||r.project===study);
     const runOptions=[{value:'',label:'No specific run'},...runs.map(r=>({value:r.id,label:r.task||r.id}))];
     const children=runs.find(r=>r.id===run)?.subagents||[],childOptions=[{value:'',label:'Whole task'},...children.map(a=>({value:a.id,label:a.task||a.role||a.id}))];

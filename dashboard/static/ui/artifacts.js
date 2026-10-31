@@ -78,6 +78,13 @@
     const [pick,setPick]=NL.useDraft('output:'+a.id+':choice',null);
     const [busy, setBusy] = useState(false);
     const [local, setLocal] = useState(null);
+    const send = NL.useSubmit(async () => {
+      if (!pick && !text.trim()) return;
+      const x = NL.DEMO && NL.demoReply ? NL.demoReply(a.id, pick, text.trim())
+        : await NL.api('/api/artifact/reply', { id: a.id, choice: pick, text: text.trim() });
+      if (x && x.ok) { setText(''); setLocal(x.reply); NL.toast('Sent: ' + NL.replyWhere(x.reply), 'ok'); setTimeout(NL.refresh, 300); }
+      else NL.toast((x && x.error) || 'That did not work.', 'bad');
+    }, setBusy);
     const r = a.reply || local;
     const choices = a.choices || [];
     if (r) return html`<div class="art-ask done">
@@ -85,15 +92,6 @@
       ${choices.length ? html`<div class="art-choices">${choices.map(c => html`<span class=${cls('art-choice', c === r.choice ? 'chosen' : 'not')}>${c === r.choice ? '✓ ' : ''}${c}</span>`)}</div>` : null}
       <div class="art-replied"><b>You replied</b>${r.choice ? html` <span class="pill pill-ok">${r.choice}</span>` : null}${r.text ? html` <span>“${r.text}”</span>` : null}
         <small class="muted">${NL.ago(r.ts)} · ${NL.replyWhere(r)}</small></div></div>`;
-    const send = async () => {
-      if (!pick && !text.trim()) return;
-      setBusy(true);
-      const x = NL.DEMO && NL.demoReply ? NL.demoReply(a.id, pick, text.trim())
-        : await NL.api('/api/artifact/reply', { id: a.id, choice: pick, text: text.trim() });
-      setBusy(false);
-      if (x && x.ok) { setText(''); setLocal(x.reply); NL.toast('Sent: ' + NL.replyWhere(x.reply), 'ok'); setTimeout(NL.refresh, 300); }
-      else NL.toast((x && x.error) || 'That did not work.', 'bad');
-    };
     const form=html`<div class="art-ask">
       ${a.question ? html`<div class="art-q"><span class="art-q-ico">?</span><b>${a.question}</b></div>` : null}
       ${choices.length ? html`<div class="art-choices" role="radiogroup">${choices.map(c => html`<button type="button" role="radio" aria-checked=${pick === c} class=${cls('art-choice', 'pickable', pick === c && 'chosen')} disabled=${busy} onClick=${() => setPick(pick === c ? null : c)}>${pick === c ? '◉ ' : '○ '}${c}</button>`)}</div>` : null}
