@@ -357,8 +357,9 @@ def test_executor_config_endpoint_whitelists_validates_and_stamps(hub, monkeypat
     monkeypatch.setattr(serve.ctx, "HUB", hub.root)
     monkeypatch.setattr(serve.ctx, "pi_log", lambda rec: None)
     cfg = hub.lab / "config.yaml"
-    cfg.write_text("agents:\n  programmatic:\n    enabled: false   # master\n    backend: claude   # which CLI\n"
-                   "    max_minutes: 240\n    daily_max_runs: 0\n", encoding="utf-8")
+    (hub.lab / "config.defaults.yaml").write_text("agents:\n  programmatic:\n    enabled: false\n    backend: claude\n"
+                                                  "    max_minutes: 240\n    daily_max_runs: 0\n", encoding="utf-8")
+    cfg.unlink()
     out, code = serve.settings.set_executor_config({"changes": {"backend": "codex"}})
     assert code == 400                                          # needs confirm
     for bad in ({"enabled": True}, {"permission_mode": "bypassPermissions"}, {"max_minutes": 1},
@@ -369,9 +370,10 @@ def test_executor_config_endpoint_whitelists_validates_and_stamps(hub, monkeypat
                                                        "daily_max_runs": 12},
                                            "confirm": True})
     assert code == 200, out
-    text = cfg.read_text(encoding="utf-8")
-    assert "backend: opencode" in text and "# which CLI" in text and "max_minutes: 90\n" in text  # comments kept
-    assert "daily_max_runs: 12" in text and "enabled: false" in text
+    import yaml
+    assert yaml.safe_load(cfg.read_text(encoding="utf-8")) == {          # only what differs from the defaults
+        "agents": {"programmatic": {"backend": "opencode", "max_minutes": 90, "daily_max_runs": 12}}}
+    assert serve.ctx.config()["agents"]["programmatic"]["enabled"] is False
 
 
 def test_launch_passes_repeat_and_rejects_bad_model(hub, monkeypatch):
@@ -444,33 +446,6 @@ def test_check_lab_flags_projects_with_stale_tracing(hub, monkeypatch):
     assert any("upgrade_project.py old" in w for w in m.executor_checks({}, rows, hub.projects_root))
     (proj / "scripts" / "trace_hook.py").write_text("# current\n", encoding="utf-8")
     assert not any("upgrade_project" in w for w in m.executor_checks({}, rows, hub.projects_root))
-
-
-def test_executor_config_inserts_keys_missing_from_an_older_config(hub, monkeypatch):
-    serve = load("dashboard/serve")
-    monkeypatch.setattr(serve.ctx, "LAB", hub.lab)
-    monkeypatch.setattr(serve.ctx, "pi_log", lambda rec: None)
-    cfg = hub.lab / "config.yaml"
-    cfg.write_text("agents:\n  programmatic:\n    enabled: true   # master\n    backends:\n      claude:\n"
-                   "        model: opus\n\n# ── next section ──\nautopilot:\n  max_concurrent_projects: 1\n",
-                   encoding="utf-8")
-    out, code = serve.settings.set_executor_config({"changes": {"daily_max_runs": 20, "hub_max_concurrent": 2},
-                                           "confirm": True})
-    assert code == 200, out
-    import yaml
-    doc = yaml.safe_load(cfg.read_text(encoding="utf-8"))
-    prog = doc["agents"]["programmatic"]
-    assert prog["daily_max_runs"] == 20 and prog["hub_max_concurrent"] == 2
-    assert prog["backends"]["claude"]["model"] == "opus" and doc["autopilot"]["max_concurrent_projects"] == 1
-    assert "# ── next section ──" in cfg.read_text(encoding="utf-8")
-    before = cfg.read_text(encoding="utf-8")
-    out, code = serve.settings.set_executor_config({"changes": {"auto_spawn_on_gate1": True}, "confirm": True})
-    assert code == 400 and "can't be changed" in out["error"]   # the old Gate-1 auto-spawn setting is gone
-    assert cfg.read_text(encoding="utf-8") == before
-    out, code = serve.settings.set_executor_config({"changes": {"park_minutes": 45, "live": False}, "confirm": True})
-    assert code == 200, out                                  # a nested block an older config lacks is added
-    prog = yaml.safe_load(cfg.read_text(encoding="utf-8"))["agents"]["programmatic"]
-    assert prog["live"] == {"park_minutes": 45, "enabled": False} and prog["backends"]["claude"]["model"] == "opus"
 
 
 # ── what each agent is doing: one activity vocabulary, and every subagent's own lifecycle ──

@@ -1,9 +1,11 @@
 # Configuration
 
-The repository ships `lab/config.defaults.yaml`. First use copies it to the ignored local
-`lab/config.yaml`; all Lab settings use that local file. Existing settings are never overwritten or
-implicitly merged with later defaults. Edit settings in the dashboard or local file, and include it
-in your Lab backup. A normal clone needs no template-generation step.
+The repository ships `lab/config.defaults.yaml`, which documents every setting. Your own changes live in
+the ignored local `lab/config.yaml`, which holds **only the settings you changed**: the Lab reads the
+defaults with that file laid over them (sections merge; a list or value replaces; `key: null` goes back
+to the default), so a new default reaches you unless you overrode it. The Settings page writes the file;
+editing it by hand is fine. A file that does not parse keeps the last good settings and Settings says
+so. Include `lab/config.yaml` in your Lab backup. A normal clone needs no template-generation step.
 
 Use **`lab/config.yaml`** for Lab agents, launches and defaults. Generated experiment projects
 resolve their run parameters in this order, highest precedence first:
@@ -45,7 +47,7 @@ These settings affect work volume; they are not provider billing estimates.
 ```bash
 uv run --with pyyaml python tools/profiles.py list
 uv run --with pyyaml python tools/profiles.py diff high      # what would change
-uv run --with pyyaml python tools/profiles.py apply high      # stamp into lab/config.yaml (+ sync agent models)
+uv run --with pyyaml python tools/profiles.py apply high      # set it in lab/config.yaml (+ sync agent models)
 uv run --with pyyaml python tools/profiles.py save my-preset  # snapshot current settings as a named profile
 ```
 …or `/configure profile <list|show|diff|apply|save> <name>`.

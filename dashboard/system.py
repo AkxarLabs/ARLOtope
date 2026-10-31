@@ -11,7 +11,6 @@ import time
 
 import ctx
 from executor import procs
-import settings
 
 
 _SYS_CACHE: dict = {"hub": None, "at": 0.0, "facts": None}
@@ -81,38 +80,6 @@ def _clean_scheduler(sc: dict) -> dict:
     return out
 
 
-def _replace_block(text: str, parent: str, key: str, block: dict) -> str:
-    """Replace (or add) `parent:\n  key: …` with a freshly rendered block; everything else is kept."""
-    import yaml
-    body = yaml.safe_dump({key: block}, sort_keys=False, default_flow_style=False).rstrip("\n").split("\n")
-    body = ["  " + ln for ln in body]
-    body[0] = body[0] + "                    # how training runs on this machine — Settings → This machine & compute (docs/compute.md)"
-    lines = text.replace("\r\n", "\n").split("\n")
-    pi = next((i for i, ln in enumerate(lines) if re.match(rf"{re.escape(parent)}:\s*(#.*)?$", ln)), None)
-    if pi is None:
-        return text.rstrip("\n") + f"\n\n{parent}:\n" + "\n".join(body) + "\n"
-    end = len(lines)
-    for j in range(pi + 1, len(lines)):
-        if lines[j].strip() and not lines[j].startswith((" ", "\t")):
-            end = j
-            break
-    ki = next((j for j in range(pi + 1, end) if re.match(rf"  {re.escape(key)}:", lines[j])), None)
-    if ki is None:
-        ins = end
-        while ins > pi + 1 and not lines[ins - 1].strip():
-            ins -= 1
-        return "\n".join(lines[:ins] + body + lines[ins:])
-    kend = end
-    for j in range(ki + 1, end):
-        ln = lines[j]
-        if ln.strip() and (len(ln) - len(ln.lstrip())) <= 2 and not ln.lstrip().startswith("#"):
-            kend = j
-            break
-    while kend > ki + 1 and not lines[kend - 1].strip():
-        kend -= 1
-    return "\n".join(lines[:ki] + body + lines[kend:])
-
-
 def system_scheduler_set(body: dict) -> tuple[dict, int]:
     if not body.get("confirm"):
         return {"error": "changing how training runs needs explicit confirm"}, 400
@@ -120,15 +87,9 @@ def system_scheduler_set(body: dict) -> tuple[dict, int]:
         block = _clean_scheduler(body.get("scheduler") or {})
     except (TypeError, ValueError) as e:
         return {"error": str(e)}, 400
-    cfg = ctx.LAB / "config.yaml"
-    text = ctx.read(cfg)
-    if text is None:
-        return {"error": "no lab/config.yaml"}, 400
-    new = _replace_block(text, "compute", "scheduler", block)
-    err = settings.reads_back(new, {("compute", "scheduler"): block})
+    err = ctx.set_config({"compute.scheduler": block})
     if err:
         return {"error": err}, 400
-    ctx.write_keep_eol(cfg, text, new)
     ctx.pi_log({"action": "system.scheduler", "scheduler": block})
     return {"ok": True, "scheduler": block,
             "note": "training runs locally" if block["kind"] == "local" else f"PILOT/FULL runs now go through {block['kind']}"}, 200
