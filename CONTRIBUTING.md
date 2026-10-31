@@ -29,7 +29,7 @@ Run the checks relevant to your change, then the CI checks before submitting:
 
 ```bash
 uv run --with pyyaml python tools/check_lab.py
-uv run --with pyyaml --with pytest python -m pytest tests/ -q
+uv run --with pyyaml --with pytest --with pytest-xdist python -m pytest tests/ -q -n auto
 uv run --with pyyaml python -c "import sys; sys.path.insert(0,'dashboard'); import sources; print(sources.snapshot()['cold'])"
 uv run --with properdocs --with mkdocs-material properdocs build --strict
 ```

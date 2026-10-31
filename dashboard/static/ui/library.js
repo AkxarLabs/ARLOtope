@@ -4,7 +4,7 @@
 (function () {
   'use strict';
   const NL = window.NL;
-  const { html, useState, useEffect, useMemo, cls } = NL;
+  const { html, useState, useEffect, cls } = NL;
 
   const cache = { tree: null, at: 0, wait: null };
   NL.invalidateLibrary = () => { cache.tree=null; cache.at=0; };
