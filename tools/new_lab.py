@@ -3,7 +3,7 @@
     uv run --with pyyaml python tools/new_lab.py <dest> [--name "My lab"] [--projects-root ../my-lab-projects]
 
 Normal installation is `git clone` followed by `arlo`. This optional local-copy helper exports this
-checkout's committed files (`git archive HEAD`), creates private settings, and starts a separate Git
+checkout's committed files (`git archive HEAD`), gives it empty private lab files, and starts a separate Git
 history. It does not copy local research or settings from the source Lab.
 """
 
@@ -11,7 +11,6 @@ from __future__ import annotations
 
 import argparse
 import io
-import re
 import shutil
 import subprocess
 import tarfile
@@ -19,8 +18,6 @@ from pathlib import Path
 
 HUB = Path(__file__).resolve().parents[1]
 SKIP_TOP = {".github"}                      # the template's own CI is not the new lab's
-EMPTY_KNOWLEDGE = {"FAILURES.md": "*(no failures recorded yet)*", "FINDINGS.md": "*(no findings yet)*",
-                   "OPEN-QUESTIONS.md": "*(no open questions yet)*", "REFERENCES.md": "*(no references yet)*"}
 
 
 def _git(args: list[str], cwd: Path) -> subprocess.CompletedProcess:
@@ -75,21 +72,8 @@ def _reset_state(dest: Path) -> None:
     for d in (dest / "studies").iterdir() if (dest / "studies").is_dir() else []:
         if d.is_dir():
             shutil.rmtree(d)
-    # the template may itself be someone's working lab: no studies (an empty journal and registry), an empty
-    # knowledge base
     for rel in ("lab/journal.jsonl", "lab/approvals.jsonl", "lab/journal.jsonl.pre-kernel", "lab/approvals.jsonl.pre-kernel"):
         (dest / rel).unlink(missing_ok=True)
-    import sys  # noqa: PLC0415
-    sys.path.insert(0, str(Path(__file__).resolve().parent))
-    from kernel import studies  # noqa: PLC0415
-    studies.render_registry(dest)
-    for fname, empty in EMPTY_KNOWLEDGE.items():
-        f = dest / "lab" / "knowledge" / fname
-        if not f.exists():
-            continue
-        text = f.read_text(encoding="utf-8-sig")
-        head = re.split(r"\n---\n", text, maxsplit=1)[0]
-        f.write_text(f"{head}\n---\n\n{empty}\n", encoding="utf-8", newline="")
 
 
 def _set_config(dest: Path, name: str | None, projects_root: str | None) -> None:

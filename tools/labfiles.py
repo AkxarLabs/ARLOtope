@@ -15,7 +15,7 @@ the hub root, so a tool (or a test) can point it anywhere. pyyaml is used for YA
     pos_int / pos_float(v, default)    a finite number, or the default
     now(epoch=None) / parse_ts(ts)     the lab's local timestamp format, and back to epoch seconds
     read_env(path)                     KEY=value lines (lab/.env.local)
-    ensure_lab_files(hub)              give a fresh clone its own, nearly empty settings file
+    ensure_lab_files(hub)              give a fresh clone its own settings file, registry view and knowledge documents
     config(hub)                        the lab's settings: config.defaults.yaml with the sparse config.yaml laid over it
     set_config(hub, {a.b: value})      change settings (only what differs from the defaults is saved; None resets)
     config_problems(hub)               what is wrong with config.yaml (unreadable, unknown key, wrong type), or []
@@ -270,13 +270,23 @@ def config_paths(hub) -> tuple[Path, Path]:
 
 
 def ensure_lab_files(hub) -> Path:
-    """Give a fresh clone its own, nearly empty settings file once; never overwrite one. Returns its path;
-    a folder with no config.defaults.yaml is not a lab and gets nothing."""
+    """Give a fresh clone the lab files it doesn't ship (lab state is untracked): a near-empty settings
+    file, the registry view and the knowledge documents (from templates/knowledge). Never overwrites.
+    Returns the settings file's path; a folder with no config.defaults.yaml is not a lab and gets nothing."""
     defaults, path = config_paths(hub)
-    if not path.exists() and defaults.is_file():
+    if not defaults.is_file():
+        return path
+    lab = path.parent
+    seeds = {path: CONFIG_HEADER.encode()}
+    seeds.update({lab / "knowledge" / f.name: f.read_bytes() for f in (Path(hub) / "templates" / "knowledge").glob("*.md")})
+    for target, data in seeds.items():
+        target.parent.mkdir(parents=True, exist_ok=True)
         with contextlib.suppress(FileExistsError):   # another process seeded the same lab
-            with path.open("xb") as output:
-                output.write(CONFIG_HEADER.encode())
+            with target.open("xb") as output:
+                output.write(data)
+    if not (lab / "REGISTRY.md").exists():
+        from kernel import studies  # noqa: PLC0415 — lazy: the kernel reads this module's helpers
+        studies.render_registry(hub)
     return path
 
 

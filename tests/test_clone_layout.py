@@ -25,6 +25,22 @@ def test_private_config_starts_empty_and_only_holds_the_users_own_changes(tmp_pa
     assert not labfiles.ensure_lab_files(tmp_path / 'unrelated').exists()
 
 
+def test_a_fresh_clone_gets_the_knowledge_documents_and_registry_it_does_not_ship(tmp_path):
+    import labfiles
+
+    (tmp_path / 'lab').mkdir()
+    (tmp_path / 'lab' / 'config.defaults.yaml').write_text('lab: {}
+')
+    shutil.copytree(REPO / 'templates' / 'knowledge', tmp_path / 'templates' / 'knowledge')
+    labfiles.ensure_lab_files(tmp_path)
+    knowledge = tmp_path / 'lab' / 'knowledge'
+    assert sorted(p.name for p in knowledge.glob('*.md')) == ['FAILURES.md', 'FINDINGS.md', 'OPEN-QUESTIONS.md', 'REFERENCES.md']
+    assert 'no findings yet' in (knowledge / 'FINDINGS.md').read_text() and (tmp_path / 'lab' / 'REGISTRY.md').exists()
+    (knowledge / 'FINDINGS.md').write_text('mine')
+    labfiles.ensure_lab_files(tmp_path)
+    assert (knowledge / 'FINDINGS.md').read_text() == 'mine'
+
+
 @pytest.mark.skipif(not shutil.which('git'), reason='git is needed')
 def test_gitignore_excludes_research_but_keeps_product_sources(tmp_path):
     shutil.copyfile(REPO / '.gitignore', tmp_path / '.gitignore')
