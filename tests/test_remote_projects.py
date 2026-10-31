@@ -94,6 +94,33 @@ def test_settled_remote_history_skips_polling_but_pending_work_still_syncs(hub, 
         assert calls == []
 
 
+def test_a_machines_activity_is_kept_only_when_asked_and_only_as_data(hub, monkeypatch):
+    """Activity this Lab did not ask for is dropped; what it asked for keeps no path or machine the remote named
+    (the page's Source link would otherwise open a local file, or a network share)."""
+    import framework_activity
+    from executor import Lab, manifest
+    hub.add_registry_row('s', project=R.uri('box', '/work'))
+    lab = Lab(hub.root)
+    path = lab.agents_dir(lab.project_workdir('s'))/'remote-run.json'
+    manifest.run_dir(path.parent, 'remote-run').mkdir(parents=True)
+    source = {'schema': 2, 'run_id': 'remote-run', 'target': 's', 'subject': 's', 'status': 'running',
+              'stream': 'remote-run.stream.jsonl', 'remote': {'machine': 'box', 'path': '/work'}, 'remote_dispatched': True}
+    labfiles.write_json(path, source)
+    hostile = {'root': '//attacker.invalid/share', 'machine': '', 'events': [{'label': 'x', 'source': 'C:/Windows/win.ini'}]}
+    monkeypatch.setattr(R, 'call', lambda *a, **k: {'found': True, 'manifest': source, 'stream': '', 'offset': 0,
+                                                     'requests': [], 'external_activity': hostile})
+    R.sync(lab)
+    got = manifest.read_manifest(path)
+    assert got['remote_status'] == 'connected' and 'external_activity' not in got       # never asked for
+    definition = {'id': 'tool', 'activity': {'files': ['events.jsonl']}}
+    monkeypatch.setattr(framework_activity, 'request', lambda hub, m: {'definition': definition, 'project': '/work',
+                                                                        'study': 's', 'phase': 'work', 'machine': 'box'})
+    R.sync(lab)
+    got = manifest.read_manifest(path)['external_activity']
+    assert got['machine'] == 'box' and got['root'] == '/work/.arlotope/framework-runs/s/tool/run'
+    assert got['current']['label'] == 'x' and got['current']['source'] == ''
+
+
 def test_remote_skill_package_retains_binary_resources_and_project_edits(hub, worker):
     import base64
     import research_start

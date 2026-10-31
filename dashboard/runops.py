@@ -458,6 +458,7 @@ def _written(run_id: str, *, strict: bool = False) -> tuple[list[Path], dict] | 
     target, workdir, path, m = hit
     stream = path.parent / (m.get("stream") or f"{run_id}.stream.jsonl")
     base = Path(m.get("cwd") or workdir)
+    roots = executor.profile.run_dirs(_xlab(), m, workdir)   # the transcript names the paths: only these count
     seen: dict[str, Path] = {}
     try:
         with stream.open("r", encoding="utf-8", errors="replace") as f:
@@ -469,7 +470,8 @@ def _written(run_id: str, *, strict: bool = False) -> tuple[list[Path], dict] | 
                 for ev in executor.backends.parse_events(m.get("backend") or "claude", obj):
                     for p in ev.get("files") or []:
                         fp = Path(p) if Path(p).is_absolute() else base / p
-                        seen.setdefault(str(fp.resolve()), fp.resolve())
+                        if any(ctx.labfiles.inside(root, fp) for root in roots):
+                            seen.setdefault(str(fp.resolve()), fp.resolve())
     except FileNotFoundError:
         pass
     except OSError:

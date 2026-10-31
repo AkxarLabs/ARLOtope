@@ -514,7 +514,7 @@ def save(hub, pid: str, definition: dict, view: str, collector: tuple[str, str] 
 def view_html(hub, pid: str) -> str:
     p = _need(hub, pid)
     f = Path(p["dir"]) / str(p.get("view") or "view.html")
-    return f.read_text(encoding="utf-8") if f.is_file() else "<p>(this panel has no view.html)</p>"
+    return f.read_text(encoding="utf-8") if labfiles.inside(p["dir"], f) and f.is_file() else "<p>(this panel has no view.html)</p>"
 
 
 # ── CLI ──────────────────────────────────────────────────────────────────────────────────────────

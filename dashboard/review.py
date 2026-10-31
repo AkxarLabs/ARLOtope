@@ -61,18 +61,6 @@ def _as_list(v) -> list:
     return [v] if v not in (None, "") else []
 
 
-def _within(base: Path | None, target: Path) -> bool:
-    """True iff `target` resolves to inside `base` — a cheap containment guard so a claim artifact
-    like `../../x` can't surface an out-of-project absolute path as an openable editor link."""
-    if not base:
-        return False
-    try:
-        target.resolve().relative_to(base.resolve())
-        return True
-    except (ValueError, OSError):
-        return False
-
-
 def _claim_project_dir(c: dict, slug: str) -> Path | None:
     # project_path is a documented override for /adopt or oddly-located projects, so it is NOT
     # contained to projects_root — it points wherever the PI's project actually lives.
@@ -108,10 +96,12 @@ def claims_map(idea: str | None = None) -> dict:
             rel = str(rel).replace("\\", "/")
             info = {"rel": rel, "exists": False}
             target = None
+            # contained before anything is looked at: a claim artifact like `../../x` or a network path never
+            # surfaces an outside file as an openable editor link (or makes Windows sign in to another host)
             live = (pdir / rel) if pdir else None
-            if live and live.exists() and _within(pdir, live):                  # must stay inside its project
+            if live and ctx.labfiles.inside(pdir, live) and live.exists():           # inside its project
                 target = live
-            elif (archive / rel).exists() and _within(archive, archive / rel):  # hub archive (locked at /finalize)
+            elif ctx.labfiles.inside(archive, archive / rel) and (archive / rel).exists():   # the hub archive (/finalize)
                 target = archive / rel
             if target:
                 info.update(exists=True, abs=str(target.resolve()))
