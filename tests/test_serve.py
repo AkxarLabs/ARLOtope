@@ -155,8 +155,9 @@ def test_renderer_is_opaque_and_static_modules_allow_its_origin(hub, monkeypatch
     sent = []
     handler._send = lambda *args: sent.append(args)
     handler._serve_static('lab-view.html')
-    assert sent[-1][3]['Content-Security-Policy'] == 'sandbox allow-scripts'
-    assert 'allow-same-origin' not in sent[-1][3]['Content-Security-Policy']
+    csp = sent[-1][3]['Content-Security-Policy']
+    assert csp.startswith('sandbox allow-scripts;') and 'allow-same-origin' not in csp
+    assert "connect-src 'none'" in csp and "form-action 'none'" in csp and "default-src 'none'" in csp
     handler._serve_static('vendor/three/three.module.min.js')
     assert sent[-1][3]['Access-Control-Allow-Origin'] == '*'
 
@@ -413,9 +414,10 @@ def test_claims_map_blocks_artifact_traversal(hub, monkeypatch):
     paper = hub.root / "studies" / "demo" / "paper"
     paper.mkdir(parents=True, exist_ok=True)
     (paper / "claims.yaml").write_text(
-        "claims:\n  - id: C001\n    project: demo\n    artifacts:\n      - ../secret.json\n", encoding="utf-8")
-    a = m.review.claims_map("demo")["claims"][0]["artifacts"][0]
-    assert a["exists"] is False and "abs" not in a     # escapes the project → never surfaced
+        "claims:\n  - id: C001\n    project: demo\n    artifacts:\n      - ../secret.json\n"
+        "      - //attacker.invalid/share/x.json\n", encoding="utf-8")
+    for a in m.review.claims_map("demo")["claims"][0]["artifacts"]:
+        assert a["exists"] is False and "abs" not in a     # escapes the project → never surfaced (nor looked at)
 
 
 # ── the Library (tree + document reader) ──────────────────────────────────────

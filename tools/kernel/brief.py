@@ -50,7 +50,7 @@ def outcomes_block(hub, slug: str, proc: str | None = None) -> str:
         return (f"## How to finish\n\nYou run at this step alongside its own procedure, /{owner}, which reports where "
                 f"the study goes next. Do your work, then stop — don't report an outcome (`arlo move`) yourself; say in "
                 f"your final message what /{owner} should know.")
-    lines = [f"## When your work on this step is done, report its outcome",
+    lines = ["## When your work on this step is done, report its outcome",
              f"`{arlotope_cmd(hub)} move {slug} <outcome> --note \"<one line: why>\"` — this is how the study moves; "
              "never edit lab/REGISTRY.md or lab/journal.jsonl. Report once, at the end, then stop:"]
     proc = model.procedure(model.does(s["step"], wid, s["use"], hub) or "", hub) or {}

@@ -3,7 +3,7 @@
 // opencode loads every plugin in a .opencode/plugins/ dir between the session cwd and the git root.
 // This one turns each session / tool event into ONE Claude-shaped hook payload and pipes it to the
 // repo's trace_hook.py (tools/ in the hub, scripts/ in a project), which appends a line to the
-// per-worker logs the Vivarium dashboard reads (<bus>/workers/<worker>.jsonl).
+// per-worker logs the dashboard reads (<bus>/workers/<worker>.jsonl).
 //
 // Subagents: opencode's `task` tool runs a subagent as a CHILD SESSION (parentID = the caller,
 // agent = the subagent's name). Its events are logged as a worker of the root session:

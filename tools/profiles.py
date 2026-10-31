@@ -4,14 +4,14 @@
     uv run --with pyyaml python tools/profiles.py show high
     uv run --with pyyaml python tools/profiles.py diff high           # what apply would change
     uv run --with pyyaml python tools/profiles.py validate high       # rigor-floor check only
-    uv run --with pyyaml python tools/profiles.py apply high          # stamp into lab/config.yaml
+    uv run --with pyyaml python tools/profiles.py apply high          # set it in lab/config.yaml
     uv run --with pyyaml python tools/profiles.py save my-preset      # snapshot current settings
 
 A profile is a PARTIAL config (only the keys it sets), at lab/profiles/<name>.yaml. Budget tiers
 (low/medium/high) scale EXPLORATION — agent/subagent counts, parallelism, model strength; engine
-presets (claude-*/codex/opencode/mixed) set the headless backend. `apply` STAMPS each leaf value
-into lab/config.yaml IN PLACE (comments preserved — no YAML round-trip that would strip the
-documented reference file), re-renders the backend role files via tools/role_sync.py when any
+presets (claude-*/codex/opencode/mixed) set the headless backend. `apply` saves each leaf value as
+one of the lab's own settings in lab/config.yaml (labfiles.set_config; a value equal to the default
+is simply not stored), re-renders the backend role files via tools/role_sync.py when any
 agents.* key changed (the canonical model:/effort: sync — same path /configure uses), and REFUSES
 any profile that lowers an integrity floor:
     experiment.multi_seed_n >= 3 · oversight.level != off · eval_frozen untouched.
@@ -82,7 +82,7 @@ def _fmt(v) -> str:
     return str(v)
 
 
-# ── comment-preserving in-place stamp ─────────────────────────────────────────
+# ── comment-preserving in-place stamp (a project's control.yaml: tools/configure.py) ──
 
 def _indent(line: str) -> int:
     return len(line) - len(line.lstrip())
@@ -198,7 +198,7 @@ def cmd_show(args) -> int:
 
 def cmd_diff(args) -> int:
     flat = _flatten(_load_profile(args.name))
-    cur = _flatten(labfiles.load_yaml(LAB / "config.yaml"))
+    cur = _flatten(labfiles.config(HUB))
     print(f"## diff: lab/config.yaml -> profile '{args.name}'\n")
     changes = 0
     for dotted, value in flat.items():
@@ -231,30 +231,21 @@ def cmd_apply(args) -> int:
             print("  - " + v)
         print("(budget scales exploration, never rigor — fix the profile and retry)")
         return 1
-    cfg = LAB / "config.yaml"
-    text = cfg.read_text(encoding="utf-8")
-    changed, missing = [], []
+    err = labfiles.set_config(HUB, {".".join(d): v for d, v in flat.items()})
+    if err:
+        print(f"{err} Nothing was changed.")
+        return 1
+    print(f"Applied profile '{args.name}' to lab/config.yaml — {len(flat)} key(s) set.")
     for dotted, value in flat.items():
-        new, ok = stamp(text, list(dotted), value)
-        if ok:
-            text = new
-            changed.append(f"{'.'.join(dotted)} = {_fmt(value)}")
-        else:
-            missing.append(".".join(dotted))
-    cfg.write_text(text, encoding="utf-8", newline="")   # keep LF on every platform
-    print(f"Applied profile '{args.name}' to lab/config.yaml — {len(changed)} key(s) set.")
-    for c in changed:
-        print("  " + c)
+        print(f"  {'.'.join(dotted)} = {_fmt(value)}")
     if any(d[0] == "agents" for d in flat):   # a tier/role/effort change -> re-render every role file
         print("Re-rendering backend role files (agents.* changed) via tools/role_sync.py:")
         role_sync.render()
-    if missing:
-        print("WARN — keys not present in lab/config.yaml (skipped): " + ", ".join(missing))
     return 0
 
 
 def cmd_save(args) -> int:
-    cur = _flatten(labfiles.load_yaml(LAB / "config.yaml"))
+    cur = _flatten(labfiles.config(HUB))
     out: dict = {}
     for key in PROFILE_KEYS:
         dotted = tuple(key.split("."))

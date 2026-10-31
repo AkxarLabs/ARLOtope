@@ -291,7 +291,7 @@ def test_a_lab_summary_counts_what_needs_you(env):
     s = m.fleet.lab_summary(hub.root)
     assert s["ok"] and s["needs"] == 1 and s["top"][0]["kind"] == "checkpoint" and s["studies"] >= 1
     assert s["top"][0]["detail"] == {"checkpoint": "approve-proposal", "study": "idea-s"}
-    (hub.root / "studies" / "idea-s" / "proposal.md").write_text("<!-- PI Gate 1 approved via Vivarium dashboard x -->",
+    (hub.root / "studies" / "idea-s" / "proposal.md").write_text("<!-- PI Gate 1 approved via the dashboard x -->",
                                                                 encoding="utf-8")
     m.fleet._CACHE.clear()
     assert m.fleet.lab_summary(hub.root)["needs"] == 1          # prose approves nothing

@@ -1,6 +1,6 @@
 """Tests for tools/profiles.py — config profiles (budget tiers + engine presets).
 
-Pure tests for the comment-preserving stamp + rigor-floor validator, then integration tests for
+Pure tests for the comment-preserving stamp (a project's control.yaml) + rigor-floor validator, then integration tests for
 apply/save against a hand-built fake hub (config text with the budget namespaces, lab/profiles/,
 and .claude/agents/*.md). Hermetic — no network, no real lab.
 """
@@ -142,7 +142,7 @@ def _setup(tmp_path, monkeypatch, profiles: dict):
     m = _m()
     hub = tmp_path / "hub"
     (hub / "lab" / "profiles").mkdir(parents=True)
-    (hub / "lab" / "config.yaml").write_text(_CFG, encoding="utf-8")
+    (hub / "lab" / "config.defaults.yaml").write_text(_CFG, encoding="utf-8")
     _seed_agent_roles(hub)
     for name, body in profiles.items():
         (hub / "lab" / "profiles" / f"{name}.yaml").write_text(textwrap.dedent(body), encoding="utf-8")
@@ -166,14 +166,15 @@ def test_apply_stamps_config_and_rerenders_role_files(tmp_path, monkeypatch):
             max_concurrent: 1
         """})
     assert m.cmd_apply(types.SimpleNamespace(name="thrift")) == 0
-    cfg = yaml.safe_load((hub / "lab" / "config.yaml").read_text(encoding="utf-8"))
+    cfg = m.labfiles.config(hub)
     assert cfg["ideation"]["candidates"] == 4
     assert cfg["experiment"]["max_parallel_subagents"] == 1
     assert cfg["agents"]["reviewer_model"] == "sonnet"
     assert cfg["agents"]["programmatic"]["backend"] == "codex"
     assert cfg["agents"]["programmatic"]["max_concurrent"] == 1
-    # the comment on an untouched-value line is preserved
-    assert "# initial candidates" in (hub / "lab" / "config.yaml").read_text(encoding="utf-8")
+    # only what differs from the defaults is stored: the untouched sibling is not
+    mine = yaml.safe_load((hub / "lab" / "config.yaml").read_text(encoding="utf-8"))
+    assert mine["ideation"] == {"candidates": 4} and mine["agents"]["programmatic"] == {"backend": "codex", "max_concurrent": 1}
     # BOTH backends' role files were (re-)rendered by role_sync — the convergence P1.3 buys
     assert "model: sonnet" in (hub / ".claude" / "agents" / "fresh-context-reviewer.md").read_text(encoding="utf-8")
     assert (hub / ".codex" / "agents" / "fresh-context-reviewer.toml").exists()
@@ -195,12 +196,22 @@ def test_apply_tier_preset_resolves_models(tmp_path, monkeypatch):
           runner_model: standard
         """})
     assert m.cmd_apply(types.SimpleNamespace(name="ladder")) == 0
-    cfg = yaml.safe_load((hub / "lab" / "config.yaml").read_text(encoding="utf-8"))
+    cfg = m.labfiles.config(hub)
     assert cfg["agents"]["tiers"]["strong"] == "opus"        # tier-form preset stamped cleanly
     assert cfg["agents"]["reviewer_model"] == "strong"
     # role files render the RESOLVED model: reviewer=strong->opus, runner=standard->sonnet
     assert "model: opus" in (hub / ".claude" / "agents" / "fresh-context-reviewer.md").read_text(encoding="utf-8")
     assert "model: sonnet" in (hub / ".claude" / "agents" / "experiment-runner.md").read_text(encoding="utf-8")
+
+
+def test_apply_refuses_an_unknown_setting_and_changes_nothing(tmp_path, monkeypatch):
+    import types
+    m, hub = _setup(tmp_path, monkeypatch, {"typo": """        ideation:
+          candidates: 4
+          candidats: 9
+        """})
+    assert m.cmd_apply(types.SimpleNamespace(name="typo")) == 1
+    assert m.labfiles.config(hub)["ideation"]["candidates"] == 8
 
 
 def test_apply_refuses_a_floor_lowering_profile(tmp_path, monkeypatch):
@@ -212,7 +223,7 @@ def test_apply_refuses_a_floor_lowering_profile(tmp_path, monkeypatch):
           level: off
         """})
     assert m.cmd_apply(types.SimpleNamespace(name="reckless")) == 1
-    cfg = yaml.safe_load((hub / "lab" / "config.yaml").read_text(encoding="utf-8"))
+    cfg = m.labfiles.config(hub)
     assert cfg["experiment"]["multi_seed_n"] == 3            # config UNCHANGED — nothing stamped
     assert cfg["oversight"]["level"] == "standard"
 

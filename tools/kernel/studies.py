@@ -21,6 +21,8 @@ from __future__ import annotations
 import os
 from pathlib import Path
 
+import labfiles
+
 from . import journal, model
 
 PI_ONLY = "approvals and moves outside the workflow are the PI's — ask instead"
@@ -144,23 +146,14 @@ def render_registry(hub) -> None:
     for r in rows(hub):
         cells = [r["id"], r["title"], r["state"], r["workflow"] or "", r["project"] or "—", r["updated"], r["next"]]
         lines.append("| " + " | ".join(str(c).replace("|", "/").replace("\n", " ") for c in cells) + " |")
-    p = Path(hub) / "lab" / "REGISTRY.md"
-    p.parent.mkdir(parents=True, exist_ok=True)
-    p.write_text("\n".join(lines) + "\n", encoding="utf-8", newline="\n")
+    labfiles.write_atomic(Path(hub) / "lab" / "REGISTRY.md", "\n".join(lines) + "\n")
 
 
 def _bus(hub, kind: str, slug: str, detail: str, **data) -> None:
     """A nudge on the dashboard's event bus (best-effort; the journal is the record)."""
-    try:
-        import json  # noqa: PLC0415
-        bus = Path(hub) / "lab" / ".bus"
-        bus.mkdir(parents=True, exist_ok=True)
-        line = json.dumps({"ts": journal.now(), "source": "hub", "kind": kind, "idea": slug, "run_id":
-                           os.environ.get("ARLOTOPE_RUN_ID"), "detail": detail, "data": data}) + "\n"
-        with (bus / "events.jsonl").open("a", encoding="utf-8") as f:
-            f.write(line)
-    except OSError:
-        pass
+    labfiles.append_jsonl(Path(hub) / "lab" / ".bus" / "events.jsonl",
+                          {"ts": labfiles.now(), "source": "hub", "kind": kind, "idea": slug,
+                           "run_id": os.environ.get("ARLOTOPE_RUN_ID"), "detail": detail, "data": data})
 
 
 def _record(hub, slug: str, kind: str, by: str, **fields) -> dict:

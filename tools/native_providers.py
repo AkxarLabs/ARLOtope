@@ -4,16 +4,17 @@ import json
 import os
 from pathlib import Path
 import queue
-import secrets
 import subprocess
 import threading
 import time
+
+from labfiles import home_path, write_json
 
 NATIVE={'openai':('codex','OpenAI','OPENAI_API_KEY'),'anthropic':('claude','Anthropic','ANTHROPIC_API_KEY')}
 
 
 def _path():
-    return Path(os.environ.get('ARLOTOPE_HOME') or Path.home()/'.arlotope')/'provider-keys.json'
+    return home_path('provider-keys.json')
 
 
 def _read():
@@ -54,19 +55,14 @@ def key(action,provider,value=None):
         saved=_read()
         if action=='connect':saved[provider]=value.strip()
         else:saved.pop(provider,None)
-        temp=path.with_name(path.name+'.'+secrets.token_hex(6)+'.tmp')
-        try:
-            with os.fdopen(os.open(temp,os.O_CREAT|os.O_EXCL|os.O_WRONLY,0o600),'w',encoding='utf-8') as stream:
-                json.dump(saved,stream)
-            temp.replace(path)
-        finally:temp.unlink(missing_ok=True)
+        write_json(path,saved,private=True)
     return {'ok':True,'provider':provider,'backend':NATIVE[provider][0],'configured':bool(credential(provider))}
 
 
 @contextmanager
 def _probe(backend,api_key=None):
     from executor import backends
-    from executor.procs import NO_WINDOW,kill_tree
+    from executor.procs import NO_WINDOW,kill_tree,popen
     cli=backends.resolve_cli(backend,{})
     if not cli:raise ValueError('Install '+backend+' on this machine, then retry.')
     args=([*(['-c','cli_auth_credentials_store="ephemeral"'] if api_key else []),'app-server'] if backend=='codex'
@@ -74,8 +70,8 @@ def _probe(backend,api_key=None):
     env=dict(os.environ)
     if backend=='claude' and api_key:inject('anthropic',env,api_key)
     if backend=='codex' and api_key:env.pop('CODEX_ACCESS_TOKEN',None)
-    proc=subprocess.Popen([*cli,*args],cwd=Path.home(),env=env,stdin=subprocess.PIPE,stdout=subprocess.PIPE,
-        stderr=subprocess.DEVNULL,text=True,encoding='utf-8',errors='replace',**NO_WINDOW)
+    proc=popen([*cli,*args],cwd=Path.home(),env=env,stdin=subprocess.PIPE,stdout=subprocess.PIPE,
+        stderr=subprocess.DEVNULL,text=True,**NO_WINDOW)
     lines=queue.Queue(maxsize=128)
     def drain():
         for line in proc.stdout:

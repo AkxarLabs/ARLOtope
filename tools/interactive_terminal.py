@@ -48,9 +48,9 @@ class Session:
             os.close(slave)
             self.master = master
         else:
-            flags = getattr(subprocess, "CREATE_NO_WINDOW", 0)
-            self.proc = subprocess.Popen(argv, cwd=cwd, env=env, stdin=subprocess.PIPE, stdout=subprocess.PIPE,
-                                         stderr=subprocess.STDOUT, creationflags=flags, bufsize=0)
+            from executor.procs import popen
+            self.proc = popen(argv, cwd=cwd, env=env, stdin=subprocess.PIPE, stdout=subprocess.PIPE,
+                                    stderr=subprocess.STDOUT, bufsize=0)
         threading.Thread(target=self._pump, daemon=True).start()
 
     @staticmethod

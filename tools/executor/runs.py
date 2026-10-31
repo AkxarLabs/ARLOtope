@@ -21,8 +21,9 @@ from pathlib import Path
 
 from . import backends, live
 from .lab import HUB_TARGET, Lab, pos_float, pos_int
+from labfiles import now, parse_ts
 from .manifest import (ACTIVE, PAUSED, RESUMABLE, SCHEMA, TERMINAL, all_runs, emit, find_run,
-                       new_run_id, now, parse_ts, run_dir, safe_id, scheduler_lock, transition)
+                       new_run_id, run_dir, scheduler_lock, transition)
 from .procs import is_locked, kill_tree
 from .lab import profile
 from .spec import ASK, RunSpec, SpecError, SKILL_REGISTRY, ask_label, slash_command, validate
@@ -447,4 +448,4 @@ def permission_decision(lab: Lab, run_id: str, n, allow: bool, message: str = ""
 
 
 __all__ = ["enqueue", "answer", "reply", "interrupt", "resume", "cancel", "stop", "list_runs", "queue_position",
-           "check_enabled", "permission_decision", "SKILL_REGISTRY", "HUB_TARGET", "safe_id"]
+           "check_enabled", "permission_decision", "SKILL_REGISTRY", "HUB_TARGET"]

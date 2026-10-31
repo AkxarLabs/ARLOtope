@@ -1,5 +1,5 @@
-"""Portable process control: spawn flags, liveness, tree kill, graceful stop, and the supervisor
-liveness lock.
+"""Portable process control: spawning (`run` / `popen`), spawn flags, liveness, tree kill, graceful stop,
+and the supervisor liveness lock.
 
 Liveness of a *supervisor* is an OS file lock, never a pid probe: the kernel releases the lock the
 instant the holder dies (crash, kill -9, reboot), so there are no PID-reuse false positives and no
@@ -10,11 +10,15 @@ from __future__ import annotations
 
 import contextlib
 import os
+import re
+import shutil
 import signal
 import subprocess
 import sys
 import time
 from pathlib import Path
+
+import labfiles  # tools/labfiles.py: stdlib-only, so this module stays loadable by path (arlo.py)
 
 # A killable process group so the whole tree can be reaped (mirrors templates/project/scripts/sweep.py).
 NEW_GROUP = ({"creationflags": subprocess.CREATE_NEW_PROCESS_GROUP} if os.name == "nt"
@@ -31,6 +35,71 @@ if os.name == "nt":
 else:
     DETACHED = {"start_new_session": True}
     NO_WINDOW = {"start_new_session": True}
+
+
+def _defaults(kwargs: dict) -> dict:
+    """What every child of ours needs: no console window flashing up on Windows, and text decoded as UTF-8
+    (never the console code page; undecodable bytes become U+FFFD instead of raising)."""
+    if os.name == "nt":
+        kwargs["creationflags"] = kwargs.get("creationflags", 0) | getattr(subprocess, "CREATE_NO_WINDOW", 0)
+    if kwargs.get("text") or kwargs.get("universal_newlines") or "encoding" in kwargs or "errors" in kwargs:
+        kwargs.setdefault("encoding", "utf-8")
+        kwargs.setdefault("errors", "replace")
+    return kwargs
+
+
+def run(argv, **kwargs) -> subprocess.CompletedProcess:
+    """subprocess.run with `_defaults`, never through cmd.exe (`direct`)."""
+    return subprocess.run(direct(argv), **_defaults(kwargs))
+
+
+def popen(argv, **kwargs) -> subprocess.Popen:
+    """subprocess.Popen with `_defaults`, never through cmd.exe (`direct`)."""
+    return subprocess.Popen(direct(argv), **_defaults(kwargs))
+
+
+_CMD_SPECIAL = set('"%&|<>^!\r\n')
+_SHIM_TARGET = re.compile(r'"([^"]*(?:%~dp0|%dp0%)[^"]*)"\s+%\*')
+
+
+def direct(argv):
+    """Windows starts a .cmd/.bat through cmd.exe, which parses the command line again: quotes do not protect
+    `& | < > ^ %` from it, so text on argv (a prompt) could run commands ("BatBadBut"), or just break. The npm,
+    pnpm and yarn shims that install the agent CLIs only start node (or an .exe) on one script: start that
+    directly. A batch file we cannot see through gets no argument cmd.exe would read."""
+    if os.name != "nt" or isinstance(argv, (str, bytes)) or not argv \
+            or not str(argv[0]).lower().endswith((".cmd", ".bat")):
+        return argv
+    target = shim_target(argv[0])
+    if target:
+        return [*target, *argv[1:]]
+    if any(_CMD_SPECIAL & set(str(a)) for a in argv[1:]):
+        raise OSError(f"{Path(argv[0]).name} runs through cmd.exe, which would read this text as commands; "
+                      "point the setting at the program itself (an .exe, or node and its script)")
+    return argv
+
+
+def shim_target(shim) -> list[str] | None:
+    r"""What a package manager's .cmd shim runs (`"%dp0%\node_modules\pkg\cli.js" %*`): [node, script] or
+    [program.exe]; None if it is not such a shim."""
+    try:
+        text = Path(shim).read_text(encoding="utf-8", errors="replace")
+    except OSError:
+        return None
+    found = _SHIM_TARGET.findall(text)
+    if not found:
+        return None
+    here = os.path.dirname(os.path.abspath(shim))
+    target = os.path.normpath(re.sub(r"%~dp0|%dp0%", lambda _m: here + os.sep, found[-1]))
+    if not os.path.isfile(target):
+        return None
+    if target.lower().endswith(".exe"):
+        return [target]
+    if not re.search(r"\bnode\b", text, re.I):   # a script for some other interpreter
+        return None
+    node = os.path.join(here, "node.exe")
+    node = node if os.path.isfile(node) else shutil.which("node")
+    return [node, target] if node else None
 
 
 def pid_alive(pid) -> bool:
@@ -72,8 +141,7 @@ def kill_tree(pid) -> None:
         return
     try:
         if os.name == "nt":
-            subprocess.run(["taskkill", "/T", "/F", "/PID", str(pid)], capture_output=True, check=False,
-                           creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0))
+            run(["taskkill", "/T", "/F", "/PID", str(pid)], capture_output=True, check=False)
         else:
             pgid = os.getpgid(pid)
             # Safety belt: every child we spawn is its own session leader (NEW_GROUP), so pgid==pid.
@@ -111,10 +179,12 @@ def graceful_stop(proc: subprocess.Popen, grace: float = 10.0) -> None:
 
 
 class RunLock:
-    """An exclusive, non-blocking OS lock on `<run>.d/lock`, held for a supervisor's whole life.
+    """An exclusive, non-blocking OS lock on a file: `<run>.d/lock`, held for a supervisor's whole life,
+    and every `excl_lock`.
 
-    `try_acquire()` → True if we now hold it. A second process gets False while the holder lives;
-    the kernel frees it when the holder dies, which is how reconcile detects a dead supervisor.
+    `try_acquire()` → True if we now hold it. Anyone else (another process, or another open of the file in
+    this one) gets False while the holder lives; the kernel frees it when the holder dies, which is how
+    reconcile detects a dead supervisor.
     """
 
     def __init__(self, path: Path):
@@ -123,7 +193,10 @@ class RunLock:
 
     def try_acquire(self) -> bool:
         self.path.parent.mkdir(parents=True, exist_ok=True)
-        fh = open(self.path, "a+b")  # noqa: SIM115 — held open for the lock's lifetime
+        try:
+            fh = open(self.path, "a+b")  # noqa: SIM115 — held open for the lock's lifetime
+        except PermissionError:   # Windows: the file is being deleted by a holder that just released it
+            return False
         try:
             fh.seek(0, os.SEEK_END)
             if fh.tell() == 0:
@@ -180,33 +253,40 @@ def is_locked(path: Path) -> bool:
 
 
 @contextlib.contextmanager
-def excl_lock(path: Path, *, wait: float = 30.0, stale_after: float = 120.0):
-    """A cross-process mutex via O_EXCL create (an O_EXCL lock file). A crashed holder's
-    lock older than `stale_after` seconds is reclaimed. Raises TimeoutError if still busy after `wait`."""
+def excl_lock(path: Path, *, wait: float = 30.0):
+    """A mutex between processes and threads: the OS lock of `RunLock` on `path`. The kernel frees it the
+    instant its holder dies, so a crashed holder never blocks anyone and a slow live one is never robbed
+    (there is nothing to reclaim). Raises TimeoutError if still busy after `wait`.
+
+    The file is removed on release. A waiter may then hold a lock on a file that no longer has the name, so
+    it counts only while `path` is still that file."""
     path = Path(path)
-    path.parent.mkdir(parents=True, exist_ok=True)
     deadline = time.time() + wait
-    fd = None
-    while fd is None:
-        try:
-            fd = os.open(str(path), os.O_CREAT | os.O_EXCL | os.O_WRONLY)
-        except (FileExistsError, PermissionError):
-            # Windows may report access denied while another holder's file is delete-pending.
-            with contextlib.suppress(OSError):
-                if time.time() - path.stat().st_mtime > stale_after:
-                    path.unlink()
-                    continue
-            if time.time() > deadline:
-                raise TimeoutError(f"lock busy: {path.name}") from None
-            time.sleep(0.05)
+    while True:
+        lock = RunLock(path)
+        if lock.try_acquire() and _names(lock, path):
+            break
+        lock.release()
+        if time.time() > deadline:
+            raise TimeoutError(f"lock busy: {path.name}")
+        time.sleep(0.05)
     try:
-        os.write(fd, str(os.getpid()).encode())
         yield
     finally:
-        with contextlib.suppress(OSError):
-            os.close(fd)
-        with contextlib.suppress(OSError):
-            path.unlink()
+        if os.name != "nt":   # POSIX: unlink while still holding it, so no newcomer can lock the old file
+            with contextlib.suppress(OSError):
+                path.unlink()
+        lock.release()
+        if os.name == "nt":   # Windows refuses while anyone has it open (a waiter then simply takes it)
+            with contextlib.suppress(OSError):
+                path.unlink()
+
+
+def _names(lock: RunLock, path: Path) -> bool:
+    try:
+        return os.path.samestat(os.fstat(lock._fh.fileno()), os.stat(path))
+    except OSError:
+        return False
 
 
 def _ephemeral(exe: str) -> bool:
@@ -231,9 +311,9 @@ def _store_python(exe: str) -> bool:
 
 def python_exe() -> str:
     """The interpreter to run helper scripts (supervisor, hooks, MCP host) with — the one running now
-    (known to have pyyaml), unless it is uv's throwaway environment or Windows Store Python: then a durable one, ~/.arlotope/py (a
-    small venv with pyyaml, made once by uv — the same one arlo.py uses). Absolute, so no PATH lookup can
-    pick a different python."""
+    (known to have pyyaml), unless it is uv's throwaway environment or Windows Store Python: then a durable
+    one, `py` in the ARLOtope home (a small venv with pyyaml, made once by uv — the same one arlo.py uses).
+    Absolute, so no PATH lookup can pick a different python."""
     exe = sys.executable or "python"
     store = _store_python(exe)
     if not (_ephemeral(exe) or store) or os.environ.get("ARLOTOPE_KEEP_PYTHON"):
@@ -241,15 +321,15 @@ def python_exe() -> str:
     if _STABLE.get("py"):
         return _STABLE["py"]
     import shutil   # noqa: PLC0415
-    venv = Path(os.environ.get("ARLOTOPE_HOME") or (Path.home() / ".arlotope")) / "py"
+    venv = labfiles.home_path("py")
     py = venv / ("Scripts/python.exe" if os.name == "nt" else "bin/python")
-    ok = py.exists() and subprocess.run([str(py), "-c", "import yaml"], capture_output=True).returncode == 0
+    ok = py.exists() and run([str(py), "-c", "import yaml"], capture_output=True).returncode == 0
     if not ok:
         uv = shutil.which("uv")
         if uv:
             venv.parent.mkdir(parents=True, exist_ok=True)
-            subprocess.run([uv, "venv", "--quiet", "--allow-existing", *(["--managed-python"] if store else []), str(venv)], capture_output=True)
-            subprocess.run([uv, "pip", "install", "--quiet", "--python", str(py), "pyyaml"], capture_output=True)
-        ok = py.exists() and subprocess.run([str(py), "-c", "import yaml"], capture_output=True).returncode == 0
+            run([uv, "venv", "--quiet", "--allow-existing", *(["--managed-python"] if store else []), str(venv)], capture_output=True)
+            run([uv, "pip", "install", "--quiet", "--python", str(py), "pyyaml"], capture_output=True)
+        ok = py.exists() and run([str(py), "-c", "import yaml"], capture_output=True).returncode == 0
     _STABLE["py"] = str(py) if ok else exe
     return _STABLE["py"]

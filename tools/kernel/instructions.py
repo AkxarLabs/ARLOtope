@@ -16,7 +16,9 @@ import re
 import time
 from pathlib import Path
 
-from . import journal, model
+import labfiles
+
+from . import model
 
 KINDS = ("add", "step", "role")
 MAX = 20000
@@ -72,7 +74,7 @@ def write(kind: str, name: str, text: str, hub=None, study: str | None = None) -
             p.unlink()
         return None
     p.parent.mkdir(parents=True, exist_ok=True)
-    p.write_text(f"---\nupdated: {journal.now()}\n---\n{text}\n", encoding="utf-8", newline="\n")
+    p.write_text(f"---\nupdated: {labfiles.now()}\n---\n{text}\n", encoding="utf-8", newline="\n")
     return p
 
 
@@ -119,7 +121,7 @@ def propose(kind: str, name: str, text: str, hub=None, study: str | None = None,
     import hashlib  # noqa: PLC0415
     pid = time.strftime("%Y%m%d-%H%M%S") + "-" + hashlib.sha256((kind + name + text).encode()).hexdigest()[:6]
     rec = {"id": pid, "kind": kind, "name": name, "study": study, "text": text, "why": (why or "")[:1000],
-           "by": by or "", "ts": journal.now(), "status": "pending"}
+           "by": by or "", "ts": labfiles.now(), "status": "pending"}
     d = proposals_dir(hub)
     d.mkdir(parents=True, exist_ok=True)
     (d / f"{pid}.json").write_text(json.dumps(rec, indent=1), encoding="utf-8")
@@ -150,6 +152,6 @@ def resolve(pid: str, accept: bool, hub=None) -> dict:
         cur = read(r["kind"], r["name"], hub, r.get("study"))
         write(r["kind"], r["name"], (cur + "\n\n" + r["text"]) if cur else r["text"], hub, r.get("study"))
     r["status"] = "accepted" if accept else "declined"
-    r["resolved"] = journal.now()
+    r["resolved"] = labfiles.now()
     f.write_text(json.dumps(r, indent=1), encoding="utf-8")
     return r

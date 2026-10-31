@@ -398,6 +398,12 @@
     { id: 'notifications', label: 'Notifications', group: 'lab', C: Notifications, blurb: 'Desktop preferences stay in this browser. Phone and chat delivery are shared Lab settings.' },
   ];
   const GROUPS = [['lab', 'This lab'], ['browser', 'This browser']];
+  /* lab/config.yaml unreadable, or holding a setting that doesn't exist or has the wrong type */
+  const ConfigProblems = () => {
+    const { data } = NL.useGet('/api/lab/config');
+    const problems = (data && data.problems) || [];
+    return problems.length ? html`<div class="banner banner-bad" role="alert"><${NL.Glyph} name="diamond" size=${18} /><span class="grow"><b>lab/config.yaml needs a look.</b> <span class="muted">${problems.join(' · ')}</span></span></div>` : null;
+  };
   NL.SettingsPage = ({ args, query }) => {
     const cur = SECTIONS.find(x => x.id === args[0]) || SECTIONS[0];
     return html`<div class="page page-split settings-page">
@@ -406,6 +412,6 @@
         ${GROUPS.map(([g, title]) => html`<div class="side-sec">${title}</div>${SECTIONS.filter(x => x.group === g).map(x => html`<a class=${cls('side-link', x.id === cur.id && 'on')} href=${'#/settings/' + x.id}>${x.label}</a>`)}`)}
         </nav></aside>
       <main class="split-right"><h2>${cur.label} <span class=${cls('pill', 'scope-pill', cur.group)} title=${cur.group === 'lab' ? 'Saved in this lab’s configuration; everyone who opens the lab sees it' : 'Saved in this browser only'}>${cur.group === 'lab' ? 'this lab' : 'this browser'}</span></h2>
-        ${cur.blurb ? html`<p class="lede">${cur.blurb}</p>` : null}<${cur.C} query=${query}/></main></div>`;
+        ${cur.blurb ? html`<p class="lede">${cur.blurb}</p>` : null}<${ConfigProblems} /><${cur.C} query=${query}/></main></div>`;
   };
 })();

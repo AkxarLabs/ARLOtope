@@ -7,18 +7,17 @@
   const acknowledgement = record => record.acknowledgements?.length ? 'Acknowledged' : 'Acknowledgement requested';
 
   const Note = ({ study = '', text = '', about, onClose }) => {
-    const [value, setValue] = useState(text), [ack, setAck] = useState(true), [tags, setTags] = useState([]);
+    const [value, setValue] = N.useDraft('note:' + (study || 'hub') + ':' + text, text), [ack, setAck] = useState(true), [tags, setTags] = useState([]);
     const [busy, setBusy] = useState(false), [error, setError] = useState('');
-    const save = async () => {
-      if (busy || !value.trim()) return;
-      setBusy(true); setError('');
+    const save = N.useSubmit(async () => {
+      if (!value.trim()) return;
+      setError('');
       try {
         const result = await N.api('/api/knowledge/note', { study, text: value, about, acknowledge: ack, tags });
         if (!result.ok) { setError(result.error || 'Could not save this note. Your draft is still here.'); return; }
-        N.invalidateLibrary(); window.dispatchEvent(new Event('nl-knowledge')); N.toast('Note saved'); onClose();
+        N.invalidateLibrary(); window.dispatchEvent(new Event('nl-knowledge')); N.toast('Note saved'); setValue(''); onClose();
       } catch (error) { setError(error.message || 'Could not save this note. Your draft is still here.'); }
-      finally { setBusy(false); }
-    };
+    }, setBusy);
     return html`<div class="dialog"><h3>Add note</h3><p class="muted small">${study ? 'Saved with this study.' : 'Saved with the lab.'}</p>
       <${N.Field} label="Note"><${N.Textarea} rows=${5} value=${value} onInput=${setValue}/></${N.Field}>
       <label class="knowledge-ack" title="This records only that an agent read the note. It does not queue work.">
@@ -29,7 +28,7 @@
       </details>
       <details><summary>Tags</summary><${N.TagInput} value=${tags} onChange=${setTags}/></details>
       ${error ? html`<p role="alert" class="note note-warn">${error}</p>` : null}
-      <div class="dialog-actions"><${N.Btn} onClick=${onClose}>Cancel</${N.Btn}>
+      <div class="dialog-actions"><${N.Btn} onClick=${() => { setValue(''); onClose(); }}>Cancel</${N.Btn}>
         <${N.Btn} kind="primary" busy=${busy} disabled=${!value.trim()} onClick=${save}>Save note</${N.Btn}>
       </div></div>`;
   };

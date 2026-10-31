@@ -1,13 +1,14 @@
 """tools/signature_guard.py — in a headless run, the PI's records and the lab's definition are the PI's.
 
-An approval is a journal record, so the guard is one list of paths and commands, used for edits and for shell
-writes alike: the journal and the registry written from it, the check results, the campaigns' state, the usage
-limits, the PI-action log, the panel collector approvals, the Compose draft, workflow/, the skills, the roles and
-the checks (the floor no rules.yaml lowers), the lab's settings (except in /setup-lab and /configure), the
-protected paths of workflow/rules.yaml — and `arlo approve`/`revoke`, --skip-guard and new.py on the shell.
-Prose in a document approves nothing, so writing it is fine. Covered across tool shapes (claude
-Edit/Write/MultiEdit/Bash, codex apply_patch, opencode edit) and the hook contract (exit 2 + reason on stderr,
-the denial logged to the run's permissions.jsonl; a guard that fails allows the call and says so).
+The guard is an early warning on the tool calls it sees: edits to the journal and the registry written from it,
+the check results, the campaigns' state, the usage limits, the PI-action log, the panel collector approvals, the
+Compose draft, workflow/, the skills, the roles and the checks (the floor no rules.yaml lowers), the lab's
+settings (except in /setup-lab and /configure), the protected paths of workflow/rules.yaml — and `arlo
+approve`/`revoke`, --skip-guard and new.py on the shell. Code an agent runs writes past any pattern, so what
+holds is checked from outside: signed approvals (test_kernel), and each attempt's fingerprint of what only the PI
+changes (here, and test_run_records). Prose in a document approves nothing, so writing it is fine. Covered across
+tool shapes (claude Edit/Write/MultiEdit/Bash, codex apply_patch, opencode edit) and the hook contract (exit 2 +
+reason on stderr, the denial logged to the run's permissions.jsonl; a guard that fails allows the call and says so).
 """
 
 from __future__ import annotations
@@ -20,7 +21,7 @@ import pytest
 
 from conftest import REPO, load
 
-MARK = "<!-- PI Gate 1 approved via Vivarium dashboard 2026-09-01T10:00:00 -->"
+MARK = "<!-- PI Gate 1 approved via the dashboard 2026-09-01T10:00:00 -->"
 REC = json.dumps({"ts": "2026-09-01T10:00:00", "study": "idea-a", "checkpoint": "approve-proposal",
                   "decision": "approved", "by": "pi", "via": "dashboard"})
 
@@ -80,7 +81,6 @@ def test_a_campaign_brief_is_a_work_file_the_registry_is_not(g, hub):
     hub.add_registry_row("idea-a", state="internal-review")
     reg = hub.lab / "REGISTRY.md"
     assert "arlo move" in g.decide(edit(reg, "| idea-a | T | internal-review |", "| idea-a | T | final |"))
-    assert g.decide(bash("sed -i 's/internal-review/final/' lab/REGISTRY.md", hub.root))
     d = hub.lab / "campaigns"
     d.mkdir(parents=True)
     assert g.decide(write(d / "2026-09-04-new.md", "# C\n\n## Campaign Log\n")) is None
@@ -97,7 +97,6 @@ def test_lab_config_is_the_pis_except_in_the_config_procedures(g, hub, monkeypat
     c.write_text(CFG, encoding="utf-8")
     assert g.decide(edit(c, "enabled: false", "enabled: true"))
     assert g.decide(edit(c, "candidates: 8", "candidates: 12"))
-    assert g.decide(bash("sed -i 's/candidates: 8/candidates: 12/' lab/config.yaml", hub.root))
     for skill in ("setup-lab", "configure"):
         monkeypatch.setenv("ARLOTOPE_RUN_SKILL", skill)
         assert g.decide(edit(c, "max_concurrent_runs: 1", "max_concurrent_runs: 8")) is None
@@ -123,20 +122,8 @@ def test_lab_config_is_the_pis_except_in_the_config_procedures(g, hub, monkeypat
     '"C:/My Lab/arlo.cmd" pause',
     "python tools/spawn_project.py idea-a --skip-guard",
     "python tools/new.py procedure survey",
-    f"echo '{REC}' >> lab/approvals.jsonl",
-    "python -c \"open('lab/approvals.jsonl','a').write('{}')\"",
-    "Set-Content lab/.bus/pi-actions.jsonl '{}'",
-    "cp /tmp/x.json lab/.bus/campaigns/c.json",
-    "echo x > lab/panels/gpu/collect.py",
-    "echo '14. new rule' >> AGENTS.md",
-    "sed -i 's/a/b/' workflow/steps.yaml",
-    "echo '{}' >> lab/journal.jsonl",
-    "python -c \"open('lab/journal.jsonl','w').write('')\"",
-    "cp evil.py checks/evil.py",
-    "cp evil.py ./checks/evil.py",
-    "Copy-Item evil.md .claude/skills/x/SKILL.md",
 ])
-def test_shell_denials(g, cmd):
+def test_the_pis_verbs_on_the_shell_are_denied(g, cmd):
     assert g.decide(bash(cmd))
 
 
@@ -264,7 +251,6 @@ def test_agents_cannot_edit_procedures_or_their_own_instructions(g, hub, rel):
     p.parent.mkdir(parents=True, exist_ok=True)
     why = g.decide(write(p, "be sloppier"))
     assert why and "arlo propose" in why
-    assert g.decide(bash(f"echo x > {rel}", hub.root))
     assert g.decide(write(hub.lab / ".bus" / "compose" / "draft" / "workflow" / "steps.yaml", "x"))   # nor the PI's draft
 
 
@@ -317,8 +303,55 @@ def test_a_run_cannot_switch_its_own_guard_off(g, hub):
         p = hub.root / rel
         p.parent.mkdir(parents=True, exist_ok=True)
         assert "switch it off" in (g.decide(write(p, "")) or ""), rel
-        assert g.decide(bash(f"echo x > {rel}", hub.root)), rel
     assert g.decide(write(hub.root / "tools" / "kernel" / "studies.py", "x")) is None
+
+
+@pytest.mark.parametrize("code", [
+    "open('workflow/rules.yaml','a').write('protected_paths: []')",                        # the forms no pattern saw
+    "import shutil; shutil.copy('studies/idea-a/proposal.md', 'checks/always_pass.py')",
+    "import base64,pathlib; pathlib.Path('AGENTS.md').write_bytes(base64.b64decode('eA=='))",
+    "import os; os.remove('agent-roles/overseer.md')",
+    "import pathlib; pathlib.Path('lab/config.yaml').write_text('agents: {}')",
+])
+def test_what_the_guard_cannot_see_is_seen_after_the_attempt(g, hub, code):
+    """No pattern sees every way code writes a file, so each attempt's supervisor fingerprints what only the PI
+    changes (the definition, and the settings outside /configure) before and after: a change holds the lab."""
+    from executor import Lab
+    import lab_profile as profile
+    from kernel import watch
+    lab = Lab(hub.root)
+    (hub.root / "workflow").mkdir(exist_ok=True)
+    (hub.root / "workflow" / "rules.yaml").write_bytes((REPO / "workflow" / "rules.yaml").read_bytes())
+    for rel in ("AGENTS.md", "agent-roles/overseer.md", "checks/frozen.py"):
+        (hub.root / rel).parent.mkdir(parents=True, exist_ok=True)
+        (hub.root / rel).write_text("x\n", encoding="utf-8")
+    m = {"run_id": "r-1", "skill": "experiment"}
+    before = profile.definition(lab, m)
+    assert {"workflow/rules.yaml", "AGENTS.md", "agent-roles/overseer.md", "checks/frozen.py", "lab/config.yaml"} <= set(before)
+    (hub.root / "studies" / "idea-a" / "notes.md").write_text("ordinary work", encoding="utf-8")
+    assert profile.definition_changed(lab, m, before) is None
+    subprocess.run([sys.executable, "-c", code], cwd=hub.root, check=True, timeout=60)
+    f = profile.definition_changed(lab, m, before)
+    assert f["level"] == "block" and f["hold"] and f["run"] == "r-1"
+    with pytest.raises(ValueError, match="held by a flag"):
+        profile.check_launch(lab, "lab-status", None)
+    watch.ack(hub.root, f["id"])
+    profile.check_launch(lab, "lab-status", None)                      # the PI has looked: work goes on
+
+
+def test_a_configure_run_may_change_the_settings_but_nothing_else(g, hub):
+    from executor import Lab
+    import lab_profile as profile
+    lab, m = Lab(hub.root), {"run_id": "r-2", "skill": "configure"}
+    (hub.root / ".claude" / "agents").mkdir(parents=True)
+    (hub.root / ".claude" / "agents" / "overseer.md").write_text("model: a", encoding="utf-8")
+    before = profile.definition(lab, m)
+    (hub.lab / "config.yaml").write_text("agents: {}\n", encoding="utf-8")
+    (hub.root / ".claude" / "agents" / "overseer.md").write_text("model: b", encoding="utf-8")   # role_sync renders
+    assert profile.definition_changed(lab, m, before) is None
+    (hub.root / "checks").mkdir(exist_ok=True)
+    (hub.root / "checks" / "x.py").write_text("x", encoding="utf-8")
+    assert "checks/x.py" in profile.definition_changed(lab, m, before)["detail"]
 
 
 def fenced_procedure(hub):
@@ -329,9 +362,9 @@ def fenced_procedure(hub):
     path.write_text(path.read_text(encoding='utf-8').replace('writes: ["lab/.bus/designs/workflow/**"]', 'writes: [lab/.bus/designs/**]', 1), encoding='utf-8')
 
 
-def test_declared_write_scope_applies_to_edit_and_shell(g, hub, monkeypatch):
-    """A procedure that declares `writes:` is confined to it — edit tools and
-    shell redirects alike; the system temp folder stays usable; other runs are not confined."""
+def test_declared_write_scope_applies_to_edits(g, hub, monkeypatch):
+    """A procedure that declares `writes:` is confined to it through its edit tools; the system temp folder stays
+    usable; other runs are not confined. (What its shell writes elsewhere is flagged after the run, below.)"""
     import tempfile
     monkeypatch.setenv("ARLOTOPE_RUN_SKILL", "design")
     root = hub.root
@@ -345,10 +378,7 @@ def test_declared_write_scope_applies_to_edit_and_shell(g, hub, monkeypatch):
     assert "writes only" in g.decide(w(root / "dashboard" / "static" / "ui" / "app.js"))
     assert g.decide(w(__import__("pathlib").Path.home() / "projects" / "x" / "run.py"))       # outside the lab and temp
     assert g.decide(w(__import__("pathlib").Path(tempfile.gettempdir()) / "scratch.txt")) is None
-    assert g.decide(sh("python tools/panels.py list > lab/.bus/designs/panels/p/out.json")) is None
     assert g.decide(sh("python lab/.bus/designs/panels/p/collect.py 2>&1 | head -5")) is None
-    assert "writes only" in g.decide(sh("echo 'x' >> dashboard/serve.py"))
-    assert "writes only" in g.decide(sh("cat a | tee tools/x.py"))
     monkeypatch.setenv("ARLOTOPE_RUN_SKILL", "analyze")
     assert g.decide(w(root / "studies" / "idea-a" / "notes.md")) is None
 

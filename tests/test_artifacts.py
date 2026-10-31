@@ -81,7 +81,8 @@ def test_old_study_results_and_explanations_are_filtered_before_paging(art,hub,m
         if not before:break
     assert len(ids)==len(set(ids))==305 and ids==sorted(ids,reverse=True)
     assert art.all_artifacts(hub.root,study='old-study')[0]['about']['run']=='old-run'
-    assert [a['detail']['artifact'] for a in server.artifacts.attention_items()]==['a-20260101-000000-0000']
+    waiting=lambda:[a['detail']['artifact'] for a in load('lab_attention').extra_items(hub.root) if a['kind']=='artifact']   # a question in Needs you
+    assert waiting()==['a-20260101-000000-0000']
     revision=art.revision(hub.root)
     server.artifacts.seen({'ids':['a-20260101-000000-0000']})
     assert art.revision(hub.root)!=revision
@@ -89,7 +90,7 @@ def test_old_study_results_and_explanations_are_filtered_before_paging(art,hub,m
     server.artifacts.seen({'ids':['a-20260101-000000-0000']})
     assert art.revision(hub.root)==revision  # viewing an already-seen record cannot cause a refresh loop
     assert server.artifacts.reply({'id':'a-20260101-000000-0000','text':'Please clarify the assumptions.'})[1]==200
-    assert not server.artifacts.attention_items()
+    assert not waiting()
 
 
 def test_unreadable_source_has_a_useful_error_and_leaves_no_partial_artifact(art,hub,tmp_path,monkeypatch):
@@ -208,26 +209,30 @@ def test_a_run_can_publish_but_never_write_the_pis_reply(hub, monkeypatch):
     w = lambda p, c: {"hook_event_name": "PreToolUse", "tool_name": "Write", "cwd": str(hub.root), "tool_input": {"file_path": str(p), "content": c}}  # noqa: E731
     assert g.decide(w(d / "reply.json", '{"choice": "Yes"}'))
     assert g.decide(w(d / "seen", ""))
-    assert g.decide({"hook_event_name": "PreToolUse", "tool_name": "Bash", "cwd": str(hub.root),
-                     "tool_input": {"command": f"echo x > lab/.bus/artifacts/{d.name}/reply.json"}})
     assert g.decide(w(d / "artifact.json", "{}")) is None                       # its own artifact is the run's
 
 
 def test_a_runs_sheet_opens_only_the_files_its_transcript_says_it_wrote(hub, tmp_path, monkeypatch):
+    """…and only inside the places the run works (its workdir, the lab, its study's project): a transcript naming a
+    file elsewhere, or a network share, shows nothing and touches nothing."""
     m = _serve(hub, monkeypatch)
     out, _ = m.runops.launch_run({"skill": "lab-status", "confirm": True})
     rid = out["run_id"]
     lab = m.executor.Lab(hub.root)
     _t, _w, path, man = m.executor.find_run(lab, rid)
-    plan = tmp_path / "PLAN.md"
+    plan = hub.root / "PLAN.md"
     plan.write_text("# The plan\n", encoding="utf-8")
-    page = tmp_path / "review.html"
+    page = hub.root / "review.html"
     page.write_text('<h1>Review</h1><button onclick="this.textContent=\'Done\'">Explore</button>', encoding="utf-8")
-    secret = tmp_path / "secret.md"
+    secret = hub.root / "secret.md"
     secret.write_text("not this", encoding="utf-8")
+    outside = tmp_path / "outside.md"
+    outside.write_text("nor this", encoding="utf-8")
     lines = [{"type": "assistant", "message": {"content": [
         {"type": "tool_use", "id": "w1", "name": "Write", "input": {"file_path": str(plan), "content": "# The plan\n"}},
         {"type": "tool_use", "id": "w2", "name": "Write", "input": {"file_path": str(page), "content": page.read_text(encoding="utf-8")}},
+        {"type": "tool_use", "id": "w3", "name": "Write", "input": {"file_path": str(outside), "content": "x"}},
+        {"type": "tool_use", "id": "w4", "name": "Write", "input": {"file_path": r"\\attacker.invalid\share\x.md", "content": "x"}},
         {"type": "tool_use", "id": "b1", "name": "Bash", "input": {"command": f"cat {secret}"}}]}}]
     (path.parent / man["stream"]).write_text("".join(json.dumps(x) + "\n" for x in lines), encoding="utf-8")
     files, code = m.runops.run_files({"run_id": rid})
@@ -238,6 +243,23 @@ def test_a_runs_sheet_opens_only_the_files_its_transcript_says_it_wrote(hub, tmp
     assert code == 200 and got["text"] == "# The plan\n"
     assert m.runops.run_file({"run_id": rid, "path": str(secret)})[1] == 404
     assert m.runops.run_file_raw({"run_id": rid, "path": str(secret)}) is None
+    assert m.runops.run_file({"run_id": rid, "path": str(outside)})[1] == 404
+
+
+def test_an_artifact_shows_only_its_own_copy(art, hub, tmp_path, monkeypatch):
+    """artifact.json is the agent's to write: a `file` naming a path elsewhere, a ../ escape, a network share, or a
+    forged `id` serves nothing (and looks at nothing outside the artifact's folder)."""
+    m = _serve(hub, monkeypatch)
+    (tmp_path / "secret.md").write_text("outside", encoding="utf-8")
+    (tmp_path / "x.md").write_text("# mine\n", encoding="utf-8")
+    a = art.publish("Mine", str(tmp_path / "x.md"))
+    assert m.artifacts.get({"id": a["id"]})[0]["text"] == "# mine\n"
+    rec = art.root(hub.root) / a["id"] / "artifact.json"
+    for forged in ({"file": str(tmp_path / "secret.md")}, {"file": "../../../../../secret.md"},
+                   {"file": r"\\attacker.invalid\share\x.md"},{"id": "../../../..", "file": "secret.md"}):
+        rec.write_text(json.dumps({**a, **forged}), encoding="utf-8")
+        assert m.artifacts.file_route({"id": a["id"]}) is None
+        assert "text" not in m.artifacts.get({"id": a["id"]})[0]
 
 
 def test_an_explanation_is_an_artifact_about_its_run(hub, monkeypatch, tmp_path):

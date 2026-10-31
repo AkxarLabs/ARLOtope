@@ -37,9 +37,8 @@ existing repository only when requested.
 | `studies/` | Local study documents, uploads and history; ignored |
 | External project repository | Its own Git history and ignore rules |
 
-First use copies the default configuration to `lab/config.yaml`. There is one active settings file;
-defaults are not merged over your edits on later launches. Saving settings does not change product
-defaults. Ignore rules keep local research out of ordinary application commits; they are not access
+First use creates an almost empty `lab/config.yaml` that holds only your changes; every other setting
+comes from `lab/config.defaults.yaml`. Saving settings never changes product defaults. Ignore rules keep local research out of ordinary application commits; they are not access
 controls, and `git add -f` can override them.
 
 Back up **`lab/` and `studies/` together**, plus each project repository, its uncommitted work and

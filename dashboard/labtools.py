@@ -8,6 +8,7 @@ import subprocess
 import sys
 
 import ctx
+from executor import procs
 
 
 # Read-only / safe tools the dashboard may run directly. Never anything that trains or writes.
@@ -43,8 +44,7 @@ def run_tool(name: str, idea: str | None = None) -> dict:
         # compare.py requires a subcommand (`list`); status.py takes none.
         cmd, cwd = [py, str(script)] + (["list", "--last", "20"] if name == "compare" else []), pdir
     try:
-        out = subprocess.run(cmd, cwd=str(cwd), capture_output=True, text=True,
-                             encoding="utf-8", errors="replace", timeout=60)
+        out = procs.run(cmd, cwd=str(cwd), capture_output=True, text=True, timeout=60)
         return {"ok": True, "tool": name, "exit": out.returncode,
                 "output": (out.stdout or "") + (("\n[stderr]\n" + out.stderr) if out.stderr.strip() else "")}
     except subprocess.TimeoutExpired:

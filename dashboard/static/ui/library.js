@@ -4,7 +4,7 @@
 (function () {
   'use strict';
   const NL = window.NL;
-  const { html, useState, useEffect, useMemo, cls } = NL;
+  const { html, useState, useEffect, cls } = NL;
 
   const cache = { tree: null, at: 0, wait: null };
   NL.invalidateLibrary = () => { cache.tree=null; cache.at=0; };
@@ -117,15 +117,14 @@
   /* PI-authored documents, edited in place (lab/SYSTEM.md, lab/knowledge/OPEN-QUESTIONS.md) */
   NL.DocEditSheet = ({ which, onClose }) => {
     const { data: d, error, reload } = NL.useGet(`/api/doc?${NL.qs({ which })}`);
-    const [text, setText] = useState('');
-    const [preview, setPreview] = useState(false);
-    NL.useLayoutEffect(() => { if (d) setText(d.text || ''); }, [d]);
-    const save = async () => { const r = await NL.act('/api/doc/save', { doc: which, text }, 'Saved'); if (r.ok) { cache.at = 0; onClose(); } };
+    const [edit, setEdit] = NL.useDraft('doc:' + which, null), [preview, setPreview] = useState(false);
+    const text = edit ?? d?.text ?? '';
+    const save = async () => { const r = await NL.act('/api/doc/save', { doc: which, text }, 'Saved'); if (r.ok) { cache.at = 0; setEdit(null); onClose(); } };
     const title = which === 'system' ? 'This machine (SYSTEM.md)' : 'Open questions';
     const sub = which === 'system' ? 'Agents read this before running anything: hardware, GPUs, quirks, what not to touch.' : '/ideate reads these first. Add the questions you want the lab to chase.';
     return html`<${NL.Sheet} wide title=${title} sub=${sub} onClose=${onClose} footer=${html`<div class="row"><${NL.Seg} value=${preview ? 'p' : 'e'} onChange=${v => setPreview(v === 'p')} options=${[{ value: 'e', label: 'Edit' }, { value: 'p', label: 'Preview' }]} /><span class="grow"></span>
-      <${NL.Btn} onClick=${onClose}>Cancel</${NL.Btn}><${NL.Btn} kind="primary" onClick=${save} disabled=${!d}>Save</${NL.Btn}></div>`}>
-      ${!d ? html`<${NL.LoadState} error=${error} reload=${reload} />` : preview ? html`<${NL.Markdown} text=${text} className="md-doc" />` : html`<textarea class="input textarea mono editor" value=${text} onInput=${e => setText(e.target.value)}></textarea>`}
+      <${NL.Btn} onClick=${() => { setEdit(null); onClose(); }}>Cancel</${NL.Btn}><${NL.Btn} kind="primary" onClick=${save} disabled=${!d}>Save</${NL.Btn}></div>`}>
+      ${!d ? html`<${NL.LoadState} error=${error} reload=${reload} />` : preview ? html`<${NL.Markdown} text=${text} className="md-doc" />` : html`<textarea class="input textarea mono editor" value=${text} onInput=${e => setEdit(e.target.value)}></textarea>`}
     </${NL.Sheet}>`;
   };
 })();

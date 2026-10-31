@@ -6,7 +6,7 @@ import os
 from pathlib import Path
 import uuid
 
-from .manifest import now
+from labfiles import now
 from .procs import excl_lock
 
 FILE = 'conversation.jsonl'

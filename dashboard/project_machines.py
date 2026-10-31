@@ -10,8 +10,11 @@ import secrets
 
 import ctx
 import machines
+from executor import procs
 import remote_projects as R
 
+# The runner's cache folder on the remote machine, resolved by the remote shell (its own ARLOtope home).
+REMOTE_WORKERS = '${ARLOTOPE_HOME:-$HOME/.arlotope}/workers'
 CONNS = {}
 CONNS_LOCK = threading.Lock()
 
@@ -26,18 +29,17 @@ class ProjectConn(machines.Conn):
             machines._put(machine)
         # A new immutable runner can serve existing spools without stopping old runs.
         self.rport = 20000 + int(hashlib.sha256((machine['runner_id'] + ':' + self.build).encode()).hexdigest(), 16) % 29000
-        self.pidfile = machines._home() / 'workers' / (machine['id'] + '.pid')
+        self.pidfile = ctx.labfiles.home_path('workers', machine['id'] + '.pid')
         self.sessionfile = self.pidfile.with_suffix('.session.json')
         self.remote_uid = None
         self.remote_pid = None
 
     def package(self):
         digest, blob = self.build, self.blob
-        archive = machines._home() / 'workers' / ('worker-' + digest + '.pyz')
+        archive = ctx.labfiles.home_path('workers', 'worker-' + digest + '.pyz')
         archive.parent.mkdir(parents=True, exist_ok=True)
         archive.write_bytes(blob)
-        target = '~/.arlotope/workers/' + digest + '.pyz'
-        return archive, target
+        return archive, REMOTE_WORKERS + '/' + digest + '.pyz'
 
     def _start_cmd(self):
         _, target = self.package()
@@ -47,11 +49,10 @@ class ProjectConn(machines.Conn):
     def bootstrap(self):
         archive, target = self.package()
         digest = target.rsplit('/', 1)[1].removesuffix('.pyz')
-        code = ('import sys,pathlib,hashlib,secrets; p=pathlib.Path.home()/".arlotope/workers"/' + repr(digest + '.pyz')
-                + '; b=sys.stdin.buffer.read(); '
+        code = ('import sys,pathlib,hashlib,secrets; p=pathlib.Path(sys.argv[1]); b=sys.stdin.buffer.read(); '
                 + 'assert hashlib.sha256(b).hexdigest().startswith(' + repr(digest) + '); '
                 + 'p.parent.mkdir(parents=True,exist_ok=True); t=p.with_name(p.name+"."+secrets.token_hex(6)+".tmp"); t.write_bytes(b); t.replace(p)')
-        return archive, 'python3 -c ' + shlex.quote(code) + ' && ' + self._start_cmd()
+        return archive, 'python3 -c ' + shlex.quote(code) + ' ' + machines._rpath(target) + ' && ' + self._start_cmd()
 
     def connect(self, interactive=False):
         with self._setup_lock:
@@ -184,9 +185,8 @@ class ProjectConn(machines.Conn):
     def disconnect(self, stop_remote=False):
         super().disconnect(False)
         if self.pidfile.exists():
-            from executor.procs import kill_tree
             try:
-                kill_tree(int(self.pidfile.read_text()))
+                procs.kill_tree(int(self.pidfile.read_text()))
             except (OSError, ValueError):
                 pass
             self.pidfile.unlink(missing_ok=True)

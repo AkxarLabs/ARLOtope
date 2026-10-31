@@ -128,7 +128,6 @@ def _tracing_stale(pdir: Path) -> bool:
 def executor_checks(config: dict, rows: dict, projects_root: Path) -> list[str]:
     out = []
     prog = ((config.get("agents") or {}).get("programmatic")) or {}
-    dash = config.get("dashboard") or {}
     for name, b in (prog.get("backends") or {}).items():
         cmd = (b or {}).get("command") if isinstance(b, dict) else None
         if isinstance(cmd, str) and cmd.strip() and not (Path(cmd).expanduser().exists() or shutil.which(cmd)):

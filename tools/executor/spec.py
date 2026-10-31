@@ -18,7 +18,7 @@ from dataclasses import dataclass, field
 
 from . import backends  # noqa: F401 — (callers reach backends.get through here)
 from .lab import HUB_TARGET, Lab, profile
-from .manifest import safe_id
+from labfiles import safe_id
 
 # level: where the session's cwd is — "hub" or "project" (the target must then be a spawned project).
 # mode:  "headless"    — runs to completion; PI decisions arrive as AskUserQuestion / needs_pi footer

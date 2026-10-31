@@ -23,7 +23,6 @@ import hashlib
 import json
 import re
 import shutil
-import subprocess
 import sys
 import textwrap
 import time
@@ -33,6 +32,7 @@ import yaml
 import tagging
 
 import ctx  # noqa: E402
+from executor import procs  # noqa: E402
 from kernel import define, diff, model, rules, studies  # noqa: E402
 
 ROOTS = diff.ROOTS
@@ -721,7 +721,7 @@ def workflow_designs() -> list[dict]:
         if not re.match(r"^[A-Za-z0-9][A-Za-z0-9_-]{0,60}$", f.name):
             continue
         probs, said = diff.check_overlay(ctx.HUB, f)
-        out.append({"id": f.name, "ts": time.strftime("%Y-%m-%dT%H:%M:%S", time.localtime(f.stat().st_mtime)),
+        out.append({"id": f.name, "ts": ctx.ts(f.stat().st_mtime),
                     "request": (ctx.read(f / "request.md") or "").strip()[:600],
                     "notes": (ctx.read(f / "notes.md") or "").strip()[:2000],
                     "files": sorted(diff.design_files(f)), "problems": probs, "changes": said})
@@ -840,7 +840,7 @@ def _after_change(touched: list[str]) -> list[str]:
     except Exception as e:  # noqa: BLE001
         warnings.append(f"the generated docs could not be refreshed: {e}")
     if any(p.startswith(("agent-roles/", "lab/workflow/roles/")) for p in touched):
-        r = subprocess.run([sys.executable, str(ctx.HUB / "tools" / "role_sync.py"), "render"], cwd=str(ctx.HUB),
+        r = procs.run([sys.executable, str(ctx.HUB / "tools" / "role_sync.py"), "render"], cwd=str(ctx.HUB),
                            capture_output=True, text=True, timeout=120)
         if r.returncode != 0:
             warnings.append("re-rendering the role files failed: " + (r.stderr or r.stdout)[-300:])

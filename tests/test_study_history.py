@@ -7,6 +7,7 @@ import pytest
 from conftest import kernel
 
 kernel()
+import labfiles
 import study_history as H
 
 
@@ -43,13 +44,13 @@ def test_attached_brief_to_interrupted_task_gate_and_loop_history(hub, tmp_path,
     run = {'schema': 2, 'run_id': 'inspection', 'target': slug, 'subject': slug,
            'workflow_node': 'inspect', 'workflow_visit': 1, 'backend': 'codex',
            'status': 'failed', 'failure_kind': 'usage_limit', 'session_id': 'saved-session',
-           'attempt': 1, 'reason': 'Usage limit reached', 'created': k.journal.now()}
+           'attempt': 1, 'reason': 'Usage limit reached', 'created': labfiles.now()}
     k.branches.bind(hub.root, slug, 'inspect', run['run_id'])
-    manifest.write_manifest(path, run)
+    labfiles.write_json(path, run)
     assert any(a['kind'] == 'crashed' for a in attention.run_items(lab, [(path, run)]))
     assert k.studies.study(hub.root, slug)['runnable'] == ['inspect']
     run.update(status='completed', failure_kind=None, attempt=2)
-    manifest.write_manifest(path, run)
+    labfiles.write_json(path, run)
     assert flag_runs(hub.root, [run])[0]['needs_followup']
     assert next(v for v in H.read(hub.root, slug)['visits'] if v['node'] == 'inspect')['outcome'] is None
 

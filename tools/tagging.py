@@ -3,6 +3,8 @@ from pathlib import Path
 import re
 import yaml
 
+from labfiles import write_atomic
+
 FRONT = re.compile(r'\A---\r?\n(.*?)\r?\n---(?:\r?\n|$)', re.S)
 
 
@@ -51,10 +53,7 @@ def set_study_tags(hub, slug, value):
     metadata['tags'] = tags
     body = text[match.end():] if match else text
     updated = '---\n' + yaml.safe_dump(metadata, sort_keys=False, allow_unicode=True) + '---\n' + body
-    temp = path.with_suffix('.tags.tmp')
-    path.parent.mkdir(parents=True, exist_ok=True)
-    temp.write_text(updated, encoding='utf-8')
-    temp.replace(path)
+    write_atomic(path, updated)
     return tags
 
 

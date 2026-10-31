@@ -353,8 +353,10 @@ def test_day_and_night_define_the_same_tokens():
     css = (UI / "ui.css").read_text(encoding="utf-8")
     night = re.search(r':root, html\[data-lamp="night"\] \{(.*?)\n\}', css, re.S).group(1)
     day = re.search(r'html\[data-lamp="day"\] \{(.*?)\n\}', css, re.S).group(1)
-    colour = lambda block: {k for k in re.findall(r"(--[\w-]+):", block) if k not in ("--sans", "--serif", "--mono", "--round", "--r", "--r-l", "--top", "--rail-w")}   # noqa: E731
-    assert colour(night) == colour(day), colour(night) ^ colour(day)
+    tokens = lambda block: set(re.findall(r"(--[\w-]+):", block))   # noqa: E731
+    assert tokens(night) == tokens(day), tokens(night) ^ tokens(day)
+    research = (UI / "research.css").read_text(encoding="utf-8")
+    assert not re.search(r"html\[data-lamp=\"(day|night)\"\] \{", research), "theme tokens live in ui.css only"
 
 
 def test_retired_files_stay_retired_and_vendored_libs_carry_licences():
