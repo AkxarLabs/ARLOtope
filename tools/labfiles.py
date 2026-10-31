@@ -15,7 +15,10 @@ the hub root, so a tool (or a test) can point it anywhere. pyyaml is used for YA
     pos_int / pos_float(v, default)    a finite number, or the default
     now(epoch=None) / parse_ts(ts)     the lab's local timestamp format, and back to epoch seconds
     read_env(path)                     KEY=value lines (lab/.env.local)
-    config(hub)                        lab/config.yaml
+    ensure_lab_files(hub)              give a fresh clone its own settings file, registry view and knowledge documents
+    config(hub)                        the lab's settings: config.defaults.yaml with the sparse config.yaml laid over it
+    set_config(hub, {a.b: value})      change settings (only what differs from the defaults is saved; None resets)
+    config_problems(hub)               what is wrong with config.yaml (unreadable, unknown key, wrong type), or []
     registry_rows(hub)                 every study as a row {id, title, state, workflow, project, updated, next}
     row(hub, slug)                     one study's row
     projects_root(hub)                 lab.projects_root, resolved against the hub
@@ -255,23 +258,167 @@ def read_env(path) -> dict:
     return out
 
 
-def ensure_config(hub) -> Path:
-    """Seed this clone's private settings once; never overwrite an existing Lab."""
-    path = Path(hub) / "lab" / "config.yaml"
-    defaults = path.with_name('config.defaults.yaml')
-    if not path.exists() and defaults.is_file():
-        data = defaults.read_bytes()
-        try:
-            with path.open('xb') as output:
+CONFIG_HEADER = ("# This lab's own settings: only what differs from config.defaults.yaml (every setting is described there).\n"
+                 "# The Settings page writes this file; editing it by hand is fine. `key: null` puts a key back to its default.\n")
+_config_cache: dict = {}
+
+
+def config_paths(hub) -> tuple[Path, Path]:
+    """The shipped defaults, and this lab's overrides."""
+    lab = Path(hub) / "lab"
+    return lab / "config.defaults.yaml", lab / "config.yaml"
+
+
+def ensure_lab_files(hub) -> Path:
+    """Give a fresh clone the lab files it doesn't ship (lab state is untracked): a near-empty settings
+    file, the registry view and the knowledge documents (from templates/knowledge). Never overwrites.
+    Returns the settings file's path; a folder with no config.defaults.yaml is not a lab and gets nothing."""
+    defaults, path = config_paths(hub)
+    if not defaults.is_file():
+        return path
+    lab = path.parent
+    seeds = {path: CONFIG_HEADER.encode()}
+    seeds.update({lab / "knowledge" / f.name: f.read_bytes() for f in (Path(hub) / "templates" / "knowledge").glob("*.md")})
+    for target, data in seeds.items():
+        target.parent.mkdir(parents=True, exist_ok=True)
+        with contextlib.suppress(FileExistsError):   # another process seeded the same lab
+            with target.open("xb") as output:
                 output.write(data)
-        except FileExistsError:
-            pass  # Another process initialized the same clone.
+    if not (lab / "REGISTRY.md").exists():
+        from kernel import studies  # noqa: PLC0415 — lazy: the kernel reads this module's helpers
+        studies.render_registry(hub)
     return path
 
 
+def _parse_config(path: Path) -> dict:
+    """A settings file as a dict ({} when missing or blank); ValueError when it cannot be used."""
+    import yaml
+    try:
+        data = yaml.safe_load(path.read_text(encoding="utf-8-sig"))
+    except FileNotFoundError:
+        return {}
+    except (OSError, yaml.YAMLError) as e:
+        raise ValueError(f"{path.name} is unreadable: {' '.join(str(e).split())}") from e
+    if data is not None and not isinstance(data, dict):
+        raise ValueError(f"{path.name} is unreadable: it is not a list of settings")
+    return data or {}
+
+
+def _merge(base: dict, over: dict) -> dict:
+    """`over` laid on `base`: dicts merge, anything else replaces, null puts the default back."""
+    out = dict(base)
+    for k, v in over.items():
+        if v is not None:
+            out[k] = _merge(base[k] if isinstance(base.get(k), dict) else {}, v) if isinstance(v, dict) else v
+    return out
+
+
+def _kind(v) -> str:
+    return "number" if isinstance(v, (int, float)) and not isinstance(v, bool) else type(v).__name__
+
+
+def _issues(defaults: dict, over: dict, prefix: str = "") -> list[str]:
+    """Overrides the defaults don't know, and overrides of another type than their default. A default of
+    {} or null is an open slot (presets, an optional command): anything goes below it."""
+    out = []
+    if not defaults:
+        return out
+    for k, v in over.items():
+        if v is None:
+            continue
+        if k not in defaults:
+            out.append(f"unknown setting {prefix}{k}")
+        elif defaults[k] is not None and _kind(v) != _kind(defaults[k]):
+            out.append(f"{prefix}{k} should be a {_kind(defaults[k])}, not a {_kind(v)}")
+        elif isinstance(v, dict):
+            out += _issues(defaults[k], v, f"{prefix}{k}.")
+    return out
+
+
+def _stamp(path: Path):
+    try:
+        st = path.stat()
+    except OSError:
+        return None
+    return st.st_mtime_ns, st.st_size
+
+
+def _load_config(hub) -> dict:
+    """Both files parsed again when either changed. A file that no longer parses keeps its last good
+    parse (the defaults alone, if it never has) and shows up in `problems`; never an empty config."""
+    paths = config_paths(hub)
+    stamps = [_stamp(p) for p in paths]
+    entry = _config_cache.setdefault(Path(hub), {"stamps": None, "good": [{}, {}], "problems": []})
+    if entry["stamps"] != stamps:
+        problems = []
+        for i, path in enumerate(paths):
+            try:
+                entry["good"][i] = _parse_config(path)
+            except ValueError as e:
+                problems.append(f"{e}; using its last good settings")
+        entry["problems"] = problems + _issues(*entry["good"])
+        entry["stamps"] = stamps
+    return entry
+
+
 def config(hub) -> dict:
-    path = ensure_config(hub)
-    return cached_read(('config', path), lambda: load_yaml(path))
+    return cached_read(('config', Path(hub)), lambda: _merge(*_load_config(hub)["good"]))
+
+
+def config_problems(hub) -> list[str]:
+    return list(_load_config(hub)["problems"])
+
+
+def _put(tree: dict, parts: list[str], value) -> None:
+    """tree[a][b]... = value, or removed when value is None; sections left empty are removed too."""
+    head, *rest = parts
+    if rest:
+        child = tree[head] if isinstance(tree.get(head), dict) else {}
+        _put(child, rest, value)
+        value = child or None
+    if value is None:
+        tree.pop(head, None)
+    else:
+        tree[head] = value
+
+
+def _sparse(value, default):
+    """The part of `value` that differs from `default` (None when it all matches)."""
+    if isinstance(value, dict) and isinstance(default, dict) and default:
+        diff = {k: d for k, v in value.items() if (d := _sparse(v, default.get(k))) is not None}
+        return diff or None
+    return None if value == default else value
+
+
+def set_config(hub, changes: dict) -> str | None:
+    """Change settings: {"agents.programmatic.enabled": True}. Only what differs from the defaults is kept
+    in config.yaml, and None puts a setting back to its default. Nothing is written when a value is
+    unknown or of the wrong type, or when config.yaml can't be read. Returns None, or what went wrong."""
+    import yaml  # noqa: PLC0415
+    from executor.procs import excl_lock  # noqa: PLC0415 — lazy: the executor imports this module
+    defaults_path, path = config_paths(hub)
+    try:
+        defaults = _parse_config(defaults_path)
+    except ValueError as e:
+        return f"refused: {e}"
+    asked = {}
+    for dotted, value in changes.items():
+        _put(asked, dotted.split("."), value)
+    if issues := _issues(defaults, asked):
+        return f"refused: {'; '.join(issues)}"
+    with excl_lock(path.with_name(".config.lock")):
+        try:
+            over = _parse_config(path)
+        except ValueError as e:
+            return f"refused: {e}"
+        for dotted, value in changes.items():
+            parts = dotted.split(".")
+            default = defaults
+            for part in parts:
+                default = default.get(part) if isinstance(default, dict) else None
+            _put(over, parts, _sparse(value, default))
+        write_atomic(path, CONFIG_HEADER + (yaml.safe_dump(over, sort_keys=False, allow_unicode=True) if over else ""))
+    return None
 
 
 def registry_rows(hub) -> list[dict]:

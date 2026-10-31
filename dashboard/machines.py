@@ -145,7 +145,7 @@ def probe_script(labs: list[str]) -> str:
               'command -v sinfo >/dev/null 2>&1 && sinfo -h -o "%P|%l|%G|%a" 2>/dev/null | head -24 | sed "s/^/partition=/"',
               '[ -n "$MODULESHOME" ] && echo "modules=yes"']
     for p in labs:
-        lines.append(f'[ -f {_rpath(p)}/lab/config.yaml ] && echo "lab={p}"; true')
+        lines.append(f'{{ [ -f {_rpath(p)}/lab/config.defaults.yaml ] || [ -f {_rpath(p)}/lab/config.yaml ]; }} && echo "lab={p}"; true')
     lines.append("true")
     return "\n".join(lines)
 
@@ -567,7 +567,7 @@ def add_lab(body: dict) -> tuple[dict, int]:
     res, _ = probe({"id": m["id"]})
     exists = path in ((res.get("facts") or {}).get("labs") or [])
     return {"ok": True, "exists": exists, "probe": res,
-            "note": "added" if exists else "added, but there is no lab/config.yaml there yet (create one, or check the path)"}, 200
+            "note": "added" if exists else "added, but there is no lab there yet (create one, or check the path)"}, 200
 
 
 def open_lab(body: dict) -> tuple[dict, int]:

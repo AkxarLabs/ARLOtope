@@ -70,8 +70,8 @@ def labs_open(body: dict) -> tuple[dict, int]:
         hub = hub.resolve()
     except OSError:
         return {"error": f"can't read {raw}"}, 400
-    from labfiles import ensure_config
-    if not (hub / "lab").is_dir() or not ensure_config(hub).exists():
+    from labfiles import ensure_lab_files
+    if not (hub / "lab").is_dir() or not ensure_lab_files(hub).exists():
         return {"error": f"{hub} is not a ARLOtope (no lab/config.yaml there)"}, 400
     ctx.set_remote(None)
     ctx.switch_hub(hub)

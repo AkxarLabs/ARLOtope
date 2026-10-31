@@ -1,5 +1,5 @@
 # ============================================================================
-# ARLOtope — defaults copied to this clone's private lab/config.yaml on first use
+# ARLOtope — the default for every setting. Your own changes live in lab/config.yaml (only what differs)
 #
 # Resolution order:  experiment yaml  >  project control.yaml  >  THIS FILE
 #
@@ -11,6 +11,8 @@
 # ============================================================================
 
 lab:                            # ── hub behavior · PI-owned ──
+  name: null                    # shown in the dashboard (blank = the folder's name)
+  keep_awake: auto              # auto = hold the computer awake while agents work or a campaign runs | off
   projects_root: "../arlotope-projects"  # default parent for clones and optional generated projects
   stale_days: 14                # registry rows older than this get flagged by check_lab.py
 
@@ -19,7 +21,7 @@ compute:                        # ── sharing compute across projects · PI-o
                                 # projects — an instruction agents follow (rules.yaml `compute-share`), not a
                                 # lock; the Compute instrument shows what is actually running and warns.
                                 # Raise it to the number of GPUs your machine can run in parallel.
-  # gpu_hours_budget: 0         # GPU-hours the whole lab may use (0/absent = no budget). Tracked and warned about
+  gpu_hours_budget: null        # GPU-hours the whole lab may use (0/absent = no budget). Tracked and warned about
                                 # by the Compute instrument — never enforced. A project's own is control.yaml budgets.gpu_hours.
   scheduler:                    # HOW training runs on this machine — Settings → System detects what it offers
     kind: local                 # local (run here) | slurm (sbatch; waits for the job) | custom (describe any other)
@@ -144,6 +146,8 @@ agents:                         # ── subagent settings · PI-owned ──
     backends:                   # per-backend invocation knobs. The safety-critical flags are REFUSED in
                                 # extra_args (so they can't silently negate human-in-loop); set them
                                 # through these DEDICATED keys instead — change as needed.
+      acp:                      # any ACP agent: the command to start it, e.g. ["my-agent", "--acp"]
+        command: []
       claude:
         model: claude-opus-4-8  # per-backend default model. Full id PINS the version (the `opus` alias
                                 # can drift to a newer model over time); blank/inherit = the CLI default.
@@ -340,4 +344,5 @@ dashboard:                      # ── visual Lab (dashboard/serve.py) ──
   executor: true                # run the executor's scheduler inside the dashboard (starts queued runs,
                                 # reconciles, reads run reports). Launching itself still needs
                                 # agents.programmatic.enabled. false = observe-and-sign only.
+  setup_completed: null         # the date the first-run setup was finished
   tail_max_kb: 64               # live-transcript chunk size per poll in a run's view

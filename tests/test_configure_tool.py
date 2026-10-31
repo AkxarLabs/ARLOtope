@@ -62,7 +62,7 @@ def test_parse_value():
     assert C._parse_value("standard") == "standard"
 
 
-# ── set: owner gate + comment-preserving stamp ────────────────────────────────
+# ── set: owner gate + sparse overrides ────────────────────────────────
 
 def test_set_agent_key_applies_to_lab(hub, monkeypatch):
     m = _mod(hub, monkeypatch)
@@ -96,16 +96,17 @@ def test_set_eval_frozen_false_needs_flag_and_warns(hub, monkeypatch, capsys):
 
 def test_set_key_not_found(hub, monkeypatch):
     m = _mod(hub, monkeypatch)
-    (hub.lab / "config.yaml").write_text(_LAB_CFG, encoding="utf-8")
+    (hub.lab / "config.defaults.yaml").write_text(_LAB_CFG, encoding="utf-8")
     assert m.cmd_set(_set_ns("experiment.nonexistent=5")) == 1
 
 
-def test_set_preserves_inline_comment(hub, monkeypatch):
+def test_set_keeps_only_what_differs_from_the_defaults(hub, monkeypatch):
     m = _mod(hub, monkeypatch)
-    (hub.lab / "config.yaml").write_text("experiment:\n  num_drafts: 3   # how many drafts\n", encoding="utf-8")
+    (hub.lab / "config.defaults.yaml").write_text(_LAB_CFG, encoding="utf-8")
     m.cmd_set(_set_ns("experiment.num_drafts=7"))
-    txt = (hub.lab / "config.yaml").read_text(encoding="utf-8")
-    assert "num_drafts: 7" in txt and "# how many drafts" in txt
+    assert "num_drafts: 7" in (hub.lab / "config.yaml").read_text(encoding="utf-8")
+    m.cmd_set(_set_ns("experiment.num_drafts=3"))                 # back to the default: nothing to keep
+    assert "num_drafts" not in (hub.lab / "config.yaml").read_text(encoding="utf-8")
 
 
 def test_set_project_control_yaml(hub, monkeypatch):

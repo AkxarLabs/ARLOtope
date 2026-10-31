@@ -114,8 +114,17 @@ ts = labfiles.now
 
 
 def config() -> dict:
-    """The shown lab's lab/config.yaml."""
+    """The shown lab's settings (labfiles.config)."""
     return labfiles.config(HUB)
+
+
+def set_config(changes: dict) -> str | None:
+    """Change the shown lab's settings (labfiles.set_config): None, or what went wrong."""
+    return labfiles.set_config(HUB, changes)
+
+
+def config_problems() -> list[str]:
+    return labfiles.config_problems(HUB)
 
 
 def read(p: Path) -> str | None:
