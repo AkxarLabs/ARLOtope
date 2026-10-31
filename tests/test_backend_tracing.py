@@ -140,7 +140,7 @@ def test_opencode_traced_walks_up_to_git_root(tmp_path):
     sub.mkdir(parents=True)
     assert opencode.traced(sub) is False
     (tmp_path / ".opencode" / "plugins").mkdir(parents=True)
-    (tmp_path / ".opencode" / "plugins" / "newts-trace.js").write_text("", encoding="utf-8")
+    (tmp_path / ".opencode" / "plugins" / "arlotope-trace.js").write_text("", encoding="utf-8")
     assert opencode.traced(sub) is True
 
 
@@ -189,8 +189,8 @@ def test_tracer_folds_opencode_task_and_camelcase(tmp_path):
 
 def test_repo_codex_hooks_stand_down_when_executor_passed_flags(tmp_path):
     p = {"session_id": "s", "hook_event_name": "PostToolUse", "tool_name": "Bash", "tool_input": {"command": "ls"}}
-    assert _trace(tmp_path, p, argv=["--from-repo"], env={"NEWTS_TRACE_FLAGS": "1"}) == {}
-    assert _trace(tmp_path, p, argv=["--from-repo"], env={"NEWTS_TRACE_FLAGS": ""})["s"]
+    assert _trace(tmp_path, p, argv=["--from-repo"], env={"ARLOTOPE_TRACE_FLAGS": "1"}) == {}
+    assert _trace(tmp_path, p, argv=["--from-repo"], env={"ARLOTOPE_TRACE_FLAGS": ""})["s"]
 
 
 def test_dashboard_links_spawn_to_exact_child(tmp_path):
@@ -271,7 +271,7 @@ def test_codex_run_traces_subagents_through_real_hooks_and_resumes(hub, monkeypa
     assert m["status"] == "completed", m
     c = calls(lab, m)[0]
     assert "-a" not in c["argv"] and "--dangerously-bypass-hook-trust" in c["argv"] and c["argv"][-1] == "-"
-    assert c["env"].get("NEWTS_TRACE_FLAGS") == "1"
+    assert c["env"].get("ARLOTOPE_TRACE_FLAGS") == "1"
     tid = m["session_id"]
     sa = m["subagents"]["thr-child-1"]                        # from the stream (collab_tool_call)
     assert sa["status"] == "done" and "metric=0.91" in sa["result"] and sa["session"] == "thr-child-1"
@@ -313,8 +313,8 @@ def test_opencode_run_traces_subagents_through_the_real_plugin(hub, monkeypatch)
     monkeypatch.setenv("FAKE_MODE", "subagents")
     lab = _setup_backend(hub, "opencode", [NODE, str(FAKE_OPENCODE)])
     (hub.root / ".opencode" / "plugins").mkdir(parents=True)
-    shutil.copy(REPO / ".opencode" / "plugins" / "newts-trace.js", hub.root / ".opencode" / "plugins")
-    monkeypatch.setenv("NEWTS_PYTHON", sys.executable)
+    shutil.copy(REPO / ".opencode" / "plugins" / "arlotope-trace.js", hub.root / ".opencode" / "plugins")
+    monkeypatch.setenv("ARLOTOPE_PYTHON", sys.executable)
     m = wait_for(lab, executor.enqueue(lab, RunSpec(skill="lab-status", backend="opencode"))["run_id"])
     assert m["status"] == "completed", m
     assert m["session_id"] == "ses_root1" and m["last_message"] == "all done"
@@ -346,7 +346,7 @@ def test_claude_runs_get_unbounded_background_subagent_wait(hub, monkeypatch):
     lab = setup(hub)
     m = wait_for(lab, executor.enqueue(lab, RunSpec(skill="lab-status"))["run_id"])
     env = calls(lab, m)[0]["env"]
-    assert env["CLAUDE_CODE_PRINT_BG_WAIT_CEILING_MS"] == "0" and env["NEWTS_PYTHON"]
+    assert env["CLAUDE_CODE_PRINT_BG_WAIT_CEILING_MS"] == "0" and env["ARLOTOPE_PYTHON"]
 
 
 # ── dashboard settings endpoint ───────────────────────────────────────────────
@@ -400,15 +400,15 @@ def test_opencode_roles_and_plugin_ship_in_hub_and_template():
         hooks = json.loads((root / ".codex" / "hooks.json").read_text(encoding="utf-8"))["hooks"]
         assert set(hooks) == set(backends.TRACE_EVENTS)
         assert all("--from-repo" in g["hooks"][0]["command"] for gs in hooks.values() for g in gs)
-    assert (REPO / ".opencode/plugins/newts-trace.js").read_bytes() == \
-        (REPO / "templates/project/.opencode/plugins/newts-trace.js").read_bytes()
+    assert (REPO / ".opencode/plugins/arlotope-trace.js").read_bytes() == \
+        (REPO / "templates/project/.opencode/plugins/arlotope-trace.js").read_bytes()
 
 
 @pytest.mark.skipif(not NODE, reason="node is needed to syntax-check the opencode plugin")
 def test_opencode_plugin_exports_only_plugin_functions():
     code = ("import(process.argv[1]).then(m => { const v = Object.values(m); "
             "if (!v.length || v.some(x => typeof x !== 'function')) process.exit(3) })")
-    url = (REPO / ".opencode" / "plugins" / "newts-trace.js").as_uri()
+    url = (REPO / ".opencode" / "plugins" / "arlotope-trace.js").as_uri()
     assert subprocess.run([NODE, "-e", code, url], timeout=30).returncode == 0
 
 
@@ -425,7 +425,7 @@ def test_upgrade_project_syncs_tracing_files(hub, monkeypatch):
     up.upgrade(proj)
     st = json.loads((proj / ".claude" / "settings.json").read_text(encoding="utf-8"))
     assert st["permissions"] == {"allow": ["Read"]} and "SubagentStart" in st["hooks"]
-    assert (proj / ".opencode" / "plugins" / "newts-trace.js").exists()
+    assert (proj / ".opencode" / "plugins" / "arlotope-trace.js").exists()
     assert (proj / "scripts" / "trace_hook.py").read_bytes().replace(b"\r\n", b"\n") == \
         (REPO / "templates/project/scripts/trace_hook.py").read_bytes().replace(b"\r\n", b"\n")
     assert up.upgrade(proj, check=True) == 0

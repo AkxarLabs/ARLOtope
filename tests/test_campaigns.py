@@ -403,8 +403,8 @@ def test_agents_never_touch_approvals_or_the_keepers_state(camp, hub, monkeypatc
     assert sg.decide({"hook_event_name": "PreToolUse", "tool_name": "Bash", "cwd": str(hub.root),
                       "tool_input": {"command": "echo '{}' > lab/.bus/campaigns/2026-09-27-test.json"}})
     assert sg.decide({"hook_event_name": "PreToolUse", "tool_name": "Bash", "cwd": str(hub.root),
-                      "tool_input": {"command": "python newts.py approve idea-a finalize-paper --yes"}})
-    monkeypatch.setenv("NEWTS_RUN_ID", "r-123")              # and the record itself refuses an agent run
+                      "tool_input": {"command": "python arlo.py approve idea-a finalize-paper --yes"}})
+    monkeypatch.setenv("ARLOTOPE_RUN_ID", "r-123")              # and the record itself refuses an agent run
     with pytest.raises(K.checkpoints.CheckpointError):
         K.checkpoints.decide(hub.root, "idea-a", "finalize-paper", by="pi", via="cli")
 
@@ -414,7 +414,7 @@ def test_a_supervisor_starts_a_scheduler_when_none_is_ticking(camp, monkeypatch)
     lab, make = camp
     started = []
     monkeypatch.setattr(scheduler.subprocess, "Popen", lambda argv, **kw: started.append(argv))
-    monkeypatch.delenv("NEWTS_NO_AUTOTICKER", raising=False)
+    monkeypatch.delenv("ARLOTOPE_NO_AUTOTICKER", raising=False)
     assert not scheduler.ensure_ticker(lab)                      # no work → nothing to start
     make()
     lease = lab.lab / ".bus" / "scheduler.lease"
@@ -424,7 +424,7 @@ def test_a_supervisor_starts_a_scheduler_when_none_is_ticking(camp, monkeypatch)
     assert not scheduler.ensure_ticker(lab)                      # it just wrote a fresh lease
     executor.tick(lab, spawn=Spawns())
     assert scheduler.lease(lab)["age"] < 5                       # every tick renews it
-    monkeypatch.setenv("NEWTS_NO_AUTOTICKER", "1")
+    monkeypatch.setenv("ARLOTOPE_NO_AUTOTICKER", "1")
     lease.write_text(json.dumps({"ts": 0}), encoding="utf-8")
     assert not scheduler.ensure_ticker(lab)
 
@@ -454,7 +454,7 @@ def test_the_spawned_scheduler_takes_over_its_spawners_lease(camp):
     scheduler.write_lease(lab, "spawned serve --until-idle")
     r = sp.run([sys.executable, str(REPO / "tools" / "executor_cli.py"), "--hub", str(lab.hub), "serve", "--until-idle",
                 "--interval", "0.2", "--idle-seconds", "1"], capture_output=True, text=True, timeout=120,
-               env={**__import__("os").environ, "NEWTS_NO_AUTOTICKER": "1"})
+               env={**__import__("os").environ, "ARLOTOPE_NO_AUTOTICKER": "1"})
     assert "another scheduler is ticking" not in r.stdout, r.stdout
     scheduler.write_lease(lab, "dashboard")
     r = sp.run([sys.executable, str(REPO / "tools" / "executor_cli.py"), "--hub", str(lab.hub), "serve", "--until-idle"],
@@ -464,16 +464,16 @@ def test_the_spawned_scheduler_takes_over_its_spawners_lease(camp):
 
 def test_detached_processes_get_a_durable_python(monkeypatch, tmp_path):
     """Under `uv run --with …` the interpreter lives in a throwaway env uv deletes on exit: supervisors,
-    schedulers and hooks started from it must use the durable ~/.newts/py instead (found live: a campaign
+    schedulers and hooks started from it must use the durable ~/.arlotope/py instead (found live: a campaign
     cycle died with 'No pyvenv.cfg file' after the dashboard that started its scheduler exited)."""
     from executor import procs
     tmp = "/home/u/.cache/uv/builds-v0/.tmpAbC/bin/python" if os.name != "nt" else r"C:\u\uv\cache\builds-v0\.tmpAbC\Scripts\python.exe"
     assert procs._ephemeral(tmp) and not procs._ephemeral(sys.executable if not procs._ephemeral(sys.executable) else "/usr/bin/python3")
     monkeypatch.setattr(procs.sys, "executable", tmp)
-    monkeypatch.setenv("NEWTS_KEEP_PYTHON", "1")
+    monkeypatch.setenv("ARLOTOPE_KEEP_PYTHON", "1")
     assert procs.python_exe() == tmp                        # the suite's own opt-out
-    monkeypatch.delenv("NEWTS_KEEP_PYTHON")
-    monkeypatch.setenv("NEWTS_HOME", str(tmp_path))
+    monkeypatch.delenv("ARLOTOPE_KEEP_PYTHON")
+    monkeypatch.setenv("ARLOTOPE_HOME", str(tmp_path))
     procs._STABLE.clear()
     stable = tmp_path / "py" / ("Scripts/python.exe" if os.name == "nt" else "bin/python")
     stable.parent.mkdir(parents=True)
@@ -509,7 +509,7 @@ def test_the_form_records_the_approval_and_the_delegated_checkpoints(hub, monkey
     from conftest import load
     (hub.root / "templates" / "loop").mkdir(parents=True, exist_ok=True)
     shutil.copy(REPO / "templates" / "loop" / "CAMPAIGN.md", hub.root / "templates" / "loop")
-    monkeypatch.setenv("NEWTS_HOME", str(tmp_path / "home"))
+    monkeypatch.setenv("ARLOTOPE_HOME", str(tmp_path / "home"))
     monkeypatch.syspath_prepend(str(REPO / "dashboard"))
     m = load("dashboard/serve")
     monkeypatch.setattr(m.ctx, "HUB", hub.root)

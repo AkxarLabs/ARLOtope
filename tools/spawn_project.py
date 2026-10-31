@@ -130,6 +130,10 @@ def scaffold(dest: Path, *, hub: Path, slug: str, title: str, date: str,
     # project (and any headless agent working in it) runs its named-role subagents at the resolved
     # tier, not the neutral default. A later hub /configure does NOT retro-edit already-spawned projects.
     resolved_roles = role_sync.render_project(dest)
+    state = studies.study(hub, slug)
+    if state:
+        from skill_resources import package
+        package(hub, dest, model.workflow(state['workflow'], hub), slug)
     return {"files": files, "dest": str(dest), "project_type": project_type,
             "has_type_card": card.exists(), "domain": domain, "overlay": overlay,
             "resolved_roles": resolved_roles}
@@ -180,7 +184,7 @@ def _not_here(slug: str) -> str | None:
         return f"no study {slug} (file it first)"
     if "spawn-project" not in model.offers(s["step"], s["workflow"], s["use"], HUB):
         return (f"{slug} is at {(model.step(s['step'], HUB) or {}).get('label', s['step'])}, where the project isn't "
-                "made — in the research workflow it is made once the proposal is approved")
+                "created; choose a task that offers /spawn-project")
     return None
 
 
@@ -221,10 +225,10 @@ def run(a) -> int:
     green = all(res.get(k, {}).get("ok") for k in ("uv-sync", "smoke", "pytest", "check-project"))
     if green:
         subprocess.run(["git", "add", "-A"], cwd=str(dest), capture_output=True)
-        subprocess.run(["git", "commit", "-m", "scaffold: spawn from Newts' Lab template, smoke green"],
+        subprocess.run(["git", "commit", "-m", "scaffold: spawn from ARLOtope template, smoke green"],
                        cwd=str(dest), capture_output=True)
         print("[spawn] committed green scaffold. Next: fill PLAN.md from the proposal, then report the outcome "
-              "(`newts move <slug> done`).")
+              "(`arlo move <slug> done`).")
         return 0
     print("[spawn] LEFT UNCOMMITTED — a smoke/test/check step failed (see output above). Fix, then re-run "
           "(a red scaffold is never committed).")

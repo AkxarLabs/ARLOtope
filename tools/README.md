@@ -7,7 +7,7 @@ dashboard to coding agents. Everything a lab *defines* lives elsewhere: procedur
 pyyaml; run with uv's ephemeral env:
 
 ```bash
-uv run --with pyyaml python newts.py <verb> …                          # `newts`: the whole lab from a terminal (status, move, approve, brief, check, docs, …)
+uv run --with pyyaml python arlo.py <verb> …                          # `arlo`: the whole lab from a terminal (status, move, approve, brief, check, docs, …)
 uv run --with pyyaml python tools/guard.py <check> <slug> …           # run one of the lab's checks/ (--list)
 uv run --with pyyaml python tools/new.py skill|step|workflow|room|role|check|type|rule <name> --like <existing>   # add by copying
 uv run --with pyyaml python tools/check_lab.py                        # lab lint (registry, wiring, workflow)
@@ -24,11 +24,12 @@ uv run --with pyyaml python tools/upgrade_project.py --all [--check]  # bring ol
 | **The kernel** | `kernel/` | the lab's definition (`workflow/steps.yaml`, `workflow/workflows/`, `workflow/rooms.yaml`, the skills' frontmatter), where every study stands (`lab/journal.jsonl`, REGISTRY.md generated from it), moving a study by an outcome, checkpoints and approvals, the brief, the PI's instructions, a draft's or an extension's overlay, run digests and flags, migrating an older lab — see `docs/workflow.md` |
 | **Checks and protections** | `guard.py`, `signature_guard.py` | run the lab's `checks/`; refuse a headless run that writes the PI's records or the lab's definition, or runs the PI's verbs (it fails open with a flag — `docs/monitoring.md`) |
 | **The lab's files** | `labfiles.py`, `new.py`, `lab_docs.py` | the lab's files read one way; adding a component by copying one; the generated parts of the manuals and skills |
-| **The PI's terminal** | `newts_cli.py` | `newts <verb>`: everything the dashboard does, from a terminal (status, approve, revoke, hold, pause, panels, …) |
+| **The PI's terminal** | `arlo_cli.py` | `arlo <verb>`: everything the dashboard does, from a terminal (status, approve, revoke, hold, pause, panels, …) |
 | **Instruments** | `panels.py`, `artifact.py` | the dashboard's panels (the shipped Compute panel tracks GPU-hours and raises alerts); a collector runs only once the PI approved that version; show the PI an artifact |
 | **Observability** | `lab_bus.py`, `trace_hook.py` | the append-only event bus and directive inbox; the per-agent action tracer (both ship into every project too) |
 | **Coordination** | `hub_writeback.py`, `process_writebacks.py` | the project→hub write-back boundary |
 | **Agents** | `executor/`, `executor_cli.py`, `lab_profile.py`, `role_sync.py` | launch Claude, Codex, opencode or configured ACP agents; provide Lab briefs and campaign coordination; pause launches or hold a study (`executor/pause.py`); render native role files |
+| **Local API** | `api_client.py`, `provider_access.py`, `native_providers.py` | `arlo api` calls existing dashboard routes; API connections use native harnesses and their model discovery |
 | **Knowledge** | `knowledge.py`, `project_identity.py` | project identity, plain Markdown notes/sources/answers, search, read acknowledgements and separate workspace-answer persistence |
 | **Remote projects** | `remote_projects.py`, `project_worker.py`, `project_control.py`, `ssh_worker_install.py` | existing SSH connections, a small project execution worker, mirrored run evidence and owning-Lab control requests |
 | **Setup and config** | `spawn_project.py`, `new_lab.py`, `configure.py`, `profiles.py`, `show_config.py`, `check_lab.py`, `upgrade_project.py`, `system_probe.py`, `terminal.py` | stamp projects and labs; owner-aware config; lint; what this machine offers; a terminal for a CLI's sign-in |

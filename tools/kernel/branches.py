@@ -40,6 +40,7 @@ def fold(hub, s, events):
     w = model.workflow(s['workflow'], hub)
     ns = nodes(w, model.steps(hub))
     active, visits, arrivals, completed, bindings, incoming = {}, {}, {}, [], {}, {}
+    resolved = []
     by_id = {n['id']: n for n in ns}
     remaps = {}
     for e in events:
@@ -76,11 +77,12 @@ def fold(hub, s, events):
             bindings[e['run_id']] = e
             if e['node'] in active and active[e['node']]['visit'] == e['visit']:
                 active[e['node']]['run_id'] = e['run_id']
-        elif kind in ('task-completed', 'task-routed'):
+        elif kind in ('task-completed', 'task-routed', 'task-reused', 'task-omitted'):
             e = dict(e, node=name(e['node']))
             if e['node'] not in active or active[e['node']]['visit'] != e['visit']:
                 continue
             active.pop(e['node'], None)
+            resolved.append(e['node'])
             if kind == 'task-completed':
                 completed.append(e['node'])
             for sid in targets(e.get('to')):
@@ -91,6 +93,7 @@ def fold(hub, s, events):
         elif kind == 'finish':
             active.clear()
     runnable, waits = [], []
+    from .entry import pending
     for token in active.values():
         for cp in w['checkpoints']:
             rec = s['approvals'].get(cp['id'], {})
@@ -99,14 +102,14 @@ def fold(hub, s, events):
             if approved and rec.get('judge_scope'):
                 from gate_reviews import valid_approval
                 approved = valid_approval(hub, dict(s, active_steps=list(active.values())), cp, rec)
-            if cp.get('before') == token['id'] and not approved:
+            if (cp.get('before') == token['id'] or pending(s, token) and cp.get('during') == token['id']) and not approved:
                 waits.append({'at': token['id'], 'to': token['id'], 'checkpoint': cp['id'], 'title': cp['title']})
         limit = by_id[token['id']].get('max_visits')
         if not any(x['at'] == token['id'] for x in waits) and not (limit and token['visit'] > limit):
             runnable.append(token['id'])
-    focus = runnable[0] if runnable else next(iter(active), completed[-1] if completed and s['step'] not in model.SHELF_LABEL else s['step'])
-    if os.environ.get('NEWTS_RUN_SUBJECT') == s['id'] and os.environ.get('NEWTS_RUN_NODE') in active:
-        focus = os.environ['NEWTS_RUN_NODE']
+    focus = runnable[0] if runnable else next(iter(active), resolved[-1] if resolved and s['step'] not in model.SHELF_LABEL else s['step'])
+    if os.environ.get('ARLOTOPE_RUN_SUBJECT') == s['id'] and os.environ.get('ARLOTOPE_RUN_NODE') in active:
+        focus = os.environ['ARLOTOPE_RUN_NODE']
     return dict(s, step=focus, active_steps=list(active.values()), runnable=runnable, task_bindings=bindings,
                 completed_steps=completed, joins={k: sorted(v) for k, v in arrivals.items()},
                 waiting=next((x for x in waits if x['at'] == focus), None), task_waits=waits,
@@ -116,7 +119,7 @@ def fold(hub, s, events):
 
 def selected(hub, s, node=None):
     from .studies import StudyError
-    sid = node or (os.environ.get('NEWTS_RUN_NODE') if os.environ.get('NEWTS_RUN_SUBJECT') == s['id'] else None)
+    sid = node or (os.environ.get('ARLOTOPE_RUN_NODE') if os.environ.get('ARLOTOPE_RUN_SUBJECT') == s['id'] else None)
     if not sid:
         if len(s['active_steps']) != 1:
             raise StudyError('Several tasks are active. Select a task rather than completing the whole study.')
@@ -136,6 +139,9 @@ def _bind(hub, slug, node, run_id):
     from . import studies
     s = studies.study(hub, slug)
     token = selected(hub, s, node)
+    from .entry import pending
+    if pending(s, token):
+        raise studies.StudyError('Resolve the starting plan before assigning an agent to this task.')
     if node not in s['runnable']:
         raise studies.StudyError('The task waits at a checkpoint.')
     old = token.get('run_id')
@@ -159,7 +165,7 @@ def move(hub, s, outcome, note, by, node_id=None, run_id=None):
 
 def _move(hub, s, outcome, note, by, node_id=None, run_id=None):
     from . import studies
-    rid = run_id or os.environ.get('NEWTS_RUN_ID')
+    rid = run_id or os.environ.get('ARLOTOPE_RUN_ID')
     if rid and any(e.get('run_id') == rid for e in journal.events(hub, s['id'], ('task-completed',))):
         return {'moved': False, 'step': s['step'], 'runnable': s['runnable'], 'finished': s['finished']}
     token = selected(hub, s, node_id)
@@ -178,6 +184,9 @@ def _move(hub, s, outcome, note, by, node_id=None, run_id=None):
                 from gate_reviews import current_evidence
                 if not studies.approved(hub, s['id'], cp['id']) or not current_evidence(hub, s, cp, s['approvals'].get(cp['id'], {})):
                     raise studies.StudyError('This task still needs checkpoint ' + cp['id'])
+        if node.get('external'):
+            import frameworks
+            frameworks.check_task(hub, s, node['external'])
         missing = studies.missing_outputs(hub, dict(s, step=sid))
         project = s.get('project')
         root = Path(project) if project else Path(hub) / 'studies' / s['id']
@@ -217,10 +226,18 @@ def _move(hub, s, outcome, note, by, node_id=None, run_id=None):
 
 
 def begin_run(hub, manifest):
-    """A queue entry is not permission to execute a superseded or newly gated task."""
+    """Recheck live task admission; return True only for feedback on a completed task."""
     from . import studies
     with locked(hub):
         s = studies.study(hub, manifest['subject'])
+        # An explicit follow-up may revise a completed task's output, without a new assignment.
+        # Its original run binding remains: move() cannot advance another task from this session.
+        if (s and s['step'] not in model.SHELF_LABEL and manifest.get('session_id')
+                and (manifest.get('resume') or {}).get('mode') == 'reply'
+                and any(e.get('run_id') == manifest['run_id'] and e.get('node') == manifest['workflow_node']
+                        and e.get('visit') == manifest['workflow_visit']
+                        for e in journal.events(hub, s['id'], ('task-completed',)))):
+            return True
         if not s or s['finished'] or s['step'] in model.SHELF_LABEL:
             raise studies.StudyError('This study is finished or shelved.')
         token = selected(hub, s, manifest['workflow_node'])
@@ -238,5 +255,8 @@ def begin_run(hub, manifest):
         if not binding.get('started'):
             w = model.workflow(s['workflow'], hub)
             node = next(n for n in nodes(w, model.steps(hub)) if n['id'] == token['id'])
+            if node.get('external'):
+                import frameworks
+                frameworks.check_launch(hub, s, node['external'])
             journal.append(hub, s['id'], 'task-bind', 'kernel', node=token['id'], visit=token['visit'],
                            run_id=manifest['run_id'], started=True, outputs=output_state(hub, s, node))

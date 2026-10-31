@@ -46,12 +46,12 @@
       if (!refs.has(r)) { cache.set(key, r); refs.set(r, { count: 0, cache, key }); }
       return r;
     },
-    track(root) { root.traverse(o => { if ((o.isMesh || o.isPoints || o.isSprite) && !tracked.has(o)) { tracked.add(o); resourcesOf(o).forEach(retain); } }); return root; },
+    track(root) { root.traverse(o => { if ((o.isMesh || o.isPoints || o.isSprite || o.isLine) && !tracked.has(o)) { tracked.add(o); resourcesOf(o).forEach(retain); } }); return root; },
     material(mesh, next) { const previous=resourcesOf(mesh),owned=tracked.has(mesh);mesh.material=next;if(owned){resourcesOf(mesh).forEach(retain);previous.forEach(release)}else L.resources.track(mesh); },
     release(root) {
       if (!root) return;
       root.traverse(o => {
-        if ((o.isMesh || o.isPoints || o.isSprite) && tracked.has(o)) {
+        if ((o.isMesh || o.isPoints || o.isSprite || o.isLine) && tracked.has(o)) {
           resourcesOf(o).forEach(release); tracked.delete(o);
           o.userData.styleState?.releaseOriginals?.();
           for (const material of o.userData.styleState?.defaults || []) material.dispose();
@@ -142,8 +142,8 @@
   const MAPS = new Map();
   L.floorMap = (THREE, kind, base, w, d) => {
     const key = kind + '|' + base;
-    let tex = MAPS.get(key);
-    if (!tex) {
+    let canvas = MAPS.get(key);
+    if (!canvas) {
       const S = 256, c = document.createElement('canvas'); c.width = c.height = S; const x = c.getContext('2d');
       const tone = (hex, k) => { const col = new THREE.Color(hex); col.offsetHSL(0, 0, k); return '#' + col.getHexString(); };
       let seed = 11; const rnd = () => ((seed = (seed * 16807) % 2147483647) / 2147483647);
@@ -159,11 +159,12 @@
       } else if (kind === 'path') {                     // a sandy path: speckles
         for (let i = 0; i < 300; i++) { x.fillStyle = tone(base, (rnd() - 0.5) * 0.08); x.fillRect(rnd() * S, rnd() * S, 2 + rnd() * 3, 2 + rnd() * 3); }
       }
-      tex = new THREE.CanvasTexture(c); tex.colorSpace = THREE.SRGBColorSpace; tex.wrapS = tex.wrapT = THREE.RepeatWrapping; tex.anisotropy = 4;
-      MAPS.set(key, tex);
-      if (MAPS.size > 32) { const oldest = MAPS.keys().next().value; MAPS.get(oldest).dispose(); MAPS.delete(oldest); }
+      canvas = c; MAPS.set(key, canvas);
+      if (MAPS.size > 32) MAPS.delete(MAPS.keys().next().value);
     }
-    const t = tex.clone(); t.needsUpdate = true;
+    // Cache immutable pixels, not Texture Sources: changing one floor must not recolour its siblings.
+    const t = new THREE.CanvasTexture(canvas); t.colorSpace = THREE.SRGBColorSpace;
+    t.wrapS = t.wrapT = THREE.RepeatWrapping; t.anisotropy = 4;
     t.userData.labFloor = { kind, w, d };
     const tile = kind === 'boards' ? 2.4 : kind === 'tiles' ? 2.0 : 4.0;
     t.repeat.set(Math.max(1, (w || tile) / tile), Math.max(1, (d || tile) / tile));
@@ -172,8 +173,6 @@
 
   L.FINISHES = { matte: { rough: 0.72, metal: 0 }, paper: { rough: 1, metal: 0 },
     ceramic: { rough: 0.3, metal: 0 }, glass: { rough: 0.2, metal: 0 }, metal: { rough: 0.4, metal: 0.65 } };
-  L.skinLook = skin => Object.assign({}, skin.world, { finish: skin.world.finish ||
-    ({ ceramic: 'ceramic', glass: 'glass', industrial: 'metal', blueprint: 'paper', riso: 'paper', linen: 'paper', editorial: 'paper' })[(skin.wrapper || {}).style] || 'matte' });
   L.appearance = (theme, look) => {
     const base = L.THEMES[theme], night = theme === 'night', colors = Object.assign({}, base.colors, look && look.colors);
     if (look) for (const [name, source] of Object.entries({ fruit: 'rose', flower: 'ochre', flower2: 'rose', flower3: 'paper', stone: 'steel' }))
@@ -182,7 +181,7 @@
       hemiColor: night ? '#8fb4dc' : '#d6efff', groundColor: night ? '#2a2a3a' : '#e9d9b8', exposure: night ? 1.3 : 1.05 }, base, look || {}, { colors });
   };
 
-  /** the builder's toolbox for one theme — `look`: a skin's world palette laid over it (static/skins) */
+  /** The builder's toolbox for one theme, with optional material overrides. */
   L.kit = function kit(THREE, themeName, look) {
     const base = L.THEMES[themeName], night = themeName === 'night', cache = new Map();
     let th = L.appearance(themeName, look);

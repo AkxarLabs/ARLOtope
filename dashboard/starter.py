@@ -22,10 +22,38 @@ def view(q=None):
     return research_start.context(ctx.HUB), 200
 
 
+def frameworks_view(q):
+    import frameworks
+    try:
+        return frameworks.availability(ctx.HUB, machine=q.get('machine', ''), project=q.get('project', '')), 200
+    except (ValueError, OSError) as error:
+        return {'error': str(error)}, 400
+
+
 def lookup(body):
     try:
-        return {'ok': True, 'repository': research_start.github(body.get('repository'))}, 200
-    except research_start.StartError as error:
+        name = research_start.repository(body.get('repository'))
+        if body.get('machine'):
+            import remote_projects as remote
+            data = remote.rpc(body['machine'], 'github', {'action': 'lookup', 'repository': name, 'authenticated': body.get('authenticated') is True})
+        else:
+            data = research_start.github(name, authenticated=body.get('authenticated') is True)
+        return {'ok': True, 'repository': data}, 200
+    except (ValueError, OSError) as error:
+        return {'error': str(error)}, 400
+
+
+def github_view(q):
+    import github_access
+    try:
+        action = q.get('action', 'status')
+        if action not in ('status', 'repositories'):
+            raise ValueError('Choose connection status or repositories.')
+        if q.get('machine'):
+            import remote_projects as remote
+            return remote.rpc(q['machine'], 'github', {'action': action}), 200
+        return github_access.status() if action == 'status' else github_access.repositories(), 200
+    except (ValueError, OSError) as error:
         return {'error': str(error)}, 400
 
 
@@ -34,10 +62,29 @@ def create(body):
         return {'error': 'Review and confirm the new study first.'}, 400
     try:
         result = research_start.create(ctx.HUB, **{key: body.get(key, '') for key in
-            ('title', 'question', 'slug', 'workflow', 'local', 'repo', 'machine', 'tags', 'draft', 'agents')})
+            ('title', 'question', 'slug', 'workflow', 'local', 'repo', 'machine', 'tags', 'draft', 'agents', 'entry', 'github_auth')})
         ctx.pi_log({'action': 'study.attach' if result['project'] else 'study.create', **result})
         return result, 201
     except (ValueError, research_start.studies.StudyError, OSError) as error:
+        return {'error': str(error)}, 400
+
+
+def cancel_entry(body):
+    from kernel.entry import cancel
+    try:
+        return cancel(ctx.HUB, body.get('study')), 200
+    except ValueError as error:
+        return {'error': str(error)}, 400
+
+
+def preview_entry(body):
+    from kernel import entry, model
+    try:
+        flow = model.workflow(body.get('workflow'), ctx.HUB)
+        if flow['id'] != body.get('workflow'):
+            raise ValueError('Choose an existing workflow.')
+        return entry.preview(ctx.HUB, flow, body.get('entry')), 200
+    except ValueError as error:
         return {'error': str(error)}, 400
 
 
@@ -60,6 +107,12 @@ def _view(path, meta):
                     out['suggestion'] = M.suggestion(path, meta)
                     if out['suggestion'] and out['suggestion'].get('workflow') not in {w['id'] for w in research_start.context(ctx.HUB)['workflows']}:
                         out['suggestion'].pop('workflow', None)
+                    if out['suggestion'] and out['suggestion'].get('entry'):
+                        from kernel import entry, model
+                        wid = out['suggestion'].get('workflow') or meta['inputs'].get('workflow')
+                        flow = model.workflow(wid, ctx.HUB)
+                        value = out['suggestion']['entry']
+                        out['suggestion']['entry'] = {**entry.prepare(ctx.HUB, flow, value), 'workflow': flow['id']}
                     if not out['suggestion']:
                         out['suggestion_error'] = 'No study fields returned. Open the conversation to follow up.'
                 except ValueError:
@@ -95,9 +148,9 @@ def draft_op(body):
                 inputs = body.get('inputs')
                 if not isinstance(inputs, dict) or len(json.dumps(inputs)) > 18000:
                     raise ValueError('Keep the study notes and instructions under 18000 characters.')
-                allowed = ('title','question','workflow','tags','instructions')
+                allowed = ('title','question','workflow','tags','instructions','entry','local','machine')
                 inputs = {k:inputs[k] for k in allowed if k in inputs}
-                if any(not isinstance(inputs.get(k, ''), str) for k in ('title','question','workflow','instructions')):
+                if any(not isinstance(inputs.get(k, ''), str) for k in ('title','question','workflow','instructions','local','machine')):
                     raise ValueError('Study details and instructions must be text.')
                 inputs['tags'] = tagging.normalize(inputs.get('tags'))
                 if not meta['files'] and not inputs.get('question') and not inputs.get('title'):
@@ -114,6 +167,13 @@ def draft_op(body):
                     'Use normal tools to read files; state which formats/files could not be read. Do not invent their contents. '
                     'Write suggestion.json here: a JSON object with title (<=200 chars), question (<=6000 chars), '
                     'workflow (one supplied ID), tags (list of short labels), and analysis (brief rationale, uncertainties, unread files). '
+                    'Optionally include entry: {revision: the chosen workflow entry_revision, tasks: {task_id: '
+                    '{action: "reuse" or "omit", note: explanation, refs: [actual source references], outcome: "done" or a declared task outcome}}}. '
+                    'Use that workflow’s own task IDs and requirements, not a fixed list of research stages. Omit tasks that should run normally. '
+                    'Only propose reuse when the supplied work supports it; state uncertainty. Checkpoints still apply, including on reused/omitted tasks. '
+                    'Reuse/omission applies to the first visit only. Tasks needing context from reused work start fresh with source references, not a cloned conversation. '
+                    'If a local project folder is supplied, you may read its relevant instructions and documents without changing it. '
+                    'When machine is set, the folder is on that machine, not this computer; use available remote tools or state that you could not inspect it. '
                     'Keep the question to one to three sentences. Put assumptions and open questions in analysis, not in the question field. '
                     'Honor the optional instructions, such as only clarifying the question or comparing workflows. '
                     'Do not create a study, change a project, approve checkpoints, or edit other lab files. '

@@ -1,7 +1,7 @@
 ---
 name: design
 description: Draft a research workflow or procedure change for the researcher to review and publish.
-newts:
+arlotope:
   kind: utility
   level: hub
   mode: headless
@@ -17,43 +17,40 @@ newts:
 
 # Adapt a workflow
 
-Use normal native read, edit, shell and research tools. This is an ordinary agent task, with no
-separate model loop, renderer SDK, browser installation or special tool protocol.
+Use the harness's ordinary file, shell, browser and research tools. Produce a proposal; the PI reviews
+and publishes it through **Workflow**.
 
-1. Read `docs/agent-workflows.md`, `docs/tags.md`, `docs/room-design.md` and `docs/extending.md`, the relevant `workflow/` definitions and existing procedure files.
-   Read the PI's request. Ask only for missing decisions that affect the design.
-2. Create a new folder `lab/.bus/designs/workflow/<short-unique-id>/` (letters, digits, dashes).
-   Write `request.md` with the request and `notes.md` explaining the proposed behavior.
-3. Put changed files there at their original relative paths, for example
+1. Read the request, relevant `workflow/` definitions and skills, plus `docs/agent-workflows.md`
+   and `docs/skills.md`. Read tags, room design or external-framework docs only when needed.
+   Ask only for missing decisions that affect the result.
+2. Create `lab/.bus/designs/workflow/<short-unique-id>/`. Save `request.md` and concise `notes.md`.
+   Place complete replacement files at their original relative paths inside this folder, such as
    `workflow/workflows/replication.yaml` or `.claude/skills/replicate/SKILL.md`.
-   A file replaces the corresponding definition in the proposal overlay. Copy complete definitions
-   before editing; preserve unrelated steps, checkpoints and procedures. Prefer the existing data
-   format and small instruction changes. Task connections control execution; agent context is explicit;
-   rooms may group tasks from several workflows after composition. Keep joins explicit and make
-   independent review fresh by default, with the author summary off and declared evidence paths supplied.
-   `context.mode: continue` resumes the source; `native-fork` copies its conversation into a new session.
-   Legacy `fork` means portable handoff; never silently change that meaning. For new independent agents,
-   use `mode: fresh` and optional `handoff: true` plus `from` for the summary. Use node `skills` for a
-   single conversation following several skills. Named node `outcomes` replace its ordinary `next`
-   destinations; `join: true` is for parallel branches, not alternative-route merges. Bound loops with
-   `max_visits` where appropriate. Agent gates use `approver: agent`, declared `evidence`, a `judge`
-   skill/rubric and `decisions` mapped to `continue`, a task ID or a shelf. Preserve researcher-owned
-   default approvals unless the request explicitly changes them. See docs/agent-workflows.md.
-   Include role instructions, skills and expected outputs.
-   Leave `agent.preset` unset to inherit role defaults, or reference an existing saved preset.
-   Do not invent model IDs, install agents or modify Lab/study agent settings in a workflow proposal.
-   Context sources may be earlier causal tasks: a revision can continue its writer after an independent
-   review. A fresh handoff may select several sources with `from: [task-a, task-b]`; continuation and
-   native fork select one. A self-source needs `initial: fresh` for its first loop visit.
-   Add optional `tags` to workflows, steps, nodes or procedure `newts` metadata where useful;
-   reuse existing labels. Tags organize definitions and their instructions, never grant approvals.
-   For necessary room resources, use a separate private room draft and preview it; publication and
-   room application remain separate reviewed operations. No new engine code unless separately requested.
-4. Validate with `uv run --with pyyaml python newts.py check --design <folder>`.
-   Resolve errors; explain any intentionally added, moved or removed checkpoint.
-5. Finish with the folder path and a concise explanation. The proposal appears in **Workflow →
-   Agent proposals**. Only the PI takes it into the draft, reviews it and publishes it.
+3. Use the existing declarative structure:
+   - Tasks define skills or instructions, outputs and an agent role. No research stage is mandatory.
+     Reusable methods belong in skills; task-specific context belongs in node instructions.
+   - Connections order execution. `join: true` waits for parallel inputs; alternative routes do not
+     need that join. Named `outcomes` replace `next` for that decision; bound loops where appropriate.
+   - Context is separate: `fresh` starts a conversation, optional `handoff` supplies a summary;
+     `continue` resumes one source; `native-fork` copies one source into a separate session.
+     A fresh handoff may use multiple `from` sources. A self-source needs `initial: fresh`.
+     Independent reviewers start fresh without the author's summary, using declared evidence.
+   - Checkpoints declare their approver, evidence and routes. Agent gates use `approver: agent`
+     with a judge skill/rubric and named `decisions`. Preserve existing approvals unless the request
+     changes them; never invent approval records.
+   - Rooms group tasks visually across workflows and studies; they do not determine execution.
+     New room resources use their own private room draft and preview.
+   - Leave `agent.preset` unset to inherit role defaults, or use a saved preset. Do not invent model
+     IDs, install harnesses or change agent settings as part of a workflow proposal.
+4. Preserve unrelated definitions. Imported skills need no `arlotope` block: retain their body,
+   resources and license. Project-local skills take precedence; runs save exact copies.
+   Use node `skills` for several methods in one conversation. Optional `arlotope.ui.task`
+   (`{label: "Collect evidence", role: analyst}`) offers a task starting point; tags only organize.
+   External frameworks use `workflow/frameworks/<id>.yaml` and node `external` phase declarations,
+   with project inputs/budgets in `.arlotope/frameworks.yaml`; do not add another scheduler.
+5. Run `uv run --with pyyaml python arlo.py check --design <folder>`. Fix errors and explain any
+   changed checkpoint. Return the folder path and a short account of the proposed behavior.
 
-Write only inside your proposal folder. Never change the live workflow, procedures, checks, approvals,
-application code or another proposal. Do not launch research, move studies or install the proposal.
-The normal harness permissions and signature guard apply; this scope is not an OS sandbox.
+Write only in this proposal folder. Do not change live definitions, approvals, code or another
+proposal, launch research, move studies or apply the design. The normal harness permissions apply;
+this write scope is not an OS sandbox.

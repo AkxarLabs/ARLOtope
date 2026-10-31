@@ -218,7 +218,7 @@ def test_subagent_stop_keeps_final_message(tmp_path):
 
 def test_worktree_attribution():
     m = _mod()
-    assert m._worktree_of({"command": "cd ../newts-lab-projects/demo-wt-exp-004 && uv run x"}, "") == ("demo", "exp-004")
+    assert m._worktree_of({"command": "cd ../arlotope-projects/demo-wt-exp-004 && uv run x"}, "") == ("demo", "exp-004")
     assert m._worktree_of({}, r"C:\p\my-proj-wt-v2\sub") == ("my-proj", "v2")
     assert m._worktree_of({"command": "ls"}, "/hub") == ("", "")
     assert m.MAX_SUMMARY == 400

@@ -196,9 +196,9 @@ def test_graph_join_can_handoff_multiple_completed_sources(hub,monkeypatch):
         manifest.write_manifest(lab.agents_dir(lab.hub)/(rid+'.json'),{
             'run_id':rid,'target':'hub','subject':'study','schema':2,'level':'hub','workflow_node':task,
             'cwd':str(lab.hub),'backend':'claude','status':'completed','last_message':task+' evidence'})
-        monkeypatch.setenv('NEWTS_RUN_SUBJECT','study');monkeypatch.setenv('NEWTS_RUN_NODE',task);monkeypatch.setenv('NEWTS_RUN_ID',rid)
+        monkeypatch.setenv('ARLOTOPE_RUN_SUBJECT','study');monkeypatch.setenv('ARLOTOPE_RUN_NODE',task);monkeypatch.setenv('ARLOTOPE_RUN_ID',rid)
         k.studies.move(hub.root,'study','done')
-    for key in ('NEWTS_RUN_SUBJECT','NEWTS_RUN_NODE','NEWTS_RUN_ID'):monkeypatch.delenv(key)
+    for key in ('ARLOTOPE_RUN_SUBJECT','ARLOTOPE_RUN_NODE','ARLOTOPE_RUN_ID'):monkeypatch.delenv(key)
     captured=[]
     lab_profile.start_graph(lab,'study',lambda _lab,spec:captured.append(spec) or {'run_id':'final'},RunSpec)
     assert len(captured)==1

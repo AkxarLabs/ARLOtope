@@ -40,4 +40,4 @@ tournament:        # win/loss record from /ideate pairwise ranking
 
 <!-- Justification for the scores above; related ideas; PI comments. -->
 
-<!-- Where the study stands is kept by the lab, not here: `newts status` / `newts next {{slug}}`. -->
+<!-- Where the study stands is kept by the lab, not here: `arlo status` / `arlo next {{slug}}`. -->

@@ -95,25 +95,32 @@ def test_hub_run_completes_and_records_everything(hub, monkeypatch):
     trans = [(r["from"], r["to"]) for r in executor.ledger(lab) if r["run_id"] == m["run_id"]]
     assert trans[:3] == [(None, "queued"), ("queued", "starting"), ("starting", "running")]
     assert trans[-1][1] == "completed"
-    # the CLI was invoked as designed: slash command on stdin, session pre-assigned, no gate env any more
+    # This thin Lab has no installed native skill. Use the runtime file explicitly,
+    # with the session pre-assigned and no retired gate environment.
     c = calls(lab, m)[0]
-    assert c["stdin"] == "/lab-status" and m["transport"] == "live"
+    assert (REPO / '.claude/skills/lab-status/SKILL.md').as_posix() in c["stdin"]
+    assert 'procedure `/lab-status`' in c["stdin"] and m["transport"] == "live"
     assert "--session-id" in c["argv"] and c["argv"][c["argv"].index("--session-id") + 1] == m["session_id"]
     assert c["argv"][c["argv"].index("--permission-mode") + 1] == "auto"
     assert "--append-system-prompt-file" in c["argv"] and "--settings" in c["argv"]
     assert c["argv"][c["argv"].index("--input-format") + 1] == "stream-json"
     assert c["argv"][c["argv"].index("--permission-prompt-tool") + 1] == "stdio" and "--mcp-config" not in c["argv"]
-    assert "AUTOSCIENTIST_NO_GATE3" not in c["env"] and c["env"]["AUTOSCIENTIST_AGENT_DEPTH"] == "1"
+    assert c["env"]["ARLOTOPE_AGENT_DEPTH"] == "1"
     # the run's own settings pre-approve exactly the lab's record commands — the bus (footer, dispatch) and the
     # kernel's agent verbs (report an outcome, read where a study stands) — never the PI's verbs
     st = json.loads((run_dir(lab, m) / "settings.json").read_text(encoding="utf-8"))
     allow = st["permissions"]["allow"]
     verbs = ("move", "next", "brief", "approved", "status", "flags", "propose")
+    cli_path = (REPO / 'tools/arlo_cli.py').as_posix()
+    scoped_commands = tuple(f'{path} --hub "{hub.root.as_posix()}" {verb}:*)'
+                            for path in (cli_path, f'"{cli_path}"') for verb in verbs)
     assert allow and all(("lab_bus.py" in a and (" emit:*)" in a or " escalate:*)" in a))
-                         or ("newts.py" in a and any(f" {v}:*)" in a for v in verbs)) for a in allow)
-    assert any("newts.py move:*)" in a for a in allow)
+                         or ("arlo.py" in a and any(f" {v}:*)" in a for v in verbs))
+                         or a.endswith(scoped_commands) for a in allow)
+    assert any("arlo.py move:*)" in a for a in allow)
+    assert any(f'{cli_path} --hub "{hub.root.as_posix()}" move:*)' in a for a in allow)
     assert not any(f" {v}:*)" in a for a in allow for v in ("approve", "revoke", "changes", "ack"))
-    assert c["env"]["NEWTS_RUN_ID"] == m["run_id"]
+    assert c["env"]["ARLOTOPE_RUN_ID"] == m["run_id"]
     assert Path(c["cwd"]).resolve() == hub.root.resolve()
     # the next tick post-processes: the footer becomes the report
     executor.tick(lab)
@@ -286,7 +293,8 @@ def test_live_start_failure_falls_back_to_one_shot(hub, monkeypatch):
     assert m["attempt"] == 1 and len(m["attempts"]) == 1
     c = calls(lab, m)   # (the failing live start exits before the fake logs its call)
     assert len(c) == 1 and "--input-format" not in c[0]["argv"]
-    assert c[0]["stdin"] == "/lab-status"                              # one-shot: the prompt on stdin
+    assert (REPO / '.claude/skills/lab-status/SKILL.md').as_posix() in c[0]["stdin"]
+    assert 'procedure `/lab-status`' in c[0]["stdin"]  # one-shot keeps the runtime-file instruction
     assert "retrying one-shot" in (lab.bus / "agents" / m["stream"]).read_text(encoding="utf-8")
 
 

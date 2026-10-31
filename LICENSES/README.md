@@ -1,6 +1,6 @@
 # License notices
 
-Newts' Lab is licensed under AGPL-3.0-only, as stated in the root `LICENSE`.
+ARLOtope is licensed under AGPL-3.0-only, as stated in the root `LICENSE`.
 Copyright (c) 2026 Xarangi and the respective contributors.
 
 `MIT-original.txt` preserves the original copyright and permission notice for material previously

@@ -59,8 +59,8 @@ def config(control: dict) -> dict:
         base = ((_yaml(Path(hub) / "lab" / "config.yaml").get("compute") or {}).get("scheduler") or {})
     proj = ((control.get("compute") or {}).get("scheduler") or {})
     sc = _merge(base, proj)
-    if os.environ.get("NEWTS_SCHEDULER"):          # a one-off override: NEWTS_SCHEDULER=local
-        sc["kind"] = os.environ["NEWTS_SCHEDULER"]
+    if os.environ.get("ARLOTOPE_SCHEDULER"):          # a one-off override: ARLOTOPE_SCHEDULER=local
+        sc["kind"] = os.environ["ARLOTOPE_SCHEDULER"]
     sc.setdefault("kind", "local")
     sc.setdefault("stages", ["PILOT", "FULL"])
     return sc
@@ -248,7 +248,7 @@ def submit_and_wait(cfg: dict, argv: list[str], sc: dict, control: dict, allocat
     py = sys.executable
     inner = [py, str(REPO / "scripts" / "run.py"), *argv, "--in-job", "--run-dir", str(run_dir)]
     lines = ["#!/bin/bash", *ad.directives(run_id, run_dir, float(minutes)), "set -e", *ad.setup(),
-             f"cd {shlex.quote(str(REPO))}", "export NEWTS_IN_JOB=1",
+             f"cd {shlex.quote(str(REPO))}", "export ARLOTOPE_IN_JOB=1",
              " ".join(shlex.quote(a) for a in inner)]
     script = run_dir / "job.sh"
     script.write_text("\n".join(lines) + "\n", encoding="utf-8", newline="\n")
@@ -275,7 +275,7 @@ def submit_and_wait(cfg: dict, argv: list[str], sc: dict, control: dict, allocat
             signal.signal(sig, _stop)
         except (ValueError, OSError):
             pass
-    poll = float(os.environ.get("NEWTS_SCHED_POLL") or sc.get("poll_seconds") or 30)
+    poll = float(os.environ.get("ARLOTOPE_SCHED_POLL") or sc.get("poll_seconds") or 30)
     max_queue = float(sc.get("max_queue_hours") or 48) * 3600
     t0, started = time.time(), False
     hb = run_dir / "submitter.heartbeat"

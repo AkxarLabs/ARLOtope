@@ -1,11 +1,10 @@
-"""Create a new, empty lab from this template — what the dashboard's "Create a new lab" does.
+"""Create an empty local Lab copy — what the dashboard's "Create a new lab" does.
 
     uv run --with pyyaml python tools/new_lab.py <dest> [--name "My lab"] [--projects-root ../my-lab-projects]
 
-Copies this hub's committed files (`git archive HEAD`, so nothing uncommitted, ignored or runtime comes
-along), drops the template's own notebook entries, names the lab (`lab.name`), points
-`lab.projects_root` at its own sibling folder, then `git init` + a first commit. The result is exactly
-what "Use this template" on GitHub gives you, ready for /setup-lab.
+Normal installation is `git clone` followed by `arlo`. This optional local-copy helper exports this
+checkout's committed files (`git archive HEAD`), creates private settings, and starts a separate Git
+history. It does not copy local research or settings from the source Lab.
 """
 
 from __future__ import annotations
@@ -44,9 +43,18 @@ def _export(template: Path, dest: Path) -> int:
                     n += 1
             return n
     ignore = shutil.ignore_patterns(".git", ".bus", ".slots", "__pycache__", ".pytmp", ".pytest_cache", ".venv",
-                                    "site", "assets-src", "*.pyc", ".env.local")
+                                    "site", "assets-src", "*.pyc", ".env", ".env.*", "*.pem", "*.key", "settings.local.json")
     for item in template.iterdir():
-        if item.name in SKIP_TOP or item.name in (".git", "site", ".venv", ".pytmp", ".pytest_cache"):
+        if item.name == 'lab':
+            for rel in ('config.defaults.yaml', 'README.md', 'profiles', 'notebook/README.md', 'ideation/README.md'):
+                source, target = item / rel, dest / 'lab' / rel
+                if source.is_file():
+                    target.parent.mkdir(parents=True, exist_ok=True)
+                    shutil.copy2(source, target)
+                elif source.is_dir():
+                    shutil.copytree(source, target, ignore=ignore)
+            continue
+        if item.name in SKIP_TOP or item.name in (".git", "site", ".venv", ".pytmp", ".pytest_cache", "output", "studies", "research", ".cache", ".playwright-cli") or item.name.startswith('.env'):
             continue
         if item.is_dir():
             shutil.copytree(item, dest / item.name, ignore=ignore)
@@ -85,7 +93,8 @@ def _reset_state(dest: Path) -> None:
 
 
 def _set_config(dest: Path, name: str | None, projects_root: str | None) -> None:
-    cfg = dest / "lab" / "config.yaml"
+    from labfiles import ensure_config
+    cfg = ensure_config(dest)
     text = cfg.read_text(encoding="utf-8-sig")
     if projects_root:
         text = re.sub(r'^(\s*projects_root:\s*)"[^"]*"', lambda m: f'{m.group(1)}"{projects_root}"', text, count=1, flags=re.M)
@@ -120,7 +129,7 @@ def create_lab(dest: str | Path, name: str | None = None, projects_root: str | N
             _git(["add", "-A"], dest)
             out["git"] = "initialized"
             if commit:
-                r = _git(["commit", "-q", "-m", "New lab from the Newts' Lab template"], dest)
+                r = _git(["commit", "-q", "-m", "Create an empty ARLOtope Lab"], dest)
                 out["git"] = "committed" if r.returncode == 0 else \
                     "initialized (files staged — the first commit needs your git name/email)"
     return out

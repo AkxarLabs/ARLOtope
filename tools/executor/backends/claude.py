@@ -37,13 +37,16 @@ class Claude(Backend):
               "--allow-dangerously-skip-permissions")
 
     def prepare(self, a: Attempt) -> None:
+        if a.bcfg.get('api_provider')=='anthropic':
+            from native_providers import inject
+            inject('anthropic',a.env)
         # background subagents are waited for only up to a 10-minute ceiling by default; a lab runner in
         # a long PILOT must not be cut off — the executor's own watchdog bounds the run
         a.env.setdefault("CLAUDE_CODE_PRINT_BG_WAIT_CEILING_MS", "0")
         a.traced = bool(a.tracer) and not (a.ver and a.ver >= STREAM_TRACES)
         a.settings = _settings(a)
         if a.tracer:
-            a.env["NEWTS_TRACE_FLAGS"] = "1"   # the repo's own trace hooks (--from-repo) stand down
+            a.env["ARLOTOPE_TRACE_FLAGS"] = "1"   # the repo's own trace hooks (--from-repo) stand down
         if a.preamble:
             a.system_prompt_file = a.rd / "preamble.md"
         if a.m.get("level") == "project":
@@ -172,7 +175,7 @@ def _settings(a: Attempt):
     (lab_profile.agent_commands: the run footer, a campaign's dispatch, reporting an outcome…). They only read
     or append to the lab's record, and the run can't report back without them; claude's `auto` classifier was
     seen refusing the footer. Everything else stays with the PI's permission mode. The repo's own
-    `.claude/settings.json` trace hooks (`--from-repo`) stand down for the run (NEWTS_TRACE_FLAGS=1): a CLI whose
+    `.claude/settings.json` trace hooks (`--from-repo`) stand down for the run (ARLOTOPE_TRACE_FLAGS=1): a CLI whose
     stream carries every subagent (STREAM_TRACES) is traced from the stream by the supervisor, with no process per
     tool call; an older one gets the tracer here, with this interpreter's absolute path — traced once either way."""
     py = a.python
@@ -201,7 +204,7 @@ class ClaudeSession(live.Session):
 
     def _control(self, request: dict) -> bool:
         self._n += 1
-        return self._write({"type": "control_request", "request_id": f"newts_{self._n}", "request": request})
+        return self._write({"type": "control_request", "request_id": f"arlotope_{self._n}", "request": request})
 
     def send(self, text: str) -> bool:
         ok = self._write({"type": "user", "message": {"role": "user", "content": text},

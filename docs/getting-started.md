@@ -1,73 +1,90 @@
-# Getting started
+# Your first study
 
-Create a study, give an agent one useful task, and inspect its answer. You can add a more detailed research process later.
+Bring a question or an existing project, start one task, and inspect its results.
+Screenshots use demonstration data.
 
-## 1. Open the Lab
+## 1. Open the Lab and connect an agent
 
-From the repository folder, with Git and uv installed, run:
+Install [Git](https://git-scm.com/downloads) and
+[uv](https://docs.astral.sh/uv/getting-started/installation/), then run:
 
 ```bash
-uv run --with pyyaml python newts.py
+git clone https://github.com/AkxarLabs/ARLOtope.git
+cd ARLOtope
+uv run --with pyyaml python arlo.py
 ```
 
-The platform launcher opens the same application. The browser connects to a local server, normally on `http://127.0.0.1:8787`. Agent requests use the accounts configured in their own tools.
+The dashboard opens in your browser, normally at `http://127.0.0.1:8787`.
+Later, use `./arlo` on macOS/Linux, `.\arlo.cmd` on Windows, or the platform launcher.
+First use creates private settings for this clone; no frontend build is needed.
 
-If you want dashboard-managed tasks, choose **Connect an agent** in the Lab or open **Settings → Agents & models**, then install or sign in to a harness. Enable agent runs in **Settings → Limits & permissions** when you are ready to launch work. You can create a study and browse its files before doing this.
+The ARLO guide introduces the main pages. Reopen it with **?** in the header.
 
-![The visual Lab before starting work](assets/current/lab-light.webp)
+![The first-visit ARLO guide](assets/current/arlo-guide.webp)
 
-*Demonstration fixture: the Lab is the main workspace. Start a study from the top-right button.*
+In **Settings → Agents & models**, connect an installed agent and complete its sign-in.
+Use **Connect ACP agent** for another compatible tool. Enable launches in **Limits & permissions**.
+For OpenAI, Anthropic, Google, OpenRouter or another API key, use
+**Connect API provider** and [choose its agent](api-providers.md).
+You can create studies before connecting an agent.
 
-## 2. Enter study details
+## 2. Create a study from the work you have
 
-Choose **New study**, then select the starting point inline:
+Choose **New study**, then:
 
-- **A research question** for a topic or first task without an attached repository.
-- **An existing project** for a folder on this computer or a connected machine. Choose the machine and use **Browse…** to select the folder.
-- **A GitHub repository** for an exact public `owner/repository` or repository URL. Press **Look up repository**, then review the new working-copy location. For a private repository, clone it with your normal tools and attach the existing folder.
+| Starting point | What to choose |
+|---|---|
+| A question | **A research question**; no repository needed yet |
+| An existing project | **An existing project**, its machine, then **Browse…** |
+| A GitHub repository | Enter its name or URL, or use **Choose repository**; **Connect GitHub** signs in when needed |
 
-Fill in **Study title** and **What would you like to investigate?** Choose a **Starting workflow**. Selecting a starting point reveals its fields on this page; it does not create the study.
+Enter a title and question. **Add a brief or files** accepts supporting materials.
+Optionally use **Agent help → Suggest study details**, then review the suggestion before applying it.
+Uploading files alone starts no agent.
 
-![New study details with starting-point choices and research fields](assets/current/start-details.webp)
+![Study details and supporting files](assets/current/start-details.webp)
 
-*Demonstration fixture: study details before saving. Use your own question and project location.*
+## 3. Check the workflow
 
-Expand **Brief & materials** if you have a brief, papers, notes or images. Uploading files does not launch an agent. The limits shown in the form are 5 MB per file and 20 MB per draft. Optional **Agent help → Suggest study details** does launch an agent turn; review its proposal before **Apply suggestion**.
+The **Starting workflow** map shows the tasks. Select one, then **View instructions** to read its method,
+or choose **Change workflow**.
 
-**Tags & study ID** and **Agent choices (optional)** can remain at their defaults. The latter saves study-level agent preferences; it is separate from the agent used for an optional suggestion.
+- **Run task:** let an agent do it.
+- **Use existing work:** supply files or references in place of doing it again.
+- **Skip at start:** leave it out; no explanation required.
 
-## 3. Review and create
+Reuse and skip choices apply when the task is first reached. If a later loop returns to it, the
+task runs normally. Checkpoints still apply. Keep **Study settings** closed to use default agents and tags.
 
-Press **Review study**. Check the question, workflow, files, machine and project path. Use **Back** to correct anything.
+![A workflow task with existing-work choices](assets/current/workflow-start.png)
 
-![Reviewing a demonstration study before creation](assets/current/start-review.webp)
+## 4. Review and create
 
-*Demonstration fixture: the review page makes the proposed study and attachment visible before creation.*
+Choose **Review study**, check the details, then **Create study** or **Clone & create study**.
+Attaching keeps existing code and environments. Cloning downloads source without running it.
+Neither action launches an agent.
 
-Choose **Create study**, or **Clone & create study** for GitHub. Attaching a folder adds Lab registration files; existing code and environment stay in place. Cloning downloads source without installing dependencies or running repository code. Creating a study does not start a research agent or approve a checkpoint.
+![Review the study before creating it](assets/current/start-review.webp)
 
-## 4. Start one task
+## 5. Start and follow work
 
-After creation, choose **Plan the first task with an agent**. Review the prefilled instruction, choose an agent if needed, then launch from the task dialog. **Open study** lets you inspect the record first.
+Choose **Open study**, then its next task. **Run ready tasks** starts eligible branches of a workflow.
+For a separate planning conversation, choose **Plan with an agent** instead.
 
-![Created study with a separate first-task action](assets/current/start-created.webp)
+![The created study and its next actions](assets/current/start-created.webp)
 
-*Demonstration fixture: creation and agent launch are separate actions.*
+In **Lab**, click a character to inspect its task and conversation. **Inbox** holds questions,
+permissions and checkpoint decisions. **Study → History** keeps task passes and agent attempts.
+An ended agent turn does not finish a task without a recorded outcome.
 
-A useful first instruction for an existing project is: “Read the project instructions and explain the current pipeline, evidence and open questions before proposing changes.” For a new question, ask for a focused plan with success criteria and a small first check.
+![An agent conversation](assets/current/agents-run.webp)
 
-![Reviewing the first instruction before launching an agent](assets/current/start-task.webp)
+Open **Library → Outputs** for reports and interactive HTML, **Documents** for files, or
+**Notes & sources** for notes and saved answers. **Visual summary** on a run starts a separate explainer.
 
-*Demonstration fixture: inspect the instruction and agent options before sending.*
+To work on another project, choose **New study** again. Existing agents keep working.
+[Multiple studies](running-work.md#work-on-several-studies) explains team capacity and shared controls.
 
-## 5. Inspect the conversation and result
-
-Open the task's conversation from the study or **All agents**. Answer a pending question there or in **Inbox**. Tool permissions and research checkpoints are separate decisions. If a task stopped without completing its assigned outcome, inspect the record before using **Continue task** or **New agent with handoff**.
-
-![Demonstration agent conversation and recorded activity](assets/current/agents-run.webp)
-
-*Demonstration fixture: inspect what the agent actually recorded, rather than treating a finished turn as a verified result.*
-
-Published pages appear in **Library → Outputs**; existing files are in **Documents**. **Notes & sources** holds separate notes and saved workspace Q&A. **Visual summary** on a run starts an independent explainer and leaves that run untouched.
-
-Next: [dashboard tour](dashboard.md), [tasks and agents](agent-workflows.md), or [customize a workflow](customising.md).
+Next: [Dashboard tour](dashboard.md) · [Build a workflow](agent-workflows.md) ·
+[Recover work](recovering-work.md). Before collecting research, set up
+[backups](projects.md#storage-updates-and-backups) for your Lab and projects.

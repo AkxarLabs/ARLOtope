@@ -223,25 +223,32 @@ def _ephemeral(exe: str) -> bool:
 _STABLE: dict = {}
 
 
+def _store_python(exe: str) -> bool:
+    # Store Python can run outside Codex's Windows sandbox but fail inside it.
+    paths = [exe, getattr(sys, '_base_executable', '')] if exe == sys.executable else [exe]
+    return any('/windowsapps/' in str(p).replace('\\', '/').lower() for p in paths)
+
+
 def python_exe() -> str:
     """The interpreter to run helper scripts (supervisor, hooks, MCP host) with — the one running now
-    (known to have pyyaml), unless it is uv's throwaway environment: then a durable one, ~/.newts/py (a
-    small venv with pyyaml, made once by uv — the same one newts.py uses). Absolute, so no PATH lookup can
+    (known to have pyyaml), unless it is uv's throwaway environment or Windows Store Python: then a durable one, ~/.arlotope/py (a
+    small venv with pyyaml, made once by uv — the same one arlo.py uses). Absolute, so no PATH lookup can
     pick a different python."""
     exe = sys.executable or "python"
-    if not _ephemeral(exe) or os.environ.get("NEWTS_KEEP_PYTHON"):
+    store = _store_python(exe)
+    if not (_ephemeral(exe) or store) or os.environ.get("ARLOTOPE_KEEP_PYTHON"):
         return exe
     if _STABLE.get("py"):
         return _STABLE["py"]
     import shutil   # noqa: PLC0415
-    venv = Path(os.environ.get("NEWTS_HOME") or (Path.home() / ".newts")) / "py"
+    venv = Path(os.environ.get("ARLOTOPE_HOME") or (Path.home() / ".arlotope")) / "py"
     py = venv / ("Scripts/python.exe" if os.name == "nt" else "bin/python")
     ok = py.exists() and subprocess.run([str(py), "-c", "import yaml"], capture_output=True).returncode == 0
     if not ok:
         uv = shutil.which("uv")
         if uv:
             venv.parent.mkdir(parents=True, exist_ok=True)
-            subprocess.run([uv, "venv", "--quiet", "--allow-existing", str(venv)], capture_output=True)
+            subprocess.run([uv, "venv", "--quiet", "--allow-existing", *(["--managed-python"] if store else []), str(venv)], capture_output=True)
             subprocess.run([uv, "pip", "install", "--quiet", "--python", str(py), "pyyaml"], capture_output=True)
         ok = py.exists() and subprocess.run([str(py), "-c", "import yaml"], capture_output=True).returncode == 0
     _STABLE["py"] = str(py) if ok else exe

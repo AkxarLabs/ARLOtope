@@ -9,13 +9,13 @@ new one. Plus the background keeper that gathers pinned panels' data and turns t
 
 from __future__ import annotations
 
+import hashlib
 import re
 import threading
 import time
 from pathlib import Path
 
 import ctx  # noqa: E402
-import runops  # noqa: E402
 
 STATIC = Path(__file__).resolve().parent / "static" / "panels"
 DESIGNS = Path("lab") / ".bus" / "designs" / "panels"
@@ -63,10 +63,11 @@ def get_panel(q: dict) -> tuple[dict, int]:
     except ValueError as e:
         return {"error": str(e)}, 404
     col = _p()._collector(p)
+    code = col.read_bytes() if col else None
     versions = sorted((Path(p["dir"]) / "versions").iterdir(), reverse=True) if (Path(p["dir"]) / "versions").is_dir() else []
     return {"ok": True, "panel": {k: v for k, v in p.items() if k != "dir"},
-            "collector": {"name": col.name, "code": col.read_text(encoding="utf-8", errors="replace"),
-                          "sha": _p().collector_sha(p), "approved": _p().collector_approved(ctx.HUB, p)} if col else None,
+            "collector": {"name": col.name, "code": code.decode("utf-8", errors="replace"),
+                          "sha": hashlib.sha256(code).hexdigest()[:16], "approved": _p().collector_approved(ctx.HUB, p)} if col else None,
             "versions": [v.name for v in versions[:20]], "cached": _p().cached(ctx.HUB, pid)}, 200
 
 
@@ -172,7 +173,7 @@ def approve_collector(body: dict) -> tuple[dict, int]:
         return {"error": "approving a collector needs explicit confirm"}, 400
     pid = str(body.get("id") or "")
     try:
-        rec = _p().approve_collector(ctx.HUB, pid)
+        rec = _p().approve_collector(ctx.HUB, pid, expected_sha=body.get("sha"))
     except ValueError as e:
         return {"error": str(e)}, 400
     ctx.pi_log({"action": "panel.approve_collector", "panel": pid, "sha": rec.get("sha")})

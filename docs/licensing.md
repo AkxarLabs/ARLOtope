@@ -1,8 +1,8 @@
 # License
 
-Newts' Lab's default license is **GNU Affero General Public License version 3 only**
+ARLOtope's default license is **GNU Affero General Public License version 3 only**
 (`AGPL-3.0-only`). Commercial use is allowed. The full terms in the repository's
-[LICENSE](https://github.com/akxarlabs/newts-lab/blob/main/LICENSE) control use of the software.
+[LICENSE](https://github.com/AkxarLabs/ARLOtope/blob/main/LICENSE) control use of the software.
 
 ## Using the Lab
 

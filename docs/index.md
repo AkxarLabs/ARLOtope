@@ -1,63 +1,38 @@
-# Newts’ Lab
+# ![ARLOtope](assets/brand/arlotope-wordmark.svg){ .brand-wordmark width="440" }
 
-A visual research workspace for scientists working with coding agents. Bring a question or an
-existing repository, keep your tools, and build a readable record of work, evidence and decisions.
+**Visually manage agent teams across your research projects.**
+
+Move several projects forward at once. Build workflows, assign teams, and follow your agents in a
+shared 3D lab. Each study keeps its conversations, evidence and results together. One Inbox brings
+questions and decisions from all your teams into view.
 
 [Create your first study](getting-started.md){ .md-button .md-button--primary }
-[Explore the Lab](research-first.md){ .md-button }
+[Build a workflow](agent-workflows.md){ .md-button }
 
-![The visual Lab, with studies and example agents](assets/current/lab-light.webp)
+![Agents working in the visual lab](assets/current/lab-light.webp)
 
-*Current interface with demonstration studies. Screenshots show example data, not verified research results.*
+*Screenshots in these guides use demonstration data.*
 
-## Start with the work you have
+## Start where you are
 
-Save a research question, attach a local or remote folder, or clone a public GitHub repository.
-Upload a brief and supporting materials if you have them. Ask an agent to help refine the study,
-then review its suggestions. Creating a study does not start work or approve a checkpoint.
+Use a research question, a local or remote folder, or a GitHub repository. Add existing briefs and
+files. Keep your project's code, environment and runner. Connect Claude Code, Codex, opencode or
+a compatible ACP agent using your own account.
 
-Use Claude Code, Codex, opencode or a compatible ACP agent. The Lab organizes their work;
-your agent accounts, existing repositories and research tools remain yours.
+## Find what you need
 
-## Four places to work
-
-| Page | What it is for |
+| I want to… | Read |
 |---|---|
-| [Lab](dashboard.md) | Follow agents in the visual workspace, inspect their work and respond to decisions. |
-| [Studies](projects.md) | Keep the question, project, workflow position, instructions and history together. |
-| [Library](knowledge.md) | Read documents, sources, human notes, saved answers and published outputs. |
-| [Workflow](agent-workflows.md) | Compose tasks, choose agent roles and context, group rooms and configure checkpoints. |
+| Manage teams across several projects | [Multiple studies](running-work.md#work-on-several-studies) |
+| Install the Lab and start a task | [First study](getting-started.md) |
+| Understand studies, tasks, skills and rooms | [How it fits together](research-first.md) |
+| Follow agents and find my way around | [Dashboard tour](dashboard.md) |
+| Change tasks, agents, routes or checkpoints | [Build a workflow](agent-workflows.md) |
+| Reuse a skill from another project | [Import a skill](skills.md#reuse-a-skill) |
+| Ask about work or find retained evidence | [Notes, answers and sources](knowledge.md) |
+| Read an interactive report | [Outputs and visual summaries](artifacts.md) |
+| Continue interrupted work | [Recovery](recovering-work.md) |
+| Use a remote project | [Connect a machine](remote-projects.md) |
 
-## A process you can change
-
-Start with a quick study or the paper workflow. Use your own skills and task instructions.
-Continue one conversation, start independent reviewers or fork supported sessions for parallel work.
-Branch on named outcomes, join parallel tasks and add human or delegated review gates.
-Shared workflow edits stay in a draft until you review and publish them.
-
-[Build a workflow](agent-workflows.md) · [Choose agents](acp.md) · [Connect a machine](remote-projects.md)
-
-## Keep evidence close
-
-The Library combines existing project files with plain Markdown knowledge records. A human note
-adds context without queuing work. Workspace questions use a separate assistant and save their
-answers separately from the source document. Independent explainers can publish interactive HTML
-summaries inside the dashboard.
-
-[Notes, answers and sources](knowledge.md) · [Reports and HTML explainers](artifacts.md)
-
-## When an agent stops
-
-An ended turn is not a completed task. The workflow needs a recorded outcome before moving on.
-The Lab exposes pending questions, interrupted runs and assigned tasks that still need an outcome.
-Resume a saved conversation when possible, or use a new agent with a handoff.
-
-[Recover interrupted work](recovering-work.md) · [Approvals and evidence](monitoring.md)
-
-## Plain files and existing tools
-
-Procedures are Markdown; workflows and checkpoints are YAML; study state is an append-only journal.
-Code and experiment artifacts stay in project repositories. The dashboard needs no frontend build.
-Terminal procedures and the CLI remain available independently.
-
-[Configuration](configuration.md) · [Project records](projects.md) · [Architecture](internals.md)
+Workflows are YAML; skills and notes are Markdown. For file formats and settings, use the
+**Reference** section. For storage locations and backups, see [Projects](projects.md#storage-updates-and-backups).

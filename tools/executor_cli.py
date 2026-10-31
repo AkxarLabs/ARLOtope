@@ -163,7 +163,7 @@ def cmd_answer(lab: Lab, a) -> int:
 
 def _simple(fn_name: str):
     def run(lab: Lab, a) -> int:
-        source = 'run:' + os.environ['NEWTS_RUN_ID'] if os.environ.get('NEWTS_RUN_ID') else 'cli'
+        source = 'run:' + os.environ['ARLOTOPE_RUN_ID'] if os.environ.get('ARLOTOPE_RUN_ID') else 'cli'
         try:
             if fn_name == "reply":
                 m = executor.reply(lab, a.run_id, a.text, by=source)
@@ -236,7 +236,7 @@ def cmd_serve(lab: Lab, a) -> int:
         if age is not None and age < 10 and not str(ls.get("by") or "").startswith("spawned"):
             print("[executor] another scheduler is ticking — nothing to do", flush=True)
             return 0
-        os.environ["NEWTS_TICKER"] = "serve --until-idle"
+        os.environ["ARLOTOPE_TICKER"] = "serve --until-idle"
     print(f"[executor] scheduler running for {lab.hub} (every {a.interval}s"
           + ("; exits when idle" if a.until_idle else "; Ctrl-C to stop") + " — runs already started keep going in "
           "their own supervisors)", flush=True)
@@ -282,7 +282,7 @@ def cmd_skills(lab: Lab, a) -> int:
 
 
 def main(argv=None) -> int:
-    ap = argparse.ArgumentParser(description="the Newts' Lab executor (headless procedure runs)")
+    ap = argparse.ArgumentParser(description="the ARLOtope executor (headless procedure runs)")
     ap.add_argument("--hub", default=None, help="hub root (default: this repo)")
     sub = ap.add_subparsers(dest="cmd", required=True)
 

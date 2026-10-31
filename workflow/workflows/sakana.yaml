@@ -1,0 +1,104 @@
+# A workflow: the path a study walks, where each outcome leads, and the PI's checkpoints on the way.
+#
+#   path        the steps in order (workflow/steps.yaml); `done` moves a study to the next one, and `done` at
+#               the last step finishes it
+#   routes      where any other outcome leads, per step; an outcome with no route goes to the PI, who decides
+#   use         swap a procedure for another (a variant) in this workflow only: {lit-review: lit-review-quick}
+#   checkpoints the PI's approvals:
+#                 before: <step>             a study can't enter that step until it is approved
+#                 during: <step> + at: "…"   the agent stops at that point inside the step and asks
+#                 approver: me | me-or-campaign | auto | agent (fresh evidence review)
+#                 judge: {skill: gate-review, rubric: "…", max_attempts: 3, max_visits: 3}
+#                 decisions: {proceed: continue, revise: <step>, stop: parked}
+#                 checks: [...]   scripts the checkpoint shows (and `auto` needs passing) — checks/<name>.py
+#                 watch: [...]    checks that flag work done past it without approval
+#                 evidence: [...] what you look at ({study} = the study's slug, {project} = its project repo)
+#                 means / tell    what it covers, and what agents are told about it
+#
+# Approving a `before:` checkpoint moves the waiting study on, and its new step's work can start.
+
+title: Agentic Scientist · Sakana
+blurb: Optional computational research phases, followed by your own review. Requires a separate Sakana installation.
+
+path: [seed, external-setup, external-search, external-compare, external-eval, external-analyze, external-write, internal-review, final]
+
+nodes:
+  seed:
+    label: Prepare the task
+    procedure: null
+    instructions: Read the research brief and existing project. Help the researcher
+      prepare the task and .arlotope/frameworks.yaml using docs/external-frameworks.md.
+      Agree on the task, baseline, held-out evaluation, selected phases, harness/model,
+      compute budget and timeout before launching anything. Do not install software
+      or infer budgets. Use an existing task scaffold when possible; drafting a new
+      evaluator is experimental. Write FRAMEWORK_PLAN.md with the chosen configuration,
+      expected evidence and limitations. No external execution here.
+    outputs:
+    - FRAMEWORK_PLAN.md
+    - .arlotope/frameworks.yaml
+  external-setup:
+    external:
+      framework: sakana
+      phase: task_drafting
+    instructions: Inspect the drafted evaluator against the researcher's plan before
+      reporting completion.
+  external-search:
+    external:
+      framework: sakana
+      phase: investigation
+  external-compare:
+    external:
+      framework: sakana
+      phase: ablations
+  external-eval:
+    external:
+      framework: sakana
+      phase: final_evaluation
+    instructions: Preserve the frozen selection. Report non-qualification honestly;
+      do not select a replacement using final scores.
+  external-analyze:
+    external:
+      framework: sakana
+      phase: posthoc
+  external-write:
+    external:
+      framework: sakana
+      phase: paper
+    agent:
+      role: writer
+  internal-review:
+    label: Independent ARLOtope review
+    procedure: null
+    agent:
+      role: reviewer
+    context:
+      mode: fresh
+    instructions: Review the original framework evidence and manuscript, not the working
+      agent's opinion. Check evaluation validity, claims, provenance and missing evidence.
+      Write FRAMEWORK_REVIEW.md with limitations and concrete action items. Do not
+      invent measurements or approve checkpoints.
+    outputs:
+    - FRAMEWORK_REVIEW.md
+  final:
+    label: Research summary
+    procedure: null
+    agent:
+      role: analyst
+    instructions: Read the reviewed evidence and FRAMEWORK_REVIEW.md. Publish an evidence-linked
+      HTML or Markdown explanation in Results. Preserve null and negative results
+      and unresolved issues. Do not send the paper externally. The researcher chooses
+      any follow-up work.
+
+checkpoints:
+  - id: sakana-plan
+    title: Review the task and budget
+    before: external-setup
+    approver: me
+    evidence: ['{project}/FRAMEWORK_PLAN.md', '{project}/.arlotope/frameworks.yaml']
+    means: The task, evaluation protocol and bounded external execution are approved.
+  - id: sakana-final-evidence
+    title: Review the frozen selection
+    before: external-eval
+    approver: me
+    evidence: ['{project}/.arlotope/framework-runs/{study}/sakana/run/.investigation_completion.json']
+    means: Evaluate this selected program under the agreed final protocol.

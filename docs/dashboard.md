@@ -1,64 +1,101 @@
 # The dashboard
 
-Run `uv run --with pyyaml python newts.py` or use the platform launcher. The local browser interface normally opens on port 8787; it can choose another free port.
+The Lab shows agent teams across your studies. Click a character to inspect its task, activity
+and conversation. Switch projects without stopping work; Inbox collects questions and decisions
+across teams. Screenshots use demonstration data.
 
 ## Find the right place
 
 | Control | Use it for |
 |---|---|
-| **Lab** | Visual workspace, active agents, decisions and recent outputs |
-| **Studies** | A study's question, tasks, files, instructions and history |
-| **Library** | Outputs, existing documents, notes, sources and saved Q&A |
-| **Workflow** | Tasks, reusable methods, roles, routes, rooms and checkpoints |
-| **New study** | Create a study from a question, existing folder or public repository |
-| **Inbox** | Answer questions, review permissions and handle decisions |
-| **Assistant** | Ask a separate workspace agent about selected work |
+| **Lab** | Follow working agents and see what needs attention |
+| **Studies** | Open a question, its workflow, instructions and history |
+| **Library** | Read outputs, documents, notes, sources and saved answers |
+| **Workflow** | Build tasks, reuse skills, assign agents and configure checkpoints |
+| **New study** | Start from a question, existing folder or GitHub repository |
+| **Inbox** | Answer questions, review permissions and make decisions |
+| **Assistant** | Ask a separate agent about selected work |
 
-**All agents**, **History** and **Machines & compute** are in the footer. Ctrl/Cmd+K opens search. Settings contains agent, execution and appearance options.
+**All agents**, **History** and **Machines** are in the footer. **Settings** holds agent and
+execution options. Ctrl/Cmd+K opens search; **?** reopens the ARLO guide.
 
-For launch steps, multiple studies, session limits and notification behavior, see
-[Start and follow work](running-work.md).
+## Keep your place
 
-![The Lab workspace in its light theme](assets/current/lab-light.webp)
+Selecting a study, task or agent adds a **Selected work** strip. It carries that selection between
+Lab, Workflow and Library. Select other work to change scope, or **×** to clear it.
 
-*Demonstration fixture: the scene and the records below it provide two ways to reach the same work.*
+The shared inspector links each agent to its task, outputs and position in the Lab.
+Unsent messages survive switching inspectors in the same browser tab, but not a page refresh.
 
-![The Lab workspace in its dark theme](assets/current/lab-dark.webp)
-
-*The same fixture in the dark theme; changing appearance does not change study state.*
+![A selected study carried into the Library](assets/current/study-context.webp)
 
 ## Follow work in the Lab
 
-Use the bottom camera/agent controls to follow a main agent or recorded child. Click a character for its task, activity and a link to details. **All rooms** returns to the overview; the close control stops following without resetting the camera. Viewing a character does not launch work.
+Use the bottom selector to follow an agent or recorded child. **Show in lab** focuses its character
+and task panel. **All rooms** returns to the overview; closing follow leaves the camera in place.
 
-**By machine** gives connected machines their own spaces; **Unified** groups their agents into shared rooms. These are views of the same records. **+ Machine** and **Connections** open machine connection controls. The rest of the application remains usable when the 3D view is unavailable.
+![A character's task panel](assets/current/agent-task-preview.webp)
+
+The panel opens the conversation, study history and retained outputs. Questions and permissions
+appear there too. Hover or select a character for dotted links to active agents on the same task
+and pass, including recorded children. Other tasks in the same study remain separate.
+
+![Active agents linked by their shared task](assets/current/task-peer-links.webp)
+
+### Inside a room
+
+The task chooses the room; recorded activity chooses a working spot and gesture. Reading can use
+a bookshelf, editing a desk, and planning a whiteboard. Agents keep a suitable spot through short
+calls rather than walking after every event. These are activity cues; click for the underlying record.
+
+Raised hands and markers distinguish questions, permissions, usage limits, unfinished tasks and
+connection problems. Recorded children appear near their parent. Continued sessions keep their
+character when a native session ID is available; fresh sessions and forks have separate characters.
+
+**By machine** gives connected machines their own spaces. **Unified** places their agents in shared
+rooms. These views use the same records. **+ Machine** connects a project machine.
+Studies share rooms; add a new one explicitly in **Workflow → By room**.
+
+**Names** toggles room labels. Theme and reduced-motion choices affect appearance only.
+If the world cannot load, use **Retry 3D view** or **View work below**.
+See [renderer details](internals.md#visual-activity) for movement and event handling.
 
 ## Inspect a study
 
-Open a study from **Studies**, an output or a run. Its overview links the active task, documents, recent outputs and notes. Use **Instructions** for local method guidance and **Agents** for saved agent preferences. Attached project files stay in their project.
+Open a study from **Studies**, a run or an output. Its primary action shows the next task or decision.
+Expand **Workflow map** and select a task to read its instructions, context, outputs and checkpoints.
 
-![A demonstration study overview](assets/current/study-overview.webp)
+- **Instructions** adds study-specific guidance.
+- **Agents** sets agent preferences for that study.
+- **History** groups task passes, agent attempts, notes, decisions and outputs. **Save history to study** creates a readable snapshot.
+- **More actions** holds other procedures, notes and controls. **Pending instructions** shows requests awaiting an agent.
 
-*Demonstration fixture: start from the study to keep tasks and evidence in context.*
+![A study overview](assets/current/study-overview.webp)
+
+On narrow screens, **Study section** switches these views. See
+[starting and steering work](running-work.md) for launches, holds and multiple studies.
 
 ## Answer and recover
 
-Open **Inbox** or the run conversation for a question or tool permission. Read the producing agent and request before answering. Terminal/editor sessions observed by the Lab keep their input in their original terminal.
+Open **Inbox** or the producing run for questions and tool permissions. Checkpoint decisions have
+their own evidence sheet. Terminal sessions observed by the Lab still receive input in their terminal.
 
-Research checkpoints have their own evidence and decision sheet. A tool permission allows one native request; it is not approval of an experiment plan or paper. Holding a study, pausing the Lab and stopping one run have different scopes.
-
-![A demonstration stopped task with recovery controls](assets/current/agents-recovery.webp)
-
-*Demonstration fixture: inspect the recorded stopping point before continuing or handing work to a new agent.*
+An agent that stops without its task outcome stays unfinished. Inspect its work before
+**Continue task** or **New agent with handoff**. See [recovery](recovering-work.md).
 
 ## Outputs and explanations
 
-- **Library → Outputs** displays published reports, pages, tables and figures. Search and study filters help find older work.
-- **Documents** browses files from the Lab, studies and projects.
-- **Notes & sources** stores separate notes, retained sources and Q&A records.
-- **Add note** saves human context. Its default acknowledgement option requests a read receipt without queuing a task.
-- **Ask workspace assistant** opens separate Q&A with the selected document or output as context. Sending uses an agent turn and saves the question and answer separately.
+In **Library**, **Outputs** previews published reports; **Documents** browses existing files;
+**Notes & sources** holds retained knowledge. The **Library study** selector carries scope between
+tabs. Notes & sources opens one study or Lab-wide records; the other tabs also offer all studies.
 
-A run's **Visual summary** starts an independent explainer. It does not message the working source agent. Automatic assistant briefings are optional and use your agent account.
+**Add note** saves context. **Ask workspace assistant** starts separate Q&A; its **Focus** control
+selects work and **Agent & settings** changes its agent. A run's **Visual summary** starts an
+independent explainer. Both use your configured agent account.
 
-See [knowledge records](knowledge.md), [outputs and feedback](artifacts.md), [tasks and agents](agent-workflows.md) and [getting started](getting-started.md).
+Instruments pinned to **Lab notes** show compute or other readings. **All instruments** manages
+them. **Retry data** rereads data; **Gather now** runs a collector. Custom collectors require code
+review before execution; see [instruments](extending.md#collector-execution).
+
+For details: [Notes and sources](knowledge.md) · [Outputs](artifacts.md) ·
+[Task instructions](skills.md#read-the-instructions).

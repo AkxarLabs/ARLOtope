@@ -1,6 +1,6 @@
 # Design rationale
 
-Lab connects a research question to agent work, evidence and human decisions. The default interface
+The Lab lets researchers manage agent teams visually while iterating on several projects. The default interface
 is a persistent 3D Lab, with **Studies**, **Library** and **Workflow** for direct access to the same
 records. All agents, History, settings and machine connections are secondary views.
 
@@ -11,7 +11,7 @@ A **workflow** orders tasks or shared steps and defines checkpoints. A task’s 
 instructions, its **agent preset** chooses the harness/model, and its **context** chooses a fresh,
 continued or forked conversation. **Rooms** group tasks visually; they do not change execution order.
 
-![Workflow task map](assets/current/workflow-map.webp)
+![Workflow task map](assets/current/workflow-editor.png)
 
 A run records one task visit or requested piece of work; successive runs may share a backend session.
 A successful agent turn does not establish a scientific finding. The interface keeps its evidence,
@@ -40,6 +40,24 @@ and retained records from their existing locations. No second artifact applicati
 database or general collaboration service is implied.
 
 ## Interface principles
+
+The scene has three readable scales: **room** for the task's place, **furniture/activity spot** for
+observed work, and **gesture/status** for the agent's current condition. Room changes should mark
+meaningful transitions; short tool calls need not cause another walk. Family accents identify
+related agents. Output objects should open the records they represent.
+
+Task peers and visible output cards connect with dotted lines on hover, inspector selection or follow.
+Attention markers distinguish questions, permissions, quotas, unfinished tasks and disconnected machines;
+their wording is shared with agent cards and follow controls. Continued native sessions preserve their
+character within the open view, while forks create another character. Room previews use sample activity
+and optional clearance guides, without model calls.
+
+The selected-work strip carries study, task and agent focus across map, world and records. Readers
+reuse one inspector, keeping recent unsent forms in tab memory. Neither creates execution state.
+Further directions are filename-bearing work objects where exact paths are retained and handoff history
+on selection. Reuse activity, lineage,
+request and artifact records without another workflow language or LLM call per animation. Unknown
+activity stays unknown; decorative movement must not imply verified progress.
 
 - Use recognizable actions: New study, Save note, Send, Review, Connect, Visual summary.
 - Explain a consequential action where it happens: clone, launch, publish, disconnect or approve.

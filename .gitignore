@@ -1,63 +1,49 @@
-# Spawned project repos live OUTSIDE the hub at lab.projects_root (default
-# ../newts-lab-projects), so they're normally not in this tree at all. These
-# entries are a SAFETY NET: if the PI points lab.projects_root at a path INSIDE the
-# hub, the project repos (each its own git repo, with its own large runs/) must not
-# be committed into the hub. The hub only ever tracks studies/<slug>/ (idea + paper/).
-/newts-lab-projects/
+# Local Lab state. Keep it on disk and back it up separately; it is not product source.
+/lab/*
+!/lab/README.md
+!/lab/config.defaults.yaml
+!/lab/profiles/
+!/lab/notebook/
+/lab/notebook/*
+!/lab/notebook/README.md
+!/lab/ideation/
+/lab/ideation/*
+!/lab/ideation/README.md
+/studies/
+
+# Project repositories normally live outside this checkout.
+/arlotope-projects/
 /projects/
 /Projects/
 
-# Docs build output (ProperDocs)
-site/
+# Credentials and machine-local settings. Example environment files may be shared.
+.env
+.env.*
+provider-keys.*
+!.env.example
+!.env.sample
+*.pem
+*.key
+.claude/settings.local.json
 
-# Runtime compute-slot ledger (tools/run_slots.py)
-lab/.slots/
-
-# Dashboard event bus + directive inbox (tools/lab_bus.py, dashboard/)
-lab/.bus/
-
-# Dashboard SOURCE art (raw generations / previews) — provenance only, never served, large.
-# The RUNTIME art the page actually loads lives in dashboard/static/assets/ and IS committed.
+# Generated docs, browser evidence and source-art previews.
+/site/
+/output/
+/research/
+/.cache/
 dashboard/assets-src/
+.playwright-cli/
 
-# Python
+# Language environments and development caches.
 __pycache__/
 *.pyc
 .venv/
-
-# Hub-tools test suite runtime (pytest --basetemp=.pytmp; cwd-relative, so match it anywhere)
+node_modules/
 .pytmp/
-.pytest_cache/
-
-# LaTeX build artifacts (papers live at studies/<slug>/paper/)
-studies/**/*.aux
-studies/**/*.bbl
-studies/**/*.blg
-studies/**/*.fdb_latexmk
-studies/**/*.fls
-studies/**/*.log
-studies/**/*.out
-studies/**/*.synctex.gz
-
-# Local research scratch (deep-dives, competitive surveys) — notes, not part of the public template
-/research/
-
-# Local browser evidence and regenerable development caches are not application assets.
-/output/
-/.cache/
-.ruff_cache/
 .pytmp-*/
+.pytest_cache/
+.ruff_cache/
 
-# Private visual drafts from earlier Lab editions remain local reference material.
-/lab/design/
-/lab/identity.json
-
-# OS
+# OS metadata.
 .DS_Store
 Thumbs.db
-
-# Machine-local Claude Code settings
-.claude/settings.local.json
-
-# Research API keys (dashboard → Settings → Research keys) — runs inherit them; never commit
-lab/.env.local

@@ -1,7 +1,7 @@
 ---
 name: design-room
 description: Design or refine a research room in a private draft, using the real 3D preview and normal agent tools.
-newts:
+arlotope:
   kind: utility
   level: hub
   mode: headless
@@ -26,4 +26,4 @@ check you could not perform. Report the files changed, preview evidence and any 
 
 Write only in the assigned draft. Do not apply it, change research records or edit renderer code.
 The researcher applies it from the room-design sheet after review. If invoked without an assigned
-draft, help the researcher open **Research process → By room → Design room** first.
+draft, help the researcher open **Workflow → By room → Design room** first.

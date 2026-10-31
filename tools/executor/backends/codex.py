@@ -28,6 +28,9 @@ class Codex(Backend):
               "--yolo", "--full-auto", "--approve-for-me", "--not-so-yolo", "--add-dir", "resume", "fork")
 
     def prepare(self, a: Attempt) -> None:
+        if a.bcfg.get('api_provider')=='openai':
+            from native_providers import inject
+            inject('openai',a.env)
         # Project agents also read/write shared study records and publish into the hub.
         # Declare that workspace explicitly, just as the Claude adapter does.
         if a.m.get('level') == 'project' and a.lab and not a.lab.hub.resolve().is_relative_to(a.workdir.resolve()):
@@ -35,24 +38,25 @@ class Codex(Backend):
         a.hooks = hook_overrides(a.workdir, a.bcfg, a.python, guard=a.guard)
         a.traced = any(profile.TRACER.name in str(x) for x in (a.hooks or []))   # the guard alone logs nothing
         if a.traced:
-            a.env["NEWTS_TRACE_FLAGS"] = "1"   # a trusted repo's own .codex/hooks.json then stands down
+            a.env["ARLOTOPE_TRACE_FLAGS"] = "1"   # a trusted repo's own .codex/hooks.json then stands down
 
     def command(self, a: Attempt) -> RunCommand:
+        auth=['-c','cli_auth_credentials_store="ephemeral"'] if a.env.get('CODEX_API_KEY') else []
         if a.live:   # per-run settings (cwd, model, sandbox, approvals, instructions) ride thread/start
             hooks = [x for x in (a.hooks or []) if x != "--dangerously-bypass-hook-trust"]
             notes = ["extra_args ignored for a live codex session"] if a.extra else []
-            return RunCommand([*a.cli, *hooks, "app-server"], None, a.traced, notes)
+            return RunCommand([*a.cli, *auth, *hooks, "app-server"], None, a.traced, notes)
         # codex exec [opts] [resume <thread_id>] <prompt|->   (`-` = the prompt is on stdin)
         self.check_extra(a)
         text, via_argv = with_preamble(a), str(a.bcfg.get("prompt_via") or "").lower() == "argv"
-        argv = [*a.cli, "exec", *_exec_opts(a), *(a.hooks or []), *a.extra.split()]
+        argv = [*a.cli, "exec", *auth, *_exec_opts(a), *(a.hooks or []), *a.extra.split()]
         if a.resume_sid:
             argv += ["resume", a.resume_sid]
         argv.append(text if via_argv else "-")
         return RunCommand(argv, None if via_argv else text, a.traced)
 
     def session(self, a: Attempt):
-        return CodexSession(a.prompt, a.resume_sid, thread=thread_params(a), fork_from=a.m.get('fork_session') if not a.resume_sid else None)
+        return CodexSession(a.prompt, a.resume_sid, thread=thread_params(a),api_key=a.env.get('CODEX_API_KEY'), fork_from=a.m.get('fork_session') if not a.resume_sid else None)
 
     def auth(self, out) -> dict | None:   # exit 0 + "Logged in using …" on stderr; "Not logged in" otherwise
         text = ANSI_RE.sub("", (out.stdout or "") + "\n" + (out.stderr or ""))
@@ -246,7 +250,7 @@ class CodexSession(live.Session):
 
     def open(self, proc) -> None:
         self.proc = proc
-        self._rpc("initialize", {"clientInfo": {"name": "newts-lab", "title": "Newts' Lab", "version": "1"},
+        self._rpc("initialize", {"clientInfo": {"name": "arlotope", "title": "ARLOtope", "version": "1"},
                                  "capabilities": {"experimentalApi": True}})
 
     def send(self, text: str) -> bool:
@@ -347,13 +351,12 @@ class CodexSession(live.Session):
         res = obj.get("result") or {}
         if method == "initialize":
             self._write({"method": "initialized"})
-            params = dict(self.ctx.get("thread") or {})
-            if self.ctx.get('fork_from'):
-                self._rpc('thread/fork', {'threadId': self.ctx['fork_from'], **params})
-            elif self.session_id:
-                self._rpc("thread/resume", {"threadId": self.session_id, **params})
+            if self.ctx.get('api_key'):
+                self._rpc('account/login/start',{'type':'apiKey','apiKey':self.ctx.pop('api_key')})
             else:
-                self._rpc("thread/start", params)
+                self._start_thread()
+        elif method=='account/login/start':
+            self._start_thread()
         elif method in ("thread/start", "thread/resume", 'thread/fork'):
             self.session_id = (res.get("thread") or {}).get("id") or self.session_id
             if method == 'thread/fork' and (not self.session_id or self.session_id == self.ctx['fork_from']):
@@ -365,6 +368,12 @@ class CodexSession(live.Session):
         elif method == "turn/start":
             self.turn = (res.get("turn") or {}).get("id") or self.turn
         return [], []
+
+    def _start_thread(self):
+        params=dict(self.ctx.get('thread') or {})
+        if self.ctx.get('fork_from'):self._rpc('thread/fork',{'threadId':self.ctx['fork_from'],**params})
+        elif self.session_id:self._rpc('thread/resume',{'threadId':self.session_id,**params})
+        else:self._rpc('thread/start',params)
 
     def _request(self, rid, method: str, p: dict) -> tuple[list[dict], list[dict]]:
         key = f"codex-{rid}"

@@ -81,5 +81,5 @@
 
 ## The PI's decision
 
-<!-- Recorded by the PI at the study's checkpoint (the dashboard's Permit sheet, or `newts approve`),
+<!-- Recorded by the PI at the study's checkpoint (the dashboard's Permit sheet, or `arlo approve`),
      with any note, in the lab's journal. Nothing written in this file approves the proposal. -->
