@@ -298,7 +298,7 @@ def _parse_config(path: Path) -> dict:
     except FileNotFoundError:
         return {}
     except (OSError, yaml.YAMLError) as e:
-        raise ValueError(f"{path.name} is unreadable: {e}") from e
+        raise ValueError(f"{path.name} is unreadable: {' '.join(str(e).split())}") from e
     if data is not None and not isinstance(data, dict):
         raise ValueError(f"{path.name} is unreadable: it is not a list of settings")
     return data or {}

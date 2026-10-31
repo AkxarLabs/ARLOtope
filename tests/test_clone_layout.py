@@ -29,8 +29,7 @@ def test_a_fresh_clone_gets_the_knowledge_documents_and_registry_it_does_not_shi
     import labfiles
 
     (tmp_path / 'lab').mkdir()
-    (tmp_path / 'lab' / 'config.defaults.yaml').write_text('lab: {}
-')
+    (tmp_path / 'lab' / 'config.defaults.yaml').write_text('lab: {}')
     shutil.copytree(REPO / 'templates' / 'knowledge', tmp_path / 'templates' / 'knowledge')
     labfiles.ensure_lab_files(tmp_path)
     knowledge = tmp_path / 'lab' / 'knowledge'
