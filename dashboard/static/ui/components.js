@@ -2,7 +2,7 @@
 (function () {
   'use strict';
   const NL = window.NL;
-  const { html, useState, useEffect, useLayoutEffect, useRef, useMemo, useCallback, cls } = NL;
+  const { html, useState, useEffect, useLayoutEffect, useRef, useMemo, useCallback, useErrorBoundary, cls } = NL;
 
   // Recent inspector forms survive switching readers; kept only in this browser tab's memory.
   const drafts=new Map();
@@ -38,7 +38,7 @@
 
   /** A render error in a part of the page shows this card there instead of blanking the whole app. */
   NL.Boundary = ({ children, className }) => {
-    const [error] = NL.useErrorBoundary(e => console.error('This part of the page failed to draw:', e));
+    const [error] = useErrorBoundary(e => console.error('This part of the page failed to draw:', e));
     return error ? html`<div class=${className} role="alert"><${NL.Empty} title="This part failed">
       <p>Something here could not be drawn. Reloading the page usually fixes it.</p><${NL.Btn} onClick=${() => location.reload()}>Reload</${NL.Btn}></${NL.Empty}></div>` : children;
   };
