@@ -39,6 +39,7 @@ markdown_extensions:
 nav:
   - Home: index.md
   - Start here:
+      - Install: install.md
       - First study: getting-started.md
       - How it fits together: research-first.md
       - Dashboard tour: dashboard.md
