@@ -567,6 +567,98 @@ def test_reconcile_marks_dead_supervisor_failed_but_respects_grace(hub):
     assert executor.find_run(lab, rid2)[3]["status"] == "starting"
 
 
+def _remote_run(hub, lab, status="running", **fields):
+    """A run on another machine (its answers come from a monkeypatched remote_projects.call)."""
+    import remote_projects as R
+    hub.add_registry_row("far", project=R.uri("box", "/work"))
+    path = lab.agents_dir(lab.project_workdir("far")) / "far-run.json"
+    manifest.run_dir(path.parent, "far-run").mkdir(parents=True)
+    labfiles.write_json(path, {"schema": 2, "run_id": "far-run", "target": "far", "subject": "far", "level": "project",
+                               "status": status, "stream": "far-run.stream.jsonl", "created": labfiles.now(),
+                               "remote": {"machine": "box", "path": "/work"}, **fields})
+    return path
+
+
+def test_one_broken_run_never_stalls_the_scheduler(hub, monkeypatch, capsys):
+    """A machine answering nonsense, or a finished run that cannot be followed up, is recorded, logged once and
+    shown to the PI, while the rest of the pass still runs: other runs are post-processed, queued ones start."""
+    import remote_projects as R
+    lab = setup(hub)
+    monkeypatch.setattr(R, "call", lambda *a, **kw: {"found": True, "manifest": {"status": "running"}})  # no stream
+    far = _remote_run(hub, lab, remote_dispatched=True)
+    broken, fine, queued = _queue(lab, 3)
+    for rid in (broken, fine):
+        _t, _w, path, m = executor.find_run(lab, rid)
+        manifest.transition(lab, path, m, "completed", by="test")
+    read_report = scheduler.read_report
+
+    def torn(lab_, workdir, run_id):
+        if run_id == broken:
+            raise ValueError("torn footer")
+        return read_report(lab_, workdir, run_id)
+    monkeypatch.setattr(scheduler, "read_report", torn)
+
+    rep = executor.tick(lab, spawn=Spawns())
+    assert rep["started"] == [queued]
+    assert executor.find_run(lab, fine)[3]["post_processed"]
+    m = executor.find_run(lab, broken)[3]
+    assert m["post_processed"] and "torn footer" in m["post_error"]          # given up, not retried every pass
+    remote = manifest.read_manifest(far)
+    assert remote["remote_status"] == "disconnected" and "KeyError" in remote["remote_error"]
+    assert len(rep["errors"]) == 2 and "far-run" in rep["errors"][0] and broken in rep["errors"][1]
+    log = capsys.readouterr().err
+    assert "torn footer" in log and "KeyError" in log and "Traceback" in log
+    items = executor.attention.collect(lab)
+    assert any(it["kind"] == "scheduler" and it["run_id"] == broken for it in items)
+    assert any(it["kind"] == "scheduler" and not it["run_id"] and "far-run" in it["body"] for it in items)
+
+    rep = executor.tick(lab, spawn=Spawns())
+    assert rep["errors"] == [f"remote run far-run: KeyError: 'stream'"]
+    assert capsys.readouterr().err == ""                                  # a repeating error is logged once
+
+
+def test_remote_io_runs_outside_the_scheduler_lock_and_keeps_what_the_pi_did_meanwhile(hub, monkeypatch):
+    """A Stop or an Answer while a machine is slow to answer never fails with "lock busy", and the sync that
+    was in flight never overwrites it."""
+    import remote_projects as R
+    lab = setup(hub, enabled=False)
+    far = _remote_run(hub, lab, remote_dispatched=True)
+
+    def call(hub_, slug, method, **data):
+        if method != "poll":
+            return {}
+        with manifest.scheduler_lock(lab, wait=1):   # the PI replies while the machine is still answering
+            m = manifest.read_manifest(far)
+            labfiles.write_json(far, {**m, "status": "queued", "resume": {"mode": "reply", "text": "more"}})
+        return {"found": True, "manifest": {"status": "completed", "last_message": "old attempt"}, "stream": "",
+                "requests": []}
+    monkeypatch.setattr(R, "call", call)
+    rep = executor.tick(lab, spawn=Spawns())
+    m = manifest.read_manifest(far)
+    assert rep["errors"] == [] and m["remote_status"] == "connected"
+    assert m["status"] == "queued" and m["resume"]["text"] == "more"     # the old attempt's end never lands on it
+
+
+def test_an_admitted_remote_run_is_dispatched_after_the_lock_is_released(hub, monkeypatch):
+    import remote_projects as R
+    lab = setup(hub)
+    far = _remote_run(hub, lab, status="queued")
+    free = []
+
+    def dispatch(lab_, path, m):
+        with manifest.scheduler_lock(lab, wait=0.5):
+            free.append(m["run_id"])
+        m.update(remote_dispatched=True, remote_dispatch_pending=False)
+        R._commit(lab_, path, {"remote_dispatched": True, "remote_dispatch_pending": False})
+    monkeypatch.setattr(R, "dispatch", dispatch)
+    monkeypatch.setattr(R, "call", lambda *a, **kw: {"found": True, "manifest": {"status": "running"}, "stream": "",
+                                                     "requests": []})
+    rep = executor.tick(lab, spawn=Spawns())
+    assert rep["started"] == ["far-run"] and free == ["far-run"] and rep["errors"] == []
+    m = manifest.read_manifest(far)
+    assert m["status"] == "running" and m["remote_dispatched"] and not m["remote_dispatch_pending"]
+
+
 def test_queue_ops_state_checks(hub):
     lab = setup(hub)
     rid = _queue(lab, 1)[0]
