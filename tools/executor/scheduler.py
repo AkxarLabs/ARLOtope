@@ -1,9 +1,12 @@
 """The scheduler: one stateless `tick()` that any client may run (the dashboard's background thread,
 `executor_cli.py serve`, or a one-off `executor_cli.py tick`).
 
-  tick = reconcile orphans → post-process finished runs (read the run_report footer; chain the next
-         step; schedule repeats) → apply caps + daily brake → start queued runs, each in its own
-         detached supervisor process.
+  tick = sync runs on other machines → reconcile orphans → post-process finished runs (read the
+         run_report footer; chain the next step; schedule repeats) → apply caps + daily brake → start
+         queued runs, each in its own detached supervisor process (or handed to its machine).
+
+Only the local part holds the scheduler lock: talking to another machine never does. A failure in one part
+(one run, one machine) is recorded in the tick's report, logged and shown to the PI; the rest goes on.
 
 Runs are owned by their supervisors, never by the ticker: killing the dashboard mid-run changes
 nothing; queued runs simply wait for the next tick from any client.
@@ -18,6 +21,7 @@ import subprocess
 import sys
 import threading
 import time
+import traceback
 from pathlib import Path
 
 from .lab import HUB_TARGET, Lab, pos_float, pos_int, read_jsonl
@@ -103,15 +107,13 @@ def reconcile_manifest(lab: Lab, workdir: Path, path: Path, m: dict) -> bool:
     return False
 
 
-def reconcile(lab: Lab) -> int:
-    from remote_projects import sync
-    sync(lab)
+def reconcile(lab: Lab, report: dict | None = None) -> int:
     n = 0
     for _target, workdir, path, m in all_runs(lab):
         try:
             n += int(reconcile_manifest(lab, workdir, path, m))
-        except OSError:
-            continue
+        except Exception as e:  # noqa: BLE001 — one run never stops the others
+            _fail(lab, report, f"reconciling {m.get('run_id')}", e)
     # leftover stop markers on runs that already ended
     for _target, _workdir, path, m in all_runs(lab):
         if m.get("status") in TERMINAL:
@@ -337,121 +339,151 @@ def spawn_supervisor(lab: Lab, target: str, run_id: str, log_path: Path) -> int:
     return p.pid
 
 
+def _fail(lab: Lab, report: dict | None, what: str, e: BaseException) -> None:
+    """One part of a pass failed: record it on the report, and log it (once, while it repeats)."""
+    msg = f"{what}: {type(e).__name__}: {e}"[:300]
+    if report is not None:
+        report["errors"].append(msg)
+    if msg not in ((last_tick(lab) or {}).get("errors") or ()):
+        print(f"[scheduler] {lab.hub}: {msg}\n" + "".join(traceback.format_exception(type(e), e, e.__traceback__)),
+              file=sys.stderr, flush=True)
+
+
+def _sync(lab: Lab, report: dict, only: list[Path] | None = None) -> None:
+    """Runs on other machines (or just those in `only`): talk to them, never under the scheduler lock."""
+    try:
+        from remote_projects import sync
+        for what, e in sync(lab, only):
+            _fail(lab, report, what, e)
+    except Exception as e:  # noqa: BLE001
+        _fail(lab, report, "remote sync", e)
+
+
 def tick(lab: Lab, *, spawn=None, wait: float = 0.0, background_notify: bool = True) -> dict:
     """One scheduling pass. `spawn(lab, target, run_id, log)` is injectable for tests. Skips (returns
-    {"skipped": True}) if another ticker holds the lock and `wait` is 0."""
-    spawn = spawn or spawn_supervisor
+    {"skipped": True}) if another ticker holds the lock and `wait` is 0. Never raises: what failed is in
+    report["errors"], also logged, kept in the lease and shown as a "needs you" item."""
     report = {"ts": now(), "reconciled": 0, "started": [], "post_processed": 0, "skipped": False,
-              "brake": None, "enabled": False}
+              "brake": None, "enabled": False, "errors": []}
+    _sync(lab, report)
     try:
         cm = scheduler_lock(lab, wait=wait or 0.01)
         cm.__enter__()
     except TimeoutError:
         report["skipped"] = True
         return report
+    dispatch: list[Path] = []
     try:
-        report["reconciled"] = reconcile(lab)
-        runs = all_runs(lab)
-        # the lab is paused (pause.py): start nothing — no queued run, no campaign pass or dispatch, and no
-        # chain / repeat follow-up (finished runs are post-processed once the lab is resumed)
-        report["paused"] = pause.state(lab)
-        for _t, workdir, path, m in ([] if report["paused"] else runs):
-            if m.get("status") in TERMINAL and not m.get("post_processed") and m.get("schema") == 2:
-                try:
-                    post_process(lab, workdir, path, m)
-                    report["post_processed"] += 1
-                except OSError:
-                    pass
-        try:
-            if background_notify:
-                notify.check_in_background(lab)   # what needs the PI → their phone
-        except Exception:  # noqa: BLE001
-            pass
-        prog = lab.prog()
-        report["enabled"] = bool(prog.get("enabled"))
-        depth = pos_int(os.environ.get("ARLOTOPE_AGENT_DEPTH", "0") or 0, 0, 0)
-        if not prog.get("enabled") or depth >= pos_int(prog.get("max_depth", 1), 1, 0):
-            return report
-        if report["paused"]:
-            return report
-        try:
-            report["campaigns"] = campaigns.keep(lab)
-        except Exception as e:  # noqa: BLE001 — the keeper must never stop scheduling
-            report["campaigns"] = {"error": str(e)}
-        runs = all_runs(lab)   # post-processing and the keeper may have queued runs
-        manifests = [m for *_x, m in runs]
-        report["brake"] = brake(lab, manifests)
-        if report["brake"]:
-            return report
-        c = caps(lab)
-        active = [(t, m) for t, _w, _p, m in runs if uses_slot(m)]
-        n_total = len(active)
-        per: dict[str, int] = {}
-        for t, m in active:
-            key = cap_key(m, t)
-            per[key] = per.get(key, 0) + 1
-        held = limits(lab)
-        study_holds = pause.holds(lab)
-        queued = [(t, w, p, m) for t, w, p, m in runs if m.get("status") == "queued" and m.get("schema") == 2]
-        queued.sort(key=lambda x: (-int(x[3].get("priority") or 0), 0 if x[3].get("resume") else 1,
-                                   x[3].get("created") or ""))
-        tnow = time.time()
-        for _t, workdir, path, m in queued:
-            if waiting_forks(m, manifests):
+        _pass(lab, report, spawn or spawn_supervisor, background_notify, dispatch)
+    except Exception as e:  # noqa: BLE001 — a bad pass is reported, and the next one runs
+        _fail(lab, report, "scheduling", e)
+    finally:
+        cm.__exit__(None, None, None)
+    if dispatch:   # runs admitted on other machines: hand them over now, outside the lock
+        _sync(lab, report, dispatch)
+    _LAST_TICK[str(lab.hub)] = {"ts": report["ts"], "started": len(report["started"]), "skipped": False,
+                                "brake": report["brake"], "errors": report["errors"]}
+    write_lease(lab, os.environ.get("ARLOTOPE_TICKER") or "tick", errors=report["errors"])
+    return report
+
+
+def _pass(lab: Lab, report: dict, spawn, background_notify: bool, dispatch: list[Path]) -> None:
+    """The local part of a tick, under the scheduler lock. A run admitted on another machine is marked
+    `remote_dispatch_pending` and appended to `dispatch` (a crash before the hand-over only delays it)."""
+    report["reconciled"] = reconcile(lab, report)
+    runs = all_runs(lab)
+    # the lab is paused (pause.py): start nothing — no queued run, no campaign pass or dispatch, and no
+    # chain / repeat follow-up (finished runs are post-processed once the lab is resumed)
+    report["paused"] = pause.state(lab)
+    for _t, workdir, path, m in ([] if report["paused"] else runs):
+        if m.get("status") in TERMINAL and not m.get("post_processed") and m.get("schema") == 2:
+            try:
+                post_process(lab, workdir, path, m)
+                report["post_processed"] += 1
+            except Exception as e:  # noqa: BLE001 — one run never stops the others
+                _fail(lab, report, f"post-processing {m.get('run_id')}", e)
+                if not isinstance(e, OSError):   # it would fail the same way every pass: give up, visibly
+                    with contextlib.suppress(OSError):
+                        write_json(path, {**(read_manifest(path) or m), "post_processed": True,
+                                          "post_error": f"{type(e).__name__}: {e}"[:300]})
+    try:
+        if background_notify:
+            notify.check_in_background(lab)   # what needs the PI → their phone
+    except Exception:  # noqa: BLE001
+        pass
+    prog = lab.prog()
+    report["enabled"] = bool(prog.get("enabled"))
+    depth = pos_int(os.environ.get("ARLOTOPE_AGENT_DEPTH", "0") or 0, 0, 0)
+    if not prog.get("enabled") or depth >= pos_int(prog.get("max_depth", 1), 1, 0):
+        return
+    if report["paused"]:
+        return
+    try:
+        report["campaigns"] = campaigns.keep(lab)
+    except Exception as e:  # noqa: BLE001 — the keeper must never stop scheduling
+        report["campaigns"] = {"error": str(e)}
+    runs = all_runs(lab)   # post-processing and the keeper may have queued runs
+    manifests = [m for *_x, m in runs]
+    report["brake"] = brake(lab, manifests)
+    if report["brake"]:
+        return
+    c = caps(lab)
+    active = [(t, m) for t, _w, _p, m in runs if uses_slot(m)]
+    n_total = len(active)
+    per: dict[str, int] = {}
+    for t, m in active:
+        key = cap_key(m, t)
+        per[key] = per.get(key, 0) + 1
+    held = limits(lab)
+    study_holds = pause.holds(lab)
+    queued = [(t, w, p, m) for t, w, p, m in runs if m.get("status") == "queued" and m.get("schema") == 2]
+    queued.sort(key=lambda x: (-int(x[3].get("priority") or 0), 0 if x[3].get("resume") else 1,
+                               x[3].get("created") or ""))
+    tnow = time.time()
+    for _t, workdir, path, m in queued:
+        if waiting_forks(m, manifests):
+            continue
+        nb = parse_ts(m.get("not_before"))
+        if nb and nb > tnow:
+            continue
+        if held.get(m.get("backend") or backends.DEFAULT):
+            continue   # that backend's usage limit hasn't lifted yet
+        if m.get("subject") in study_holds:
+            continue   # that study is on hold (the PI, or a panel's alert)
+        key = cap_key(m, _t)
+        cap = 1 if key.startswith("campaign:") else c["hub"] if key == HUB_TARGET else c["per_project"]
+        counts = not is_support(m)
+        if counts and (n_total >= c["total"] or per.get(key, 0) >= cap):
+            continue
+        m = read_manifest(path) or m
+        if m.get("status") != "queued":
+            continue
+        to = "resuming" if m.get("resume") else "starting"
+        if m.get('remote'):
+            try:
+                campaigns.profile.begin_run(lab, m)
+            except ValueError as e:
+                transition(lab, path, m, 'failed', by='scheduler', reason=str(e), finished=now())
                 continue
-            nb = parse_ts(m.get("not_before"))
-            if nb and nb > tnow:
-                continue
-            if held.get(m.get("backend") or backends.DEFAULT):
-                continue   # that backend's usage limit hasn't lifted yet
-            if m.get("subject") in study_holds:
-                continue   # that study is on hold (the PI, or a panel's alert)
-            key = cap_key(m, _t)
-            cap = 1 if key.startswith("campaign:") else c["hub"] if key == HUB_TARGET else c["per_project"]
-            counts = not is_support(m)
-            if counts and (n_total >= c["total"] or per.get(key, 0) >= cap):
-                continue
-            m = read_manifest(path) or m
-            if m.get("status") != "queued":
-                continue
-            to = "resuming" if m.get("resume") else "starting"
+            transition(lab, path, m, to, by="scheduler", remote_dispatch_pending=True)
+            dispatch.append(path)
+        else:
             transition(lab, path, m, to, by="scheduler")
-            rd = run_dir(Path(path).parent, m["run_id"])
             # the supervisor finds the run where it LIVES: a hub-level run about an idea
             # (/spawn-project idea-x) executes in — and is recorded on — the hub, not a project repo
             where = HUB_TARGET if m.get("level") == "hub" else (m.get("target") or HUB_TARGET)
             try:
                 # no manifest write after this point: the supervisor owns the run from here on (it
                 # records its own pid) — writing our stale copy could clobber its first updates
-                if m.get('remote'):
-                    from remote_projects import dispatch
-                    try:
-                        campaigns.profile.begin_run(lab, m)
-                    except ValueError as e:
-                        transition(lab, path, m, 'failed', by='scheduler', reason=str(e), finished=now())
-                        continue
-                    dispatch(lab, path, m)
-                else:
-                    spawn(lab, where, m["run_id"], rd / "supervisor.log")
+                spawn(lab, where, m["run_id"], run_dir(Path(path).parent, m["run_id"]) / "supervisor.log")
             except (OSError, ValueError) as e:
-                if m.get('remote'):
-                    m['remote_error'], m['remote_dispatch_pending'] = str(e), True
-                    write_json(path, m)
-                    continue
                 transition(lab, path, m, "failed", by="scheduler", reason=f"could not start supervisor: {e}",
                            finished=now())
                 continue
-            if counts:
-                n_total += 1
-                per[key] = per.get(key, 0) + 1
-            report["started"].append(m["run_id"])
-        return report
-    finally:
-        cm.__exit__(None, None, None)
-        _LAST_TICK[str(lab.hub)] = {"ts": report["ts"], "started": len(report["started"]),
-                                    "skipped": report["skipped"], "brake": report["brake"]}
-        if not report["skipped"]:
-            write_lease(lab, os.environ.get("ARLOTOPE_TICKER") or "tick")
+        if counts:
+            n_total += 1
+            per[key] = per.get(key, 0) + 1
+        report["started"].append(m["run_id"])
 
 
 def last_tick(lab: Lab) -> dict | None:
@@ -466,9 +498,11 @@ def _lease_path(lab: Lab) -> Path:
     return lab.lab / ".bus" / "scheduler.lease"
 
 
-def write_lease(lab: Lab, by: str, *, pid: int | None = None) -> None:
+def write_lease(lab: Lab, by: str, *, pid: int | None = None, errors: list[str] | None = None) -> None:
+    """Who keeps ticking, and what its last pass could not do (the "needs you" item reads it here)."""
     with contextlib.suppress(OSError):
-        write_json(_lease_path(lab), {"pid": os.getpid() if pid is None else pid, "ts": time.time(), "by": by})
+        write_json(_lease_path(lab), {"pid": os.getpid() if pid is None else pid, "ts": time.time(), "by": by,
+                                      "errors": errors or []})
 
 
 def lease(lab: Lab) -> dict:
@@ -539,7 +573,7 @@ def tick_loop(lab_factory, stop: threading.Event, interval: float = 2.0, reconci
     `lab_factory()` builds a fresh Lab each pass (so a moved or monkeypatched hub root is honoured). Keeps
     the machine awake while there is work. Never raises."""
     from . import awake   # noqa: PLC0415
-    idle_since = None
+    idle_since, last_error = None, None
     try:
         while not stop.is_set():
             lab = None
@@ -547,8 +581,11 @@ def tick_loop(lab_factory, stop: threading.Event, interval: float = 2.0, reconci
                 lab = lab_factory()
                 tick(lab)
                 awake.update(lab)
-            except Exception:  # noqa: BLE001 — the loop must survive any single bad pass
-                pass
+                last_error = None
+            except Exception as e:  # noqa: BLE001 — the loop must survive any single bad pass (logged once)
+                if repr(e) != last_error:
+                    traceback.print_exc()
+                last_error = repr(e)
             if until_idle and lab is not None:
                 try:
                     busy = has_work(lab)
