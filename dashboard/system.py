@@ -6,11 +6,11 @@ from __future__ import annotations
 
 import json
 import re
-import subprocess
 import sys
 import time
 
 import ctx
+from executor import procs
 import settings
 
 
@@ -24,7 +24,7 @@ def system_info(q: dict) -> tuple[dict, int]:
     """tools/system_probe.py run on the machine this lab lives on (cached 10 min) + the scheduler block."""
     fresh = bool(q.get("fresh"))
     if fresh or _SYS_CACHE["hub"] != str(ctx.HUB) or time.time() - _SYS_CACHE["at"] > 600 or not _SYS_CACHE["facts"]:
-        r = subprocess.run([sys.executable, str(ctx.TOOLS / "system_probe.py"),
+        r = procs.run([sys.executable, str(ctx.TOOLS / "system_probe.py"),
                             "--hub", str(ctx.HUB)], capture_output=True, text=True, timeout=90)
         try:
             _SYS_CACHE.update(hub=str(ctx.HUB), at=time.time(), facts=json.loads(r.stdout))

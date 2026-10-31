@@ -4,13 +4,12 @@ import queue
 import subprocess
 import threading
 import time
-from .procs import kill_tree, NO_WINDOW
+from .procs import kill_tree, NO_WINDOW, popen
 
 
 def probe(command, cwd, timeout=45):
-    process = subprocess.Popen(command, cwd=cwd, stdin=subprocess.PIPE, stdout=subprocess.PIPE,
-        stderr=subprocess.DEVNULL, text=True, encoding='utf-8', errors='replace',
-        **NO_WINDOW)
+    process = popen(command, cwd=cwd, stdin=subprocess.PIPE, stdout=subprocess.PIPE,
+        stderr=subprocess.DEVNULL, text=True, **NO_WINDOW)
     lines = queue.Queue()
     def read():
         for line in process.stdout:

@@ -7,11 +7,11 @@ from __future__ import annotations
 
 import re
 import json
-import subprocess
 import sys
 import time
 
 import ctx  # noqa: E402
+from executor import procs  # noqa: E402
 import sources  # noqa: E402
 import attention  # noqa: E402
 from labs import lab_name  # noqa: E402
@@ -304,7 +304,7 @@ def lab_config_set(body: dict) -> tuple[dict, int]:
     if tier is not None:
         if tier not in ("low", "medium", "high"):
             return {"error": "budget tier must be low, medium or high"}, 400
-        r = subprocess.run([sys.executable, str(ctx.HUB / "tools" / "profiles.py"), "apply", tier],
+        r = procs.run([sys.executable, str(ctx.HUB / "tools" / "profiles.py"), "apply", tier],
                            cwd=str(ctx.HUB), capture_output=True, text=True, timeout=60)
         if r.returncode != 0:
             return {"error": f"could not apply the {tier} budget profile: {(r.stderr or r.stdout)[-400:]}"}, 400
@@ -316,7 +316,7 @@ def lab_config_set(body: dict) -> tuple[dict, int]:
         notes.append(f"saved {len(updates)} setting(s)")
     parsed = {k: updates[tuple(LAB_CONFIG[k][0])] for k in changes}
     if AGENT_KEYS & set(changes):        # the subagents' role files carry their model: render them again
-        r = subprocess.run([sys.executable, str(ctx.HUB / "tools" / "role_sync.py"), "render"], cwd=str(ctx.HUB),
+        r = procs.run([sys.executable, str(ctx.HUB / "tools" / "role_sync.py"), "render"], cwd=str(ctx.HUB),
                            capture_output=True, text=True, timeout=60)
         notes.append("role files updated" if r.returncode == 0 else f"role files NOT updated: {(r.stderr or r.stdout)[-300:]}")
     ctx.pi_log({"action": "lab.config", "changes": parsed, "budget_tier": tier})

@@ -6,7 +6,7 @@ import threading
 import uuid
 from pathlib import Path
 
-from ..procs import NEW_GROUP, kill_tree
+from ..procs import NEW_GROUP, kill_tree, popen, run
 
 
 class ClientTools:
@@ -19,7 +19,7 @@ class ClientTools:
     def check(self, tool, value):
         if not self.guard:
             return
-        result = subprocess.run([self.python, str(self.guard)], input=json.dumps({
+        result = run([self.python, str(self.guard)], input=json.dumps({
             'tool_name': tool, 'tool_input': value, 'cwd': str(self.workdir)}),
             text=True, capture_output=True, env=self.env, timeout=20)
         if result.returncode == 2:
@@ -54,8 +54,8 @@ class ClientTools:
             limit = p.get('outputByteLimit', 1024 * 1024)
             if not isinstance(limit, int) or limit < 0:
                 raise ValueError('outputByteLimit must be nonnegative.')
-            proc = subprocess.Popen(argv, cwd=self.path(p['cwd']) if p.get('cwd') else self.workdir, env=env,
-                                    stdin=subprocess.DEVNULL, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, **NEW_GROUP)
+            proc = popen(argv, cwd=self.path(p['cwd']) if p.get('cwd') else self.workdir, env=env,
+                         stdin=subprocess.DEVNULL, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, **NEW_GROUP)
             tid = uuid.uuid4().hex
             record = {'proc': proc, 'output': bytearray(), 'truncated': False, 'done': threading.Event()}
             with self.lock:
