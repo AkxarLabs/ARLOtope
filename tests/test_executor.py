@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import json
 import os
+import shutil
 import subprocess
 import sys
 import time
@@ -372,6 +373,53 @@ def test_parse_events_codex_singular_types_and_no_double_count():
     started = backends.parse_events("codex", {"type": "item.started", "item": {"type": "file_change"}})
     done = backends.parse_events("codex", {"type": "item.completed", "item": {"type": "file_change"}})
     assert started[0]["event"] == "begin" and done[0]["event"] == "action"
+
+
+# ── spawning on Windows: never through cmd.exe ───────────────────────────────
+
+# npm's cmd-shim output for a JS bin (what `npm i -g opencode-ai` / `@openai/codex` put on PATH)
+NPM_SHIM = r'''@ECHO off
+GOTO start
+:find_dp0
+SET dp0=%~dp0
+EXIT /b
+:start
+SETLOCAL
+CALL :find_dp0
+
+IF EXIST "%dp0%\node.exe" (
+  SET "_prog=%dp0%\node.exe"
+) ELSE (
+  SET "_prog=node"
+  SET PATHEXT=%PATHEXT:;.JS;=;%
+)
+
+endLocal & goto #_undefined_# 2>NUL || title %COMSPEC% & "%_prog%"  "%dp0%\node_modules\fake-cli\bin\cli.js" %*
+'''
+PROMPT_ARGS = ['x"&echo INJECTED_BY_PROMPT&rem ', 'Compare "A & B', "<none|other> 100% ^done %PATH% !x!",
+               "line one\nline two"]
+
+
+@pytest.mark.skipif(os.name != "nt" or not shutil.which("node"), reason="cmd.exe shims: Windows, with node")
+def test_an_npm_cmd_shim_runs_node_directly_so_prompt_text_reaches_the_cli_intact(tmp_path):
+    bin_dir = tmp_path / "node_modules" / "fake-cli" / "bin"
+    bin_dir.mkdir(parents=True)
+    (bin_dir / "cli.js").write_text("console.log(JSON.stringify(process.argv.slice(2)))", encoding="utf-8")
+    shim = tmp_path / "fake-cli.cmd"
+    shim.write_text(NPM_SHIM, encoding="utf-8")
+    assert procs.direct([str(shim), "run"])[1:] == [str(bin_dir / "cli.js"), "run"]
+    out = procs.run([str(shim), *PROMPT_ARGS], capture_output=True, text=True, timeout=30)
+    assert json.loads(out.stdout) == PROMPT_ARGS   # nothing else ran
+
+
+@pytest.mark.skipif(os.name != "nt", reason="cmd.exe shims are Windows-only")
+def test_a_batch_file_we_cannot_see_through_gets_no_text_cmd_would_parse(tmp_path):
+    other = tmp_path / "other.bat"
+    other.write_text("@echo %*\n", encoding="utf-8")
+    assert procs.run([str(other), "plain"], capture_output=True, text=True, timeout=30).stdout.strip() == "plain"
+    for text in PROMPT_ARGS:
+        with pytest.raises(OSError, match="cmd.exe"):
+            procs.run([str(other), text], capture_output=True, timeout=30)
 
 
 # ── locks ────────────────────────────────────────────────────────────────────

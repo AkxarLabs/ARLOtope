@@ -10,6 +10,8 @@ from __future__ import annotations
 
 import contextlib
 import os
+import re
+import shutil
 import signal
 import subprocess
 import sys
@@ -47,13 +49,57 @@ def _defaults(kwargs: dict) -> dict:
 
 
 def run(argv, **kwargs) -> subprocess.CompletedProcess:
-    """subprocess.run with `_defaults`."""
-    return subprocess.run(argv, **_defaults(kwargs))
+    """subprocess.run with `_defaults`, never through cmd.exe (`direct`)."""
+    return subprocess.run(direct(argv), **_defaults(kwargs))
 
 
 def popen(argv, **kwargs) -> subprocess.Popen:
-    """subprocess.Popen with `_defaults`."""
-    return subprocess.Popen(argv, **_defaults(kwargs))
+    """subprocess.Popen with `_defaults`, never through cmd.exe (`direct`)."""
+    return subprocess.Popen(direct(argv), **_defaults(kwargs))
+
+
+_CMD_SPECIAL = set('"%&|<>^!\r\n')
+_SHIM_TARGET = re.compile(r'"([^"]*(?:%~dp0|%dp0%)[^"]*)"\s+%\*')
+
+
+def direct(argv):
+    """Windows starts a .cmd/.bat through cmd.exe, which parses the command line again: quotes do not protect
+    `& | < > ^ %` from it, so text on argv (a prompt) could run commands ("BatBadBut"), or just break. The npm,
+    pnpm and yarn shims that install the agent CLIs only start node (or an .exe) on one script: start that
+    directly. A batch file we cannot see through gets no argument cmd.exe would read."""
+    if os.name != "nt" or isinstance(argv, (str, bytes)) or not argv \
+            or not str(argv[0]).lower().endswith((".cmd", ".bat")):
+        return argv
+    target = shim_target(argv[0])
+    if target:
+        return [*target, *argv[1:]]
+    if any(_CMD_SPECIAL & set(str(a)) for a in argv[1:]):
+        raise OSError(f"{Path(argv[0]).name} runs through cmd.exe, which would read this text as commands; "
+                      "point the setting at the program itself (an .exe, or node and its script)")
+    return argv
+
+
+def shim_target(shim) -> list[str] | None:
+    r"""What a package manager's .cmd shim runs (`"%dp0%\node_modules\pkg\cli.js" %*`): [node, script] or
+    [program.exe]; None if it is not such a shim."""
+    try:
+        text = Path(shim).read_text(encoding="utf-8", errors="replace")
+    except OSError:
+        return None
+    found = _SHIM_TARGET.findall(text)
+    if not found:
+        return None
+    here = os.path.dirname(os.path.abspath(shim))
+    target = os.path.normpath(re.sub(r"%~dp0|%dp0%", lambda _m: here + os.sep, found[-1]))
+    if not os.path.isfile(target):
+        return None
+    if target.lower().endswith(".exe"):
+        return [target]
+    if not re.search(r"\bnode\b", text, re.I):   # a script for some other interpreter
+        return None
+    node = os.path.join(here, "node.exe")
+    node = node if os.path.isfile(node) else shutil.which("node")
+    return [node, target] if node else None
 
 
 def pid_alive(pid) -> bool:
