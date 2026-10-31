@@ -88,7 +88,7 @@
     const dirty = text !== (value || '');
     const change=v=>{setText(v);NL.ls.set(key,v===value?null:{text:v})};
     const clear=()=>{NL.ls.set(key,null);setText(value||'')};
-    const save = async () => { const r = await NL.act('/api/workflow/save', { kind, name, study, text }, 'Saved for this study'); if(r.ok){NL.ls.set(key,null);if(onSaved)onSaved()} };
+    const save = NL.useSubmit(async () => { const r = await NL.act('/api/workflow/save', { kind, name, study, text }, 'Saved for this study'); if(r.ok){NL.ls.set(key,null);if(onSaved)onSaved()} });
     return html`<div class="wf-editor">
       <${NL.Textarea} value=${text} rows=${rows || 7} onInput=${change} placeholder=${placeholder} mono onSubmit=${save} />
       ${dirty?html`<div class="row between small muted"><span>Unsaved draft kept in this browser.</span><button type="button" class="link small" onClick=${clear}>Discard draft</button></div>`:null}
