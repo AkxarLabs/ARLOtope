@@ -44,6 +44,14 @@ def watch_start(lab, manifest, workdir):
     return {}
 
 
+def definition(lab, manifest):
+    return {}   # A project holds no lab definition; the controller watches its own.
+
+
+def definition_changed(lab, manifest, before):
+    return None
+
+
 def bus_script(hub, level, workdir):
     # The task brief gives the command: python <worker.pyz> control …
     return Path(__file__)

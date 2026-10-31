@@ -1,6 +1,6 @@
 """The lab's rules — workflow/rules.yaml: the rules agents follow (rendered into their manuals), the named
 audits a checkpoint can run, the config keys only the PI changes, the rigor floors no profile may lower, and
-the paths an agent may never write."""
+the paths an agent may never write (RECORDS, and the lab's definition: DEFINITION + `protected_paths`)."""
 
 from __future__ import annotations
 
@@ -54,6 +54,53 @@ def check_names(hub=None) -> set[str]:
             if not f.name.startswith("_"):
                 names |= {f.stem, f.stem.replace("_", "-")}
     return names
+
+
+# What a run may never write, whatever rules.yaml says: (hub-relative regex, why). The PI's and the kernel's
+# records change while a run works (the kernel and the dashboard write them); the lab's definition does not, so
+# besides the signature guard refusing an edit, each attempt's supervisor compares its files before and after.
+RECORDS = [
+    (r"^lab/journal\.jsonl$", "the journal is the kernel's — studies move with `arlo move`, approvals are the PI's"),
+    (r"^lab/REGISTRY\.md$", "the registry is written from the journal — `arlo move` moves a study"),
+    (r"^lab/approvals\.jsonl", "approvals are the PI's"),
+    (r"^lab/\.bus/(checks|campaigns|compose)/", "the dashboard's and the keeper's records are not a run's to change"),
+    (r"^lab/\.bus/(limits\.json|pi-actions\.jsonl)$", "the executor's and the PI's records are not a run's to change"),
+    (r"^lab/\.bus/panels/approved\.json$", "which panel collectors may run is the PI's decision"),
+    (r"^lab/\.bus/artifacts/[^/]+/(reply\.json|seen)$", "the PI's replies are the PI's"),
+]
+PROPOSE = "suggest a change with `arlo propose`"
+DEFINITION = [
+    (r"^workflow/", "the lab's definition is the PI's — suggest a change (`arlo propose`) or ask a designer"),
+    (r"^\.claude/skills/", "the lab's procedures are the PI's — " + PROPOSE),
+    (r"^\.claude/agents/", "the lab's roles are the PI's — " + PROPOSE),
+    (r"^\.codex/agents/", "the lab's roles are the PI's — " + PROPOSE),
+    (r"^\.opencode/agents/", "the lab's roles are the PI's — " + PROPOSE),
+    (r"^agent-roles/", "the lab's roles are the PI's — " + PROPOSE),
+    (r"^checks/", "the lab's checks are the PI's — a run can't add or change what checks it"),
+    (r"^extensions/", "the lab's extensions are the PI's to add — " + PROPOSE + " instead"),
+    (r"^tools/signature_guard\.py$", "the guard is the PI's — a run can't switch it off"),
+    (r"^tools/executor/opencode_guard\.js$", "the guard is the PI's — a run can't switch it off"),
+]
+PROTECTED = "the lab's procedures, rules, roles, templates and the PI's instructions are the PI's — " + PROPOSE
+CONFIG = r"^lab/config\.yaml$"
+RENDERED = (r"^\.claude/agents/", r"^\.codex/agents/", r"^\.opencode/agents/")   # role files role_sync renders from it
+
+
+def definition(hub=None) -> list[tuple[str, str]]:
+    """(regex, why) of the lab's definition: the floor no rules.yaml can lower, then its `protected_paths`."""
+    try:
+        extra = [str(p) for p in (load(hub).get("protected_paths") or []) if isinstance(p, str)]
+    except Exception:  # noqa: BLE001 — unreadable rules: the floor still holds
+        extra = []
+    return DEFINITION + [(p, PROTECTED) for p in extra]
+
+
+def config_procedures(hub=None) -> list[str]:
+    """The procedures whose job is changing the lab's settings with the PI (`config_procedures`)."""
+    try:
+        return [str(x) for x in load(hub).get("config_procedures") or ["setup-lab", "configure"]]
+    except Exception:  # noqa: BLE001
+        return ["setup-lab", "configure"]
 
 
 def pi_owned(key: str, hub=None) -> bool:

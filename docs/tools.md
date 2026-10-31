@@ -366,7 +366,7 @@ A check installed through native tool hooks: Claude's per-run settings, Codex
 `-c hooks` flags, and an opencode plugin via `OPENCODE_CONFIG_DIR`. ACP client file writes and
 terminal commands call it too; an ACP agent's private tools are outside that client boundary.
 It reads one hook payload on
-stdin and exits **2** (the reason on stderr) when a tool call would write something only the PI may
+stdin and exits **2** (the reason on stderr) when an edit tool would write something only the PI may
 change:
 
 - the PI's records: `lab/journal.jsonl` (moves and approvals), `lab/REGISTRY.md` (written from it), the
@@ -376,12 +376,15 @@ change:
 - the lab's definition: `workflow/`, the skills, the roles, `checks/` and `extensions/` always, plus
   the manuals, templates, the PI's instructions, rooms and panels (`protected_paths` in
   `workflow/rules.yaml`); an agent proposes a change with `arlo propose` instead;
-- shell commands that do any of the above, or run `arlo approve|revoke|changes|approve-collector|ack`,
-  `tools/new.py` or `--skip-guard`.
+- and a shell command that runs `arlo approve|revoke|changes|approve-collector|ack`, `tools/new.py` or
+  `--skip-guard`.
 
-One list drives both the file check and the shell check. It is a tool-call check, not an OS sandbox: an agent can
-run code, so the kernel also refuses the PI's verbs inside a run, and the run digest can flag observed changes outside the allowed paths. If the guard itself fails, it allows the call and raises a flag. Denials
-are logged to the run's `permissions.jsonl`. See [Autonomy → Headless runs](autonomy.md#headless-runs-the-executor).
+The list lives in `tools/kernel/rules.py`. It is an early warning, not an OS sandbox: an agent can run code,
+so what holds is checked from outside — the kernel refuses the PI's verbs inside a run and counts only
+approvals it signed, each attempt's supervisor flags a change to the lab's definition (holding the lab), and
+the run digest flags observed changes outside the allowed paths. If the guard itself fails, it allows the
+call and raises a flag. Denials are logged to the run's `permissions.jsonl`. See
+[Monitoring](monitoring.md#the-protections).
 
 ### `lab_profile.py` — this lab's half of running agents
 

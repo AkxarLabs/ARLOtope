@@ -14,6 +14,8 @@ of lab plugs in by replacing this file.
     after_cycle(lab, st, children, out, enqueue, keeper)   approvals a campaign asked for, after each keeper pass
     start_step(lab, slug, enqueue, keeper, **kw)   queue the work of the step a study just moved to
     next_command(lab, m)                  after a run about a study: its next step's procedure, if it moved
+    run_dirs · watch_start · watch_finish   the places a run can change, and its digest (the lab's monitoring)
+    definition(lab, m) · definition_changed(lab, m, before)   what only the PI changes, around each attempt
     needs_pi_title(hub, kind)             the run footer's needs_pi, as Needs you shows it
     run_env(m, env)                       the lab's part of a run's environment
     GUARD, TRACER, bus_script(), trace_script()   the hooks a run carries: the signature guard, the tracer, the bus
@@ -29,7 +31,7 @@ from task_completion import flag_runs
 from pathlib import Path
 
 from kernel import brief as kbrief   # (tools/ is on sys.path: the executor puts it there)
-from kernel import checkpoints, journal, model, studies, watch
+from kernel import checkpoints, journal, model, rules, studies, watch
 from labfiles import read_jsonl, safe_id
 
 TOOLS = Path(__file__).resolve().parent
@@ -63,9 +65,12 @@ def campaign_driver(hub=None) -> str | None:
 
 
 def check_launch(lab, skill: str, subject: str | None) -> None:
-    """Nothing starts for a study a flag holds. A procedure that is a step's work (its `do`) runs for a study only
-    where the study stands: at that step, not shelved or finished. (What a step merely offers, drivers and
-    utilities run anywhere.) Raises ValueError."""
+    """Nothing starts while a flag holds the lab, nor for a study a flag holds. A procedure that is a step's work
+    (its `do`) runs for a study only where the study stands: at that step, not shelved or finished. (What a step
+    merely offers, drivers and utilities run anywhere.) Raises ValueError."""
+    held = watch.holding(lab.hub, "lab")
+    if held:
+        raise ValueError(f"the lab is held by a flag: {held[0]['say']} — the PI acknowledges it first")
     if not subject or not safe_id(subject):
         return
     s = studies.study(lab.hub, subject)
@@ -405,6 +410,24 @@ def run_dirs(lab, m: dict, workdir: Path) -> list[Path]:
 def watch_start(lab, m: dict, workdir: Path) -> dict:
     """Where each repo the run can change stood as it started (git), for the digest."""
     return watch.snapshot(run_dirs(lab, m, workdir), lab.hub)
+
+
+def definition(lab, m: dict) -> dict:
+    """What only the PI changes, file by file: the lab's definition, and its settings (with the role files rendered
+    from them) unless the run's procedure is one whose job is changing them with the PI (config_procedures)."""
+    return watch.fingerprint(lab.hub, settings=m.get("skill") not in rules.config_procedures(lab.hub))
+
+
+def definition_changed(lab, m: dict, before: dict) -> dict | None:
+    """After an attempt: when what only the PI changes changed while it worked (a script, a shell redirect, git —
+    whatever the guard didn't see), a block flag that holds the lab until the PI has looked."""
+    after = definition(lab, m)
+    changed = sorted(k for k in before.keys() | after.keys() if before.get(k) != after.get(k))
+    if not changed:
+        return None
+    return watch.flag(lab.hub, "block", f"the lab's definition changed during run {m.get('run_id')} — nothing new "
+                      "starts until you have looked", run=m.get("run_id"), detail="; ".join(changed[:20]), hold=True,
+                      rule="definition-changed")
 
 
 def watch_finish(lab, m: dict, workdir: Path, run_dir: Path | None = None) -> dict:

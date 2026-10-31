@@ -85,10 +85,30 @@ def test_attempt_input_is_retained_before_running(tmp_path,monkeypatch):
     attempt=SimpleNamespace(prog={},command=command,prompt='Read the new evidence, then continue.',workdir=tmp_path,env={},cli=['fake'])
     monkeypatch.setattr(supervise,'run_process',lambda *a,**kw:supervise.ProcResult(rc=0,started=True))
     monkeypatch.setattr(supervise,'_finish',lambda *a:0)
-    assert supervise._run_attempt(SimpleNamespace(source_of=lambda w:'hub'),SimpleNamespace(name='claude'),state,tmp_path,tmp_path,tmp_path,False,attempt)==0
+    assert supervise._run_attempt(SimpleNamespace(hub=tmp_path,source_of=lambda w:'hub'),SimpleNamespace(name='claude'),state,tmp_path,tmp_path,tmp_path,False,attempt)==0
     row=collect(tmp_path)[0]
     assert row['kind']=='input' and row['attempt']==2 and row['source']=='reply'
     assert row['text']==attempt.prompt and row['delivery']=='attempt-start'
+
+
+def test_a_change_to_the_lab_definition_during_an_attempt_holds_the_lab(hub,monkeypatch):
+    """However the agent wrote it (here: code it ran, which no tool hook sees), the attempt's supervisor compares
+    what only the PI changes before and after, and a change holds the lab until the PI has looked."""
+    import subprocess,sys
+    from kernel import watch
+    (hub.root/'checks').mkdir()
+    state=StubState({'run_id':'run-1','attempt':0,'attempts':[]})
+    command=SimpleNamespace(notes=None,fires_hooks=True,argv=['fake'],stdin_text=None)
+    attempt=SimpleNamespace(prog={},command=command,prompt='Work.',workdir=hub.root,env={},cli=['fake'])
+    def agent(*a,**kw):
+        subprocess.run([sys.executable,'-c',"open('checks/always_pass.py','w').write('pass')"],cwd=hub.root,check=True)
+        return supervise.ProcResult(rc=0,started=True)
+    monkeypatch.setattr(supervise,'run_process',agent)
+    monkeypatch.setattr(supervise,'_finish',lambda *a:0)
+    lab=SimpleNamespace(hub=hub.root,source_of=lambda w:'hub')
+    supervise._run_attempt(lab,SimpleNamespace(name='claude'),state,hub.root,hub.root,hub.root,False,attempt)
+    held=watch.holding(hub.root,'lab')
+    assert len(held)==1 and held[0]['run']=='run-1' and held[0]['detail']=='checks/always_pass.py'
 
 
 def test_run_record_reader_uses_recorded_run_location(hub,monkeypatch):

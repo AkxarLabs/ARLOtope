@@ -415,11 +415,13 @@ def _run_attempt(lab: Lab, b, st: _State, workdir: Path, adir: Path, rd: Path, i
             lab, workdir, kind, detail=detail or run_id, idea=m.get("subject"), data={"run_id": run_id, **d}),
             log=lambda obj: append_jsonl(stream, obj))
     rec = _Recorder(lab, st, workdir, conv, None if cmd.fires_hooks else (lab.bus_of(workdir) / "workers" / f"{run_id}.jsonl"), rd)
+    before = profile.definition(lab, m)   # held here, out of the agent's reach, and compared once it has ended
     res = run_process(cmd.argv, cwd=a.workdir, env=a.env, stream_path=stream, backend=b.name,
                       max_seconds=max(max_minutes * 60 - used, MIN_ATTEMPT_SECONDS),
                       max_bytes=pos_int(prog.get("max_transcript_mb", 200), 200, 0) * 1024 * 1024,
                       stdin_text=cmd.stdin_text, on_spawn=rec.on_spawn, on_event=rec.on_event, stop_file=stop_file,
                       heartbeat=lambda: st.write(force=True), popen_flags=NO_WINDOW, live=sess, conv=conv)
+    profile.definition_changed(lab, m, before)
     if is_live and not getattr(b, 'live_only', False) and not (res.started or res.stopped or res.parked or res.breached) and res.rc and res.wall < 60:
         # the live session never got going here (an old CLI, a flag it doesn't know): retry one-shot
         _say(f"live session ended at start-up (exit {res.rc}) — retrying this attempt one-shot")
