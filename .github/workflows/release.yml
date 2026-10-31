@@ -26,14 +26,6 @@ jobs:
       matrix:
         os: [ubuntu-latest, macos-latest, windows-latest]
     runs-on: ${{ matrix.os }}
-    env:
-      ARLOTOPE_HOME: ${{ runner.temp }}/arlotope-home
-      ARLOTOPE_INSTALL_DIR: ${{ runner.temp }}/arlotope-install
-      ARLOTOPE_LAB_DIR: ${{ runner.temp }}/arlotope-lab
-      ARLOTOPE_BIN_DIR: ${{ runner.temp }}/arlotope-bin
-      ARLOTOPE_SHORTCUT_DIR: ${{ runner.temp }}/arlotope-shortcuts
-      ARLOTOPE_ARCHIVE: ${{ runner.temp }}/arlotope.tar.gz
-      ARLOTOPE_NO_PATH: '1'
     steps:
       - uses: actions/checkout@v4
       - uses: astral-sh/setup-uv@v5
@@ -41,6 +33,20 @@ jobs:
         with:
           name: arlotope
           path: ${{ runner.temp }}
+      - name: Install into temporary folders   # the runner context is not available in a job's env
+        shell: bash
+        run: |
+          {
+            echo "ARLOTOPE_HOME=$RUNNER_TEMP${SEP}arlotope-home"
+            echo "ARLOTOPE_INSTALL_DIR=$RUNNER_TEMP${SEP}arlotope-install"
+            echo "ARLOTOPE_LAB_DIR=$RUNNER_TEMP${SEP}arlotope-lab"
+            echo "ARLOTOPE_BIN_DIR=$RUNNER_TEMP${SEP}arlotope-bin"
+            echo "ARLOTOPE_SHORTCUT_DIR=$RUNNER_TEMP${SEP}arlotope-shortcuts"
+            echo "ARLOTOPE_ARCHIVE=$RUNNER_TEMP${SEP}arlotope.tar.gz"
+            echo "ARLOTOPE_NO_PATH=1"
+          } >> "$GITHUB_ENV"
+        env:
+          SEP: ${{ runner.os == 'Windows' && '\' || '/' }}
       - name: Install and open the Lab (Linux, macOS)
         if: runner.os != 'Windows'
         run: |
@@ -54,7 +60,7 @@ jobs:
           ./install/install.ps1
           & "$env:ARLOTOPE_INSTALL_DIR\bin\arlo.cmd" status
           if ($LASTEXITCODE -ne 0) { exit 1 }
-          &"$env:ARLOTOPE_INSTALL_DIR\bin\arlo.cmd" --status
+          & "$env:ARLOTOPE_INSTALL_DIR\bin\arlo.cmd" --status
           if ($LASTEXITCODE -ne 0) { exit 1 }
 
   publish:
