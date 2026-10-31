@@ -9,7 +9,7 @@ ignoring a file does not delete it or back it up.
 | `config.yaml` | Only the settings you changed, laid over the defaults; created almost empty on first use |
 | `identity.json` | Stable Lab identity; keep it when moving or restoring this Lab |
 | `journal.jsonl`, `REGISTRY.md` | Workflow history and its generated view |
-| `knowledge/`, `notebook/`, `records/` | Research memory, human notes and saved answers |
+| `knowledge/`, `notebook/`, `records/` | Research memory, human notes and saved answers (`knowledge/` starts from `templates/knowledge/`) |
 | `.bus/` | Managed runs, transcripts, published outputs and directives |
 | `workflow/`, `templates/`, `rooms3d/` | Local instruction, template and room customizations |
 
