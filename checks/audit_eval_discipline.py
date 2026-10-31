@@ -32,10 +32,6 @@ HUB = Path(__file__).resolve().parents[1]
 _SPLIT_ANALOGUE = "arlotope: split=analogue"   # in a type's TYPE.md: it has no literal held-out test split
 
 
-def _projects_root() -> Path:
-    return labfiles.projects_root(HUB)
-
-
 def _project_dir(slug: str) -> Path | None:
     return labfiles.project_dir(HUB, slug)
 

@@ -33,10 +33,6 @@ _STOP = {"the", "a", "an", "and", "or", "of", "to", "for", "with", "without", "v
 _WAIVED = re.compile(r"\b(waived|n/?a|not applicable|dropped|deferred|needs[-\s]experiment|skip)\b", re.I)
 
 
-def _projects_root() -> Path:
-    return labfiles.projects_root(HUB)
-
-
 def _project_dir(slug: str) -> Path | None:
     return labfiles.project_dir(HUB, slug)
 

@@ -44,22 +44,6 @@ def snapshot_view(limit: int = 40) -> list[dict]:
         return []
 
 
-def attention_items() -> list[dict]:
-    """An unanswered question an agent left with an artifact waits in Needs you, like a run's question."""
-    out = []
-    try:
-        for m in _tool().all_artifacts(ctx.HUB, limit=None, state='asking'):
-            if m.get("question") and not m.get("reply"):
-                out.append({"id": f"artifact:{m['id']}", "kind": "artifact", "sev": "warn", "ts": m.get("created"),
-                            "target": m.get("study") or "hub", "idea": m.get("study"), "run_id": m.get("run_id"),
-                            "skill": m.get("skill"), "title": m["title"],
-                            "body": f"asks you: {m.get('question') or m['title']}. The agent keeps working.",
-                            "detail": {"artifact": m["id"]}, "actions": [{"id": "artifact", "label": "answer"}]})
-    except Exception:  # noqa: BLE001
-        pass
-    return out
-
-
 def list_artifacts(q: dict | None = None) -> tuple[dict, int]:
     q = q or {}
     rows = _tool().all_artifacts(ctx.HUB, limit=101, study='' if q.get('study') == '@lab' else q.get('study') or None,
