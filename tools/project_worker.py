@@ -14,6 +14,8 @@ import time
 from http.server import BaseHTTPRequestHandler
 from pathlib import Path
 
+from executor import procs
+from labfiles import home_path, home_rows, now, write_atomic, write_json
 from loopback_http import LoopbackHTTPServer
 
 PROTOCOL = 1
@@ -26,23 +28,7 @@ def user_id():
 
 
 def session_file(port):
-    return Path(os.environ.get('ARLOTOPE_HOME') or Path.home() / '.arlotope') / 'workers' / f'session-{port}.json'
-
-
-def private_json(path, value):
-    """Never expose credentials between file creation and rename."""
-    path.parent.mkdir(parents=True, exist_ok=True)
-    temp = path.with_name(path.name + '.' + secrets.token_hex(6) + '.tmp')
-    with os.fdopen(os.open(temp, os.O_CREAT | os.O_EXCL | os.O_WRONLY, 0o600), 'w', encoding='utf-8') as stream:
-        json.dump(value, stream)
-    temp.replace(path)
-
-
-def atomic(path, value):
-    path.parent.mkdir(parents=True, exist_ok=True)
-    temp = path.with_name(path.name + '.' + secrets.token_hex(4) + '.tmp')
-    temp.write_text(json.dumps(value), encoding='utf-8')
-    temp.replace(path)
+    return home_path('workers', f'session-{port}.json')
 
 
 def safe_id(value):
@@ -96,16 +82,9 @@ class Worker:
             auth = backends.cli_auth(argv, ttl=0, backend=name) if argv else None
             clis[name] = {'found': bool(argv), 'command': argv, 'logged_in': auth.get('logged_in') if auth else None}
         # Registrations only: no recursive filesystem scan.
-        labs = []
-        registrations = Path.home() / '.arlotope' / 'labs.json'
-        if registrations.is_file():
-            try:
-                labs = json.loads(registrations.read_text(encoding='utf-8')).get('labs', [])
-            except (ValueError, OSError):
-                pass
         from project_identity import discover
         return {'protocol': PROTOCOL, 'platform': sys.platform, 'python': sys.executable,
-                'git': shutil.which('git'), 'npm': shutil.which('npm'), 'clis': clis, 'labs': labs, 'projects':discover(), 'runtime': self.runtime}
+                'git': shutil.which('git'), 'npm': shutil.which('npm'), 'clis': clis, 'labs': home_rows('labs'), 'projects':discover(), 'runtime': self.runtime}
 
     def call(self, method, data):
         if method == 'providers':
@@ -162,7 +141,7 @@ class Worker:
                 raise ValueError('Choose a new absolute clone destination.')
             from github_access import clone_argv
             argv = clone_argv(repo, dest) if data.get('github_auth') is True else ['git', 'clone', '--', 'https://github.com/' + repo + '.git', str(dest)]
-            result = subprocess.run(argv,
+            result = procs.run(argv,
                 env={**os.environ, 'GIT_TERMINAL_PROMPT': '0', 'GCM_INTERACTIVE': 'Never', 'GH_PROMPT_DISABLED': '1'},
                 capture_output=True, text=True, timeout=180)
             if result.returncode:
@@ -252,21 +231,17 @@ class Worker:
                 raise ValueError('Invalid material path.')
             destination.parent.mkdir(parents=True, exist_ok=True)
             with self.lock:
-                temp = destination.with_name(destination.name + '.tmp')
-                temp.write_bytes(content)
-                temp.replace(destination)
+                write_atomic(destination, content)
             return {'stored':True}
         if method == 'dispatch':
-            from executor.procs import DETACHED, excl_lock
-            with self.lock, excl_lock(rd / 'dispatch.lock'):
+            with self.lock, procs.excl_lock(rd / 'dispatch.lock'):
                 # One accepted dispatch per run/attempt, including a lost HTTP response.
                 generation = int(data['manifest'].get('attempt', 0))
                 receipt = rd / ('dispatch-' + str(generation) + '.json')
                 if receipt.exists():
-                    from executor.procs import is_locked, pid_alive
                     old = json.loads(receipt.read_text(encoding='utf-8'))
                     current = json.loads(manifest.read_text(encoding='utf-8')) if manifest.exists() else {}
-                    if is_locked(rd / 'lock') or pid_alive(old.get('supervisor_pid')) or current.get('status') not in ('starting', 'resuming'):
+                    if procs.is_locked(rd / 'lock') or procs.pid_alive(old.get('supervisor_pid')) or current.get('status') not in ('starting', 'resuming'):
                         return old
                 rd.mkdir(parents=True, exist_ok=True)
                 supplied = data['manifest']
@@ -296,35 +271,33 @@ class Worker:
                         raise ValueError('Invalid skill resource path.')
                     dest.parent.mkdir(parents=True, exist_ok=True)
                     dest.write_bytes(base64.b64decode(encoded, validate=True))
-                atomic(rd / 'config.json', data['config'])
-                atomic(manifest, m)
+                write_json(rd / 'config.json', data['config'])
+                write_json(manifest, m)
                 result = {'ok': True, 'accepted': True, 'run_id': rid, 'attempt': generation}
-                atomic(receipt, result)
+                write_json(receipt, result)
                 log = (rd / 'supervisor.log').open('ab')
-                proc = subprocess.Popen([sys.executable, self.runtime, 'run', '--path', str(root),
+                proc = procs.popen([sys.executable, self.runtime, 'run', '--path', str(root),
                     '--owner', data['owner'], '--run', rid], stdin=subprocess.DEVNULL, stdout=log,
-                    stderr=subprocess.STDOUT, close_fds=True, **DETACHED)
+                    stderr=subprocess.STDOUT, close_fds=True, **procs.DETACHED)
                 log.close()
                 result['supervisor_pid'] = proc.pid
-                atomic(receipt, result)
+                write_json(receipt, result)
                 return result
         if not manifest.is_file():
             return {'found': False}
         if method == 'poll':
-            from executor.manifest import now
-            from executor.procs import is_locked
             with self.lock:
                 queue_late_input(manifest, rd)
                 receipts = list(rd.glob('dispatch-*.json'))
                 receipt = max(receipts, key=lambda p: p.stat().st_mtime) if receipts else None
-                if receipt and time.time() - receipt.stat().st_mtime > 30 and not is_locked(rd / 'lock'):
+                if receipt and time.time() - receipt.stat().st_mtime > 30 and not procs.is_locked(rd / 'lock'):
                     # The supervisor saves its final/parked state before releasing the lock.
                     # Read after the liveness check, so its just-finished result wins.
                     current = json.loads(manifest.read_text(encoding='utf-8'))
                     parked = current.get('status') == 'waiting_input' and current.get('pid') is None
                     if current.get('status') in ('starting', 'resuming', 'running', 'waiting_input') and not parked:
                         current.update(status='failed', reason='Remote supervisor stopped unexpectedly.', finished=now())
-                        atomic(manifest, current)
+                        write_json(manifest, current)
             requests = [json.loads(p.read_text(encoding='utf-8')) for p in (rd / 'controller').glob('*.request.json')
                         if not p.with_name(p.name.replace('.request.json', '.response.json')).exists()]
             offset = max(0, int(data.get('offset', 0)))
@@ -357,7 +330,7 @@ class Worker:
                 result[name+'_offset'] = position+len(chunk)
                 caught_up &= not activity.is_file() or result[name+'_offset'] >= activity.stat().st_size
             from executor.manifest import TERMINAL
-            result['settled'] = (result['manifest'].get('status') in TERMINAL and not is_locked(rd/'lock')
+            result['settled'] = (result['manifest'].get('status') in TERMINAL and not procs.is_locked(rd/'lock')
                 and not requests and not any((rd/'inbox').glob('*.json'))
                 and (not stream.is_file() or result['offset'] >= stream.stat().st_size)
                 and caught_up)
@@ -370,7 +343,7 @@ class Worker:
             return result
         if method == 'response':
             cid = safe_id(data['id'])
-            atomic(rd / 'controller' / (cid + '.response.json'), data['response'])
+            write_json(rd / 'controller' / (cid + '.response.json'), data['response'])
             return {'ok': True}
         if method == 'command':
             from executor import live
@@ -386,19 +359,17 @@ class Worker:
                     if type(requested_attempt) is not int or requested_attempt < 0:
                         raise ValueError('Choose a valid run attempt to stop.')
                     if requested_attempt >= active_attempt:
-                        from executor.procs import is_locked
                         if (requested_attempt == active_attempt and current.get('status') == 'waiting_input'
-                                and current.get('pid') is None and not is_locked(rd / 'lock')):
-                            from executor.manifest import now
+                                and current.get('pid') is None and not procs.is_locked(rd / 'lock')):
                             current.update(status='killed', reason='stopped while waiting for the PI', finished=now(),
                                            pending_question=None, pending_questions=[])
-                            atomic(manifest, current)
+                            write_json(manifest, current)
                         else:
-                            atomic(rd / 'stop', {'attempt': requested_attempt})
+                            write_json(rd / 'stop', {'attempt': requested_attempt})
                 else:
                     live.post(rd, dict(data['item'], request_id_external=cid))
                 result = {'ok': True, 'queued': True, 'id': cid}
-                atomic(receipt, result)
+                write_json(receipt, result)
                 return result
         raise ValueError('Unknown worker operation.')
 
@@ -444,9 +415,8 @@ class Worker:
 
 def queue_late_input(manifest, rd):
     """Preserve messages arriving after supervisor exit for the controller's next admission."""
-    from executor.procs import RunLock
     from executor.supervise import _late_text
-    lock = RunLock(rd / 'lock')
+    lock = procs.RunLock(rd / 'lock')
     if not lock.try_acquire():
         return
     try:
@@ -466,7 +436,7 @@ def queue_late_input(manifest, rd):
                 pending_question=None, post_processed=False, not_before=None,
                 remote_late_inputs=sorted(seen | {path.name for path, _ in fresh}))
             # Commit before acknowledging inbox files; a retry must not duplicate the prompt.
-            atomic(manifest, current)
+            write_json(manifest, current)
         for path, _ in items:
             path.replace(path.with_suffix('.delivered'))
     finally:
@@ -475,12 +445,11 @@ def queue_late_input(manifest, rd):
 
 def run(project, owner, rid):
     from lab_profile import WorkerLab
-    from executor.procs import RunLock
     from executor.supervise import _attempt
     root = Path(project)
     bus = root / '.bus' / 'arlotope' / safe_id(owner)
     adir, rd = bus / 'agents', bus / 'agents' / (safe_id(rid) + '.d')
-    lock = RunLock(rd / 'lock')
+    lock = procs.RunLock(rd / 'lock')
     deadline = time.monotonic() + 10
     while not lock.try_acquire():
         if time.monotonic() >= deadline:
@@ -542,7 +511,7 @@ def serve(port):
                 return self.send({'error': str(error)}, 400)
     server = LoopbackHTTPServer(('127.0.0.1', port), Handler)
     credentials = session_file(server.server_port)
-    private_json(credentials, {**identity, 'port':server.server_port,'cookie':'worker='+token,'arlotope_worker_session':True})
+    write_json(credentials, {**identity, 'port':server.server_port,'cookie':'worker='+token,'arlotope_worker_session':True}, private=True)
     try:
         server.serve_forever()
     finally:
@@ -574,7 +543,6 @@ def main():
     if a.command == 'run':
         return run(a.path, a.owner, a.run)
     if a.background:
-        from executor.procs import DETACHED
         import http.client
         try:
             c = http.client.HTTPConnection('127.0.0.1', a.port, timeout=2)
@@ -587,11 +555,11 @@ def main():
             if result.get('uid') != user_id():
                 raise ValueError('The worker port belongs to another account. Choose another connection.')
         except OSError:
-            log = Path.home() / '.arlotope/worker.log'
+            log = home_path('worker.log')
             log.parent.mkdir(parents=True, exist_ok=True)
             with log.open('ab') as stream:
-                child = subprocess.Popen([sys.executable, str(Path(sys.argv[0]).resolve()), 'serve', '--port', str(a.port)],
-                    stdin=subprocess.DEVNULL, stdout=stream, stderr=subprocess.STDOUT, close_fds=True, **DETACHED)
+                child = procs.popen([sys.executable, str(Path(sys.argv[0]).resolve()), 'serve', '--port', str(a.port)],
+                    stdin=subprocess.DEVNULL, stdout=stream, stderr=subprocess.STDOUT, close_fds=True, **procs.DETACHED)
             for _ in range(80):
                 try:
                     c = http.client.HTTPConnection('127.0.0.1', a.port, timeout=1)
@@ -601,7 +569,7 @@ def main():
                         break
                 except OSError:
                     if child.poll() is not None:
-                        raise ValueError('The worker did not start; inspect ~/.arlotope/worker.log.')
+                        raise ValueError('The worker did not start; inspect ' + str(log) + '.')
                 time.sleep(.1)
             else:
                 raise ValueError('The worker did not start.')

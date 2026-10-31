@@ -6,11 +6,12 @@ import hashlib
 import http.client
 import io
 import json
-import os
 import shlex
 import zipfile
 from pathlib import Path, PureWindowsPath
 from urllib.parse import quote, unquote, urlsplit
+
+import labfiles
 
 ROOT = Path(__file__).resolve().parents[1]
 SCHEME = 'arlotope+ssh'
@@ -43,7 +44,6 @@ def uri(machine, path):
 
 
 def project(hub, slug):
-    import labfiles
     row = labfiles.row(hub, slug)
     return location((row or {}).get('project'))
 
@@ -59,11 +59,7 @@ def spool(hub, slug):
 
 
 def machines():
-    path = Path(os.environ.get('ARLOTOPE_HOME') or Path.home() / '.arlotope') / 'machines.json'
-    try:
-        return json.loads(path.read_text(encoding='utf-8')).get('machines', [])
-    except (ValueError, OSError):
-        return []
+    return labfiles.home_rows('machines')
 
 
 def machine(mid):
@@ -192,7 +188,7 @@ def rewrite(lab, m, text):
 
 
 def dispatch(lab, path, m):
-    from executor.manifest import read_manifest, run_dir, write_manifest
+    from executor.manifest import run_dir
     loc, rid = m['remote'], m['run_id']
     from executor.contexts import validate_head
     validate_head(lab, m)
@@ -246,7 +242,7 @@ def dispatch(lab, path, m):
     m['remote_dispatched'] = True
     m.pop('remote_dispatch_pending', None)
     m['remote_status'] = 'connected'
-    write_manifest(path, m)
+    labfiles.write_json(path, m)
     return result
 
 
@@ -319,12 +315,11 @@ def _request(lab, m, request):
             result = studies.move(lab.hub, slug, args[0], note=note, by='run:' + rid)
         return {'result': result}
     if verb == 'emit':
-        from executor.manifest import append_jsonl, now
         kind = (args or ['note'])[0]
         if kind not in ('run_report', 'note', 'escalation', 'writeback'):
             raise RemoteError('This event is not available to a project run.')
         data = dict(x.split('=', 1) for x in request.get('data', []) if '=' in x)
-        append_jsonl(lab.project_workdir(slug) / '.bus/events.jsonl', {'ts': now(), 'kind': kind,
+        labfiles.append_jsonl(lab.project_workdir(slug) / '.bus/events.jsonl', {'ts': labfiles.now(), 'kind': kind,
             'source': slug, 'idea': slug, 'run_id': rid, 'detail': request.get('detail', ''), 'data': data})
         return {'result': {'ok': True}}
     raise RemoteError('Unsupported controller request.')
@@ -332,7 +327,7 @@ def _request(lab, m, request):
 
 def sync(lab):
     """Refresh remote mirrors, deliver queued input and settle task-scoped controller requests."""
-    from executor.manifest import TERMINAL, all_runs, read_manifest, run_dir, write_manifest
+    from executor.manifest import TERMINAL, all_runs, read_manifest, run_dir
     for _, _, path, m in all_runs(lab):
         if not m.get('remote'):
             continue
@@ -410,8 +405,7 @@ def sync(lab):
                         response = _request(lab, m, req)
                     except ValueError as error:
                         response = {'code': 1, 'text': str(error)}
-                    from project_worker import atomic
-                    atomic(receipt, response)
+                    labfiles.write_json(receipt, response)
                 call(lab.hub, m['target'], 'response', run_id=m['run_id'], id=req['id'], response=response)
             for item in (rd / 'inbox').glob('*.json'):
                 message = json.loads(item.read_text(encoding='utf-8'))
@@ -426,10 +420,10 @@ def sync(lab):
                 call(lab.hub, m['target'], 'command', run_id=m['run_id'], id='stop-' + str(attempt),
                      item={'kind': 'stop', 'attempt': attempt})
                 m['remote_settled'] = False
-            write_manifest(path, m)
+            labfiles.write_json(path, m)
         except (RemoteError, OSError) as error:
             m['remote_status'], m['remote_error'] = 'disconnected', str(error)
-            write_manifest(path, m)
+            labfiles.write_json(path, m)
 
 
 def file_states(hub, slug, files):

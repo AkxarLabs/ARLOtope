@@ -19,6 +19,8 @@ import time
 
 import yaml
 
+from labfiles import inside, write_json
+
 ID = re.compile(r'^[a-z0-9][a-z0-9._-]{0,79}$')
 
 
@@ -197,7 +199,7 @@ def outputs(plan):
     root, evidence = Path(plan['run_dir']).resolve(), {}
     for relative in plan['outputs']:
         path = root / relative
-        if path.is_symlink() or not path.resolve().is_relative_to(root) or not path.is_file():
+        if not inside(root, path) or not path.is_file():
             raise ValueError('Required framework output is missing or unsafe: ' + relative)
         if path.stat().st_size > 32 * 1024 * 1024:
             raise ValueError('Receipt evidence must be at most 32 MiB; reference larger artifacts from a manifest.')
@@ -216,7 +218,7 @@ def outputs(plan):
 
 
 def execute(value, retry=False):
-    from executor.procs import RunLock, NO_WINDOW, graceful_stop
+    from executor.procs import RunLock, NO_WINDOW, graceful_stop, popen
     receipt = Path(value['receipt'])
     receipt.parent.mkdir(parents=True, exist_ok=True)
     lock = RunLock(receipt.parent / 'execution.lock')
@@ -235,11 +237,7 @@ def execute(value, retry=False):
             if not retry:
                 raise ValueError('An earlier attempt did not complete. Inspect its log and use --retry explicitly.')
         state = dict(value, signature=signature, status='running', started=time.time())
-        def save():
-            temp = receipt.with_suffix('.tmp')
-            temp.write_text(json.dumps(state, indent=2), encoding='utf-8')
-            os.replace(temp, receipt)
-        save()
+        write_json(receipt, state)
         previous = signal.getsignal(signal.SIGTERM)
         def interrupted(_signum, _frame):
             raise KeyboardInterrupt('The framework phase was interrupted.')
@@ -248,8 +246,8 @@ def execute(value, retry=False):
             with receipt.with_suffix('.log').open('ab') as log:
                 deadline = time.monotonic() + value['timeout_seconds']
                 for command in value['commands']:
-                    with subprocess.Popen(command, cwd=value['cwd'], stdin=subprocess.DEVNULL,
-                                          stdout=log, stderr=subprocess.STDOUT, **NO_WINDOW) as child:
+                    with popen(command, cwd=value['cwd'], stdin=subprocess.DEVNULL,
+                                     stdout=log, stderr=subprocess.STDOUT, **NO_WINDOW) as child:
                         try:
                             code = child.wait(timeout=max(.01, deadline-time.monotonic()))
                         except BaseException:
@@ -265,7 +263,7 @@ def execute(value, retry=False):
         finally:
             signal.signal(signal.SIGTERM, previous)
             state['finished'] = time.time()
-            save()
+            write_json(receipt, state)
         return state
     finally:
         lock.release()

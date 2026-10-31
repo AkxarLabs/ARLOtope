@@ -151,11 +151,6 @@ def reply(body: dict) -> tuple[dict, int]:
     (d / "seen").touch()
     t.changed(ctx.HUB)
     ctx.pi_log({"action": "artifact.reply", "artifact": m["id"], "choice": choice})
-    try:
-        with (ctx.LAB / ".bus" / "events.jsonl").open("a", encoding="utf-8") as f:
-            f.write(json.dumps({"ts": ctx.ts(), "source": "hub", "kind": "artifact_reply", "run_id": m.get("run_id"),
-                                "detail": f"the PI replied to “{m['title']}”", "data": {"id": m["id"]}}) + "\n")
-    except OSError:
-        pass
+    ctx.emit_hub("artifact_reply", run_id=m.get("run_id"), detail=f"the PI replied to “{m['title']}”", data={"id": m["id"]})
     ctx.KICK.set()
     return {"ok": True, "reply": rep}, 200

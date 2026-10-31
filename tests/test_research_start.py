@@ -4,6 +4,7 @@ import subprocess
 from pathlib import Path
 from types import SimpleNamespace
 
+import labfiles
 import pytest
 import yaml
 
@@ -158,7 +159,7 @@ def test_attachment_conflict_is_clear_in_http_and_cli_and_can_be_corrected(hub, 
     import project_identity as I
     project = tmp_path/'registered project'; project.mkdir()
     I.register(project, 'other-owner', 'existing-study', 'other-lab')
-    paths = [project/'.arlotope/project.json', I.home()/'projects.json']
+    paths = [project/'.arlotope/project.json', labfiles.home_path('projects.json')]
     before = {path: path.read_bytes() for path in paths}
     monkeypatch.syspath_prepend(str(REPO/'dashboard'))
     api = load('dashboard/starter')

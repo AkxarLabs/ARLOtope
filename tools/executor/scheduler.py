@@ -21,9 +21,10 @@ import time
 from pathlib import Path
 
 from .lab import HUB_TARGET, Lab, pos_float, pos_int, read_jsonl
-from .manifest import (ACTIVE, TERMINAL, all_runs, emit, now, parse_ts, read_manifest, run_dir, uses_slot, is_live, is_support,
-                       scheduler_lock, transition, write_manifest)
-from .procs import DETACHED, is_locked, kill_tree, pid_alive, python_exe
+from labfiles import now, parse_ts, read_json, write_json
+from .manifest import (TERMINAL, all_runs, emit, read_manifest, run_dir, uses_slot, is_live, is_support,
+                       scheduler_lock, transition)
+from .procs import DETACHED, is_locked, kill_tree, pid_alive, popen, python_exe
 from .spec import RunSpec, SpecError, registry
 from .contexts import waiting_forks
 from . import backends, campaigns, notify, pause
@@ -96,7 +97,7 @@ def reconcile_manifest(lab: Lab, workdir: Path, path: Path, m: dict) -> bool:
             return False
         m.update(status="failed", finished=now(),
                  last_message=(m.get("last_message") or "") + " [reconciled: process gone]")
-        write_manifest(path, m)
+        write_json(path, m)
         emit(lab, workdir, "agent_finished", detail=m.get("agent_id"), status="failed", data={"reconciled": True})
         return True
     return False
@@ -226,7 +227,7 @@ def post_process(lab: Lab, workdir: Path, path: Path, m: dict) -> None:
                        max_minutes=m.get("max_minutes"), parent=run_id, created_by="repeat",
                        repeat_minutes=rmin, max_repeats=mx, campaign=m.get("campaign"),
                        extra={"repeat_index": idx + 1, 'repeat_assignment': m.get('assignment'),
-                              "not_before": time.strftime("%Y-%m-%dT%H:%M:%S", time.localtime(time.time() + rmin * 60))})
+                              "not_before": now(time.time() + rmin * 60)})
         if m.get("kind") == "ask":   # the same free-form instruction again
             try:
                 spec.prompt = (run_dir(path.parent, run_id) / "prompt.md").read_text(encoding="utf-8")
@@ -238,7 +239,7 @@ def post_process(lab: Lab, workdir: Path, path: Path, m: dict) -> None:
         except SpecError as e:
             m["repeat_error"] = str(e)
     m["post_processed"] = True
-    write_manifest(path, m)
+    write_json(path, m)
 
 
 # ── usage limits: a backend that hit its limit starts nothing until it lifts ─────────────────────
@@ -248,10 +249,7 @@ def _limits_path(lab: Lab) -> Path:
 
 
 def limits(lab: Lab) -> dict:
-    try:
-        d = json.loads(_limits_path(lab).read_text(encoding="utf-8"))
-    except (OSError, ValueError):
-        return {}
+    d = read_json(_limits_path(lab), {})
     t = time.time()
     return {k: v for k, v in d.items() if isinstance(v, (int, float)) and v > t}
 
@@ -259,10 +257,8 @@ def limits(lab: Lab) -> dict:
 def _note_limit(lab: Lab, backend: str, until: float) -> None:
     d = limits(lab)
     d[backend] = max(float(until), d.get(backend, 0.0))
-    p = _limits_path(lab)
     with contextlib.suppress(OSError):
-        p.parent.mkdir(parents=True, exist_ok=True)
-        p.write_text(json.dumps(d), encoding="utf-8")
+        write_json(_limits_path(lab), d)
 
 
 def cap_key(m: dict, target: str) -> str:
@@ -332,14 +328,12 @@ def spawn_supervisor(lab: Lab, target: str, run_id: str, log_path: Path) -> int:
     else:                                # a durable interpreter with its own pyyaml — never another's paths
         env.pop("PYTHONPATH", None)
     with open(log_path, "ab") as log:
-        p = subprocess.Popen([python_exe(), str(CLI), "--hub", str(lab.hub), "supervise",
+        p = popen([python_exe(), str(CLI), "--hub", str(lab.hub), "supervise",
                               "--run", run_id, "--target", target],
                              cwd=str(lab.hub), stdin=subprocess.DEVNULL, stdout=log, stderr=subprocess.STDOUT,
                              env=env, close_fds=True, **DETACHED)
-    try:   # a sidecar, NOT the manifest (the supervisor owns the manifest from here on)
-        (log_path.parent / "spawn.json").write_text(json.dumps({"pid": p.pid, "ts": now()}), encoding="utf-8")
-    except OSError:
-        pass
+    with contextlib.suppress(OSError):   # a sidecar, NOT the manifest (the supervisor owns the manifest from here on)
+        write_json(log_path.parent / "spawn.json", {"pid": p.pid, "ts": now()})
     return p.pid
 
 
@@ -442,7 +436,7 @@ def tick(lab: Lab, *, spawn=None, wait: float = 0.0, background_notify: bool = T
             except (OSError, ValueError) as e:
                 if m.get('remote'):
                     m['remote_error'], m['remote_dispatch_pending'] = str(e), True
-                    write_manifest(path, m)
+                    write_json(path, m)
                     continue
                 transition(lab, path, m, "failed", by="scheduler", reason=f"could not start supervisor: {e}",
                            finished=now())
@@ -474,15 +468,12 @@ def _lease_path(lab: Lab) -> Path:
 
 def write_lease(lab: Lab, by: str, *, pid: int | None = None) -> None:
     with contextlib.suppress(OSError):
-        p = _lease_path(lab)
-        p.parent.mkdir(parents=True, exist_ok=True)
-        p.write_text(json.dumps({"pid": os.getpid() if pid is None else pid, "ts": time.time(), "by": by}), encoding="utf-8")
+        write_json(_lease_path(lab), {"pid": os.getpid() if pid is None else pid, "ts": time.time(), "by": by})
 
 
 def lease(lab: Lab) -> dict:
-    try:
-        d = json.loads(_lease_path(lab).read_text(encoding="utf-8"))
-    except (OSError, ValueError):
+    d = read_json(_lease_path(lab))
+    if not isinstance(d, dict):
         return {"age": None}
     d["age"] = round(time.time() - float(d.get("ts") or 0), 1)
     return d
@@ -533,7 +524,7 @@ def ensure_ticker(lab: Lab, *, exiting_pid: int | None = None) -> bool:
             env = dict(os.environ)
             env.pop("ARLOTOPE_AGENT_DEPTH", None)   # the ticker is the PI's scheduler, not an agent
             with open(log, "ab") as fh:
-                child = subprocess.Popen([python_exe(), str(CLI), "--hub", str(lab.hub), "serve", "--until-idle"], cwd=str(lab.hub),
+                child = popen([python_exe(), str(CLI), "--hub", str(lab.hub), "serve", "--until-idle"], cwd=str(lab.hub),
                                          stdin=subprocess.DEVNULL, stdout=fh, stderr=subprocess.STDOUT, env=env,
                                          close_fds=True, **DETACHED)
             write_lease(lab, "spawned serve --until-idle", pid=getattr(child, 'pid', None))

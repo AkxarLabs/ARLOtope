@@ -29,14 +29,13 @@ from __future__ import annotations
 import itertools
 import hashlib
 import json
-import os
 import threading
 import time
 import uuid
 from pathlib import Path
 
 from .lab import pos_float
-from .manifest import now
+from labfiles import now, write_atomic
 
 INBOX = "inbox"
 KINDS = ("answer", "permission", "message", "interrupt")
@@ -59,9 +58,7 @@ def post(rd: Path, item: dict) -> dict:
     name = ('request-' + hashlib.sha256(str(external).encode()).hexdigest()) if external else f"{time.time_ns():020d}-{next(_SEQ):06d}-{uuid.uuid4().hex[:6]}"
     if (d / (name + '.json')).exists() or (d / (name + '.claimed')).exists() or (d / (name + '.delivered')).exists():
         return item
-    tmp = d / f"{name}.tmp"
-    tmp.write_text(data, encoding="utf-8")
-    os.replace(tmp, d / f"{name}.json")
+    write_atomic(d / f"{name}.json", data)
     return item
 
 

@@ -16,7 +16,8 @@ import time
 from pathlib import Path
 
 from .lab import Lab, profile, read_jsonl
-from .manifest import append_jsonl, now, parse_ts, run_dir
+from labfiles import append_jsonl, now, parse_ts
+from .manifest import run_dir
 
 SEV_ORDER = {"block": 0, "warn": 1, "info": 2}
 

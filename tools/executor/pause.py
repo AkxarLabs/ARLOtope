@@ -18,11 +18,11 @@ from __future__ import annotations
 
 import contextlib
 import json
-import os
 from pathlib import Path
 
 from .lab import Lab
-from .manifest import ACTIVE, PAUSED, all_runs, emit, now, run_dir, scheduler_lock
+from labfiles import now, write_json
+from .manifest import ACTIVE, PAUSED, all_runs, emit, run_dir, scheduler_lock
 from .procs import is_locked
 from .spec import SpecError
 
@@ -42,14 +42,6 @@ def state(lab: Lab) -> dict | None:
 
 def is_paused(lab: Lab) -> bool:
     return flag_path(lab).exists()
-
-
-def _write(lab: Lab, d: dict) -> None:
-    p = flag_path(lab)
-    p.parent.mkdir(parents=True, exist_ok=True)
-    tmp = p.with_suffix(".json.tmp")
-    tmp.write_text(json.dumps(d, indent=1), encoding="utf-8")
-    os.replace(tmp, p)
 
 
 def _running(path, m: dict) -> bool:
@@ -75,7 +67,7 @@ def pause(lab: Lab, by: str = "PI", reason: str | None = None) -> dict:
         if not already:
             cur = {"since": now(), "by": by, "reason": (reason or "").strip()[:300] or None, "stopped": []}
         cur["stopped"] = list(dict.fromkeys((cur.get("stopped") or []) + ids))[-200:]
-        _write(lab, cur)
+        write_json(flag_path(lab), cur)
         paused_camps = []
         for st in campaigns.all_states(lab):
             name = st.get("name")
@@ -145,19 +137,11 @@ def held(lab: Lab, study: str | None) -> dict | None:
     return holds(lab).get(study) if study else None
 
 
-def _write_holds(lab: Lab, d: dict) -> None:
-    p = holds_path(lab)
-    p.parent.mkdir(parents=True, exist_ok=True)
-    tmp = p.with_suffix(".json.tmp")
-    tmp.write_text(json.dumps(d, indent=1), encoding="utf-8")
-    os.replace(tmp, p)
-
-
 def hold(lab: Lab, study: str, by: str = "PI", reason: str | None = None) -> dict:
     d = holds(lab)
     if study not in d:
         d[study] = {"since": now(), "by": by, "reason": (reason or "").strip()[:300] or None}
-        _write_holds(lab, d)
+        write_json(holds_path(lab), d)
         emit(lab, lab.hub, "study_held", idea=study, detail=f"held by {by}" + (f": {reason}" if reason else ""))
     return d[study]
 
@@ -167,6 +151,6 @@ def release(lab: Lab, study: str, by: str = "PI") -> bool:
     if study not in d:
         return False
     d.pop(study)
-    _write_holds(lab, d)
+    write_json(holds_path(lab), d)
     emit(lab, lab.hub, "study_released", idea=study, detail=f"released by {by}")
     return True

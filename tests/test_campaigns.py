@@ -11,6 +11,7 @@ import os
 import sys
 import time
 
+import labfiles
 import pytest
 
 from conftest import REPO, approve, kernel
@@ -65,7 +66,7 @@ def _cycles(lab):
 
 def _finish(lab, run_id, status, **fields):
     _t, workdir, path, m = executor.find_run(lab, run_id)
-    manifest.transition(lab, path, m, status, by="test", finished=manifest.now(), **fields)
+    manifest.transition(lab, path, m, status, by="test", finished=labfiles.now(), **fields)
     return workdir
 
 
@@ -73,12 +74,12 @@ def _footer(lab, workdir, run_id, **data):
     bus = lab.bus_of(workdir)
     bus.mkdir(parents=True, exist_ok=True)
     with (bus / "events.jsonl").open("a", encoding="utf-8") as f:
-        f.write(json.dumps({"ts": manifest.now(), "kind": "run_report", "run_id": run_id, "data": data}) + "\n")
+        f.write(json.dumps({"ts": labfiles.now(), "kind": "run_report", "run_id": run_id, "data": data}) + "\n")
 
 
 def _dispatch(lab, cycle_id, **data):
     with (lab.lab / ".bus" / "events.jsonl").open("a", encoding="utf-8") as f:
-        f.write(json.dumps({"ts": manifest.now() + f".{time.time_ns()}", "kind": "campaign_dispatch",
+        f.write(json.dumps({"ts": labfiles.now() + f".{time.time_ns()}", "kind": "campaign_dispatch",
                             "run_id": cycle_id, "data": data}) + "\n")
 
 
@@ -89,7 +90,7 @@ def _stopped(lab, run_id):
 
 
 def _nb(m):
-    return manifest.parse_ts(m.get("not_before")) or 0
+    return labfiles.parse_ts(m.get("not_before")) or 0
 
 
 # ── re-entry ─────────────────────────────────────────────────────────────────────────────────────
@@ -112,7 +113,7 @@ def test_a_question_left_on_the_card_is_answered_into_the_next_pass(camp):
     executor.tick(lab, spawn=Spawns())
     c1 = _cycles(lab)[0]
     st = campaigns.load(lab, campaigns.all_states(lab)[0]["name"])
-    st["questions"] = [{"ts": manifest.now(), "run_id": c1["run_id"], "question": "Which baseline?"}]
+    st["questions"] = [{"ts": labfiles.now(), "run_id": c1["run_id"], "question": "Which baseline?"}]
     campaigns.save(lab, st)
     card = campaigns.summary(lab)[0]["questions"][0]
     assert card["index"] == 0 and "answer" not in card
@@ -313,7 +314,7 @@ def _reviewed(lab, cid, slug="idea-a"):
 
 def _ask(lab, cid, slug="idea-a", checkpoint="finalize-paper"):
     with (lab.lab / ".bus" / "events.jsonl").open("a", encoding="utf-8") as f:
-        f.write(json.dumps({"ts": manifest.now() + f".{time.time_ns()}", "kind": "campaign_approve", "run_id": cid,
+        f.write(json.dumps({"ts": labfiles.now() + f".{time.time_ns()}", "kind": "campaign_approve", "run_id": cid,
                             "data": {"study": slug, "checkpoint": checkpoint, "why": "review accepted"}}) + "\n")
 
 

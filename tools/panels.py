@@ -14,7 +14,7 @@ A panel is a folder holding `panel.yaml`, a `view.html` and, optionally, a colle
 
 Where panels live — every panel ever made stays (unpinning never deletes; archive hides; delete is explicit):
     dashboard/static/panels/shipped/<id>/   the shipped ones (code-owned)
-    ~/.arlotope/panels/<id>/      yours across every lab ("Save to all my labs")
+    <ARLOtope home>/panels/<id>/  yours across every lab ("Save to all my labs")
     lab/panels/<id>/           this lab's — designed or written for it (old versions in versions/)
 
 The constraints, enforced by code rather than prose:
@@ -51,6 +51,7 @@ import yaml
 HERE = Path(__file__).resolve().parent
 sys.path.insert(0, str(HERE))
 from kernel import checkpoints, journal  # noqa: E402
+from executor import procs  # noqa: E402
 import labfiles  # noqa: E402
 
 SHIPPED = HERE.parent / "dashboard" / "static" / "panels" / "shipped"
@@ -61,7 +62,7 @@ SOURCES = ("collector", "files", "events", "runs", "registry")
 
 
 def user_dir() -> Path:
-    return Path(os.environ.get("ARLOTOPE_HOME") or (Path.home() / ".arlotope")) / "panels"
+    return labfiles.home_path("panels")
 
 
 def lab_dir(hub) -> Path:
@@ -232,7 +233,7 @@ def _run_collector(hub, p: dict, study: str | None = None, timeout: float = 60) 
                 copy.write(code)
             snapshot.chmod(0o700)
             f = snapshot
-        r = subprocess.run(_interpreter(f), cwd=str(hub), env=env, capture_output=True, timeout=timeout)
+        r = procs.run(_interpreter(f), cwd=str(hub), env=env, capture_output=True, timeout=timeout)
     except (OSError, subprocess.TimeoutExpired) as e:
         return {"error": f"the collector did not finish: {e}"[:400]}
     finally:
@@ -354,7 +355,7 @@ def collect(hub, pid: str, study: str | None = None, timeout: float = 60) -> dic
     """Gather one panel's data now (a collector only if its version is approved). Cached; returns the result."""
     p = _need(hub, pid)
     prev = cached(hub, pid, study)
-    res = {"ts": time.strftime("%Y-%m-%dT%H:%M:%S"), "epoch": time.time(), "panel": pid, "study": study}
+    res = {"ts": labfiles.now(), "epoch": time.time(), "panel": pid, "study": study}
     data: dict = {}
     err = None
     for src in p["sources"]:

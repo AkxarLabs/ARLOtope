@@ -8,6 +8,7 @@ from __future__ import annotations
 import json
 import sys
 
+import labfiles
 import pytest
 
 from conftest import REPO
@@ -86,7 +87,7 @@ def test_repeats_and_chains_do_not_fire_while_paused(hub):
     rid = _q(lab, repeat_minutes=30)
     executor.tick(lab, spawn=Spawns())
     pause.pause(lab)
-    _set(lab, rid, "completed", finished=manifest.now())   # it finished just as the lab paused
+    _set(lab, rid, "completed", finished=labfiles.now())   # it finished just as the lab paused
     executor.tick(lab, spawn=Spawns())
     m = _m(lab, rid)
     assert not m.get("repeat_child") and not m.get("post_processed")
@@ -133,7 +134,7 @@ def test_a_campaign_the_pi_paused_stays_paused_after_the_lab_resumes(camp):
 def _cost(lab, rid, usd):
     _t, _w, path, m = executor.find_run(lab, rid)
     m.setdefault("usage", {})["cost_usd"] = usd
-    manifest.write_manifest(path, m)
+    labfiles.write_json(path, m)
 
 
 def test_the_spend_cap_stops_the_campaign_with_a_final_report(camp):

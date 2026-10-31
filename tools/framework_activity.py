@@ -4,6 +4,8 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
+from labfiles import inside
+
 
 def field(record, path):
     if not isinstance(path, str) or not path:
@@ -32,7 +34,7 @@ def read(definition, project, study, phase):
     for pattern in recipe.get('files', []):
         relative = pattern.replace('{phase}', phase)
         path = root / relative
-        if path.is_symlink() or not path.resolve().is_relative_to(root.resolve()):
+        if not inside(root, path):
             raise ValueError('Activity file escapes its run directory.')
         try:
             with path.open('rb') as stream:

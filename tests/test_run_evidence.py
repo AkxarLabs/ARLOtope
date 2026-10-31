@@ -3,6 +3,7 @@ import json
 import sys
 from pathlib import Path
 
+import labfiles
 import pytest
 import yaml
 
@@ -27,7 +28,7 @@ def test_explainer_is_fresh_and_does_not_touch_source(hub,monkeypatch,backend,st
     _,_,path,source=manifest.find_run(lab,source['run_id'])
     source.update(status=status, session_id='working-session',pending_question={'id':'unanswered'},
                   subagents={'child':{'type':'reviewer','description':'Read the paper','session':'child-session','result':'Reported evidence.'}})
-    manifest.write_manifest(path,source)
+    labfiles.write_json(path,source)
     rd=manifest.run_dir(path.parent,source['run_id'])
     (path.parent/source['stream']).write_text('{"type":"turn.completed"}\n')
     actions.record(rd,None,'spawn',child='child',type='reviewer',summary='Read the paper')
@@ -125,7 +126,7 @@ def test_remote_file_does_not_follow_a_reattached_study(hub,monkeypatch):
     import remote_projects
     lab=configured(hub);source=enqueue(lab,RunSpec('',prompt='Inspect evidence.'))
     _,_,path,run=manifest.find_run(lab,source['run_id'])
-    manifest.write_manifest(path,{**run,'subject':'study','remote':{'machine':'box','path':'/old'}})
+    labfiles.write_json(path,{**run,'subject':'study','remote':{'machine':'box','path':'/old'}})
     monkeypatch.setattr(remote_projects,'project',lambda *a:{'machine':'box','path':'/new'})
     monkeypatch.setattr(remote_projects,'call',lambda *a,**k:pytest.fail('Read an unrelated project'))
     with pytest.raises(ValueError,match='moved'):evidence.project_file(lab,source['run_id'],'REPORT.md')
@@ -138,7 +139,7 @@ def test_remote_evidence_uses_worker_and_discloses_stale_mirror(hub, monkeypatch
     source = enqueue(lab, RunSpec('', prompt='Inspect evidence.'))
     _, _, path, run = manifest.find_run(lab, source['run_id'])
     remote = {'machine': 'test-machine', 'path': '/project'}
-    manifest.write_manifest(path, {**run, 'subject': 'study', 'remote': remote})
+    labfiles.write_json(path, {**run, 'subject': 'study', 'remote': remote})
     monkeypatch.setattr(remote_projects, 'project', lambda *a: remote)
     calls = []
     def read(*args, **kwargs):

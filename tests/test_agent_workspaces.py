@@ -2,6 +2,7 @@
 import json
 from pathlib import Path
 
+import labfiles
 import pytest
 
 from conftest import REPO, kernel, load
@@ -76,7 +77,7 @@ def test_parallel_fork_and_continuation_queue_from_the_same_source(hub):
     source_id = lab_profile.start_graph(lab, 'study', executor.enqueue, executor.RunSpec)[0]
     _, _, path, source = executor.find_run(lab, source_id)
     source.update(status='completed', session_id='seed-session', attempt=1, conversation_started=True)
-    manifest.write_manifest(path, source)
+    labfiles.write_json(path, source)
     k.studies.move(hub.root, 'study', 'done')
 
     children = lab_profile.start_graph(lab, 'study', executor.enqueue, executor.RunSpec)
@@ -90,14 +91,14 @@ def test_parallel_fork_and_continuation_queue_from_the_same_source(hub):
     # Even a higher-priority continuation must leave the source unchanged for its copy.
     from test_executor import Spawns
     continuation['priority'] = 5
-    manifest.write_manifest(executor.find_run(lab, continuation['run_id'])[2], continuation)
+    labfiles.write_json(executor.find_run(lab, continuation['run_id'])[2], continuation)
     assert executor.tick(lab, spawn=Spawns())['started'] == [fork['run_id']]
 
     # The original conversation must remain unchanged until its fork exists.
     with pytest.raises(executor.SpecError, match='active work'):
         contexts.validate_head(lab, continuation)
     fork.update(fork_started=True, conversation_started=True, session_id='fork-session', status='running')
-    manifest.write_manifest(executor.find_run(lab, fork['run_id'])[2], fork)
+    labfiles.write_json(executor.find_run(lab, fork['run_id'])[2], fork)
     contexts.validate_head(lab, continuation)
     assert executor.tick(lab, spawn=Spawns())['started'] == [continuation['run_id']]
 
@@ -136,12 +137,12 @@ def test_context_continuation_resumes_and_prevents_duplicate_ownership(hub):
     path=lab.agents_dir(lab.hub)/'source.json';path.parent.mkdir(parents=True,exist_ok=True)
     source={'run_id':'source','schema':2,'target':'hub','level':'hub','cwd':str(lab.hub),'backend':'codex',
             'session_id':'thread-1','status':'completed','label':'Analyze','last_message':'Evidence is in results.json.'}
-    manifest.write_manifest(path,source)
+    labfiles.write_json(path,source)
     fresh_prompt, fresh = contexts.prepare(lab, {'mode':'fresh'}, 'codex', lab.hub, 'Start independently.')
     assert fresh_prompt == 'Start independently.' and 'session_id' not in fresh and 'resume' not in fresh
     prompt,fields=contexts.prepare(lab,{'mode':'continue','run_id':'source'},'codex',lab.hub,'Review the result.')
     assert fields['session_id']=='thread-1' and fields['resume']['text']==prompt
-    manifest.write_manifest(path.with_name('child.json'),{**source,'run_id':'child','status':'queued'})
+    labfiles.write_json(path.with_name('child.json'),{**source,'run_id':'child','status':'queued'})
     with pytest.raises(executor.SpecError,match='active work'):
         contexts.prepare(lab,{'mode':'continue','run_id':'source'},'codex',lab.hub,'Another task')
     text,fork=contexts.prepare(lab,{'mode':'fresh','handoff':True,'run_id':'source'},'opencode',lab.hub,'Independent work',['results.json'])
@@ -198,7 +199,7 @@ def test_assistant_reads_the_selected_child_without_contacting_its_parent(hub, m
     lab = executor.Lab(hub.root)
     path = lab.agents_dir(hub.root) / 'source.json'
     path.parent.mkdir(parents=True, exist_ok=True)
-    manifest.write_manifest(path, {'schema': 2, 'run_id': 'source', 'target': 'hub',
+    labfiles.write_json(path, {'schema': 2, 'run_id': 'source', 'target': 'hub',
         'level': 'hub', 'subject': 's', 'cwd': str(hub.root), 'backend': 'codex',
         'status': 'running', 'stream': 'source.stream.jsonl',
         'subagents': {'lens-1': {'type': 'reviewer', 'description': 'Check evidence'}}})
@@ -254,7 +255,7 @@ def test_assistant_tools_read_multiple_streams_outside_the_lab(hub, tmp_path, mo
                   'level': 'project', 'cwd': str(project), 'backend': backend,
                   'status': state, 'stream': name + '.stream.jsonl',
                   'subagents': {'review': {'type': 'reviewer', 'result': name + ' child evidence'}}}
-        manifest.write_manifest(path, source)
+        labfiles.write_json(path, source)
         rd = manifest.run_dir(path.parent, name)
         rd.mkdir(parents=True, exist_ok=True)
         for file, content in [(path, None), (path.parent / source['stream'], json.dumps({'text': name}) + '\n'),
@@ -314,7 +315,7 @@ def test_automatic_briefing_checks_eligibility_before_reading_the_lab(hub, monke
     monkeypatch.syspath_prepend(str(REPO/'dashboard'))
     api = load('dashboard/assistant')
     monkeypatch.setattr(api.ctx, 'HUB', hub.root)
-    api._save({'automatic': True, 'sent_at': 0 if busy else time.time()})
+    labfiles.write_json(api._path(), {'automatic': True, 'sent_at': 0 if busy else time.time()})
     monkeypatch.setattr(api, '_run', lambda record: {'status': 'running'} if busy else None)
     monkeypatch.setattr(api.sources, 'snapshot', lambda: pytest.fail('Not yet eligible for a briefing'))
     assert api.update({}) == ({'ok': True, 'automatic': True}, 200)
@@ -492,7 +493,7 @@ def test_assistant_uses_one_native_session_and_refreshes_authoritative_facts(hub
                  if json.loads(p.read_text(encoding='utf-8'))['projects'][0]['state']=='writing')
     assert len(contexts)==2
     before={p:p.read_bytes() for p in contexts}
-    manifest.write_manifest(path,{**updated,'pending_question':{'id':'q'}})
+    labfiles.write_json(path,{**updated,'pending_question':{'id':'q'}})
     assert api.send({'text':'Keep my rejected draft.'})[1]==400
     assert {p:p.read_bytes() for p in contexts}==before
     fresh,code=api.send({'text':'New focus.', 'fresh':True,'study':'s'})

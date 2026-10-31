@@ -213,9 +213,9 @@ def save_home_rows(name: str, rows: list[dict], private: bool = False) -> None:
 
 
 def append_jsonl(path, rec: dict) -> bool:
-    """Add one record to a JSONL file as a single write to an O_APPEND handle, so concurrent writers never
-    tear or interleave a line. Best-effort: False when it could not be written (the bus must never break
-    the lab)."""
+    """Add one record to a JSONL file as a single write to an O_APPEND handle (POSIX then never tears or
+    interleaves a line, whatever its size). Best-effort: False when it could not be written (the bus must
+    never break the lab)."""
     line = (json.dumps(rec, default=str) + "\n").encode("utf-8")
     try:
         Path(path).parent.mkdir(parents=True, exist_ok=True)

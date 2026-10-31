@@ -37,7 +37,7 @@ def _designs() -> list[dict]:
         notes = (d / "notes.md").read_text(encoding="utf-8", errors="replace")[:2000] if (d / "notes.md").is_file() else ""
         out.append({"id": d.name, "ready": has, "request": req, "notes": notes,
                     "collector": next((f.name for f in d.glob("collect.*")), None),
-                    "ts": time.strftime("%Y-%m-%dT%H:%M:%S", time.localtime(d.stat().st_mtime))})
+                    "ts": ctx.ts(d.stat().st_mtime)})
     return out[:30]
 
 

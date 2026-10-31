@@ -24,8 +24,9 @@ from __future__ import annotations
 import json
 import os
 import re
-import time
 from pathlib import Path
+
+import labfiles
 
 REL = Path("lab") / "journal.jsonl"
 ID = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._:-]{0,120}$")
@@ -36,10 +37,6 @@ _cache: dict[str, tuple[tuple, list[dict]]] = {}
 
 def path(hub) -> Path:
     return Path(hub) / REL
-
-
-def now() -> str:
-    return time.strftime("%Y-%m-%dT%H:%M:%S")
 
 
 def events(hub, study: str | None = None, kinds: tuple[str, ...] | None = None) -> list[dict]:
@@ -82,7 +79,7 @@ def append(hub, study: str, kind: str, by: str, **fields) -> dict:
     for name, v in (("study", study), ("kind", kind), ("by", by)):
         if not isinstance(v, str) or not ID.match(v) or ".." in v:
             raise ValueError(f"invalid {name}: {v!r}")
-    ev = {"ts": now(), "study": study, "kind": kind, "by": by}
+    ev = {"ts": labfiles.now(), "study": study, "kind": kind, "by": by}
     for k, v in fields.items():
         if v is None or v == "" or k in ev:
             continue
