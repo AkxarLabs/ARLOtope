@@ -248,7 +248,7 @@ def dispatch(lab, path, m):
 
 def _request(lab, m, request):
     from kernel import studies, branches
-    verb, args = request['verb'], request.get('values') or []
+    verb, args = request.get('verb'), request.get('values') or []
     slug, rid = m['subject'], m['run_id']
     if request.get('run_id') != rid:
         raise RemoteError('This request belongs to another run.')
@@ -325,8 +325,30 @@ def _request(lab, m, request):
     raise RemoteError('Unsupported controller request.')
 
 
+# What a remote machine may tell this Lab about a run: its progress, as data. Everything that names a
+# place or an identity (run_id, subject, target, stream, cwd, skill, judge, workflow_node, backend, pid,
+# last_result's file, …) stays the controller's own.
+REMOTE_FIELDS = frozenset({
+    'status', 'status_ts', 'reason', 'heartbeat', 'attempt', 'attempts', 'transport', 'started', 'finished',
+    'exit_code', 'wall_seconds', 'failure_kind', 'limit_reset', 'not_before', 'no_live', 'resume',
+    'session_id', 'model_used', 'cli', 'cli_version', 'conversation_started', 'fork_started',
+    'pending_question', 'pending_questions', 'pending_permissions', 'external_interactions', 'qa', 'assumed',
+    'delivery_uncertain', 'undelivered_input', 'knowledge_question', 'knowledge_error', 'watch_error',
+    'last_message', 'last_text', 'last_action', 'n_actions', 'in_tool', 'denials', 'usage', 'limits', 'subagents',
+})
+
+
+def remote_progress(remote):
+    """The allowlisted fields of a manifest a remote machine returned, with a status this Lab knows."""
+    from executor.manifest import STATUSES
+    if not isinstance(remote, dict) or remote.get('status') not in STATUSES:
+        raise RemoteError('The remote run reported an unreadable state.')
+    return {k: v for k, v in remote.items() if k in REMOTE_FIELDS}
+
+
 def sync(lab):
-    """Refresh remote mirrors, deliver queued input and settle task-scoped controller requests."""
+    """Refresh remote mirrors, deliver queued input and settle task-scoped controller requests.
+    Every local path comes from this Lab's own record of the run; the remote supplies only data."""
     from executor.manifest import TERMINAL, all_runs, read_manifest, run_dir
     for _, _, path, m in all_runs(lab):
         if not m.get('remote'):
@@ -360,34 +382,29 @@ def sync(lab):
                 raise RemoteError('The remote run is unavailable; no replacement was started.')
             current = read_manifest(path) or m
             m = current
-            remote = poll['manifest']
-            if remote.get('status') == 'queued' and remote.get('resume'):
+            remote = remote_progress(poll['manifest'])
+            if remote['status'] == 'queued' and remote.get('resume'):
                 current['post_processed'] = False  # A late message creates another turn to process.
             # A completed old attempt must never overwrite a locally queued resume.
             if current.get('status') != 'queued':
-                preserved = {k: current[k] for k in ('cwd', 'remote', 'remote_dispatched', 'remote_offset', 'remote_actions_offset', 'remote_records_offset', 'post_processed') if k in current}
-                m.update(remote, **preserved)
+                m.update(remote)
             m['remote_status'], m['remote_error'] = 'connected', None
             m['remote_settled'] = poll.get('settled') is True
             if 'external_activity' in poll:
                 m['external_activity'] = poll['external_activity']
-            blob = base64.b64decode(poll['stream'])
-            stream = path.parent / m['stream']
-            # Offset is committed with the manifest; truncate a replayed tail after an interrupted sync.
-            with stream.open('r+b' if stream.exists() else 'w+b') as f:
-                f.seek(int(m.get('remote_offset', 0)))
-                f.write(blob)
-                f.truncate()
-            m['remote_offset'] = poll['offset']
-            for name, filename in (('actions','actions.jsonl'), ('records','conversation.jsonl')):
-                if name not in poll:continue
-                activity = rd/filename
-                content = base64.b64decode(poll[name])
-                with activity.open('r+b' if activity.exists() else 'w+b') as mirror:
-                    mirror.seek(int(m.get('remote_'+name+'_offset', 0)))
-                    mirror.write(content)
-                    mirror.truncate()
-                m['remote_'+name+'_offset'] = poll[name+'_offset']
+            # Mirror appended bytes at this Lab's own offsets, which are committed with the manifest;
+            # truncating drops a replayed tail after an interrupted sync.
+            for key, mirror, chunk in (('remote_offset', path.with_suffix('.stream.jsonl'), poll['stream']),
+                                       ('remote_actions_offset', rd/'actions.jsonl', poll.get('actions')),
+                                       ('remote_records_offset', rd/'conversation.jsonl', poll.get('records'))):
+                if chunk is None:
+                    continue
+                content = base64.b64decode(chunk)
+                with mirror.open('r+b' if mirror.exists() else 'w+b') as f:
+                    f.seek(int(m.get(key, 0)))
+                    f.write(content)
+                    f.truncate()
+                m[key] = int(m.get(key, 0)) + len(content)
             for rel, content in poll.get('study_files', {}).items():
                 if rel not in outputs:
                     continue
@@ -397,7 +414,10 @@ def sync(lab):
                 dest.parent.mkdir(parents=True, exist_ok=True)
                 dest.write_bytes(base64.b64decode(content))
             for req in poll['requests']:
-                receipt = rd / 'controller-receipts' / (req['id'] + '.json')
+                cid = labfiles.safe_id(req.get('id')) if isinstance(req, dict) else None
+                if not cid:
+                    continue  # No id this Lab can name a receipt by; an honest worker never sends one.
+                receipt = rd / 'controller-receipts' / (cid + '.json')
                 if receipt.exists():
                     response = json.loads(receipt.read_text(encoding='utf-8'))
                 else:
@@ -406,7 +426,7 @@ def sync(lab):
                     except ValueError as error:
                         response = {'code': 1, 'text': str(error)}
                     labfiles.write_json(receipt, response)
-                call(lab.hub, m['target'], 'response', run_id=m['run_id'], id=req['id'], response=response)
+                call(lab.hub, m['target'], 'response', run_id=m['run_id'], id=cid, response=response)
             for item in (rd / 'inbox').glob('*.json'):
                 message = json.loads(item.read_text(encoding='utf-8'))
                 if isinstance(message.get('text'), str):
