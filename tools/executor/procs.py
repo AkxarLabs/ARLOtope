@@ -1,5 +1,5 @@
-"""Portable process control: spawn flags, liveness, tree kill, graceful stop, and the supervisor
-liveness lock.
+"""Portable process control: spawning (`run` / `popen`), spawn flags, liveness, tree kill, graceful stop,
+and the supervisor liveness lock.
 
 Liveness of a *supervisor* is an OS file lock, never a pid probe: the kernel releases the lock the
 instant the holder dies (crash, kill -9, reboot), so there are no PID-reuse false positives and no
@@ -16,6 +16,8 @@ import sys
 import time
 from pathlib import Path
 
+import labfiles  # tools/labfiles.py: stdlib-only, so this module stays loadable by path (arlo.py)
+
 # A killable process group so the whole tree can be reaped (mirrors templates/project/scripts/sweep.py).
 NEW_GROUP = ({"creationflags": subprocess.CREATE_NEW_PROCESS_GROUP} if os.name == "nt"
              else {"start_new_session": True})
@@ -31,6 +33,27 @@ if os.name == "nt":
 else:
     DETACHED = {"start_new_session": True}
     NO_WINDOW = {"start_new_session": True}
+
+
+def _defaults(kwargs: dict) -> dict:
+    """What every child of ours needs: no console window flashing up on Windows, and text decoded as UTF-8
+    (never the console code page; undecodable bytes become U+FFFD instead of raising)."""
+    if os.name == "nt":
+        kwargs["creationflags"] = kwargs.get("creationflags", 0) | getattr(subprocess, "CREATE_NO_WINDOW", 0)
+    if kwargs.get("text") or kwargs.get("universal_newlines") or "encoding" in kwargs or "errors" in kwargs:
+        kwargs.setdefault("encoding", "utf-8")
+        kwargs.setdefault("errors", "replace")
+    return kwargs
+
+
+def run(argv, **kwargs) -> subprocess.CompletedProcess:
+    """subprocess.run with `_defaults`."""
+    return subprocess.run(argv, **_defaults(kwargs))
+
+
+def popen(argv, **kwargs) -> subprocess.Popen:
+    """subprocess.Popen with `_defaults`."""
+    return subprocess.Popen(argv, **_defaults(kwargs))
 
 
 def pid_alive(pid) -> bool:
@@ -72,8 +95,7 @@ def kill_tree(pid) -> None:
         return
     try:
         if os.name == "nt":
-            subprocess.run(["taskkill", "/T", "/F", "/PID", str(pid)], capture_output=True, check=False,
-                           creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0))
+            run(["taskkill", "/T", "/F", "/PID", str(pid)], capture_output=True, check=False)
         else:
             pgid = os.getpgid(pid)
             # Safety belt: every child we spawn is its own session leader (NEW_GROUP), so pgid==pid.
@@ -231,9 +253,9 @@ def _store_python(exe: str) -> bool:
 
 def python_exe() -> str:
     """The interpreter to run helper scripts (supervisor, hooks, MCP host) with — the one running now
-    (known to have pyyaml), unless it is uv's throwaway environment or Windows Store Python: then a durable one, ~/.arlotope/py (a
-    small venv with pyyaml, made once by uv — the same one arlo.py uses). Absolute, so no PATH lookup can
-    pick a different python."""
+    (known to have pyyaml), unless it is uv's throwaway environment or Windows Store Python: then a durable
+    one, `py` in the ARLOtope home (a small venv with pyyaml, made once by uv — the same one arlo.py uses).
+    Absolute, so no PATH lookup can pick a different python."""
     exe = sys.executable or "python"
     store = _store_python(exe)
     if not (_ephemeral(exe) or store) or os.environ.get("ARLOTOPE_KEEP_PYTHON"):
@@ -241,15 +263,15 @@ def python_exe() -> str:
     if _STABLE.get("py"):
         return _STABLE["py"]
     import shutil   # noqa: PLC0415
-    venv = Path(os.environ.get("ARLOTOPE_HOME") or (Path.home() / ".arlotope")) / "py"
+    venv = labfiles.home_path("py")
     py = venv / ("Scripts/python.exe" if os.name == "nt" else "bin/python")
-    ok = py.exists() and subprocess.run([str(py), "-c", "import yaml"], capture_output=True).returncode == 0
+    ok = py.exists() and run([str(py), "-c", "import yaml"], capture_output=True).returncode == 0
     if not ok:
         uv = shutil.which("uv")
         if uv:
             venv.parent.mkdir(parents=True, exist_ok=True)
-            subprocess.run([uv, "venv", "--quiet", "--allow-existing", *(["--managed-python"] if store else []), str(venv)], capture_output=True)
-            subprocess.run([uv, "pip", "install", "--quiet", "--python", str(py), "pyyaml"], capture_output=True)
-        ok = py.exists() and subprocess.run([str(py), "-c", "import yaml"], capture_output=True).returncode == 0
+            run([uv, "venv", "--quiet", "--allow-existing", *(["--managed-python"] if store else []), str(venv)], capture_output=True)
+            run([uv, "pip", "install", "--quiet", "--python", str(py), "pyyaml"], capture_output=True)
+        ok = py.exists() and run([str(py), "-c", "import yaml"], capture_output=True).returncode == 0
     _STABLE["py"] = str(py) if ok else exe
     return _STABLE["py"]

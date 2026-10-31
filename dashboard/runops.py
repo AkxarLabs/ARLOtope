@@ -29,8 +29,7 @@ def _xlab():
 
 
 def _run_ref(body: dict) -> str | None:
-    rid = body.get("run_id") or body.get("id")
-    return rid if (isinstance(rid, str) and ctx.ID_OK.match(rid.strip()) and ".." not in rid) else None
+    return ctx.safe_id(body.get("run_id") or body.get("id"))
 
 
 def _default_chain(skill: str, target: str) -> str:

@@ -5,7 +5,7 @@ that lab's own dashboard server there (`arlo.py --background`), holds an SSH tun
 server proxies the page's API calls through the tunnel (serve.py). Everything a lab does — file reads, agent
 runs, the terminal — happens on the machine the lab lives on; this module only manages the connection.
 
-  registry   ~/.arlotope/machines.json (ARLOTOPE_HOME overrides): {machines: [{id, name, host, labs: [...], facts}]}
+  registry   machines.json in the ARLOtope home: {machines: [{id, name, host, labs: [...], facts}]}
   hosts      suggestions parsed from ~/.ssh/config (named Host entries)
   probe      one non-interactive SSH call: OS, tools (uv, git, python3, agent CLIs), GPUs, schedulers, labs
   connect    key auth: start the remote server + a supervised `ssh -N -L` tunnel (BatchMode, restarts itself)
@@ -33,29 +33,16 @@ import time
 from pathlib import Path
 
 import ctx  # noqa: E402
+from executor import procs  # noqa: E402
 
-
-
-def _home() -> Path:
-    return Path(os.environ.get("ARLOTOPE_HOME") or (Path.home() / ".arlotope"))
-
-
-def _file() -> Path:
-    return _home() / "machines.json"
 
 
 def _load() -> list[dict]:
-    try:
-        return [m for m in json.loads(_file().read_text(encoding="utf-8")).get("machines", []) if isinstance(m, dict)]
-    except (OSError, ValueError, AttributeError):
-        return []
+    return ctx.labfiles.home_rows("machines")
 
 
 def _save(ms: list[dict]) -> None:
-    f = _file()
-    f.parent.mkdir(parents=True, exist_ok=True)
-    from project_worker import private_json
-    private_json(f, {"machines": ms})
+    ctx.labfiles.save_home_rows("machines", ms, private=True)      # holds each runner's session cookie
 
 
 def _get(mid: str) -> dict | None:
@@ -118,7 +105,7 @@ def _opts(batch: bool) -> list[str]:
     if batch:
         o += ["-o", "BatchMode=yes"]
     if os.name == "posix":   # reuse one sign-in (MFA once, then quiet) — OpenSSH on Windows can't multiplex
-        cdir = _home() / "ssh"
+        cdir = ctx.labfiles.home_path("ssh")
         cdir.mkdir(parents=True, exist_ok=True)
         o += ["-o", "ControlMaster=auto", "-o", f"ControlPath={cdir}/%C", "-o", "ControlPersist=8h"]
     return o
@@ -126,8 +113,7 @@ def _opts(batch: bool) -> list[str]:
 
 def _run(host: str, script: str, timeout: float = 60, stdin: bytes | None = None) -> subprocess.CompletedProcess:
     argv = [*ssh_cmd(), *_opts(True), host, "bash -lc " + shlex.quote(script)]
-    return subprocess.run(argv, input=stdin, capture_output=True, timeout=timeout,
-                          creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0) if os.name == "nt" else 0)
+    return procs.run(argv, input=stdin, capture_output=True, timeout=timeout)
 
 
 _AUTH_FAIL = re.compile(r"permission denied|keyboard-interactive|password|verification code|authentication|"
@@ -219,7 +205,7 @@ class Conn:
         self.login_deadline = None
         self._lock = threading.Lock()
         self.expected_lab = None
-        self.pidfile = _home() / 'ssh' / (hashlib.sha256(self.key.encode()).hexdigest()[:20] + '.pid')
+        self.pidfile = ctx.labfiles.home_path('ssh', hashlib.sha256(self.key.encode()).hexdigest()[:20] + '.pid')
 
     def info(self) -> dict:
         return {"machine": self.machine["id"], "host": self.machine["host"], "name": self.machine.get("name") or self.machine["host"],
@@ -291,9 +277,7 @@ class Conn:
         self._close_tunnel()
         argv = [*ssh_cmd(), *_opts(True), "-N", "-o", "ExitOnForwardFailure=yes",
                 "-L", f"{self.lport}:127.0.0.1:{self.rport}", self.machine["host"]]
-        flags = getattr(subprocess, "CREATE_NO_WINDOW", 0) if os.name == "nt" else 0
-        self.tunnel = subprocess.Popen(argv, stdin=subprocess.DEVNULL, stdout=subprocess.DEVNULL,
-                                       stderr=subprocess.PIPE, creationflags=flags)
+        self.tunnel = procs.popen(argv, stdin=subprocess.DEVNULL, stdout=subprocess.DEVNULL, stderr=subprocess.PIPE)
 
     def _connect_window(self) -> dict:
         terminal = ctx.tool("terminal")
@@ -339,9 +323,8 @@ class Conn:
             if not self.want:
                 return False
             if self.window and self.pidfile.exists():
-                from executor.procs import pid_alive
                 try:
-                    if not pid_alive(int(self.pidfile.read_text())):
+                    if not procs.pid_alive(int(self.pidfile.read_text())):
                         self.error = 'The SSH window closed. Connect again to retry.'
                         self.state = 'error'
                         return False
@@ -451,9 +434,8 @@ class Conn:
         """An expired prompt must not leave a late-authenticating SSH tunnel behind."""
         self.login_deadline = None
         if self.pidfile.exists():
-            from executor.procs import kill_tree
             try:
-                kill_tree(int(self.pidfile.read_text(encoding='utf-8')))
+                procs.kill_tree(int(self.pidfile.read_text(encoding='utf-8')))
             except (OSError, ValueError):
                 pass
             self.pidfile.unlink(missing_ok=True)
@@ -649,18 +631,18 @@ def create_lab(body: dict) -> tuple[dict, int]:
         return {"error": "a machine, a folder and confirm"}, 400
     tpl = ctx.ROOT
     try:
-        tar = subprocess.run(["git", "-C", str(tpl), "archive", "--format=tar", "HEAD"], capture_output=True, timeout=120).stdout
+        tar = procs.run(["git", "-C", str(tpl), "archive", "--format=tar", "HEAD"], capture_output=True, timeout=120).stdout
     except (OSError, subprocess.TimeoutExpired) as e:
         return {"error": f"could not package the template: {e}"}, 500
     if not tar:
         return {"error": "can't package the template: it is not a git checkout"}, 500
-    tmp = f".arlotope/tpl-{int(time.time())}"
-    r = _run(m["host"], f'mkdir -p "$HOME/{tmp}" && tar -x -C "$HOME/{tmp}"', timeout=300, stdin=tar)
+    tmp = f"${{TMPDIR:-/tmp}}/arlotope-tpl-{int(time.time())}"
+    r = _run(m["host"], f'mkdir -p "{tmp}" && tar -x -C "{tmp}"', timeout=300, stdin=tar)
     if r.returncode != 0:
         kind, msg = _why(r)
         return {"error": msg, "needs_interactive": kind in INTERACTIVE}, 400
     nm = f' --name "{name}"' if name else ""
-    r = _run(m["host"], f'{PATH_PREFIX}; cd "$HOME/{tmp}" && python3 tools/new_lab.py {_rpath(dest)}{nm}; rc=$?; cd; rm -rf "$HOME/{tmp}"; exit $rc',
+    r = _run(m["host"], f'{PATH_PREFIX}; cd "{tmp}" && python3 tools/new_lab.py {_rpath(dest)}{nm}; rc=$?; cd; rm -rf "{tmp}"; exit $rc',
              timeout=300)
     out = (r.stdout or b"").decode("utf-8", "replace") + (r.stderr or b"").decode("utf-8", "replace")
     if r.returncode != 0:
