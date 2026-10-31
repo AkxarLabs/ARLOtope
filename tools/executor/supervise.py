@@ -379,7 +379,6 @@ def _prepare(lab: Lab, b, st: _State, workdir: Path, rd: Path, is_live: bool):
 
 
 def _run(lab: Lab, b, st: _State, workdir: Path, adir: Path, rd: Path, is_live: bool) -> int:
-    m, run_id = st.m, st.m["run_id"]
     a = _prepare(lab, b, st, workdir, rd, is_live)
     if isinstance(a, int):
         return a

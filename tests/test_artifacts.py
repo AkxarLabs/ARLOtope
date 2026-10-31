@@ -81,7 +81,8 @@ def test_old_study_results_and_explanations_are_filtered_before_paging(art,hub,m
         if not before:break
     assert len(ids)==len(set(ids))==305 and ids==sorted(ids,reverse=True)
     assert art.all_artifacts(hub.root,study='old-study')[0]['about']['run']=='old-run'
-    assert [a['detail']['artifact'] for a in server.artifacts.attention_items()]==['a-20260101-000000-0000']
+    waiting=lambda:[a['detail']['artifact'] for a in load('lab_attention').extra_items(hub.root) if a['kind']=='artifact']   # a question in Needs you
+    assert waiting()==['a-20260101-000000-0000']
     revision=art.revision(hub.root)
     server.artifacts.seen({'ids':['a-20260101-000000-0000']})
     assert art.revision(hub.root)!=revision
@@ -89,7 +90,7 @@ def test_old_study_results_and_explanations_are_filtered_before_paging(art,hub,m
     server.artifacts.seen({'ids':['a-20260101-000000-0000']})
     assert art.revision(hub.root)==revision  # viewing an already-seen record cannot cause a refresh loop
     assert server.artifacts.reply({'id':'a-20260101-000000-0000','text':'Please clarify the assumptions.'})[1]==200
-    assert not server.artifacts.attention_items()
+    assert not waiting()
 
 
 def test_unreadable_source_has_a_useful_error_and_leaves_no_partial_artifact(art,hub,tmp_path,monkeypatch):

@@ -3,8 +3,9 @@ name: ci
 # Mechanical guardrails for the lab, run on every push/PR:
 #   lab-checks      — registry consistency, dashboard import, docs build (strict)
 #   hub-tools       — hermetic pytest regression suite for the hub's trust tools
-#                     (tests/), on Linux, Windows and macOS — the integrity layer (audit,
-#                     guards, bus, slots, dashboard, write-backs) must stay green.
+#                     (tests/), on Linux, Windows and macOS, spread over the runner's cores
+#                     with pytest-xdist — the integrity layer (audit, guards, bus, slots,
+#                     dashboard, write-backs) must stay green.
 #   template-smoke  — spawn templates/project/ and run its check_project + pytest + a
 #                     2-seed sweep, on Linux, Windows and macOS (much of the tooling is
 #                     Windows-hardened, so the Windows leg earns its keep).
@@ -58,7 +59,7 @@ jobs:
       - name: Hub trust-tools regression suite (hermetic)
         env:
           ARLOTOPE_HOME: ${{ runner.temp }}/arlotope-test-home
-        run: uv run --with pyyaml --with pytest python -m pytest tests/ -vv -s -o faulthandler_timeout=90
+        run: uv run --with pyyaml --with pytest --with pytest-xdist python -m pytest tests/ -v -n auto -o faulthandler_timeout=90
 
   template-smoke:
     strategy:

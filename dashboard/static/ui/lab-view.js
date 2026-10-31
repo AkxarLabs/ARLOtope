@@ -108,7 +108,7 @@
     latest = e.data; sync().catch(report);
   });
   try {
-    world = await Lab3D.createWorld(document.getElementById('scene'), { lamp: latest?.theme||document.documentElement.dataset.lamp, legacyMovement: true });
+    world = await Lab3D.createWorld(document.getElementById('scene'), { lamp: latest?.theme||document.documentElement.dataset.lamp });
     world.onClick(id => send({ kind: 'study', id }),()=>send({kind:'inbox'}));
     world.onRun((id,sub) => inspect('run',id,sub));
     world.onWorker(id=>inspect('worker',id));

@@ -96,7 +96,6 @@ ROOMS_HEAD = """\
 """
 
 STEP_KEYS = ("label", "do", "room", "also", "tags", "agent")
-WORKFLOW_KEYS = ("title", "blurb", "default", "path", "routes", "use", "checkpoints", "nodes", "start", "tags")
 CP_KEYS = ("id", "title", "before", "during", "at", "approver", "checks", "watch", "evidence", "means", "tell", "confirm", 'judge', 'decisions')
 
 

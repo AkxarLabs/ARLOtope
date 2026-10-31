@@ -16,6 +16,7 @@ from __future__ import annotations
 
 import importlib.util
 import os
+import shutil
 import sys
 import textwrap
 from pathlib import Path
@@ -32,6 +33,22 @@ os.environ.setdefault("ARLOTOPE_NO_AUTOTICKER", "1")
 # the suite runs under `uv run --with …` (a throwaway env) but lives shorter than it: keep this interpreter
 # for the processes it starts instead of building the durable ~/.arlotope/py one
 os.environ.setdefault("ARLOTOPE_KEEP_PYTHON", "1")
+
+
+@pytest.hookimpl(tryfirst=True)
+def pytest_cmdline_main(config):
+    """Each run keeps its temp dirs in its own folder under tests/ (gitignored): the OS temp base is not
+    writable in some sandboxes, and one shared --basetemp is wiped by every run, so concurrent runs would
+    collide. xdist workers nest under it. Pass --basetemp to choose the place."""
+    if config.option.basetemp is None:
+        config.option.basetemp = Path(__file__).parent / f".pytmp-{os.getpid()}"
+
+
+def pytest_sessionfinish(session, exitstatus):
+    """A passing run leaves nothing behind (a failing one keeps its folder to look into)."""
+    base = session.config.option.basetemp
+    if exitstatus == 0 and base and Path(base).name.startswith(".pytmp-") and not hasattr(session.config, "workerinput"):
+        shutil.rmtree(base, onerror=lambda fn, path, _exc: (os.chmod(path, 0o700), fn(path)))   # git objects are read-only on Windows
 
 
 def load(name: str):

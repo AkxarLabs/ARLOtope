@@ -8,7 +8,7 @@
 (function () {
   'use strict';
   const NL = window.NL;
-  const { html, useState, useEffect, useMemo, cls, useDirty, confirmLeave: leaveOk } = NL;
+  const { html, useState, useEffect, cls, useDirty, confirmLeave: leaveOk } = NL;
 
   /* ── data: GET /api/compose, read again after every edit ─────────────────── */
   const C = { d: null, error: '', read: 0, listeners: new Set() };
@@ -225,7 +225,7 @@
           <div><span>02</span><h3>Shared rooms</h3><p>A task's room is where its agent appears. Tasks and studies share rooms; arrows control what runs next.</p></div>
           <div><span>03</span><h3>Checkpoints</h3><p>Where work waits for a review or a check. You choose what needs approval and what evidence to inspect.</p></div></div>
         <p class="muted small">Edits stay in a draft. Review and publish when ready; the latest publication can be undone.</p>
-        <button type="button" class="link small" onClick=${e=>{NL.ls.set('nl-process-introduced',true);e.currentTarget.closest('details').open=false;}}>Got it</button></details>
+        <button type="button" class="link small" onClick=${e=>{e.currentTarget.closest('details').open=false;}}>Got it</button></details>
       <div class="process-toolbar"><${NL.WorkflowPicker} label="Research workflow" workflows=${workflows} value=${w?.id||''} onChange=${choose} blocked=${x=>NL.frameworkBlocked(x,tools.data)}/>
         <${NL.Btn} onClick=${()=>NL.open(NewWorkflow,{onMade:choose}, {kind:'dialog',key:'wf-new'})}>New workflow</${NL.Btn}></div>
       <${NL.FrameworkTools} read=${tools} machine=${machine} onMachine=${setMachine} onInspect=${id=>choose(workflows.find(x=>NL.requiredFrameworks(x).includes(id))?.id||selected)}/>
