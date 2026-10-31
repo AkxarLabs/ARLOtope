@@ -409,17 +409,16 @@ def _sync_run(lab, path, m):
     from kernel import studies
     state = studies.study(lab.hub, m['subject'])
     outputs = studies.study_outputs(lab.hub, dict(state, step=m.get('workflow_node') or state['step']))
-    from framework_activity import request as activity_request
+    import framework_activity
     try:
-        activity = activity_request(lab.hub, m)
+        activity = framework_activity.request(lab.hub, m)
     except (OSError, ValueError, KeyError, TypeError) as error:
         activity = None
         fields['external_activity'] = {'error': str(error)}
-    if activity:
-        activity.pop('machine')
     poll = call(lab.hub, m['target'], 'poll', run_id=m['run_id'], offset=m.get('remote_offset', 0),
                 actions_offset=m.get('remote_actions_offset', 0), records_offset=m.get('remote_records_offset', 0),
-                study_files=outputs, framework_activity=activity)
+                study_files=outputs,
+                framework_activity=activity and {k: v for k, v in activity.items() if k != 'machine'})
     if not poll.get('found'):
         raise RemoteError('The remote run is unavailable; no replacement was started.')
     remote = remote_progress(poll['manifest'])
@@ -428,8 +427,8 @@ def _sync_run(lab, path, m):
     if remote['status'] == 'queued' and remote.get('resume'):
         fields['post_processed'] = False  # A late message creates another turn to process.
     fields.update(remote_status='connected', remote_error=None, remote_settled=poll.get('settled') is True)
-    if 'external_activity' in poll:
-        fields['external_activity'] = poll['external_activity']
+    if activity and 'external_activity' in poll:   # asked for; kept as data (the root and machine are this Lab's)
+        fields['external_activity'] = framework_activity.remote(poll['external_activity'], activity)
     # Mirror appended bytes at this Lab's own offsets, which are committed with the manifest;
     # truncating drops a replayed tail after an interrupted sync.
     for key, mirror, chunk in (('remote_offset', path.with_suffix('.stream.jsonl'), poll['stream']),
