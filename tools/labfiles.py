@@ -162,9 +162,11 @@ def safe_id(value) -> str | None:
 def inside(root, path) -> bool:
     """`path` stays within `root` once resolved, and is not itself a symlink. A network or device path
     (\\\\host\\share, //host/share, \\\\?\\…, \\\\.\\…) is refused before the file system is touched: even looking at one
-    makes Windows sign in to that host."""
+    makes Windows sign in to that host. Elsewhere a backslash is refused outright: the Lab never writes
+    one, and it is how such a path would pass as an odd relative name."""
     path = Path(path)
-    if str(path).replace("\\", "/").startswith("//"):
+    text = str(path)
+    if text.replace("\\", "/").startswith("//") or (os.sep == "/" and "\\" in text):
         return False
     return not path.is_symlink() and path.resolve().is_relative_to(Path(root).resolve())
 
