@@ -6,7 +6,7 @@
 (function () {
   'use strict';
   const NL = window.NL;
-  const { html, useState, useEffect, useMemo, cls } = NL;
+  const { html, useState, useEffect, cls } = NL;
 
   /* what the study needs next → its one primary button */
   NL.nextFor = (s, it) => {

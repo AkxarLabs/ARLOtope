@@ -6,15 +6,13 @@
 (function () {
   'use strict';
   const NL = window.NL;
-  const { html, useState, useEffect, useMemo, cls } = NL;
+  const { html, useState, useEffect, cls } = NL;
 
   /* ── options shared by every launch ────────────────────────────────────── */
   const DEFAULT_OPTS = { preset: '', role: '', backend: '', model: '', effort: '', max_minutes: '', chain: '', repeat_minutes: '', max_repeats: '' };
   const LaunchOptions = ({ opts, setOpts, allowChain, allowRepeat, target }) => {
     const s = NL.useLab();
     const x = NL.exec(s);
-    const bs = NL.backends(s);
-    const remote = target && NL.item(s, target)?.remote_project;
     const agents=NL.useAgentSettings(target&&target!=='hub'?target:null);
     const chosen=agents?.presets?.find(p=>p.id===opts.preset)||agents?.resolved?.[opts.role||'general'];
     const backend=opts.backend||chosen?.backend||x.backend;
