@@ -69,3 +69,52 @@ def test_remote_request_id_never_becomes_a_local_path(remote_run, tmp_path, bad)
     receipts = remote_run.path.parent/'remote-run.d/controller-receipts'
     assert [p.name for p in receipts.iterdir()] == ['ok-1.json']
     assert not list(tmp_path.rglob('outside_receipt.json'))
+
+
+def _proxied(monkeypatch, status, body, ctype):
+    """The serve module with a remote lab whose dashboard answers every request with `body`."""
+    monkeypatch.syspath_prepend(str(REPO/'dashboard'))
+    server = load('dashboard/serve')
+    class Connection:
+        def __init__(self, *a, **kw): pass
+        def request(self, *a, **kw): pass
+        def getresponse(self):
+            return SimpleNamespace(status=status, read=lambda: body, getheader={'Content-Type': ctype}.get)
+        def close(self): pass
+    monkeypatch.setattr(server.http.client, 'HTTPConnection', Connection)
+    monkeypatch.setattr(server.ctx, 'REMOTE', SimpleNamespace(lport=1, cookie='c', state='connected',
+        info=lambda: {'name': 'box'}, refresh_cookie=lambda: None))
+    handler = object.__new__(server.Handler)
+    handler.headers, handler.command = {}, 'GET'
+    handler._local_only = handler._has_session = lambda: True
+    sent = []
+    handler._send = lambda *args: sent.append(args)
+    return handler, sent
+
+
+@pytest.mark.parametrize('status', [200, 403])
+@pytest.mark.parametrize('ctype', ['text/html', 'image/svg+xml', 'text/plain', 'application/json'])
+def test_remote_dashboard_answers_never_run_on_the_local_origin(monkeypatch, status, ctype):
+    handler, sent = _proxied(monkeypatch, status, b'<script>fetch("/api/keys")</script>', ctype)
+    handler.path = '/api/artifact/file?id=a-1'
+    handler.do_GET()
+    _, _, sent_type, headers = sent[-1]
+    assert sent_type == ctype and headers['X-Content-Type-Options'] == 'nosniff'
+    assert headers['Content-Security-Policy'] == 'sandbox allow-scripts'
+
+
+def test_remote_pdf_stays_viewable_but_unsniffed(monkeypatch):
+    handler, sent = _proxied(monkeypatch, 200, b'%PDF-1.7', 'application/pdf')
+    handler.path = '/api/paper?idea=s'
+    handler.do_GET()
+    assert sent[-1][3] == {'X-Content-Type-Options': 'nosniff'}
+
+
+@pytest.mark.parametrize('body, seed', [
+    (b'fetch("/api/keys",{headers:{"X-Arlotope-Local":"1"}})', None),
+    (b'{"items": [], "note": "</script><script>alert(1)</script>"}',
+     {'items': [], 'note': '</script><script>alert(1)</script>', 'remote': {'name': 'box'}}),
+])
+def test_remote_page_seed_is_json_or_null(monkeypatch, body, seed):
+    handler, _ = _proxied(monkeypatch, 200, body, 'text/html')
+    assert json.loads(handler._remote_seed()) == seed
