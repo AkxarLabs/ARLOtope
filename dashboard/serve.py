@@ -96,14 +96,25 @@ def _is_local_route(route: str) -> bool:
     return route in LOCAL_ONLY_EXACT or route.startswith(LOCAL_ONLY_PREFIXES)
 
 
+# A remote lab's dashboard is another machine's: what it answers is data, never code on this origin.
 def _inject_remote(raw: bytes, conn) -> bytes:
+    """A remote snapshot, re-encoded here as JSON and tagged with where it came from; anything else is null."""
     try:
         obj = json.loads(raw)
     except (ValueError, UnicodeDecodeError):
-        return raw
+        return b"null"
     if isinstance(obj, dict):
         obj["remote"] = conn.info()
     return json.dumps(obj).encode("utf-8")
+
+
+def _remote_headers(ctype: str) -> dict:
+    """Whatever the remote claims, the browser must not sniff it, and any page it carries runs in an opaque
+    sandbox. PDFs are left unsandboxed: browsers won't render one sandboxed, and it runs no script here."""
+    headers = {"X-Content-Type-Options": "nosniff"}
+    if ctype.split(";")[0].strip().lower() != "application/pdf":
+        headers["Content-Security-Policy"] = "sandbox allow-scripts"
+    return headers
 
 
 # A short shared snapshot cache. ThreadingHTTPServer serves each SSE client on its own thread and each
@@ -322,7 +333,8 @@ class Handler(BaseHTTPRequestHandler):
                 if method == "HEAD" or b"session" in body:  # HEAD has no error body to inspect.
                     conn.refresh_cookie()
                     continue
-                return self._send(403, body, r.getheader("Content-Type") or "application/json")
+                ctype = r.getheader("Content-Type") or "application/json"
+                return self._send(403, body, ctype, _remote_headers(ctype))
             break
         ctype = r.getheader("Content-Type") or "application/octet-stream"
         if streaming and r.status == 200:
@@ -350,7 +362,7 @@ class Handler(BaseHTTPRequestHandler):
         hc.close()
         if route == "/api/state" and ctype.startswith("application/json"):
             data = _inject_remote(data, conn)
-        headers = {name: r.getheader(name) for name in ("Content-Security-Policy", "X-Content-Type-Options") if r.getheader(name)}
+        headers = _remote_headers(ctype)
         if method == "HEAD" and r.getheader("Content-Length"):
             headers["Content-Length"] = r.getheader("Content-Length")
         return self._send(r.status, data, ctype, headers)
