@@ -335,7 +335,6 @@ loop:                           # ── /research-loop defaults · project-over
                                 # expand round may append to PLAN.md (each with pre-written criteria)
 
 dashboard:                      # ── visual Lab (dashboard/serve.py) ──
-  port: 8787                    # local-only; see docs/dashboard.md
   editor: vscode                # "open in editor" deep-links: vscode|cursor|vscodium|windsurf|none
                                 # (local-only → <scheme>://file/<abs-path> opens YOUR editor; none = off)
   executor: true                # run the executor's scheduler inside the dashboard (starts queued runs,
