@@ -23,6 +23,7 @@ import hashlib
 import http.client
 import json
 import os
+import signal
 import socket
 import subprocess
 import sys
@@ -66,20 +67,37 @@ def stable_python() -> str:
     return _procs().python_exe()
 
 
-def ping(port: int, timeout: float = 0.6) -> dict | None:
-    # Loopback discovery must not consult OS proxy settings or follow redirects.
+def _local(port: int, method: str, path: str, timeout: float, **request):
+    """One request to a dashboard on this machine → (status, Set-Cookie, body). Loopback only: no OS proxy
+    settings, no redirects."""
     conn = http.client.HTTPConnection('127.0.0.1', port, timeout=timeout)
     try:
-        conn.request('GET', '/api/ping')
+        conn.request(method, path, **request)
         response = conn.getresponse()
-        if response.status != 200:
-            return None
-        data = json.loads(response.read().decode('utf-8'))
+        return response.status, response.getheader('Set-Cookie') or '', response.read()
+    finally:
+        conn.close()
+
+
+def ping(port: int, timeout: float = 0.6) -> dict | None:
+    try:
+        status, _cookie, body = _local(port, 'GET', '/api/ping', timeout)
+        data = json.loads(body.decode('utf-8')) if status == 200 else None
         return data if isinstance(data, dict) and data.get('app') == 'arlotope' else None
     except (OSError, ValueError, http.client.HTTPException):
         return None
-    finally:
-        conn.close()
+
+
+def ask_to_stop(port: int) -> bool:
+    """Stop the dashboard on `port` the way Settings → Stop server does (POST /api/server/stop, with the session
+    the dashboard gives this machine's own processes)."""
+    try:
+        _status, cookie, _body = _local(port, 'GET', '/api/session', 5)
+        status, _cookie, _body = _local(port, 'POST', '/api/server/stop', 10, body=b'{"confirm": true}',
+                                        headers={'Content-Type': 'application/json', 'Cookie': cookie.split(';', 1)[0]})
+        return status == 200
+    except (OSError, http.client.HTTPException):
+        return False
 
 
 def port_free(port: int) -> bool:
@@ -134,6 +152,9 @@ def running_for(hub: Path, port: int | None = None) -> tuple[int, dict] | None:
 
 
 def stop(hub: Path) -> dict:
+    """Stop this lab's dashboard and nothing else. It is asked to shut down (it hands queued work to a background
+    scheduler first); only one that does not answer, or does not exit, is killed — that process alone. Never a
+    tree kill: on Windows that also ends the detached supervisors it started, and with them every agent run."""
     hit = running_for(hub)
     try:
         st = json.loads(state_file(hub).read_text(encoding="utf-8"))
@@ -142,14 +163,20 @@ def stop(hub: Path) -> dict:
     pid = (hit[1].get("pid") if hit else None) or st.get("pid")
     if not pid:
         return {"ok": True, "note": "not running"}
-    try:
-        _procs().kill_tree(int(pid))
-    except Exception as e:  # noqa: BLE001
-        return {"error": f"could not stop pid {pid}: {e}"}
-    for _ in range(40):
-        if not (hit and ping(hit[0], 0.3)):
-            break
+    procs = _procs()
+    asked = bool(hit) and ask_to_stop(hit[0])
+    deadline = time.time() + (30 if asked else 0)
+    while procs.pid_alive(pid) and time.time() < deadline:
         time.sleep(0.1)
+    if procs.pid_alive(pid):
+        try:
+            os.kill(int(pid), signal.SIGTERM)   # Windows: TerminateProcess on this one process
+        except (OSError, ValueError) as e:
+            return {"error": f"could not stop pid {pid}: {e}"}
+        for _ in range(50):
+            if not procs.pid_alive(pid):
+                break
+            time.sleep(0.1)
     try:
         state_file(hub).unlink()
     except OSError:
