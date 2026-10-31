@@ -49,6 +49,11 @@ if hasattr(sys.stdout, "reconfigure"):
 
 HERE = Path(__file__).resolve().parent
 STATIC = HERE / "static"
+# The 3D lab frame runs room code an agent wrote, with the whole lab state posted into it: it keeps its opaque
+# sandbox and may load its own scripts, styles, fonts and images, but may not talk to any network or post a form.
+LAB_VIEW_CSP = ("sandbox allow-scripts; default-src 'none'; script-src 'self' 'unsafe-inline' blob:; style-src 'self' 'unsafe-inline'; "
+                "img-src 'self' data: blob:; font-src 'self' data:; connect-src 'none'; form-action 'none'; frame-src 'none'; "
+                "object-src 'none'; base-uri 'none'")
 sys.path.insert(0, str(HERE))
 
 # The dashboard's modules — each one area of the product; all share ctx (the lab being shown), none
@@ -433,7 +438,7 @@ class Handler(BaseHTTPRequestHandler):
                 from urllib.parse import urlencode
                 return self._send(302, b'', 'text/plain', {'Location': '/?' + urlencode({'roomdraft': q['roomdraft']})})
             body = _with_rooms3d(body.decode("utf-8"), "world3d/rooms/").encode("utf-8")
-            headers['Content-Security-Policy'] = 'sandbox allow-scripts'
+            headers['Content-Security-Policy'] = LAB_VIEW_CSP
         # Only public assets are cached. Revalidate every load so edits are visible immediately.
         etag = '"' + hashlib.sha256(body).hexdigest() + '"'
         headers.update({'ETag': etag, 'Cache-Control': 'no-cache'})
