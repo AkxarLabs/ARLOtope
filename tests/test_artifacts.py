@@ -214,20 +214,26 @@ def test_a_run_can_publish_but_never_write_the_pis_reply(hub, monkeypatch):
 
 
 def test_a_runs_sheet_opens_only_the_files_its_transcript_says_it_wrote(hub, tmp_path, monkeypatch):
+    """…and only inside the places the run works (its workdir, the lab, its study's project): a transcript naming a
+    file elsewhere, or a network share, shows nothing and touches nothing."""
     m = _serve(hub, monkeypatch)
     out, _ = m.runops.launch_run({"skill": "lab-status", "confirm": True})
     rid = out["run_id"]
     lab = m.executor.Lab(hub.root)
     _t, _w, path, man = m.executor.find_run(lab, rid)
-    plan = tmp_path / "PLAN.md"
+    plan = hub.root / "PLAN.md"
     plan.write_text("# The plan\n", encoding="utf-8")
-    page = tmp_path / "review.html"
+    page = hub.root / "review.html"
     page.write_text('<h1>Review</h1><button onclick="this.textContent=\'Done\'">Explore</button>', encoding="utf-8")
-    secret = tmp_path / "secret.md"
+    secret = hub.root / "secret.md"
     secret.write_text("not this", encoding="utf-8")
+    outside = tmp_path / "outside.md"
+    outside.write_text("nor this", encoding="utf-8")
     lines = [{"type": "assistant", "message": {"content": [
         {"type": "tool_use", "id": "w1", "name": "Write", "input": {"file_path": str(plan), "content": "# The plan\n"}},
         {"type": "tool_use", "id": "w2", "name": "Write", "input": {"file_path": str(page), "content": page.read_text(encoding="utf-8")}},
+        {"type": "tool_use", "id": "w3", "name": "Write", "input": {"file_path": str(outside), "content": "x"}},
+        {"type": "tool_use", "id": "w4", "name": "Write", "input": {"file_path": r"\\attacker.invalid\share\x.md", "content": "x"}},
         {"type": "tool_use", "id": "b1", "name": "Bash", "input": {"command": f"cat {secret}"}}]}}]
     (path.parent / man["stream"]).write_text("".join(json.dumps(x) + "\n" for x in lines), encoding="utf-8")
     files, code = m.runops.run_files({"run_id": rid})
@@ -238,6 +244,23 @@ def test_a_runs_sheet_opens_only_the_files_its_transcript_says_it_wrote(hub, tmp
     assert code == 200 and got["text"] == "# The plan\n"
     assert m.runops.run_file({"run_id": rid, "path": str(secret)})[1] == 404
     assert m.runops.run_file_raw({"run_id": rid, "path": str(secret)}) is None
+    assert m.runops.run_file({"run_id": rid, "path": str(outside)})[1] == 404
+
+
+def test_an_artifact_shows_only_its_own_copy(art, hub, tmp_path, monkeypatch):
+    """artifact.json is the agent's to write: a `file` naming a path elsewhere, a ../ escape, a network share, or a
+    forged `id` serves nothing (and looks at nothing outside the artifact's folder)."""
+    m = _serve(hub, monkeypatch)
+    (tmp_path / "secret.md").write_text("outside", encoding="utf-8")
+    (tmp_path / "x.md").write_text("# mine\n", encoding="utf-8")
+    a = art.publish("Mine", str(tmp_path / "x.md"))
+    assert m.artifacts.get({"id": a["id"]})[0]["text"] == "# mine\n"
+    rec = art.root(hub.root) / a["id"] / "artifact.json"
+    for forged in ({"file": str(tmp_path / "secret.md")}, {"file": "../../../../../secret.md"},
+                   {"file": r"\\attacker.invalid\share\x.md"},{"id": "../../../..", "file": "secret.md"}):
+        rec.write_text(json.dumps({**a, **forged}), encoding="utf-8")
+        assert m.artifacts.file_route({"id": a["id"]}) is None
+        assert "text" not in m.artifacts.get({"id": a["id"]})[0]
 
 
 def test_an_explanation_is_an_artifact_about_its_run(hub, monkeypatch, tmp_path):

@@ -10,7 +10,7 @@ the hub root, so a tool (or a test) can point it anywhere. pyyaml is used for YA
     load_yaml(path)                    a YAML file as a dict ({} when missing, malformed or not a mapping)
     write_atomic / write_json          replace a file all-or-nothing (private=True: owner-only)
     append_jsonl(path, rec)            add one record to a JSONL file, best-effort
-    inside(root, path)                 the path stays within root and is not itself a symlink
+    inside(root, path)                 the path stays within root, is not itself a symlink, and is not a network path
     safe_id(value)                     a study / run / checkpoint id that is safe to put in a path, or None
     pos_int / pos_float(v, default)    a finite number, or the default
     now(epoch=None) / parse_ts(ts)     the lab's local timestamp format, and back to epoch seconds
@@ -160,8 +160,12 @@ def safe_id(value) -> str | None:
 
 
 def inside(root, path) -> bool:
-    """`path` stays within `root` once resolved, and is not itself a symlink."""
+    """`path` stays within `root` once resolved, and is not itself a symlink. A network or device path
+    (\\\\host\\share, //host/share, \\\\?\\…, \\\\.\\…) is refused before the file system is touched: even looking at one
+    makes Windows sign in to that host."""
     path = Path(path)
+    if str(path).replace("\\", "/").startswith("//"):
+        return False
     return not path.is_symlink() and path.resolve().is_relative_to(Path(root).resolve())
 
 

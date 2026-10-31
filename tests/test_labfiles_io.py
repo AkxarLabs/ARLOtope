@@ -134,6 +134,17 @@ def test_inside_rejects_escapes_and_symlinks(tmp_path):
     assert not labfiles.inside(root, root / "link")
 
 
+def test_inside_refuses_a_network_or_device_path_before_touching_it(tmp_path, monkeypatch):
+    """Resolving a UNC path makes Windows sign in to that host (an NTLM leak): refused without a look."""
+    def touched(self, *a, **k):
+        raise AssertionError(f"looked at {self}")
+    monkeypatch.setattr(Path, "resolve", touched)
+    monkeypatch.setattr(Path, "is_symlink", touched)
+    for bad in (r"\\attacker.invalid\share\x", "//attacker.invalid/share/x", r"\\?\C:\x", r"\\.\pipe\x"):
+        assert not labfiles.inside(tmp_path, bad)
+        assert not labfiles.inside(tmp_path, tmp_path / bad)
+
+
 def test_numbers_fall_back_on_junk_and_non_finite():
     assert labfiles.pos_int("7", 1, 0) == 7 and labfiles.pos_int("x", 3, 0) == 3 and labfiles.pos_int(-4, 1, 2) == 2
     assert labfiles.pos_float("2.5", 0.0) == 2.5

@@ -370,6 +370,16 @@ def test_save_keeps_old_versions_and_validates(pn, hub):
     assert mine["origin"] == "yours" and (pn.user_dir() / "mine" / "panel.yaml").is_file()
 
 
+def test_a_panel_shows_only_a_view_in_its_own_folder(pn, hub):
+    """panel.yaml `view:` names a file in the panel's folder — never one elsewhere, nor a network share."""
+    d = pn.lab_dir(hub.root) / "notes-panel"
+    _panel(pn.lab_dir(hub.root), "notes-panel", {"title": "Notes"})
+    (hub.root / "secret.html").write_text("<p>outside</p>", encoding="utf-8")
+    for view in ("../../../secret.html", str(hub.root / "secret.html"), r"\\attacker.invalid\share\v.html"):
+        (d / "panel.yaml").write_text(yaml.safe_dump({"title": "Notes", "view": view}), encoding="utf-8")
+        assert "outside" not in pn.view_html(hub.root, "notes-panel")
+
+
 def test_the_panels_cli(pn, hub, capsys):
     _quiet(pn, hub)
     hub.add_registry_row("idea-a", state="seed")
