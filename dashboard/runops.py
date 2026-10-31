@@ -8,7 +8,6 @@ import json
 from pathlib import Path
 
 import ctx  # noqa: E402
-import settings  # noqa: E402
 from bus import COMMAND_ACTIONS, append_command  # noqa: E402
 import sources  # noqa: E402
 import workers  # noqa: E402
@@ -170,12 +169,12 @@ def ack_attention(body: dict) -> tuple[dict, int]:
 
 
 def set_programmatic(body: dict) -> tuple[dict, int]:
-    """Flip agents.programmatic.enabled in lab/config.yaml (settings.write_config). It widens autonomy, so
+    """Flip agents.programmatic.enabled in lab/config.yaml (ctx.set_config). It widens autonomy, so
     it needs an explicit confirm and is logged."""
     if not body.get("confirm"):
         return {"error": "turning launching on or off needs explicit confirm"}, 400
     enabled = bool(body.get("enabled"))
-    err = settings.write_config({("agents", "programmatic", "enabled"): enabled})
+    err = ctx.set_config({"agents.programmatic.enabled": enabled})
     if err:
         return {"error": err}, 400
     ctx.pi_log({"action": "executor.enable", "enabled": enabled})

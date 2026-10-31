@@ -1,13 +1,13 @@
 # Config profiles — budget tiers & engine presets
 
-A **profile** is a named, *partial* set of `lab/config.yaml` overrides. Applying one stamps its
-values into `lab/config.yaml` in place (comments preserved) so the lab uses them going forward.
+A **profile** is a named, *partial* set of `lab/config.yaml` overrides. Applying one saves its
+values in `lab/config.yaml` (where a value equal to the default is simply not stored) so the lab uses them going forward.
 
 ```bash
 uv run --with pyyaml python tools/profiles.py list
 uv run --with pyyaml python tools/profiles.py show high
 uv run --with pyyaml python tools/profiles.py diff high          # what would change
-uv run --with pyyaml python tools/profiles.py apply high         # stamp it into lab/config.yaml
+uv run --with pyyaml python tools/profiles.py apply high         # set it in lab/config.yaml
 uv run --with pyyaml python tools/profiles.py save my-preset     # snapshot current settings as a profile
 ```
 

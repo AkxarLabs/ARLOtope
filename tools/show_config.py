@@ -19,6 +19,8 @@ from pathlib import Path
 
 import yaml
 
+import labfiles
+
 if hasattr(sys.stdout, "reconfigure"):
     sys.stdout.reconfigure(encoding="utf-8", errors="replace")
 
@@ -82,10 +84,10 @@ def main() -> int:
     parser.add_argument("experiment", nargs="?", help="experiment yaml name (e.g. exp-004.yaml)")
     args = parser.parse_args()
 
-    lab_cfg = load(HUB / "lab" / "config.yaml")
+    lab_cfg = labfiles.config(HUB)
     print("# Effective configuration")
     print("\nResolution: experiment yaml > project control.yaml > hub lab/config.yaml")
-    print_flat("Layer 1 — lab/config.yaml", lab_cfg)
+    print_flat("Layer 1 — lab settings (lab/config.defaults.yaml + your lab/config.yaml)", lab_cfg)
 
     if not args.project:
         root = (lab_cfg.get("lab") or {}).get("projects_root", "../arlotope-projects")

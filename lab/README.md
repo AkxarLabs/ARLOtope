@@ -5,8 +5,8 @@ ignoring a file does not delete it or back it up.
 
 | Path | Purpose |
 |---|---|
-| `config.defaults.yaml` | Shipped starting settings; tracked as product source |
-| `config.yaml` | Private settings, created from defaults on first use; existing settings are preserved |
+| `config.defaults.yaml` | Every setting and its default; tracked as product source |
+| `config.yaml` | Only the settings you changed, laid over the defaults; created almost empty on first use |
 | `identity.json` | Stable Lab identity; keep it when moving or restoring this Lab |
 | `journal.jsonl`, `REGISTRY.md` | Workflow history and its generated view |
 | `knowledge/`, `notebook/`, `records/` | Research memory, human notes and saved answers |
@@ -19,6 +19,6 @@ server information and the durable Python runtime; it is not the research record
 remain in their own tools.
 
 To update the application, review `git status`, stop the dashboard and pull the source changes.
-Local settings are not overwritten with new defaults. Shared definitions edited under `workflow/`,
+Your `config.yaml` is never overwritten; settings you did not change follow the new defaults. Shared definitions edited under `workflow/`,
 `.claude/skills/` or `agent-roles/` are source changes: commit them on your own branch before pulling
 and review conflicts. Private research should not be pushed to the public application repository.

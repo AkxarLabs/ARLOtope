@@ -93,19 +93,10 @@ def _reset_state(dest: Path) -> None:
 
 
 def _set_config(dest: Path, name: str | None, projects_root: str | None) -> None:
-    from labfiles import ensure_config
-    cfg = ensure_config(dest)
-    text = cfg.read_text(encoding="utf-8-sig")
-    if projects_root:
-        text = re.sub(r'^(\s*projects_root:\s*)"[^"]*"', lambda m: f'{m.group(1)}"{projects_root}"', text, count=1, flags=re.M)
-    if name:
-        safe = name.replace("\\", "").replace('"', "'")[:80]
-        if re.search(r"^\s+name:", text.split("\ncompute:", 1)[0], re.M):
-            text = re.sub(r'^(\s+name:\s*).*$', lambda m: f'{m.group(1)}"{safe}"', text, count=1, flags=re.M)
-        else:
-            text = re.sub(r"^(lab:[^\n]*\n)", lambda m: f'{m.group(1)}  name: "{safe}"                # shown in the dashboard\n',
-                          text, count=1, flags=re.M)
-    cfg.write_text(text, encoding="utf-8", newline="")
+    import labfiles  # noqa: PLC0415
+    labfiles.ensure_lab_files(dest)
+    if err := labfiles.set_config(dest, {"lab.projects_root": projects_root, "lab.name": name and name[:80]}):
+        raise ValueError(err)
 
 
 def create_lab(dest: str | Path, name: str | None = None, projects_root: str | None = None,

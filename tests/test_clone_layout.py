@@ -7,7 +7,7 @@ import pytest
 from conftest import REPO
 
 
-def test_private_config_is_seeded_once_and_preserves_user_values(tmp_path):
+def test_private_config_starts_empty_and_only_holds_the_users_own_changes(tmp_path):
     import labfiles
     from executor.lab import Lab
 
@@ -15,13 +15,14 @@ def test_private_config_is_seeded_once_and_preserves_user_values(tmp_path):
     lab.mkdir()
     defaults = lab / 'config.defaults.yaml'
     defaults.write_text('lab:\n  name: Starter\nagents:\n  programmatic:\n    enabled: false\n')
-    config = labfiles.ensure_config(tmp_path)
-    assert config.read_bytes() == defaults.read_bytes()
+    config = labfiles.ensure_lab_files(tmp_path)
+    assert config.read_text() == labfiles.CONFIG_HEADER and Lab(tmp_path).config()['lab']['name'] == 'Starter'
     config.write_text('lab:\n  name: My research\n')
-    defaults.write_text('lab:\n  name: New defaults\n')
-    assert Lab(tmp_path).config()['lab']['name'] == 'My research'
-    assert config.read_text() == 'lab:\n  name: My research\n'
-    assert not labfiles.ensure_config(tmp_path / 'unrelated').exists()
+    defaults.write_text('lab:\n  name: New defaults\nagents:\n  programmatic:\n    enabled: true\n')
+    assert labfiles.ensure_lab_files(tmp_path) == config and config.read_text() == 'lab:\n  name: My research\n'
+    merged = Lab(tmp_path).config()
+    assert merged['lab']['name'] == 'My research' and merged['agents']['programmatic']['enabled'] is True
+    assert not labfiles.ensure_lab_files(tmp_path / 'unrelated').exists()
 
 
 @pytest.mark.skipif(not shutil.which('git'), reason='git is needed')
