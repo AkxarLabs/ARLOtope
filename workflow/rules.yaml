@@ -252,7 +252,7 @@ rigor_floors:
   eval_frozen: {never: false, why: a profile may never unfreeze the eval}
 
 # paths (hub-relative regexes) a headless run may never write, on top of what is always protected (the journal,
-# the registry, workflow/, the skills, the agent roles and the checks — tools/signature_guard.py FLOOR): the
+# the registry, workflow/, the skills, the agent roles and the checks — tools/kernel/rules.py): the
 # manuals, the templates, the PI's instructions, the rooms and the panels. An agent that wants them different
 # files a proposal instead (`arlo propose`).
 protected_paths:

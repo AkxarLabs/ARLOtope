@@ -49,14 +49,27 @@ def test_generic_fields_mapping_empty_and_bounded_tail(tmp_path):
         A.read(definition,tmp_path,'demo','investigation')
 
 
-def test_remote_activity_uses_existing_worker_rpc(monkeypatch,tmp_path):
+def test_remote_activity_is_data_and_this_lab_decides_where_it_points(monkeypatch,tmp_path):
+    """A machine's activity reaches the page as text and numbers. Its root, machine and sources are this Lab's, so
+    the Source link opens that machine's run folder, never a local file or a network share the machine named."""
     import remote_projects
     seen=[]
-    monkeypatch.setattr(A,'request',lambda *_:{'definition':{'id':'tool'},'project':'/project','study':'demo','phase':'work','machine':'box'})
-    monkeypatch.setattr(remote_projects,'rpc',lambda *args:seen.append(args) or {'events':[]})
-    assert A.view(tmp_path,{},refresh=True)=={'events':[],'machine':'box'}
+    definition={'id':'tool','activity':{'files':['{phase}/events.jsonl']}}
+    monkeypatch.setattr(A,'request',lambda *_:{'definition':definition,'project':'/project','study':'demo','phase':'work','machine':'box'})
+    hostile={'root':'//attacker.invalid/share','machine':'','malformed':'many','events':['junk',
+             {'time':'t','label':'Reading','state':'running','kind':'read','source':'../../etc/passwd','worker':{'x':1}},
+             {'time':'u','label':'Writing','state':'completed','kind':'edit','source':'work/events.jsonl','cycle':2}]}
+    monkeypatch.setattr(remote_projects,'rpc',lambda *args:seen.append(args) or hostile)
+    got=A.view(tmp_path,{},refresh=True)
     assert seen[0][:2]==('box','framework-activity') and 'machine' not in seen[0][2]
-    assert A.view(tmp_path,{'external_activity':{'events':['saved']}})=={'events':['saved']}
+    assert got['machine']=='box' and got['root']=='/project/.arlotope/framework-runs/demo/tool/run' and got['malformed']==0
+    assert [(e['label'],e['source'],e['worker'],e['cycle']) for e in got['events']]==[
+        ('Reading','',None,None),('Writing','work/events.jsonl',None,2)]
+    for junk in ('x',['y'],None):
+        monkeypatch.setattr(remote_projects,'rpc',lambda *args,junk=junk:junk)
+        assert A.view(tmp_path,{},refresh=True)=={'error':'The machine reported unreadable activity.','machine':'box'}
+    stored={'events':[],'machine':'box'}
+    assert A.view(tmp_path,{'external_activity':stored}) is stored     # what sync kept, already taken as data
 
 
 def test_activity_drives_existing_actor_without_creating_workers(monkeypatch):

@@ -338,6 +338,34 @@ def test_lab_wide_approvals_are_the_pis(lab):
         checkpoints.decide_lab(lab.root, "approve-proposal", via="cli")
 
 
+def test_only_an_approval_the_kernel_signed_counts_and_only_once(lab, monkeypatch, tmp_path):
+    """An agent can append a line to the journal: a PI approval it writes (or an old one it appends again after a
+    revoke, or one the kernel recorded inside a run) approves nothing. The key lives in the ARLOtope home, owner-only."""
+    studies.new(lab.root, "s", "S")
+    line = {"ts": "2026-09-01T10:00:00", "study": "s", "kind": "approval", "by": "pi",
+            "checkpoint": "approve-proposal", "decision": "approved", "via": "dashboard"}
+    for forged in (line, {**line, "sig": "0" * 64}, {**line, "study": "lab", "checkpoint": "panel:x", "by": "auto"}):
+        with journal.path(lab.root).open("a", encoding="utf-8") as f:
+            f.write(json.dumps(forged) + "\n")
+    assert not journal.approved(lab.root, "s", "approve-proposal") and not journal.approved(lab.root, "lab", "panel:x")
+    rec = checkpoints.decide(lab.root, "s", "approve-proposal", via="cli")
+    assert rec["sig"] and journal.approved(lab.root, "s", "approve-proposal")
+    import labfiles
+    key = labfiles.home_path(journal.KEY)
+    assert key.is_file() and (sys.platform == "win32" or key.stat().st_mode & 0o077 == 0)
+    checkpoints.decide(lab.root, "s", "approve-proposal", "revoked", via="cli")
+    with journal.path(lab.root).open("a", encoding="utf-8") as f:
+        f.write(json.dumps({k: v for k, v in rec.items() if k != "moved"}) + "\n")      # the old approval, again
+    assert not journal.approved(lab.root, "s", "approve-proposal")
+    monkeypatch.setenv("ARLOTOPE_RUN_ID", "r1")
+    assert "sig" not in journal.append(lab.root, "s", "approval", "pi", checkpoint="approve-proposal", decision="approved")
+    assert not journal.approved(lab.root, "s", "approve-proposal")
+    monkeypatch.setenv("ARLOTOPE_HOME", str(tmp_path / "another-user"))       # another key: nothing stands
+    monkeypatch.delenv("ARLOTOPE_RUN_ID")
+    journal._cache.clear()
+    assert journal.latest(lab.root, "s", "approve-proposal")["decision"] == "revoked"
+
+
 def test_the_journal_is_append_only_and_tolerant(lab):
     studies.new(lab.root, "h", "H")
     with journal.path(lab.root).open("a", encoding="utf-8") as f:
