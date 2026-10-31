@@ -17,13 +17,14 @@ function Install-ARLOtope {
     $ProgressPreference = 'SilentlyContinue'
     [Net.ServicePointManager]::SecurityProtocol = [Net.ServicePointManager]::SecurityProtocol -bor [Net.SecurityProtocolType]::Tls12
     $repo = 'AkxarLabs/ARLOtope'
+    function Get-FullPath($path) { $ExecutionContext.SessionState.Path.GetUnresolvedProviderPathFromPSPath($path) }   # the shim needs full paths
 
-    $root = if ($env:ARLOTOPE_INSTALL_DIR) { $env:ARLOTOPE_INSTALL_DIR } else { Join-Path $env:LOCALAPPDATA 'ARLOtope' }
+    $root = Get-FullPath $(if ($env:ARLOTOPE_INSTALL_DIR) { $env:ARLOTOPE_INSTALL_DIR } else { Join-Path $env:LOCALAPPDATA 'ARLOtope' })
     $app = Join-Path $root 'app'
     $bin = Join-Path $root 'bin'
-    $shortcuts = if ($env:ARLOTOPE_SHORTCUT_DIR) { $env:ARLOTOPE_SHORTCUT_DIR } else { [Environment]::GetFolderPath('Programs') }
+    $shortcuts = Get-FullPath $(if ($env:ARLOTOPE_SHORTCUT_DIR) { $env:ARLOTOPE_SHORTCUT_DIR } else { [Environment]::GetFolderPath('Programs') })
     $labFile = Join-Path $root 'lab.txt'
-    $lab = if ($env:ARLOTOPE_LAB_DIR) { $env:ARLOTOPE_LAB_DIR }
+    $lab = if ($env:ARLOTOPE_LAB_DIR) { Get-FullPath $env:ARLOTOPE_LAB_DIR }
            elseif (Test-Path $labFile) { (Get-Content $labFile -Raw).Trim() }
            else { Join-Path ([Environment]::GetFolderPath('MyDocuments')) 'ARLOtope' }
 
@@ -79,12 +80,15 @@ function Install-ARLOtope {
         }
     }
 
-    # --- switch `current` (a junction: no admin rights needed), keep one previous version, drop older ones ---
+    # --- switch `current` (a junction: no admin rights needed), keep one previous version, drop older ones
+    #     (a re-run of the same version keeps all) ---
     if (Test-Path $current) { [IO.Directory]::Delete($current) }
     New-Item -ItemType Junction -Path $current -Target $dest | Out-Null
-    Get-ChildItem $app -Directory | Where-Object {
-        -not ($_.Attributes -band [IO.FileAttributes]::ReparsePoint) -and $_.Name -ne $ver -and $_.Name -ne $previous
-    } | Remove-Item -Recurse -Force
+    if ($previous -ne $ver) {
+        Get-ChildItem $app -Directory | Where-Object {
+            -not ($_.Attributes -band [IO.FileAttributes]::ReparsePoint) -and $_.Name -ne $ver -and $_.Name -ne $previous
+        } | Remove-Item -Recurse -Force
+    }
 
     # --- the Lab: created once, outside the app, never overwritten ---
     if (Test-Path (Join-Path $lab 'lab\config.yaml')) {

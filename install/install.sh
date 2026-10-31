@@ -20,6 +20,7 @@ START_PATH="$PATH"   # what the user's shell has, before anything below extends 
 say() { printf '%s\n' "$*"; }
 die() { printf 'ARLOtope install: %s\n' "$*" >&2; exit 1; }
 quote() { printf "'%s'" "$(printf '%s' "$1" | sed "s/'/'\\\\''/g")"; }   # shell-quote one value
+abs() { case "$1" in /*) printf '%s' "$1" ;; *) printf '%s/%s' "$PWD" "$1" ;; esac; }   # the shim needs full paths
 
 case "$(uname -s)" in
   Darwin) ROOT_DEFAULT="$HOME/Library/Application Support/ARLOtope"; LAB_DEFAULT="$HOME/Documents/ARLOtope"
@@ -28,10 +29,10 @@ case "$(uname -s)" in
           SHORTCUT_DEFAULT="${XDG_DATA_HOME:-$HOME/.local/share}/applications" ;;
   *) die "unsupported system $(uname -s); on Windows use install.ps1" ;;
 esac
-ROOT="${ARLOTOPE_INSTALL_DIR:-$ROOT_DEFAULT}"
-BIN="${ARLOTOPE_BIN_DIR:-$HOME/.local/bin}"
-SHORTCUTS="${ARLOTOPE_SHORTCUT_DIR:-$SHORTCUT_DEFAULT}"
-if [ -n "${ARLOTOPE_LAB_DIR:-}" ]; then LAB="$ARLOTOPE_LAB_DIR"
+ROOT="$(abs "${ARLOTOPE_INSTALL_DIR:-$ROOT_DEFAULT}")"
+BIN="$(abs "${ARLOTOPE_BIN_DIR:-$HOME/.local/bin}")"
+SHORTCUTS="$(abs "${ARLOTOPE_SHORTCUT_DIR:-$SHORTCUT_DEFAULT}")"
+if [ -n "${ARLOTOPE_LAB_DIR:-}" ]; then LAB="$(abs "$ARLOTOPE_LAB_DIR")"
 elif [ -f "$ROOT/lab.txt" ]; then LAB="$(cat "$ROOT/lab.txt")"
 else LAB="$LAB_DEFAULT"; fi
 APP="$ROOT/app"
@@ -78,9 +79,9 @@ else
   mv "$WORK/unpacked" "$APP/$VER"
 fi
 
-# --- switch `current`, keep one previous version, drop older ones ---
+# --- switch `current`, keep one previous version, drop older ones (a re-run of the same version keeps all) ---
 ln -sfn "$VER" "$APP/current"
-for d in "$APP"/*; do
+[ "$PREVIOUS" = "$VER" ] || for d in "$APP"/*; do
   name="$(basename "$d")"
   [ -d "$d" ] && [ ! -L "$d" ] || continue
   [ "$name" = "$VER" ] || [ "$name" = "$PREVIOUS" ] || rm -rf "$d"
