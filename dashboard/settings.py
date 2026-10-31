@@ -1,5 +1,5 @@
-"""Settings: whitelisted keys of lab/config.yaml written in place (comments kept, refused unless the file
-reads back), the PI's documents, and first-run setup. (Research keys and notifications: keys.py; the
+"""Settings: whitelisted keys, parsed and saved into lab/config.yaml (labfiles.set_config), the PI's
+documents, and first-run setup. (Research keys and notifications: keys.py; the
 System page and compute.scheduler: system.py.)
 """
 
@@ -19,7 +19,7 @@ from labs import lab_name  # noqa: E402
 executor = sources.executor   # tools/executor, or None
 
 
-# ── writing lab/config.yaml: one path for every setting ─────────────────────
+# ── lab/config.yaml: one path for every setting ─────────────────────────────
 # A table maps a setting to (its dotted path, a parser). Parsers raise ValueError with what they want.
 
 def _enum(*allowed):
@@ -125,7 +125,7 @@ LAB_CONFIG = {
     "explore_rounds": (["loop", "explore_max_expansion_rounds"], _num(0, True, 20)),
     "in_project_approval": (["ideation", "in_project_approval"], _enum("pi", "campaign_auto")),
     # "off" is stored as YAML false (a bare `off` would read back as false anyway)
-    "keep_awake": (["lab", "keep_awake"], lambda v: False if _enum("auto", "off")("off" if v is False else v) == "off" else "auto"),
+    "keep_awake": (["lab", "keep_awake"], _enum("auto", "off")),
     # ── the agents: which model each tool runs, and which model each kind of subagent gets ──
     "claude_model": (["agents", "programmatic", "backends", "claude", "model"], _model()),
     "claude_effort": (["agents", "programmatic", "backends", "claude", "effort"], _enum("", "low", "medium", "high", "xhigh", "max")),
@@ -141,7 +141,7 @@ AGENT_KEYS = {k for k in LAB_CONFIG if k.endswith(("_model", "_effort", "_varian
 
 
 def _parse(table: dict, changes) -> tuple[dict, str | None]:
-    """{setting: value} → ({dotted path: parsed value}, None) — or ({}, what's wrong)."""
+    """{setting: value} → ({setting: parsed value}, None) — or ({}, what's wrong)."""
     if not isinstance(changes, dict) or not changes:
         return {}, "no changes"
     out = {}
@@ -149,81 +149,15 @@ def _parse(table: dict, changes) -> tuple[dict, str | None]:
         if k not in table:
             return {}, f"'{k}' can't be changed here"
         try:
-            out[tuple(table[k][0])] = table[k][1](v)
+            out[k] = table[k][1](v)
         except (TypeError, ValueError) as e:
             return {}, f"{k}: must be {e}"
     return out, None
 
 
-def reads_back(text: str, updates: dict) -> str | None:
-    try:
-        import yaml
-        doc = yaml.safe_load(text) or {}
-    except Exception as e:  # noqa: BLE001
-        return f"refused: lab/config.yaml would not parse ({e})"
-    for dotted, v in updates.items():
-        node = doc
-        for part in dotted:
-            node = node.get(part) if isinstance(node, dict) else None
-        if node != v and not (isinstance(v, str) and str(node) == v) and not (v == "" and node is None):   # (a date reads back as a date; blank as nothing)
-            return f"refused: lab/config.yaml would not read back {'.'.join(dotted)} correctly"
-    return None
-
-
-def write_config(updates: dict, *, new_sections: bool = False) -> str | None:
-    """Stamp each {dotted path: value} into lab/config.yaml in place (comments and every other byte kept,
-    tools/profiles.stamp — the /configure writer). A nested block an older config lacks is added; a missing
-    top-level section only with `new_sections`. Nothing is written unless the file reads back with every
-    value. Returns None, or what went wrong."""
-    profiles = ctx.tool("profiles")
-    cfg = ctx.LAB / "config.yaml"
-    text = ctx.read(cfg)
-    if text is None:
-        return "no lab/config.yaml"
-    new = text.replace("\r\n", "\n")
-    for dotted, v in updates.items():
-        # with new_sections, a section added by an earlier update in this same call is filled in, not added twice
-        new, ok = _stamp_or_insert(profiles, new, list(dotted), v, nested_from=1 if new_sections else 2)
-        if not ok:
-            if not new_sections:
-                return f"lab/config.yaml has no '{dotted[0]}' section to put {'.'.join(dotted)} in"
-            new = new.rstrip("\n") + "\n\n" + "".join("  " * d + f"{k}:\n" for d, k in enumerate(dotted[:-1])) + \
-                "  " * (len(dotted) - 1) + f"{dotted[-1]}: {profiles._fmt(v)}\n"
-    err = reads_back(new, updates)
-    if err:
-        return err
-    ctx.write_keep_eol(cfg, text, new)
-    return None
-
-
-def _stamp_or_insert(profiles, text: str, dotted: list, value, nested_from: int = 2) -> tuple[str, bool]:
-    """profiles.stamp, plus: a key missing from an OLDER lab/config.yaml is inserted at the end of its
-    parent block (the parent must exist). Comments and every other byte are kept."""
-    new, changed = profiles.stamp(text, dotted, value)
-    if changed:
-        return new, True
-    lines = text.split("\n")
-    lo, hi, indent = 0, len(lines), 0
-
-    def end_of_block() -> int:   # back over blank lines / the NEXT section's leading comments
-        j = hi
-        while j > lo and (not lines[j - 1].strip() or
-                          (lines[j - 1].lstrip().startswith("#") and profiles._indent(lines[j - 1]) < indent)):
-            j -= 1
-        return j
-
-    for depth, key in enumerate(dotted[:-1]):
-        i = profiles._find_key(lines, key, lo, hi, indent)
-        if i < 0:
-            if depth < nested_from:   # never invent a top-level section here (write_config's new_sections does)
-                return text, False
-            i = end_of_block()     # a nested block an older config lacks (e.g. programmatic.live)
-            lines.insert(i, f"{' ' * indent}{key}:")
-            hi += 1
-        lo, hi = i + 1, profiles._block_end(lines, i, indent)
-        indent += 2
-    lines.insert(end_of_block(), f"{' ' * indent}{dotted[-1]}: {profiles._fmt(value)}")
-    return "\n".join(lines), True
+def _save(table: dict, parsed: dict) -> str | None:
+    """Parsed {setting: value} into lab/config.yaml. None, or what went wrong."""
+    return ctx.set_config({".".join(table[k][0]): v for k, v in parsed.items()})
 
 
 def set_executor_config(body: dict) -> tuple[dict, int]:
@@ -232,11 +166,10 @@ def set_executor_config(body: dict) -> tuple[dict, int]:
         return ctx.no_executor()
     if not body.get("confirm"):
         return {"error": "changing settings needs explicit confirm"}, 400
-    updates, err = _parse(EXEC_CONFIG, body.get("changes"))
-    err = err or write_config(updates, new_sections=True)
+    parsed, err = _parse(EXEC_CONFIG, body.get("changes"))
+    err = err or _save(EXEC_CONFIG, parsed)
     if err:
         return {"error": err}, 400
-    parsed = {k: updates[tuple(EXEC_CONFIG[k][0])] for k in body["changes"]}
     ctx.pi_log({"action": "executor.config", "changes": parsed})
     attention.recheck_executor()   # re-probe (e.g. the new backend's CLI) on the next snapshot
     ctx.KICK.set()
@@ -281,15 +214,9 @@ def lab_config_get() -> tuple[dict, int]:
         for part in path:
             node = node.get(part) if isinstance(node, dict) else None
         out[k] = node
-    tier = None
-    for line in (ctx.read(ctx.LAB / "config.yaml") or "").splitlines()[:40]:
-        m = re.search(r"profile:\s*(low|medium|high)\b", line)
-        if m:
-            tier = m.group(1)
-    out["budget_tier"] = tier
     out["name"] = out.get("name") or ctx.HUB.name
-    out["keep_awake"] = "off" if out.get("keep_awake") is False else (out.get("keep_awake") or "auto")
-    return {"ok": True, "config": out, "setup": setup_status()}, 200
+    out["keep_awake"] = "off" if out["keep_awake"] is False else (out["keep_awake"] or "auto")
+    return {"ok": True, "config": out, "setup": setup_status(), "problems": ctx.config_problems()}, 200
 
 
 def lab_config_set(body: dict) -> tuple[dict, int]:
@@ -297,8 +224,8 @@ def lab_config_set(body: dict) -> tuple[dict, int]:
         return {"error": "changing lab settings needs explicit confirm"}, 400
     changes = dict(body.get("changes") or {})
     tier = changes.pop("budget_tier", None)
-    updates, err = _parse(LAB_CONFIG, changes) if changes else ({}, None)
-    if err or (tier is None and not updates):
+    parsed, err = _parse(LAB_CONFIG, changes) if changes else ({}, None)
+    if err or (tier is None and not parsed):
         return {"error": err or "no changes"}, 400
     notes = []
     if tier is not None:
@@ -309,12 +236,11 @@ def lab_config_set(body: dict) -> tuple[dict, int]:
         if r.returncode != 0:
             return {"error": f"could not apply the {tier} budget profile: {(r.stderr or r.stdout)[-400:]}"}, 400
         notes.append(f"applied the {tier} budget profile")
-    if updates:
-        err = write_config(updates, new_sections=True)
+    if parsed:
+        err = _save(LAB_CONFIG, parsed)
         if err:
             return {"error": err}, 400
-        notes.append(f"saved {len(updates)} setting(s)")
-    parsed = {k: updates[tuple(LAB_CONFIG[k][0])] for k in changes}
+        notes.append(f"saved {len(parsed)} setting(s)")
     if AGENT_KEYS & set(changes):        # the subagents' role files carry their model: render them again
         r = procs.run([sys.executable, str(ctx.HUB / "tools" / "role_sync.py"), "render"], cwd=str(ctx.HUB),
                            capture_output=True, text=True, timeout=60)
@@ -336,8 +262,7 @@ def setup_status() -> dict:
 
 def setup_complete(body: dict) -> tuple[dict, int]:
     done = body.get("done", True)
-    err = write_config({("dashboard", "setup_completed"): time.strftime("%Y-%m-%d") if done else None},
-                       new_sections=True)
+    err = ctx.set_config({"dashboard.setup_completed": time.strftime("%Y-%m-%d") if done else None})
     if err:
         return {"error": err}, 400
     ctx.pi_log({"action": "setup.complete", "done": bool(done)})

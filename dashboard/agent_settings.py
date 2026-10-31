@@ -4,7 +4,6 @@ from pathlib import Path
 import yaml
 
 import ctx
-import settings as config
 from executor import Lab, backends, RunSpec
 from executor import assignments
 
@@ -64,7 +63,7 @@ def save(body):
                     key = (node.get('agent') or {}).get('preset')
                     if key and key not in known:
                         raise ValueError('A workflow uses this preset. Reassign it before removing it.')
-            error = config.write_config({('agents','programmatic',key): value.get(key) for key in ('presets','default_preset','role_presets')})
+            error = ctx.set_config({f'agents.programmatic.{key}': value.get(key) for key in ('presets','default_preset','role_presets')})
             if error:
                 raise ValueError(error)
         ctx.pi_log({'action':'agents.assign', 'study':body.get('study'), 'presets':list(value.get('presets') or {})})

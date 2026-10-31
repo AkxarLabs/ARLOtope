@@ -775,9 +775,9 @@ VERBS = {"status", "studies", "log", "tags", "new", "move", "next", "brief", "ch
 
 def main(argv=None) -> int:
     a = build().parse_args(argv)
-    from labfiles import ensure_config
+    from labfiles import ensure_lab_files
     if a.verb not in ('api','open'):
-        ensure_config(_hub(a))
+        ensure_lab_files(_hub(a))
     return a.fn(a)
 
 

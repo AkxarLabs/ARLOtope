@@ -52,11 +52,12 @@ def _merge(a: dict, b: dict) -> dict:
 
 
 def config(control: dict) -> dict:
-    """The effective scheduler block: the hub's lab/config.yaml, then this project's control.yaml."""
+    """The effective scheduler block: the hub's lab settings, then this project's control.yaml."""
     hub = control.get("hub_path")
     base = {}
     if hub:
-        base = ((_yaml(Path(hub) / "lab" / "config.yaml").get("compute") or {}).get("scheduler") or {})
+        lab = Path(hub) / "lab"      # the shipped defaults, then this lab's own overrides
+        base = _merge(*(((_yaml(lab / f).get("compute") or {}).get("scheduler") or {}) for f in ("config.defaults.yaml", "config.yaml")))
     proj = ((control.get("compute") or {}).get("scheduler") or {})
     sc = _merge(base, proj)
     if os.environ.get("ARLOTOPE_SCHEDULER"):          # a one-off override: ARLOTOPE_SCHEDULER=local
