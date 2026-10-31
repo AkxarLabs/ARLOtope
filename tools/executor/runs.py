@@ -32,18 +32,32 @@ MAX_REPLY_CHARS = 4000
 
 
 def _depth_now() -> int:
-    return pos_int(os.environ.get("AUTOSCIENTIST_AGENT_DEPTH", "0") or 0, 0, 0)
+    return pos_int(os.environ.get("ARLOTOPE_AGENT_DEPTH", "0") or 0, 0, 0)
 
 
-def check_enabled(lab: Lab, *, new_run: bool = True) -> dict:
+def launch_depth(lab: Lab, parent=None) -> int:
+    depth = _depth_now()
+    if parent:
+        try:
+            source = find_run(lab, parent)
+        except (ValueError, TypeError):
+            raise SpecError('The parent run is unavailable.') from None
+        if not source:
+            raise SpecError('The parent run is unavailable.')
+        depth = max(depth, pos_int(source[3].get('depth'), 0, 0) + 1)
+    return depth
+
+
+def check_enabled(lab: Lab, *, new_run: bool = True, parent=None) -> dict:
     """Keep the master switch for execution and the depth cap for creating new agents."""
     prog = lab.prog()
     if not prog.get("enabled"):
         raise SpecError("programmatic launching is off (agents.programmatic.enabled: false) — it is a "
                         "PI-owned opt-in; enable it from the dashboard settings or /configure")
     max_depth = pos_int(prog.get("max_depth", 1), 1, 0)
-    if new_run and _depth_now() >= max_depth:
-        raise SpecError(f"launch depth {_depth_now()} >= max_depth {max_depth} — a launched agent may not "
+    depth = launch_depth(lab, parent) if new_run else 0
+    if new_run and depth >= max_depth:
+        raise SpecError(f"launch depth {depth} >= max_depth {max_depth} — a launched agent may not "
                         "launch further agents; only the top-level orchestrator (the PI) launches")
     return prog
 
@@ -55,7 +69,8 @@ def enqueue(lab: Lab, spec: RunSpec) -> dict:
 
 
 def _enqueue(lab: Lab, spec: RunSpec) -> dict:
-    prog = check_enabled(lab)
+    caller = spec.parent if spec.created_by.startswith('run:') else None
+    prog = check_enabled(lab, parent=caller)
     v = validate(lab, spec)
     import remote_projects
     remote = remote_projects.project(lab.hub, v['subject']) if v['subject'] and v['level'] == 'project' else None
@@ -64,7 +79,9 @@ def _enqueue(lab: Lab, spec: RunSpec) -> dict:
         from kernel import model as workflow_model, studies
         study = studies.study(lab.hub, v['subject'])
         if study and workflow_model.does(study['step'], study['workflow'], study['use'], lab.hub) == v['skill']:
-            spec.role = (workflow_model.step(study['step'], lab.hub).get('agent') or {}).get('role') or spec.role
+            task = {**(workflow_model.step(study['step'], lab.hub) or {}),
+                    **workflow_model.workflow(study['workflow'], lab.hub).get('nodes', {}).get(study['step'], {})}
+            spec.role = (task.get('agent') or {}).get('role') or spec.role
     assignment = spec.extra.get('repeat_assignment') or assignments.resolve(lab, spec, v['subject'], remote)
     backend = assignment['backend']
     if backend not in backends.REGISTRY:
@@ -91,6 +108,17 @@ def _enqueue(lab: Lab, spec: RunSpec) -> dict:
     run_id, mpath = new_run_id(adir, base)
     rd = run_dir(adir, run_id)
     rd.mkdir(parents=True, exist_ok=True)
+    import skill_resources
+    try:
+        methods = skill_resources.prepare(lab, v, spec, rd, remote)
+    except (ValueError, OSError) as error:
+        raise SpecError(str(error)) from None
+    if methods:
+        if not is_ask and not spec.prompt_override:
+            explicit = profile.render_prompt(lab, v, slash_command(v), False)
+            old = profile.render_prompt(lab, v, slash_command(v), backends.get(backend).native_slash)
+            prompt = prompt.replace(old, explicit, 1)
+        prompt = skill_resources.rewrite(prompt, lab.hub, lab.project_dir(v['subject']), rd / 'skills', methods)
     (rd / "prompt.md").write_text(prompt, encoding="utf-8")
     pre = profile.preamble(lab, run_id, {**v, 'explains': spec.extra.get('explains')}, backends.get(backend).ask_tool)
     if role_instructions:
@@ -99,6 +127,8 @@ def _enqueue(lab: Lab, spec: RunSpec) -> dict:
         pre += '\n\nTask-specific role instructions:\n' + spec.extra['role_instructions']
     if spec.campaign:
         pre += "\n\n" + profile.campaign_block(lab, spec, v, run_id)
+    if methods:
+        pre = skill_resources.rewrite(pre, lab.hub, lab.project_dir(v['subject']), rd / 'skills', methods)
     (rd / "preamble.md").write_text(pre, encoding="utf-8")
     if remote:
         remote_projects.capture(lab, v, rd)
@@ -117,7 +147,7 @@ def _enqueue(lab: Lab, spec: RunSpec) -> dict:
         "max_minutes": max_minutes, "max_turns": spec.max_turns,
         "role": spec.role or "orchestrator", "label": spec.label or (ask_label(prompt) if is_ask else v["skill"]),
         "parent": spec.parent, "campaign": spec.campaign, "priority": int(spec.priority or 0),
-        "created_by": spec.created_by, "created": now(), "depth": _depth_now(),
+        "created_by": spec.created_by, "created": now(), "depth": launch_depth(lab, caller),
         "chain": spec.chain, "chain_step": int(spec.extra.get("chain_step") or 0),
         "repeat_minutes": spec.repeat_minutes, "max_repeats": spec.max_repeats,
         "repeat_index": int(spec.extra.get("repeat_index") or 0),
@@ -131,11 +161,14 @@ def _enqueue(lab: Lab, spec: RunSpec) -> dict:
         "brief_sha": profile.stage_brief(lab, v)[1],   # which instructions governed this run (provenance)
     }
     m.update(context_fields)
+    if methods:
+        m['skills'] = methods
     if v.get('subject') and not spec.extra.get('workflow_node'):
         from kernel import studies, model as workflow_model
         study = studies.study(lab.hub, v['subject'])
         if study and workflow_model.does(study['step'], study['workflow'], study['use'], lab.hub) == v['skill']:
             m['assigned_step'] = study['step']
+            m['task_label'] = (workflow_model.step(study['step'], lab.hub) or {}).get('label') or study['step']
             from kernel import journal
             m['assigned_journal_index'] = len(journal.events(lab.hub, v['subject']))
     if remote:
@@ -144,6 +177,10 @@ def _enqueue(lab: Lab, spec: RunSpec) -> dict:
         if spec.extra.get(key) is not None:
             m[key] = spec.extra[key]
     if spec.extra.get('workflow_node'):
+        from kernel import model as workflow_model, studies
+        state = studies.study(lab.hub, v['subject'])
+        node = (workflow_model.workflow(state['workflow'], lab.hub).get('nodes') or {}).get(spec.extra['workflow_node'],{}) if state else {}
+        m['task_label'] = node.get('label') or (workflow_model.step(spec.extra['workflow_node'],lab.hub) or {}).get('label') or spec.extra['workflow_node']
         from kernel.branches import bind
         try:
             binding = bind(lab.hub, v['subject'], spec.extra['workflow_node'], run_id)
@@ -260,6 +297,9 @@ def answer(lab: Lab, run_id: str, answers: dict | None = None, response: str | N
         history.append({"asked_at": pq.get("asked_at"), "question": pq.get("input"), "answers": clean,
                         "response": response or None, "answered_at": now(), "by": "PI", **packet})
         m["qa"] = history[-20:]
+        from . import records
+        records.record(run_dir(path.parent, run_id), m, "answer", request_id=pq.get("tool_use_id"),
+                       by="PI", answers=clean, response=response or None, delivery="queued-for-resume", **packet)
         _clear_stop(path, run_id)
         remaining = [q for q in questions if q['tool_use_id'] != pq['tool_use_id']]
         if form:

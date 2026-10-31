@@ -141,8 +141,8 @@ class Dummy(Backend):
     name = "_dummy"
 
     def prepare(self, a: Attempt) -> None:
-        a.env["NEWTS_RESUME_SID"] = a.resume_sid or a.m.get("session_id") or ""
-        a.env["NEWTS_RESUME_MODE"] = (a.m.get("resume") or {}).get("mode") or ""
+        a.env["ARLOTOPE_RESUME_SID"] = a.resume_sid or a.m.get("session_id") or ""
+        a.env["ARLOTOPE_RESUME_MODE"] = (a.m.get("resume") or {}).get("mode") or ""
 
     def command(self, a: Attempt) -> RunCommand:
         return RunCommand(list(a.cli), with_preamble(a) or None, False)
@@ -212,7 +212,8 @@ def resolve_cli(backend: str, bcfg: dict | None = None) -> list[str] | None:
     explicit = (bcfg or {}).get("command")
     if explicit:
         if isinstance(explicit, list):
-            return [str(x) for x in explicit] if explicit else None
+            program = str(Path(str(explicit[0])).expanduser())
+            return [shutil.which(program) or program, *map(str, explicit[1:])]
         p = Path(str(explicit)).expanduser()
         if p.exists():
             return [str(p)]

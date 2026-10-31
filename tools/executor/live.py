@@ -173,6 +173,9 @@ class Conversation:
         e = ev.get("event")
         m = self.st.m
         if e == "request":
+            from . import records
+            records.record(self.rd, m, 'request', request_id=ev['id'],
+                           request_kind=ev.get('kind'), tool=ev.get('tool'), input=ev.get('input'), why=ev.get('why'))
             req = {**ev, "t0": time.time()}
             if self.campaign and req["kind"] == "permission":
                 self._answer(req, {"allow": False, "message": "The PI is away (campaign run): permission requests "
@@ -189,6 +192,8 @@ class Conversation:
                               "why": req.get("why"), "ts": now()})
                 self.st.write(force=True)
         elif e == "cancelled":
+            from . import records
+            records.record(self.rd, m, 'cancelled', request_id=ev.get('id'))
             self._drop(ev.get("id"))
         elif e == 'elicitation_complete':
             for item in m.get('external_interactions', []):
@@ -273,6 +278,8 @@ class Conversation:
             return
         if k == "message":
             if self.s.send(str(item.get("text") or "")):
+                from . import records
+                records.record(self.rd, self.st.m, 'message', text=str(item.get('text') or ''), by='PI')
                 if item.get('knowledge_question'):
                     self.st.m['knowledge_question']=item['knowledge_question']
                 self.log({"_pi": "message", "text": str(item.get("text") or ""), "ts": now()})
@@ -303,6 +310,10 @@ class Conversation:
         asked_at = (self.st.m.get("pending_question") or {}).get("asked_at")
         if self.s.respond(req, item) is False:
             raise OSError('The agent connection did not accept this response.')
+        from . import records
+        records.record(self.rd, self.st.m, 'answer' if req['kind']=='question' else 'permission',
+                       request_id=req['id'], by=by, **{k:item[k] for k in
+                       ('answers','response','allow','action','content','message') if k in item})
         form = (req.get('input') or {}).get('elicitation') or {}
         if form.get('mode') == 'url' and item.get('action') == 'accept':
             self.st.m.setdefault('external_interactions', []).append({'id':form['elicitationId'],

@@ -161,7 +161,7 @@ def test_desktop_burst_groups_all_remaining_updates_and_opens_inbox():
       function Notice(title,options){this.title=title;this.options=options;notices.push(this)}
       Notice.permission='granted';
       const NL={prefs:{notify:true},toast:title=>toasts.push(title),open:()=>opened.push('inbox'),
-        InboxSheet:{},attOpen:item=>opened.push(item.id)};
+        InboxSheet:{},attOpen:item=>opened.push(item.id),attSubject:()=> 'Lab'};
       const document={hidden:true},window={Notification:Notice,focus(){}};
       vm.runInNewContext(snippet,{NL,document,window,Notification:Notice});
       const state=n=>({attention:Array.from({length:n},(_,i)=>({id:'q'+i,title:'Question '+i,sev:'block'}))});
@@ -188,7 +188,7 @@ def test_final_supervisor_flushes_attention_without_a_dashboard_or_more_work(hub
     if status == 'completed':
         manifest.append_jsonl(lab.bus / 'events.jsonl', {
             'kind': 'run_report', 'run_id': rid, 'ts': manifest.now(), 'data': {'needs_pi': 'other'}})
-    monkeypatch.delenv('NEWTS_NO_AUTOTICKER', raising=False)
+    monkeypatch.delenv('ARLOTOPE_NO_AUTOTICKER', raising=False)
     monkeypatch.setattr(notify, 'config', lambda _lab: {'ntfy': 'intercepted'})
     sent = []
     monkeypatch.setattr(notify, 'send', lambda _cfg, item: sent.append(item) or [])
@@ -212,7 +212,7 @@ def test_final_tick_hands_delayed_work_to_a_live_ticker_instead_of_its_own_lease
     _target, _workdir, path, run = manifest.find_run(lab, rid)
     run['not_before'] = '2099-01-01T00:00:00'
     manifest.write_manifest(path, run)
-    monkeypatch.delenv('NEWTS_NO_AUTOTICKER', raising=False)
+    monkeypatch.delenv('ARLOTOPE_NO_AUTOTICKER', raising=False)
     monkeypatch.setattr(notify, 'config', lambda _lab: {})
     monkeypatch.setattr(scheduler, 'pid_alive', lambda pid: pid in (os.getpid(), 8123))
     spawned = []
@@ -229,7 +229,7 @@ def test_a_dead_dashboard_lease_does_not_hide_remaining_work(hub, monkeypatch):
     from types import SimpleNamespace
     lab = setup(hub)
     _queue(lab, 1)
-    monkeypatch.delenv('NEWTS_NO_AUTOTICKER', raising=False)
+    monkeypatch.delenv('ARLOTOPE_NO_AUTOTICKER', raising=False)
     scheduler.write_lease(lab, 'dashboard', pid=9876)
     monkeypatch.setattr(scheduler, 'pid_alive', lambda _pid: False)
     monkeypatch.setattr(scheduler.subprocess, 'Popen', lambda *_a, **_kw: SimpleNamespace(pid=8123))

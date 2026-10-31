@@ -61,7 +61,7 @@ UNREACHABLE = object()
 
 
 def http_get(url: str, retries: int = 4) -> dict | None:
-    headers = {"User-Agent": "newts-lab-tools"}
+    headers = {"User-Agent": "arlotope-tools"}
     if "semanticscholar" in url and os.environ.get("S2_API_KEY"):
         headers["x-api-key"] = os.environ["S2_API_KEY"]
     for attempt in range(retries):
@@ -88,7 +88,7 @@ def http_get(url: str, retries: int = 4) -> dict | None:
 def http_get_text(url: str, accept: str, retries: int = 4):
     """Like http_get but returns the raw response TEXT (for BibTeX content-negotiation endpoints).
     Same sentinels: a str on success, None on 404, UNREACHABLE on a request failure."""
-    headers = {"User-Agent": "newts-lab-tools", "Accept": accept}
+    headers = {"User-Agent": "arlotope-tools", "Accept": accept}
     for attempt in range(retries):
         try:
             req = urllib.request.Request(url, headers=headers)

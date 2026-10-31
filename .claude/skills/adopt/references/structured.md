@@ -1,0 +1,84 @@
+# Structured adoption
+
+Use this only when the PI requests the experiment/paper contract.
+
+## 1. Short interview — what exists
+
+**If a recent direction doc exists in `lab/ideation/`** (left by `/discuss direction`), read it first
+and seed this interview from its Outcomes and open threads: carry the settled framing into `IDEA.md`
+and don't re-ask what's already decided.
+
+Ask what exists (don't make the PI pick a step name; suggest a fit for review), and which workflow the study follows
+(the default unless the PI names one; `uv run --with pyyaml python arlo.py workflow` lists them).
+Then read that workflow's `path` (`workflow/workflows/<id>.yaml`) and each step's `do:` procedure
+(`workflow/steps.yaml`), and find the step whose procedure is the next one the work needs:
+
+| What exists | Also create | The study should stand at the step whose procedure is |
+|---|---|---|
+| An idea / hypothesis | — | the one after `/triage` (usually `/lit-review`) |
+| An idea, and the PI knows the literature | `lit-review.md` stub: what the PI asserts about the literature, each item marked **PI-waived** (not machine-verified); novelty verdict = "PI-asserted" | `/scope` |
+| A settled design (datasets, baselines, metric) | `decisions.md` from the interview — one ADR row per decision already made, rationale from the PI; open ones stay OPEN | `/propose` |
+| An existing code repo, possibly with results | see "Adopting a repo" | `/experiment` if experiments remain, `/analyze` if the results are in |
+| A draft paper that needs only the review machinery | `studies/<slug>/paper/` with the draft and a real `claims.yaml` (every number → an artifact) | `/review-paper` |
+
+This table illustrates the shipped research workflow only. For a custom workflow, inspect its actual
+instructions, required evidence, routes and checkpoints. Propose which tasks should run or use
+existing work; do not force them into the table's research stages. Leave uncertain tasks runnable.
+
+## 2. File the study and scaffold
+
+1. File it: `uv run --with pyyaml python arlo.py new <slug> --title "<title>" [--workflow <id>]`.
+   It lands at the workflow's first step.
+2. Create `studies/<slug>/IDEA.md` from `templates/idea/` carrying the PI's text verbatim (their
+   words are the hypothesis source), plus the files the table lists for this entry point.
+3. Log the entry in the notebook (`lab/notebook/<date>-adopt.md`).
+
+**Adopting a repo** (registering external code as the study's project):
+1. Record it: `uv run --with pyyaml python arlo.py project <slug> <path>`. It may live anywhere;
+   `lab.projects_root` is only the default for spawned projects.
+2. Only for the structured pipeline explicitly requested above, retrofit the project contract — copy from `templates/project/` **everything
+   `scripts/check_project.py` requires** that is missing (it gates step 4, so the list must match):
+   `control.yaml` (fill budgets with the PI), `CLAUDE.md` + `AGENTS.md` (substitute placeholders),
+   `PLAN.md` (write WITH the PI: frozen eval, kill criteria, done vs planned), `EXPERIMENT_LOG.md`
+   (template entry-format header), `NOTES.md` (seed with gotchas and dead ends the PI already knows),
+   `configs/base.yaml` + one smoke experiment yaml adapted to their entry point, a minimal
+   `pyproject.toml` if absent, an empty `runs/registry.jsonl`, and `scripts/`. Also copy
+   `templates/project/.claude/` (trace hooks **and** the vendored `grilling`/`domain-modeling`/
+   `grill-with-docs` skills) if absent — no substitution needed. Don't restructure their code — the
+   contract wraps it; runs just need to land in `runs/<run_id>/` with a registry line (adapt
+   `scripts/run.py` to call their entry point — also where the smoke yaml points).
+3. Whether experiments remain or the results are in decides the step (table above).
+4. From the project, `uv run --with pyyaml python scripts/check_project.py --adopt` must exit 0
+   before the study is placed — the `--adopt` checks add that pre-existing numbers trace to `runs/`
+   artifacts, the `eval_frozen` contract is declared, and figures are regenerable from `runs/`.
+
+## 3. Place the study
+
+Where an adopted study stands is the PI's decision: `arlo.py move <slug> --to <step>` is a PI verb.
+
+- **With the PI in the session:** name the step and list the checkpoints the move passes over (the
+  workflow's `before:` checkpoints at or before that step). Moving past them is the PI's decision,
+  not an approval the agent infers from the interview. When the PI says yes, run
+  `uv run --with pyyaml python arlo.py move <slug> --to <step> --note "adopted: <what exists>" --yes`,
+  or let the PI move it in the dashboard.
+- **Headless:** the move is refused in a run. Say which step it should stand at and why, and stop
+  (run footer `needs_pi=other`, summary naming the step).
+
+`during:` checkpoints of the step it lands at apply unchanged (the brief lists them).
+
+## 4. Integrity rules (what adoption may NOT skip)
+
+- **Skipped work is recorded, not hidden.** Each skipped step gets a line in a
+  `## Skipped on adoption` section at the end of `IDEA.md`: `<step>: PI-waived <date>`, so reviewers and future sessions know
+  what was never machine-verified. A PI-waived lit review means `/write-paper`'s Related Work needs
+  real `/lit-review`-style verified notes before citing — budget for it.
+- **Hard rule 1 is not waivable.** Pre-existing numbers without run artifacts cannot enter analyses
+  or papers. Offer the PI the honest menu: re-run under the contract (they become planned
+  reproduction rows in PLAN.md), or drop them.
+- Adoption never overwrites existing files; additions only, each listed in the report.
+
+## 5. Report
+
+The study's slug and workflow, the step it should stand at (and whether the PI moved it there), files
+created, what was PI-waived, what reproduction work (if any) was queued, and the exact next command
+(`arlo.py next <slug>` once it is placed).

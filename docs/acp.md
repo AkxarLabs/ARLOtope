@@ -8,12 +8,12 @@ study, workflow, queue and checkpoints.
 
 1. Install the ACP server or adapter documented by your agent vendor. An editor’s launcher is not
    necessarily its ACP command.
-2. Open **Settings → Agents & models → Add preset**. Choose **acp** as the harness.
-3. Enter the executable and arguments as a JSON array. Use **Keep preset**, then **Save agent choices**.
-4. Choose **Test**. This negotiates the protocol without sending a model prompt.
-5. Assign the preset as a default, by role, or for one task.
+2. Open **Settings → Agents & models → Connect ACP agent**, or follow **Connect another agent with ACP** from setup.
+3. Enter a name, the **Program**, and its **Arguments**, one argument per line. For `opencode acp`, use `opencode` and `acp`.
+4. Choose **Check connection**. This negotiates ACP v1 without sending a model prompt or saving settings. A slow initialization can take 45 seconds; retry after a timeout or sign-in.
+5. Choose **Save agent**, then assign it as a default, by role, or for one task. Adding an agent leaves the current default unchanged. Model and sign-in method choices are under **Model & advanced settings**.
 
-![Saved agent presets in Settings](assets/current/agent-presets.webp)
+![Connect and check an ACP agent before saving](assets/current/acp-connect.png)
 
 A preset can use a wrapper script to prepare its environment:
 

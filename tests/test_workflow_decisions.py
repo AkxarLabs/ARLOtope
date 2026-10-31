@@ -239,13 +239,12 @@ def test_export_includes_skills_and_hashes_resolved_content(hub):
     assert export(hub.root,'decision-test')['revision'] != a['revision']
 
 
-def test_identity_survives_lab_move_and_upgrades_legacy_marker(hub,tmp_path):
+def test_identity_survives_lab_move(hub,tmp_path):
     from project_identity import lab_identity, register, discover
     first=lab_identity(hub.root)
     moved=tmp_path/'moved';shutil.copytree(hub.root,moved)
     assert lab_identity(moved)==first
-    project=tmp_path/'project';(project/'.bus').mkdir(parents=True)
-    (project/'.bus/newts-owner.json').write_text(json.dumps({'owner':first['execution_owner'],'study':'sample'}))
+    project=tmp_path/'project';project.mkdir()
     identity=register(project,first['execution_owner'],'sample',first['lab_id'])
     assert identity['project_id'] and discover()[0]['identity_matches']
     assert register(project,first['execution_owner'],'sample')['project_id']==identity['project_id']
@@ -259,7 +258,7 @@ def test_project_discovery_is_bounded_and_does_not_attach(tmp_path):
     rows=discover(str(tmp_path),depth=1)
     assert rows[0]['path']==str(project) and not rows[0]['registered']
     assert not (project/'.bus').exists()
-    (project/'.bus').mkdir();(project/'.bus/newts-owner.json').write_text('{broken')
+    (project/'.arlotope').mkdir();(project/'.arlotope/project.json').write_text('{broken')
     with pytest.raises(ValueError,match='identity is invalid'):
         register(project,'owner','sample')
 

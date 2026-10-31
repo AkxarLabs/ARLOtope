@@ -60,7 +60,7 @@ def main() -> int:
         if not (HUB / "studies" / slug / "IDEA.md").exists():
             problems.append(f"studies/{slug}/ has no IDEA.md")
         elif slug not in rows:
-            problems.append(f"studies/{slug}/ is not a study in the journal (newts new {slug} --title …)")
+            problems.append(f"studies/{slug}/ is not a study in the journal (arlo new {slug} --title …)")
 
     # 2. Orphans. Worktree dirs (<slug>-wt-*) in the projects root are transient — skip them.
     #    A paper at studies/<slug>/paper/ needs no separate check — it's nested under the study,
@@ -89,7 +89,7 @@ def main() -> int:
     known = set(model.steps(HUB))
     for slug, row in rows.items():
         if row["state"] not in known:
-            problems.append(f"{slug}: it stands at '{row['state']}', which is not a step (newts move {slug} --to <step>)")
+            problems.append(f"{slug}: it stands at '{row['state']}', which is not a step (arlo move {slug} --to <step>)")
 
     # 5. Executor hygiene (review-level: configuration and orphans, never a hard inconsistency).
     stale.extend(executor_checks(config, rows, projects_root))
@@ -114,7 +114,7 @@ def main() -> int:
 def _tracing_stale(pdir: Path) -> bool:
     """A spawned project missing the current tracer plumbing (subagents then show up less completely)."""
     tmpl = HUB / "templates" / "project"
-    for rel in ("scripts/trace_hook.py", ".opencode/plugins/newts-trace.js", ".codex/hooks.json"):
+    for rel in ("scripts/trace_hook.py", ".opencode/plugins/arlotope-trace.js", ".codex/hooks.json"):
         want, have = tmpl / rel, pdir / rel
         try:
             if want.exists() and (not have.exists() or

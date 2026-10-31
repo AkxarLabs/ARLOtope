@@ -2,7 +2,7 @@
 @font-face{font-family:Newsreader;src:url('../assets/fonts/newsreader-opsz-normal.woff2') format('woff2');font-weight:200 800;font-display:swap}
 @font-face{font-family:'Instrument Sans';src:url('../assets/fonts/instrument-sans-wght-normal.woff2') format('woff2');font-weight:400 700;font-display:swap}
 @font-face{font-family:'IBM Plex Mono';src:url('../assets/fonts/ibm-plex-mono-400.woff2') format('woff2');font-weight:400;font-display:swap}
-[data-md-color-scheme^="autoscientist"]{
+[data-md-color-scheme^="arlotope"]{
  --md-text-font:'Instrument Sans';--md-code-font:'IBM Plex Mono';
  --paper:#f8f5ee;--surface:#fffdf8;--ink:#1b1915;--muted:#5d584f;--edge:#dcd9d1;--accent:#284d53;
  --md-default-bg-color:var(--paper);--md-default-fg-color:var(--ink);--md-default-fg-color--light:var(--muted);
@@ -14,7 +14,7 @@
  --md-footer-fg-color--light:var(--muted);--md-footer-fg-color--lighter:var(--muted);
  --md-typeset-table-color:var(--edge);color-scheme:light;
 }
-[data-md-color-scheme="autoscientist-night"]{
+[data-md-color-scheme="arlotope-night"]{
  --paper:#11181b;--surface:#161f23;--ink:#e9efed;--muted:#a2b1ad;--edge:#354247;--accent:#8bd7ca;
  --md-default-fg-color--lighter:#9ba9a5;--md-code-bg-color:#1d282d;--md-code-hl-color:#29453f;
  --md-code-hl-comment-color:#a2b1ad;--md-code-hl-string-color:#a7d4b6;--md-code-hl-number-color:#dec498;
@@ -32,6 +32,8 @@
 .md-typeset .headerlink{color:var(--muted);opacity:0}
 .md-typeset :hover>.headerlink,.md-typeset .headerlink:focus{opacity:1}
 .md-typeset img{display:block;width:auto;max-width:100%;height:auto;border:1px solid var(--edge);border-radius:4px;margin:1.3rem 0 .65rem}
+.md-typeset .brand-wordmark{border:0;width:440px;max-width:100%}
+[data-md-color-scheme="arlotope-night"] .brand-wordmark,[data-md-color-scheme="arlotope-night"] .md-logo img{filter:brightness(0) invert(.95)}
 .md-typeset img+em,.md-typeset p:has(img)+p>em{color:var(--muted);font-size:.8rem}
 .md-typeset code{border:1px solid var(--edge);border-radius:3px;padding:.08em .3em;font-size:.8em;overflow-wrap:anywhere}
 .md-typeset pre{border:1px solid var(--edge);border-radius:4px;background:var(--md-code-bg-color)}

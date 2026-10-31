@@ -5,6 +5,24 @@ project helpers ship with spawned projects. Existing attached repositories keep 
 Method-specific helpers live with their skill; research checks live in `checks/`. Use a command's
 `--help` for its complete arguments.
 
+## Find a command
+
+| I want to… | Tool |
+|---|---|
+| Launch the dashboard or inspect studies | `arlo` / `arlo.py` |
+| Attach a project | `tools/research_start.py` |
+| Read notes or retained sources | `tools/knowledge.py` |
+| Queue, inspect or resume an agent | `tools/executor_cli.py` |
+| Inspect or save workflow history | `tools/study_history.py` |
+| Publish a report | `tools/artifact.py` |
+| Inspect effective settings | `tools/show_config.py` |
+| Validate Lab definitions | `arlo check` |
+| Use any dashboard API from a terminal | `arlo api` ([guide](api.md)) |
+| Open a study in the browser | `arlo open <study>` |
+
+For dashboard steps, use [Start and follow work](running-work.md). This page covers terminal and
+developer tools. Commands do not require installing a separate ARLOtope package.
+
 ## Checks (`checks/`)
 
 The lab's mechanical rules, one file each — see `checks/README.md`. The guard checks (`append-only`,
@@ -27,9 +45,12 @@ For every claim in the paper's `claims.yaml`, each number must be found in the r
 | `MANUAL` | no match but a derivation is stated — a human must verify; never silently passed | 2 |
 | `FAIL` | artifact missing or no match (closest value reported) | 1 |
 
-`/review-paper` Part A runs this and **blocks** the qualitative review on any FAIL or unresolved MANUAL. This is the mechanical teeth behind "every number traces to an artifact." `--scan-integers` additionally flags bare integers sitting near result words (samples/tasks/runs/seeds/…), excluding years (1900–2099) and structural refs — off by default (integers otherwise swamp the scan with counts and section numbers).
+`/review-paper` Part A runs this and **blocks** the qualitative review on any FAIL or unresolved MANUAL. `--scan-integers` additionally flags bare integers sitting near result words (samples/tasks/runs/seeds/…), excluding years (1900–2099) and structural refs — off by default (integers otherwise swamp the scan with counts and section numbers).
 
-`--scan-novelty` extends the same idea from numbers to **novelty**: it flags priority/superiority claims in `main.tex` prose — *state-of-the-art*, *"first to"*, *outperforms all*, *unprecedented*, *best-known* — that carry no `\cite` (positioning them against the prior work they claim to beat) or `% Cnnn/Nnnn` backing (a traced number, or a `% Nnnn` lit-review novelty pointer). Each is a **WARN (exit 2)** — the discovery-vs-rediscovery gate: `/write-paper` surfaces it while drafting, `/review-paper` + `/finalize` block on an unresolved one, so a "we're first / SOTA" claim must trace to the `/lit-review` novelty verdict exactly as a number traces to an artifact (a mechanical answer to the field's most public failure: rediscovery shipped as discovery). Zero LLM cost — a regex lint, conservative by design (`novel` alone is too common to flag).
+`--scan-novelty` flags priority or superiority claims such as “first to” or “state-of-the-art”
+without a citation or `% Cnnn/Nnnn` evidence pointer. It is a conservative regex check (exit 2),
+not a novelty judgment. The writing procedure surfaces warnings; review and finalization require
+them to be resolved against the literature notes. The word `novel` alone is not flagged.
 
 ### `audit_multiseed.py` · `audit_ablation_coverage.py` · `audit_eval_discipline.py` · `audit_prereg.py` — paper integrity
 
@@ -80,8 +101,8 @@ uv run --with pyyaml python tools/knowledge.py --study <study> ack <id>
 ```
 
 Omit `--study` for Lab records; use `--project /absolute/project` for project-local access without
-the hub. Markdown records and attachments live in the location from `.newts/project.json`, normally
-`.newts/knowledge/`. Notes do not enqueue tasks. `ack` records that a requested note was read;
+the hub. Markdown records and attachments live in the location from `.arlotope/project.json`, normally
+`.arlotope/knowledge/`. Notes do not enqueue tasks. `ack` records that a requested note was read;
 it does not accept an instruction, approve work or start an agent. Workspace Q&A saves a full separate
 answer record. `--kind source` supports URL, DOI, version and coverage metadata so a reference link
 is not confused with a captured full text. See [Shared knowledge](knowledge.md).
@@ -112,13 +133,16 @@ uv run --with pyyaml python .claude/skills/lit-review/tools/s2.py verify studies
 uv run --with pyyaml python .claude/skills/lit-review/tools/s2.py citecheck studies/<slug>/paper
 ```
 
-Semantic Scholar Graph API with OpenAlex fallback. `search` gives `/lit-review` replayable, logged queries (title/year/venue/citations/TLDR per hit); it exits **3** when *both* backends are unreachable, so an empty result is never mistaken for "no prior work".
+The helper uses Semantic Scholar with OpenAlex fallback:
 
-`bibtex` returns the canonical entry for a paper id — no hand-typed bibliography — through a **keyless fallback chain**: Semantic Scholar `citationStyles` → **doi.org content-negotiation** → **Crossref** transform → **OpenAlex** (reconstructed from fields), so it works with no API key even when S2 is down or throttling a keyless caller. arXiv ids resolve via their DataCite DOI (`10.48550/arXiv.<id>`). `--append <references.bib>` writes the entry straight into the bib (dedup'd by key/DOI) and prints the `cite-key` to add to the paper. When a paper has no usable id/DOI, the resolver prints the **agentic fallback**: web-search the title for its DOI, then `bibtex DOI:<doi> --append …` — you supply the DOI, the script fills the entry.
-
-`verify` is the zero-assumption citation audit `/review-paper` runs: every bib entry title-matched against the real record (pass `--threshold <writing.citation_match_threshold>`), year-checked, and retraction-checked via OpenAlex `is_retracted`. **Any nonzero exit blocks** — NOT-FOUND/RETRACTED *and* MISMATCH (near-miss/wrong-year). A fabricated or mismatched citation is a blocking problem, not an advisory finding.
-
-`citecheck` is the **cite-from-lit-review** lint: every `\cite` in the paper's `.tex` must resolve to a `references.bib` entry (**DANGLING** → exit 1) and to a `studies/<slug>/lit-review.md` note (matched by DOI/arXiv id, else ≥70% title-word overlap; **UNGROUNDED** → exit 2, the by-hand confirm list). Catches a citation that's real but was never in the lit review.
+- **`search`** logs queries and returns paper metadata. Exit 3 means both services were unreachable,
+  not that no related work exists.
+- **`bibtex`** tries Semantic Scholar, DOI content negotiation, Crossref and OpenAlex. `--append`
+  retains unique entries by key/DOI. If identifiers are missing, find the DOI and retry with `DOI:<doi>`.
+- **`verify`** checks title, year and retraction metadata. Use `--threshold` to set the title-match
+  threshold. Any nonzero exit blocks paper review.
+- **`citecheck`** matches paper citations to `references.bib` and literature notes. A missing bibliography
+  entry exits 1; a citation without a matching note exits 2 for manual review.
 
 Env keys: `S2_API_KEY` and `OPENALEX_API_KEY`. Configure research service keys in Settings when a
 service requires them or rate-limits anonymous requests. DOI/Crossref resolution supplies additional
@@ -139,7 +163,9 @@ Prints the lab layer, the project's control.yaml, the effective skill values (co
 uv run --with pyyaml python tools/profiles.py list|show <name>|diff <name>|validate <name>|apply <name>|save <name>
 ```
 
-Named, *partial* bundles of `lab/config.yaml` overrides (built-ins in `lab/profiles/`): budget tiers (`low`/`medium`/`high`, scaling agent/subagent counts, parallelism, per-role model strength) and engine presets (`claude-*`/`codex`/`opencode`/`mixed`, setting the headless backend). `apply` stamps each value into `lab/config.yaml` with comments preserved, re-renders backend role files through `role_sync.py` when `agents.*` changes, and refuses profiles that lower an integrity floor (`multi_seed_n` < 3, `oversight: off`, touching `eval_frozen` — `rigor_floors` in `workflow/rules.yaml`). Backend-specific model behavior still applies. `save` snapshots current settings as a named profile. Backs `/configure profile …`. See [Configuration → Profiles](configuration.md).
+`apply` writes the profile's settings while preserving comments and checks the configured integrity
+floors. Changes under `agents.*` re-render role files. `save` stores current settings as a named
+profile. See [profiles and budget tiers](configuration.md#profiles-budget-tiers).
 
 ### `guard.py` — run the lab's checks
 
@@ -159,18 +185,18 @@ non-baseline PLAN.md row traces to a `D-NNN`/`(expand Rn)` origin; a `Headline-c
 **0 = proceed · 1 = blocked · 2 = warn**. Checkpoints run them (`checks:`), watches run them, and agents
 run them where a procedure says so.
 
-Where a study stands and whether a checkpoint is approved are the kernel's, not a check's: `newts move`
+Where a study stands and whether a checkpoint is approved are the kernel's, not a check's: `arlo move`
 refuses an illegal move and holds a study at an unapproved `before` checkpoint, and
-`newts approved <slug> <checkpoint>` exits 0 only when that checkpoint is approved. A check never grants
+`arlo approved <slug> <checkpoint>` exits 0 only when that checkpoint is approved. A check never grants
 an approval.
 
 ### `kernel/` — the lab's definition, its studies and the journal
 
-A library, not a command (`newts` is its command line). stdlib + pyyaml, import-safe.
+A library, not a command (`arlo` is its command line). stdlib + pyyaml, import-safe.
 
 | Module | What it does |
 |---|---|
-| `model.py` | reads the definition: `workflow/steps.yaml`, `workflow/workflows/<id>.yaml`, `workflow/rooms.yaml` and each skill's `newts:` frontmatter; resolves variants (`like:`, `use:`); `check()` validates it |
+| `model.py` | reads the definition: `workflow/steps.yaml`, `workflow/workflows/<id>.yaml`, `workflow/rooms.yaml` and each skill's `arlotope:` frontmatter; resolves variants (`like:`, `use:`); `check()` validates it |
 | `journal.py` | `lab/journal.jsonl`, the one append-only record: every move, wait, approval and finish; a study's place is a fold over it, and `lab/REGISTRY.md` is a view written from it |
 | `studies.py` | file a study, report an outcome (`move`), the PI's moves anywhere (`move_to`), its workflow, swaps and project |
 | `checkpoints.py` | what a checkpoint shows (evidence, checks, history) and deciding it, enforcing who may approve (`approver: me \| me-or-campaign \| auto \| agent`); approving a `before` checkpoint a study waits at moves it on |
@@ -180,27 +206,26 @@ A library, not a command (`newts` is its command line). stdlib + pyyaml, import-
 | `rules.py` | `workflow/rules.yaml`: the rules, the named audits, PI-owned config, rigor floors and protected paths |
 | `define.py` · `diff.py` | writing the definition back (Compose, designers, `tools/new.py`); what a change does, and a designer's draft checked against the live lab |
 | `watch.py` | each run's computed digest, the watches, and flags (`info` · `warn` · `block`, `hold`) |
-| `migrate.py` | brings an older lab (`workflow/stages.yaml`, `lab/approvals.jsonl`) onto the kernel, once; the old files are kept with a `.pre-kernel` suffix |
 
 A journal line is `{ts, study, kind, by, …}`. `kind` is `new`, `move`, `wait`, `finish`, `approval`
 (`decision`: `approved`, `changes-requested` or `revoked`), `workflow`, `use`, `project` or `remap`.
 `study` is a slug, or `lab` for the lab as a whole (a campaign's brief, `campaign:<name>`; a panel's
-collector, `panel:<id>`). `by` is `pi`, `cli`, `run:<id>`, `campaign:<name>`, `auto` or `migration`.
+collector, `panel:<id>`). `by` is `pi`, `cli`, `run:<id>`, `campaign:<name>`, `auto`.
 Only the kernel writes it; the PI's verbs refuse inside an agent run, and the signature guard refuses
 the file and the commands.
 
-### `newts_cli.py` — the lab from a terminal (`newts <verb>`)
+### `arlo_cli.py` — the lab from a terminal (`arlo <verb>`)
 
 ```bash
-uv run --with pyyaml python newts.py status                        # what needs you, what is running, every study
-uv run --with pyyaml python newts.py next <study>                  # where it stands and what runs next
-uv run --with pyyaml python newts.py move <study> <outcome> [--note "…"]
-uv run --with pyyaml python newts.py checkpoint <study> <checkpoint>
-uv run --with pyyaml python newts.py approve <study> <checkpoint> [--note "…"] [--start] [--yes]
-uv run --with pyyaml python newts.py changes <study> <checkpoint> --note "…"
-uv run --with pyyaml python newts.py revoke <study> <checkpoint> [--yes]
-uv run --with pyyaml python newts.py hold <study> [--reason "…"] | release <study> | pause | resume
-uv run --with pyyaml python newts.py panel compute
+uv run --with pyyaml python arlo.py status                        # what needs you, what is running, every study
+uv run --with pyyaml python arlo.py next <study>                  # where it stands and what runs next
+uv run --with pyyaml python arlo.py move <study> <outcome> [--note "…"]
+uv run --with pyyaml python arlo.py checkpoint <study> <checkpoint>
+uv run --with pyyaml python arlo.py approve <study> <checkpoint> [--note "…"] [--start] [--yes]
+uv run --with pyyaml python arlo.py changes <study> <checkpoint> --note "…"
+uv run --with pyyaml python arlo.py revoke <study> <checkpoint> [--yes]
+uv run --with pyyaml python arlo.py hold <study> [--reason "…"] | release <study> | pause | resume
+uv run --with pyyaml python arlo.py panel compute
 ```
 
 Core study and process actions have verbs here and share the dashboard's kernel. Browser-specific
@@ -212,10 +237,10 @@ features also use their focused tools and server routes:
 - monitoring: `flags`, `ack`;
 - runs: `start`, `ask`, `runs`, `run`, `answer`, `reply`, `stop`, `resume`, `pause`, `hold`, `release`;
 - the definition: `workflow [show|set|use|rename-step]`, `brief`, `propose`, `check [--design <folder>]`,
-  `docs [--check]`, `extension [list|install]`, `migrate`, `room`;
+  `docs [--check]`, `extension [list|install]`, `room`;
 - `panels`, `panel`, `approve-collector` and `config`.
 
-`newts.py <verb>` dispatches to it (`newts.py <verb> --help` for one verb's arguments). The PI's verbs
+`arlo.py <verb>` dispatches to it (`arlo.py <verb> --help` for one verb's arguments). The PI's verbs
 (`approve`, `revoke`, `changes`, `move --to`, `workflow set|use|rename-step`, `approve-collector`) refuse
 inside an agent run, and ask you to confirm on a terminal (or pass `--yes`). Most verbs take `--json`.
 
@@ -228,16 +253,16 @@ uv run --with pyyaml python tools/new.py workflow|room|role|check|type <name> --
 uv run --with pyyaml python tools/new.py rule     <id>   --text "**Title.** What it says."
 ```
 
-Copies the closest thing the lab already has under a new name, so nobody hand-edits YAML. A copied skill
-says `like: <skill>`: it is a variant, used in a workflow (`use:`), for one study (`newts workflow use`),
+Copies the closest thing the lab already has under a new name, as a starting point for further edits. A copied skill
+says `like: <skill>`: it is a variant, used in a workflow (`use:`), for one study (`arlo workflow use`),
 or as a step's work. Then the generated docs are refreshed. The signature guard refuses it from a run.
 
 ### `lab_docs.py` — the generated parts of the manuals
 
-Writes the spans between `<!-- newts:<name> … -->` markers from the lab's definition: the rules and
+Writes the spans between `<!-- arlotope:<name> … -->` markers from the lab's definition: the rules and
 workflows in `AGENTS.md`, the head of every SKILL.md (how it finishes, what it must produce), the steps
-table in [The workflow](workflow.md), and the dashboard's built-in copy of the definition. `newts docs`
-writes them; `newts check` reports stale ones. It also writes the room brief (`newts room <room>`).
+table in [The workflow](workflow.md), and the dashboard's built-in copy of the definition. `arlo docs`
+writes them; `arlo check` reports stale ones. It also writes the room brief (`arlo room <room>`).
 
 ### `labfiles.py` — the lab's files, read one way
 
@@ -252,10 +277,10 @@ uv run --with pyyaml python tools/panels.py show <id>       # its summary and da
 ```
 
 A panel is a folder with `panel.yaml`, a `view.html` and, optionally, a collector script. Panels come from
-`dashboard/static/panels/shipped/` (the lab's own, e.g. Compute), `~/.newts/panels/` (yours, across
+`dashboard/static/panels/shipped/` (the lab's own, e.g. Compute), `~/.arlotope/panels/` (yours, across
 labs) and `lab/panels/` (this lab's); a later one overrides an earlier one. A view runs in a sandboxed
 frame with no network. A collector is code, so it runs only once the PI approved that exact version
-(`newts approve-collector <panel>`, a record `panel:<id>`); shipped collectors need no approval. A
+(`arlo approve-collector <panel>`, a record `panel:<id>`); shipped collectors need no approval. A
 panel's data may carry alerts; each becomes a Inbox item, and an alert holds a study only if the PI
 let that panel hold (`may_hold`).
 
@@ -267,7 +292,12 @@ uv run --with pyyaml python tools/configure.py set <key=value> [--project <slug|
 uv run --with pyyaml python tools/configure.py profile <list|show|diff|apply|save> [<name>]
 ```
 
-The mechanical half of `/configure`. `view` wraps `show_config.py` (the effective config + provenance). `set` stamps ONE value into the right layer — `lab/config.yaml` or a project's `control.yaml` (`--project`) — **preserving comments** (reuses `profiles.stamp`), and **refuses a PI-owned key without `--pi-approved`** (the owners are `pi_owned_config` in `workflow/rules.yaml`, mirrored by the Owner column in [Configuration](configuration.md): `lab.*`/`compute.*`/`agents.*`/`critique.*`/`budgets.*`/`oversight.level`/`writing.page_limit`/`writing.venue`/`eval_frozen`/`loop.mode`/`loop.explore_*`/`ideation.in_project*`/`autopilot.max_concurrent_projects` — but *not* the agent-readable `loop.no_progress_backoff_cycles` etc.). Warns loudly on `eval_frozen=false`, and re-renders the role files after an `agents.*` change. `profile` delegates to `profiles.py` (rigor-floor enforced). The judgment — is this the PI, and should the key change — stays in the skill; the tool makes the owner check unskippable.
+`view` shows effective settings. `set` writes one value to `lab/config.yaml`, or project
+`control.yaml` with `--project`, while preserving comments. Researcher-owned keys from
+`workflow/rules.yaml → pi_owned_config` require explicit authorization and `--pi-approved`.
+The flag records that authorization; it is not permission for an agent to grant itself.
+Agent-setting changes re-render role files; `profile` delegates to profile validation.
+See [configuration ownership](configuration.md).
 
 ### `spawn_project.py` — mechanical project scaffolder
 
@@ -276,7 +306,20 @@ uv run --with pyyaml python tools/spawn_project.py --slug <slug> --title "<title
   --project-type ml [--domain econ] [--overlay compete] [--run-smoke] [--skip-guard]
 ```
 
-The deterministic half of `/spawn-project`: copies `templates/project/` → `<projects_root>/<slug>` with the four placeholders substituted as **UTF-8, no BOM** (`hub_path` forward-slashed so `control.yaml` stays valid YAML on Windows — a real failure mode a hand-copy hits), drops the hub-side runtime cruft (`.pytest_cache`/`.bus`/`__pycache__`/stale `runs/` dirs), applies the project-TYPE card + `control.yaml` `project_type` + optional domain profile (`--domain` → `DOMAIN.md`) + optional target-driven overlay (`--overlay compete`), and copies `lab/SYSTEM.md` if present. First it asks the kernel whether the study stands at a step that offers `/spawn-project` (in the research workflow, the step past the approved proposal; `--skip-guard` skips this), and it **refuses** to overwrite a slug with commits or a non-empty `runs/`. With `--run-smoke` it also `uv sync`s, runs the smoke + tests (project-local basetemp) + `check_project.py`, and commits **only if all green** (never a red scaffold). It records the project's path with the kernel. The judgment steps — fill `PLAN.md` from the proposal, set budgets, report the outcome — stay in the skill.
+This tool creates the project scaffold for `/spawn-project`. It:
+
+- Copies `templates/project/` into `<projects_root>/<slug>`, fills placeholders as UTF-8 without a BOM,
+  and removes template caches and runtime records. Hub paths use forward slashes so YAML works on Windows.
+- Adds the project type, `control.yaml` setting and any selected domain or target-driven overlay.
+  It copies `lab/SYSTEM.md` when present.
+- Checks that the current study step offers `/spawn-project`, unless `--skip-guard` was supplied.
+  It refuses to overwrite a project with commits or a non-empty `runs/` directory.
+- With `--run-smoke`, installs the project environment through `uv sync`, runs its smoke test,
+  tests and readiness check, then commits only if they all pass.
+- Registers the project path with the kernel.
+
+The skill handles the research choices: fill `PLAN.md` from the proposal, set the agreed budgets,
+and report the workflow outcome.
 
 ### `role_sync.py` — render backend-native subagent role files
 
@@ -332,13 +375,12 @@ change:
 - `lab/config.yaml` (except in `/setup-lab` and `/configure`);
 - the lab's definition: `workflow/`, the skills, the roles, `checks/` and `extensions/` always, plus
   the manuals, templates, the PI's instructions, rooms and panels (`protected_paths` in
-  `workflow/rules.yaml`); an agent proposes a change with `newts propose` instead;
-- shell commands that do any of the above, or run `newts approve|revoke|changes|approve-collector|ack`,
+  `workflow/rules.yaml`); an agent proposes a change with `arlo propose` instead;
+- shell commands that do any of the above, or run `arlo approve|revoke|changes|approve-collector|ack`,
   `tools/new.py` or `--skip-guard`.
 
-One list drives both the file check and the shell check. It is a speed bump, not a vault: an agent can
-run code, so the kernel also refuses the PI's verbs inside a run, and anything that slips past shows on
-the run's digest and as a flag. If the guard itself fails, it allows the call and raises a flag. Denials
+One list drives both the file check and the shell check. It is a tool-call check, not an OS sandbox: an agent can
+run code, so the kernel also refuses the PI's verbs inside a run, and the run digest can flag observed changes outside the allowed paths. If the guard itself fails, it allows the call and raises a flag. Denials
 are logged to the run's `permissions.jsonl`. See [Autonomy → Headless runs](autonomy.md#headless-runs-the-executor).
 
 ### `lab_profile.py` — this lab's half of running agents
@@ -357,7 +399,7 @@ uv run --with pyyaml python tools/process_writebacks.py [--apply]
 
 `hub_writeback.py` is hard rule 11 as one call from a project session: a dated `lab/notebook/` entry,
 durable insights promoted to `lab/knowledge/`, and, with `--outcome`, the study's outcome reported to the
-kernel (as `newts move`). When the hub is unreachable a project appends a `HUB-WRITEBACK-PENDING:` block
+kernel (as `arlo move`). When the hub is unreachable a project appends a `HUB-WRITEBACK-PENDING:` block
 to its `EXPERIMENT_LOG.md` instead; `process_writebacks.py --apply` applies those later, once each.
 
 ### `lab_bus.py` · `trace_hook.py` — the event bus and the activity tracer
@@ -387,20 +429,20 @@ question alone. A `--question` (with `--choices`, `;`-separated) waits in the **
 goes to the publishing run as its next message, or, if that run cannot accept it, becomes a directive
 for the study's next agent (or the Lab inbox for a Lab-wide output);
 `replies` prints what the PI answered (JSON lines). Stored in `lab/.bus/artifacts/<id>/`; the run, its
-procedure and its study come from `$NEWTS_RUN_ID` / `$NEWTS_RUN_SKILL` / `$NEWTS_RUN_SUBJECT`.
+procedure and its study come from `$ARLOTOPE_RUN_ID` / `$ARLOTOPE_RUN_SKILL` / `$ARLOTOPE_RUN_SUBJECT`.
 Publishing asks for a look; it never approves anything. `--about <run>[:<subagent>]` associates a
 visual explanation with the run it describes. The list API filters by study/run before paging; remote
 publication and replies are forwarded through the owning Lab. See [The dashboard](dashboard.md).
 
-### `new_lab.py` — create a new lab from this template
+### `new_lab.py` — optional local Lab copy
 
 ```bash
 uv run --with pyyaml python tools/new_lab.py <dest> [--name "My lab"] [--projects-root ../my-lab-projects]
 ```
 
-What the dashboard's *Create a new lab* runs:
+Normal installation uses `git clone`. The dashboard's *Create a new lab* offers a separate local copy:
 
-- copies the template's committed files (`git archive HEAD`);
+- copies this checkout's committed files (`git archive HEAD`);
 - empties the journal (and the registry written from it), the knowledge base, the notebook and `studies/`;
 - sets `lab.name` and `lab.projects_root`;
 - runs `git init` and makes the first commit.
@@ -418,10 +460,10 @@ instead use a browser terminal on a remote or headless controller; that terminal
 pass through the server. SSH connection prompts use their native SSH window. See
 [machines and sign-in](compute.md#connect-a-project-machine).
 
-### `newts.py` (repo root) — start the dashboard
+### `arlo.py` (repo root) — start the dashboard
 
 ```bash
-uv run --with pyyaml python newts.py [--hub <lab>] [--port N] [--no-browser]
+uv run --with pyyaml python arlo.py [--hub <lab>] [--port N] [--no-browser]
 ```
 
 It starts `dashboard/serve.py` for the lab and opens the browser. On a machine you reached over SSH
@@ -429,7 +471,7 @@ It starts `dashboard/serve.py` for the lab and opens the browser. On a machine y
 `--background` detaches it, so it outlives your SSH session; `--status` and `--stop` manage it, and
 `--json` makes the output machine-readable. If the dashboard is already running
 for that lab it just opens the browser, and if 8787 is busy it picks the next free port. The
-double-click launchers (`Start Newts Lab.cmd`, `start-newts.command`, `start-newts.sh`) run it.
+double-click launchers (`Start ARLOtope.cmd`, `start-arlotope.command`, `start-arlotope.sh`) run it.
 
 ### `system_probe.py` — what this machine offers
 
@@ -470,23 +512,23 @@ Reads only `runs/registry.jsonl`; markdown output with seed-aggregated mean ± s
 
 ### `figures.py` — the paper-grade figure & table library (`src/project_pkg/`)
 
-Not a CLI — the module every `scripts/figures/` script imports, so figure code in projects stays a few lines and all figures are consistent by construction:
+Not a CLI — the module every `scripts/figures/` script imports, for shared figure dimensions, styling and artifact readers:
 
 - `new_fig(width="single"|"double")` — axes at **final printed width** (3.3 in / 6.9 in), warm-free venue-neutral style: vector PDF, TrueType fonts (`fonttype 42` — Type 3 fails camera-ready checks), 7–8 pt labels, Okabe-Ito colorblind-safe cycle, constrained layout.
 - `save_fig(fig, name, consumed_runs=[...])` — PDF + review PNG, printing the run ids consumed (provenance for `claims.yaml`).
 - `load_registry()` / `metric_curve(run_id, metric)` / `seed_stats(rows, metric)` — artifact access; headline comparisons must go through `seed_stats`.
 - `format_measurement(mean, std, n)` — sig-fig discipline (std to 2 sig figs, mean to match: `71.28 ± 0.39`).
-- `emit_table(headers, rows, path)` — booktabs `.tex` files the paper `\input`s, so **result numbers never pass through prose generation** (the single most effective anti-transcription-error mechanism in the surveyed systems).
+- `emit_table(headers, rows, path)` — booktabs `.tex` files the paper `\input`s, to generate result tables directly from recorded measurements.
 
 `/make-figures` orchestrates these per paper; matplotlib is imported lazily (add it to the project's pyproject when plotting starts).
 
-### `status.py` — zero-token run monitor
+### `status.py` — run monitor { #statuspy-zero-token-run-monitor }
 
 ```bash
 uv run python scripts/status.py [<run_id>] [--log-interval 60]
 ```
 
-One line: `alive | stalled | done | failed | timeout · elapsed/budget · last metric`. The **only** check `/research-loop` makes while a run is in flight — liveness from `meta.json` + `metrics.jsonl` mtime, no log dumps, no judgment about partial curves. Exit 3 on `stalled` (two in a row → treat the run as failed).
+One line: `alive | stalled | done | failed | timeout · elapsed/budget · last metric`. The lightweight check used while a run is in flight — liveness from `meta.json` + `metrics.jsonl` mtime, no log dumps, no judgment about partial curves. Exit 3 on `stalled` (two in a row → treat the run as failed).
 
 ### `check_project.py` — readiness lint + orientation
 

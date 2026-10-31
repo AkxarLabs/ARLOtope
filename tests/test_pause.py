@@ -191,7 +191,7 @@ def test_api_lab_pause_contract_and_snapshot(hub, monkeypatch):
 
 
 def test_cli_pause_and_resume(hub, monkeypatch, capsys):
-    monkeypatch.setenv("NEWTS_NO_AUTOTICKER", "1")
+    monkeypatch.setenv("ARLOTOPE_NO_AUTOTICKER", "1")
     lab = setup(hub, extra=CAPS)
     sys.path.insert(0, str(REPO / "tools"))
     import executor_cli
@@ -207,7 +207,7 @@ def test_the_form_sends_a_spend_cap_into_the_brief(hub, monkeypatch, tmp_path):
     from conftest import load
     (hub.root / "templates" / "loop").mkdir(parents=True, exist_ok=True)
     shutil.copy(REPO / "templates" / "loop" / "CAMPAIGN.md", hub.root / "templates" / "loop")
-    monkeypatch.setenv("NEWTS_HOME", str(tmp_path / "home"))
+    monkeypatch.setenv("ARLOTOPE_HOME", str(tmp_path / "home"))
     monkeypatch.syspath_prepend(str(REPO / "dashboard"))
     m = load("dashboard/serve")
     monkeypatch.setattr(m.ctx, "HUB", hub.root)
@@ -226,7 +226,7 @@ def test_blank_spend_cap_is_no_cap(hub, monkeypatch, tmp_path, cap):
     from conftest import load
     (hub.root / "templates" / "loop").mkdir(parents=True, exist_ok=True)
     shutil.copy(REPO / "templates" / "loop" / "CAMPAIGN.md", hub.root / "templates" / "loop")
-    monkeypatch.setenv("NEWTS_HOME", str(tmp_path / "home"))
+    monkeypatch.setenv("ARLOTOPE_HOME", str(tmp_path / "home"))
     monkeypatch.syspath_prepend(str(REPO / "dashboard"))
     m = load("dashboard/serve")
     monkeypatch.setattr(m.ctx, "HUB", hub.root)

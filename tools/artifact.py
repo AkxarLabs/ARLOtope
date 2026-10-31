@@ -18,9 +18,9 @@ alone is a "choice". The PI's reply reaches the run that published it (as its ne
 here with `replies`. Publishing is how you ask for a look; it is never a gate signature and never approval of a
 FULL run.
 
-Where: <hub>/lab/.bus/artifacts/<id>/ — artifact.json and a copy of the file. The hub is $NEWTS_HUB (set for
+Where: <hub>/lab/.bus/artifacts/<id>/ — artifact.json and a copy of the file. The hub is $ARLOTOPE_HUB (set for
 every run the dashboard launches), else this repository when it is the hub, else a project's control.yaml
-`hub_path`. The run, its procedure and its study come from $NEWTS_RUN_ID / $NEWTS_RUN_SKILL / $NEWTS_RUN_SUBJECT.
+`hub_path`. The run, its procedure and its study come from $ARLOTOPE_RUN_ID / $ARLOTOPE_RUN_SKILL / $ARLOTOPE_RUN_SUBJECT.
 Only the dashboard writes reply.json and seen (the signature guard refuses a run that tries).
 """
 
@@ -52,7 +52,7 @@ class ArtifactError(ValueError):
 
 
 def hub() -> Path:
-    env = os.environ.get("NEWTS_HUB")
+    env = os.environ.get("ARLOTOPE_HUB")
     if env and (Path(env) / "lab").is_dir():
         return Path(env)
     if (ROOT / "lab" / "REGISTRY.md").exists():
@@ -63,7 +63,7 @@ def hub() -> Path:
             m = re.search(r'^hub_path:\s*"?([^"\n#]+?)"?\s*(?:#|$)', ctl.read_text(encoding="utf-8", errors="replace"), re.M)
             if m and (Path(m.group(1).strip()) / "lab").is_dir():
                 return Path(m.group(1).strip())
-    raise ArtifactError("can't find the lab: set NEWTS_HUB to the hub repository")
+    raise ArtifactError("can't find the lab: set ARLOTOPE_HUB to the hub repository")
 
 
 def root(h: Path | None = None) -> Path:
@@ -135,7 +135,7 @@ def publish(title: str, file: str | None = None, *, kind: str | None = None, stu
             raise ArtifactError(f'Cannot read {file}. Check its file permissions or recreate the summary in a readable file.') from error
         if len(content) > MAX_BYTES:
             raise ArtifactError('The source grew beyond the artifact size limit. Publish a smaller summary.')
-    study = study or os.environ.get("NEWTS_RUN_SUBJECT") or None
+    study = study or os.environ.get("ARLOTOPE_RUN_SUBJECT") or None
     if study and not re.match(r"^[A-Za-z0-9][\w.-]{0,80}$", study):
         raise ArtifactError(f"bad study slug {study!r}")
     if about:
@@ -143,7 +143,7 @@ def publish(title: str, file: str | None = None, *, kind: str | None = None, stu
         if not re.match(r"^[A-Za-z0-9][\w.-]{0,160}$", run) or (agent and not re.match(r"^[\w.:-]{1,120}$", agent)):
             raise ArtifactError(f"bad --about {about!r}: <run_id>[:<subagent>]")
         about = {"run": run, "agent": agent or None}
-    if h is None and os.environ.get('NEWTS_WORKER_RUNTIME'):
+    if h is None and os.environ.get('ARLOTOPE_WORKER_RUNTIME'):
         return _remote('publish', {'title': title, 'kind': kind, 'study': study, 'note': note,
             'question': question, 'choices': choices,
             'about': about['run'] + (':' + about['agent'] if about.get('agent') else '') if about else None,
@@ -159,7 +159,7 @@ def publish(title: str, file: str | None = None, *, kind: str | None = None, stu
         (d / name).write_bytes(content)
     m = {"id": aid, "title": title, "kind": kind, "file": name, "source_path": str(src.resolve()) if src else None,
          "size": (d / name).stat().st_size if name else 0, "created": _now(), "study": study,
-         "run_id": os.environ.get("NEWTS_RUN_ID") or None, "skill": os.environ.get("NEWTS_RUN_SKILL") or None,
+         "run_id": os.environ.get("ARLOTOPE_RUN_ID") or None, "skill": os.environ.get("ARLOTOPE_RUN_SKILL") or None,
          "note": (note or "").strip()[:MAX_NOTE] or None, "question": question, "choices": choices, "about": about or None}
     m.update({k: context[k] for k in ('run_id', 'skill', 'source_path', 'source_machine', 'request_id') if k in context})
     (d / "artifact.json").write_text(json.dumps(m, indent=1), encoding="utf-8")
@@ -187,7 +187,7 @@ def load(aid: str, h: Path | None = None) -> dict | None:
 
 def all_artifacts(h: Path | None = None, limit: int | None = 300, *, study=None, run=None, about=None, before=None, search='', state='all', study_titles=None) -> list[dict]:
     """Newest first; apply scope before the page limit so busy studies cannot hide others."""
-    if h is None and os.environ.get('NEWTS_WORKER_RUNTIME'):
+    if h is None and os.environ.get('ARLOTOPE_WORKER_RUNTIME'):
         rows = _remote('list', {'run':run, 'about':about, 'before':before, 'limit':limit, 'search':search, 'state':state})
         return [m for m in rows if study is None or (m.get('study') or '') == study][:limit]
     r = root(h)
@@ -254,9 +254,9 @@ def main(argv: list[str] | None = None) -> int:
                   + ("; their answer comes back to this run, or read it with `artifact.py replies`" if m["question"] else ""))
             return 0
         rows = all_artifacts(study=a.study if a.cmd == 'list' else None,
-                             run=(a.run or os.environ.get('NEWTS_RUN_ID')) if a.cmd == 'replies' and not a.id else None)
+                             run=(a.run or os.environ.get('ARLOTOPE_RUN_ID')) if a.cmd == 'replies' and not a.id else None)
         if a.cmd == "replies":
-            run = a.run or (None if a.id else os.environ.get("NEWTS_RUN_ID"))
+            run = a.run or (None if a.id else os.environ.get("ARLOTOPE_RUN_ID"))
             for m in rows:
                 if m.get("reply") and (not a.id or m["id"] == a.id) and (not run or m.get("run_id") == run):
                     print(json.dumps({"id": m["id"], "title": m["title"], "reply": m["reply"]}))

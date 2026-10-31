@@ -1,0 +1,40 @@
+title: Sakana · Agentic Scientist
+command: [agsci]
+platforms: [linux, darwin]
+setup: https://github.com/SakanaAI/AI-Scientist-v3/blob/main/docs/install.md
+# Source-reviewed against df8313889a004f8a44a472e19a833cd547bb828a. No upstream code is vendored.
+# One internal worker fits one ARLOtope task slot. Parallel campaign control needs a separate adapter test.
+inputs: [task]
+reserved_args: [task.dir, paths.run_dir, execution.phases, execution.dry_run, investigation.execution.workers]
+activity:
+  files: [pipeline_events.jsonl, '{phase}/events.jsonl']
+  phase_field: fields.phase_name
+  kinds: {idea: plan, run: run, task: read}
+  events:
+    phase_start: {state: running}
+    phase_end: {}
+    preparation_step: {state_from: fields.state}
+    step_start: {label_from: fields.step, state: running}
+    step_end: {label_from: fields.step}
+    idea_bundle_loaded: {label_from: fields.idea_title, kind: plan, state: completed}
+    attempt_summary: {label: Evaluation result, state_from: fields.attempt_status}
+    finished: {label: Investigation finished, state: completed}
+check: [doctor, '{task}', '{args}', 'paths.run_dir={run_dir}', 'execution.phases={phase}', 'investigation.execution.workers=1']
+run: [run, '{task}', '{args}', 'paths.run_dir={run_dir}', 'execution.phases={phase}', 'investigation.execution.workers=1']
+phases:
+  task_drafting:
+    outputs: [task/task.md, task/evaluate.py]
+  investigation:
+    outputs: [.investigation_completion.json, investigation/best_program_manifest.json]
+    accept:
+      .investigation_completion.json: {status: [completed], outcome: [winner, completed_no_winner]}
+  ablations:
+    outputs: [ablations/pipeline_summary.json]
+  final_evaluation:
+    outputs: [final_evaluation/final_manifest.json]
+    accept:
+      final_evaluation/final_manifest.json: {status: [completed]}
+  posthoc:
+    outputs: [posthoc/latest_manifest.json]
+  paper:
+    outputs: [paper/paper.pdf, paper/latest_manifest.json]

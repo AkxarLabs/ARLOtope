@@ -11,4 +11,6 @@
 .study-notes h3{font:450 23px var(--serif);margin:0}
 .study-notes .desk-entry{padding-block:12px}
 .document-library .shelf-doc b,.document-library .reader{overflow-wrap:anywhere}
+.document-library .shelf-doc>b,.document-library .shelf-doc>small{display:block;overflow:hidden;text-overflow:ellipsis}
+.document-library .shelf-doc>small{font-size:11px;font-weight:400;color:var(--ink-soft)}
 @media(max-width:760px){.knowledge-toolbar{padding:18px 20px}.library-mast{flex-wrap:wrap;gap:14px}.library-mast nav{flex-wrap:wrap;gap:18px;font-size:13px}}

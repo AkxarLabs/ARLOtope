@@ -28,7 +28,7 @@ def _clone_staging(parent):
     # This becomes a real workspace. tempfile's owner-only Windows DACL would
     # survive the checkout's rename and exclude the agent's sandbox identity.
     parent = Path(parent).resolve()
-    folder = parent / ('.newts-clone-' + uuid.uuid4().hex)
+    folder = parent / ('.arlotope-clone-' + uuid.uuid4().hex)
     folder.mkdir()
     try:
         yield folder
@@ -51,13 +51,17 @@ def repository(value: str) -> str:
     return value
 
 
-def github(value: str) -> dict:
+def github(value: str, authenticated=False) -> dict:
     name = repository(value)
     request = urllib.request.Request('https://api.github.com/repos/' + name,
-        headers={'Accept': 'application/vnd.github+json', 'User-Agent': 'Newts-Lab'})
+        headers={'Accept': 'application/vnd.github+json', 'User-Agent': 'ARLOtope-Lab'})
     try:
-        with urllib.request.urlopen(request, timeout=12) as response:
-            data = json.loads(response.read(1_000_001))
+        if authenticated:
+            import github_access
+            data = github_access.repository(name)
+        else:
+            with urllib.request.urlopen(request, timeout=12) as response:
+                data = json.loads(response.read(1_000_001))
     except urllib.error.HTTPError as error:
         message = {404: 'Repository not found. Use an exact public owner/repository, or attach a local checkout.',
                    403: 'GitHub is limiting requests. Try later, or attach a local checkout.',
@@ -65,31 +69,36 @@ def github(value: str) -> dict:
         raise StartError(message.get(error.code, 'GitHub could not read that repository.')) from None
     except (OSError, ValueError) as error:
         raise StartError('Could not reach GitHub. You can attach a local checkout instead.') from error
-    if not isinstance(data, dict) or data.get('private') or not data.get('full_name'):
+    if not isinstance(data, dict) or data.get('private') and not authenticated or not data.get('full_name'):
         raise StartError('Choose a public GitHub repository, or attach a local checkout.')
     canonical = repository(data['full_name'])
     return {'name': canonical, 'url': 'https://github.com/' + canonical,
             'description': str(data.get('description') or '')[:500],
-            'language': data.get('language'), 'archived': bool(data.get('archived'))}
+            'language': data.get('language'), 'archived': bool(data.get('archived')), 'private': bool(data.get('private'))}
 
 
 def projects_root(hub: Path) -> Path:
-    configured = labfiles.load_yaml(hub / 'lab/config.yaml').get('lab') or {}
-    path = Path(configured.get('projects_root') or '../newts-lab-projects').expanduser()
+    configured = labfiles.config(hub).get('lab') or {}
+    path = Path(configured.get('projects_root') or '../arlotope-projects').expanduser()
     return (path if path.is_absolute() else hub / path).resolve()
 
 
 def context(hub: Path) -> dict:
+    from kernel import branches, entry
+    from frameworks import requirements
     topics = hub / 'lab/RESEARCH.md'
     return {'topics': topics.read_text(encoding='utf-8') if topics.is_file() else '',
             'projects_root': str(projects_root(hub)),
             'workflows': [{'id': w['id'], 'title': w['title'], 'blurb': w.get('blurb', ''),
-                           'steps': w['path'], 'default': bool(w.get('default'))}
+                           'requires': requirements(w),
+                           'steps': w['path'], 'default': bool(w.get('default')),
+                           'tasks': [dict(n, outcomes={**w.get('routes', {}).get(n['id'], {}), **n.get('outcomes', {})}) for n in branches.nodes(w, model.steps(hub))], 'entry_revision': entry.revision(hub, w),
+                           'checkpoints': w['checkpoints']}
                           for w in model.workflows(hub)]}
 
 
 def create(hub: Path, *, title: str, question: str, slug: str = '', workflow: str = '',
-           local: str = '', repo: str = '', machine: str = '', agents=None, tags=None, draft: str = '') -> dict:
+           local: str = '', repo: str = '', machine: str = '', agents=None, tags=None, draft: str = '', entry=None, github_auth=False) -> dict:
     """Create only a hub study record and an optional project pointer or new clone."""
     if studies.in_agent_run():
         raise StartError('The researcher creates and attaches studies; agents can propose them.')
@@ -126,6 +135,10 @@ def create(hub: Path, *, title: str, question: str, slug: str = '', workflow: st
     flow = model.workflow(workflow or None, hub)
     if workflow and flow['id'] != workflow:
         raise StartError('Choose one of this lab\'s workflows.')
+    from kernel import entry as entry_plan
+    entry = entry_plan.prepare(hub, flow, entry)
+    if entry:
+        entry_plan.preview(hub, flow, entry)
     if local and repo and not machine:
         raise StartError('Choose a local folder or a GitHub repository.')
     project = None
@@ -155,7 +168,7 @@ def create(hub: Path, *, title: str, question: str, slug: str = '', workflow: st
         if machine:
             import remote_projects as remote
             if canonical:
-                remote.rpc(machine, 'clone', {'path': local, 'repository': canonical})
+                remote.rpc(machine, 'clone', {'path': local, 'repository': canonical, 'github_auth': github_auth is True})
             from project_identity import lab_identity
             attached = remote.rpc(machine, 'attach', {'path': local, 'owner': remote.owner(hub), 'study': slug,
                                                      'lab_id':lab_identity(hub)['lab_id'],'title':title.strip()})
@@ -167,9 +180,14 @@ def create(hub: Path, *, title: str, question: str, slug: str = '', workflow: st
             with _clone_staging(destination.parent) as temporary:
                 checkout = Path(temporary) / 'checkout'
                 env = {**os.environ, 'GIT_TERMINAL_PROMPT': '0', 'GCM_INTERACTIVE': 'Never'}
+                if github_auth is True:
+                    from github_access import clone_argv
+                    argv = clone_argv(canonical, checkout)
+                    env['GH_PROMPT_DISABLED'] = '1'
+                else:
+                    argv = ['git', 'clone', '--', 'https://github.com/' + canonical + '.git', str(checkout)]
                 try:
-                    result = subprocess.run(['git', 'clone', '--', 'https://github.com/' + canonical + '.git',
-                                             str(checkout)], capture_output=True, text=True, encoding='utf-8',
+                    result = subprocess.run(argv, capture_output=True, text=True, encoding='utf-8',
                                             errors='replace', env=env, timeout=180)
                 except (OSError, subprocess.TimeoutExpired) as error:
                     raise StartError('Cloning did not finish. Retry, or attach a local checkout.') from error
@@ -188,12 +206,10 @@ def create(hub: Path, *, title: str, question: str, slug: str = '', workflow: st
             'project_mode': 'attached' if project else 'new',
             **({'repository': 'https://github.com/' + canonical} if canonical else {})},
             sort_keys=False, allow_unicode=True).strip()
-        text = ('---\n' + metadata + '\n---\n\n# Research question\n\n' + question.strip()
-                + '\n\n## Starting point\n\n'
-                + ('Existing project attached. Its code, environment and files are unchanged. '
-                   'Inspect it before proposing a plan. Add tracking or reproducibility scaffolding '
-                   'only when the researcher requests it.\n' if project else 'A new research direction.\n')
-                + '\nNo workflow steps or checkpoints have been marked complete or approved.\n')
+        text = '---\n' + metadata + '\n---\n\n# Research question\n\n' + question.strip() + '\n'
+        if project:
+            text += ('\n## Existing project\n\nInspect the existing code and environment before proposing changes. '
+                     'Add research scaffolding only when the researcher requests it.\n')
         (folder / 'IDEA.md').write_text(text, encoding='utf-8')
         if draft:
             count = study_materials.attach(hub, draft, folder, meta=material_meta)
@@ -203,9 +219,11 @@ def create(hub: Path, *, title: str, question: str, slug: str = '', workflow: st
         if agents:
             target = folder/'workflow/agents.yaml';target.parent.mkdir(exist_ok=True)
             target.write_text(yaml.safe_dump(agents, sort_keys=False), encoding='utf-8')
-        studies.new(hub, slug, title.strip(), workflow=flow['id'], by='pi')
+        studies.new(hub, slug, title.strip(), workflow=flow['id'], by='pi', entry=entry)
         if project:
             studies.set_project(hub, slug, str(project), by='pi')
+        if entry:
+            entry_plan.apply(hub, slug)
         return {'ok': True, 'study': slug, 'project': str(project) if project else None,
                 'workflow': flow['id'], 'cloned': bool(canonical)}
     except Exception:
@@ -231,7 +249,7 @@ def main() -> None:
     args = vars(parser.parse_args())
     try:
         print(json.dumps(create(**args), indent=2))
-    except (StartError, studies.StudyError, OSError) as error:
+    except (ValueError, studies.StudyError, OSError) as error:
         parser.exit(1, str(error) + '\n')
 
 

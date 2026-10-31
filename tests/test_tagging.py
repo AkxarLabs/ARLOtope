@@ -44,7 +44,7 @@ def test_starter_and_cli_accept_user_labels(hub,monkeypatch,capsys):
     starter=load('research_start');tags=load('tagging')
     result=starter.create(hub.root,title='Tagged study',question='Replication?',tags='Replication, Own label')
     assert tags.study_tags(hub.root,result['study'])==['replication','own-label']
-    cli=load('newts_cli')
+    cli=load('arlo_cli')
     assert cli.main(['--hub',str(hub.root),'tags',result['study'],'--set','changed'])==0
     assert json.loads(capsys.readouterr().out)==['changed']
 
@@ -67,7 +67,7 @@ def test_tags_reach_briefs_and_procedure_metadata(hub):
     k=kernel();tags=load('tagging');k.studies.new(hub.root,'study','Study')
     tags.set_study_tags(hub.root,'study',['Replication'])
     procedure=hub.root/'.claude/skills/tagged/SKILL.md';procedure.parent.mkdir(parents=True,exist_ok=True)
-    procedure.write_text('---\nname: tagged\nnewts:\n  tags: [Reading]\n---\nRead carefully.',encoding='utf-8')
+    procedure.write_text('---\nname: tagged\narlotope:\n  tags: [Reading]\n---\nRead carefully.',encoding='utf-8')
     text,_=k.brief.brief(hub.root,'tagged','study')
     assert 'Study: replication' in text and 'Procedure: reading' in text
     assert 'reading' in tags.catalog(hub.root)

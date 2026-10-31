@@ -4,6 +4,19 @@ The Lab uses plain files, a Python server and a browser interface. There is one 
 dashboard tasks, workflow tasks, gate reviewers, the workspace assistant and visual summaries.
 For everyday use, see [The dashboard](dashboard.md).
 
+Launcher probes connect directly to loopback without system proxy discovery. Public static files
+use ETags and revalidate on each load; unchanged files return 304. The session page and API responses
+remain uncached. The renderer's sandbox and content policy are unchanged.
+
+The dashboard and project worker share a local HTTP server that binds without reverse DNS. Its
+server name is the bound address. SSH hints also use the local hostname without resolving it.
+
+Concurrent browser requests share a one-second snapshot cache. The event stream sends a full
+snapshot only when state changes. Recent JSONL views read backward from the end; full-history
+readers remain available. Evidence descriptors contain child metadata and file paths rather than
+copying their action logs into assistant prompts. Automatic briefings check their cooldown and
+current conversation before assembling another Lab snapshot.
+
 ## Records and identity
 
 | Record | Purpose |
@@ -14,16 +27,16 @@ For everyday use, see [The dashboard](dashboard.md).
 | `studies/<study>/` | Study brief, process overrides, materials and research documents |
 | `lab/.bus/` and project `.bus/` | Signals, run manifests, transcripts, interaction inboxes and scheduler state |
 | `lab/records/` | Lab-wide shared records |
-| `<project>/.newts/knowledge/` | Project-local documents, sources, notes, answers, outputs and logs |
-| `<project>/.newts/project.json` | Stable project identity and its relative knowledge directory |
+| `<project>/.arlotope/knowledge/` | Project-local documents, sources, notes, answers, outputs and logs |
+| `<project>/.arlotope/project.json` | Stable project identity and its relative knowledge directory |
 | `lab/identity.json` | Lab identity and execution owner used when attaching projects |
 
 The journal is append-only; other state files have their own update rules. The bus is a signal and
 transport layer, not an alternative source of approvals. A `run_report` is an agent's summary;
 accepted workflow outcomes come from the kernel journal.
 
-`tools/project_identity.py` maintains a small per-user discovery index under `~/.newts/` (or
-`NEWTS_HOME`). It supports finding attached projects without an account service or a filesystem-wide
+`tools/project_identity.py` maintains a small per-user discovery index under `~/.arlotope/` (or
+`ARLOTOPE_HOME`). It supports finding attached projects without an account service or a filesystem-wide
 scan. Project ownership prevents an accidental second Lab attachment; it is not a multi-user
 authorization system.
 
@@ -54,10 +67,18 @@ The native adapters normalize Claude streams, Codex app-server or exec events, a
 or run events. Installed hooks supply additional tracing where supported. ACP uses negotiated
 session updates and client file/terminal requests; it cannot expose activity its agent never reports.
 
+OpenCode loads the signature guard as a local file through its inline JSON configuration. Existing
+config files and directories stay in place; no per-run plugin dependencies are installed. Terminal
+provider errors end the attempt rather than leaving it waiting for a human message.
+
 Worker logs are `<bus>/workers/<worker>.jsonl`. Supervisors fold activity into the run manifest,
 retain the transcript and append a durable action history to `<run>.d/actions.jsonl`. Subagents are
 nested when their parent and identity are available. Outside terminal/editor sessions can appear
 through repository hooks; they are traced sessions, not automatically supervised executor runs.
+
+`<run>.d/conversation.jsonl` stores exported responses and human exchanges separately from capped transcripts. Each record has an ID, attempt and timestamp; questions and answers share a request ID. The History view reads a bounded page on demand through `/api/run/records`. Remote workers mirror this file incrementally and settle only after its final bytes are drained. Write failures and clipped payloads remain visible.
+
+`tools/study_history.py` projects both ordered assignment cursors and graph task bindings onto step passes, separating workflow changes and loop visits. It reads existing journals and knowledge records; it does not drive execution. Saved task labels come from the run or its workflow snapshot, with stable task IDs as fallback. `arlo log` writes the existing knowledge format with managed run context.
 
 `dashboard/sources.py` joins these records into the snapshot used by the Lab world, **Agents**, the
 Inbox and run sheets. A quiet tool call does not imply that the agent has disappeared.
@@ -149,15 +170,63 @@ engine or style-pack runtime in Lab. `dashboard/room_design.py` and `tools/room_
 private room drafts and reviewed application through that same renderer. Optional `extra.js`
 geometry stays beside its room definition. See [Room design](room-design.md).
 
+`agent-view.js` shares activity labels, task-peer grouping, attention causes and scoped native-session
+identity between the dashboard and isolated renderer. It projects existing records without writing
+workflow or execution state. `world3d/annotations.js` owns pooled dotted links and room clearance aids.
+
+`ui/focus.js` carries viewing IDs in the URL and current tab, scoped to the Lab. It derives labels
+from the snapshot and sends focus to the world; it is not another task store. Readers opt into the
+existing overlay manager's `inspector` slot. Recent form drafts use a bounded, Lab-scoped tab-memory
+cache in `components.js`; no transcript, draft database or browser-storage dependency is added.
+
+`world3d/model.js` maps a run/task to a room, folds furniture `uses`/`stands` into activity spots,
+and supplies coarse within-room paths. `world.js` reserves spots, smooths activity changes and routes
+actors through doors and streets. `newt.js` supplies the shared activity/pose animator; `characters.js`
+uses it for the three available rigs. These are projections of records, not another workflow engine.
+
 `dashboard/assistant.py` assembles current workspace facts and routes one ordinary executor
 conversation. Users choose its study, run or document focus and can start a fresh session. It has no
 separate model runtime. Visual summaries are separate scoped explanation runs, saved as artifacts.
 
 ## Demo mode and dependencies
 
-`newts.py --demo`, opened with `/?demo`, provides synthetic studies, agents and outputs for interface
+`arlo.py --demo`, opened with `/?demo`, provides synthetic studies, agents and outputs for interface
 inspection. Demo browser actions are intercepted rather than launching real work.
 
 Vendored browser libraries and their licences live in `static/vendor/`: Three.js, Preact, htm,
 marked, DOMPurify and KaTeX. Python tools use the standard library and PyYAML unless a method-specific
 helper declares additional requirements.
+
+
+## Visual activity
+
+Tasks choose rooms; exported activity and trace hooks choose furniture stations and gestures.
+If no activity station is available, the renderer falls back to a task/procedure station, a role
+station or a spare spot. Characters keep a suitable spot through short calls. The activity display
+waits at least eight seconds before switching and may linger for twenty seconds between events.
+Command-name classification is a fallback; absent events cannot reveal an agent's private state.
+
+Walking uses doors, paths and coarse furniture avoidance, with no physics engine or guaranteed
+collision-free routing. Reduced-motion settings place characters at their destinations. A courier
+or a departing child's fade is a presentation effect, not an additional run or a completion record.
+The newt retains its colors in both themes, with more self-illumination at night.
+
+Same-task peer links include active runs and recorded children on the same task visit, excluding
+queued and ended runs. Native session IDs preserve character continuity across runs on the same
+backend and location; without one, the renderer uses run identity. This browser-side continuity
+does not merge records or create a conversation.
+
+The inspector keeps unsent messages while switching work within one tab. Reloading clears those
+drafts. Data views keep labelled last-good results after refresh failures and reset when scope changes.
+Collectors execute the approved bytes; see [collector execution](extending.md#collector-execution).
+
+
+## Conversation archives
+
+The original records are `lab/journal.jsonl` for workflow events, `lab/.bus/runs.jsonl` for run
+transitions, and manifests/transcripts in the owning bus's `agents/` directory. New managed runs
+also save attempt inputs, exported responses and human questions, answers, permission decisions
+and delivered messages in `<run>.d/conversation.jsonl`. This archive retains attempt IDs and survives transcript
+caps and the recent-answer window. It excludes private reasoning and messages the harness never
+exported. Older runs may have only their transcript. Responses are limited to 450,000 characters;
+clipped records are marked. Offline remote mirrors may be stale.

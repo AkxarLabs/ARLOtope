@@ -2,6 +2,8 @@
 
 Publish a report, figure, table or interactive page when it gives the researcher something useful to inspect. Published copies appear in **Library → Outputs** and link to the producing run and study.
 
+Screenshots use demonstration data.
+
 ## Find and inspect an output
 
 1. Open **Library → Outputs**.
@@ -10,7 +12,6 @@ Publish a report, figure, table or interactive page when it gives the researcher
 
 ![A published demonstration report with separate note and question actions](assets/current/artifact.webp)
 
-*Demonstration fixture: published content has provenance, inert notes, separate Q&A and explicit execution feedback.*
 
 HTML pages can have interactive controls inside the preview. Images, PDFs, tables and text have their own viewers. HTML under a run's **Files it changed** can also be previewed; publishing adds a durable Library copy and feedback controls.
 
@@ -18,7 +19,7 @@ HTML pages can have interactive controls inside the preview. Images, PDFs, table
 
 - **Add note** saves separate human context. It does not message an agent or queue work.
 - **Ask workspace assistant** opens separate Q&A about this output and saves the answer as a record.
-- **Send answer** responds to a published question. **Send instruction** sends other feedback to the producing agent. It can resume that run; if the run cannot accept the message, the Lab queues a directive for the study's next agent.
+- **Send answer** responds to a published question. Expand **Instruct an agent** for other feedback. It can resume the producing run; if that run cannot accept the message, the Lab queues an instruction for the study's next agent, or the Lab inbox for a Lab-wide output.
 
 These messages are not checkpoint approvals. Record approvals in the checkpoint sheet. Feedback on an independently produced explanation goes to its explainer, not the original research agent.
 
@@ -39,6 +40,12 @@ uv run --with pyyaml python tools/executor_cli.py explain RUN_ID --agent CHILD_I
 ```
 
 Omit `--agent` for the whole run. Add `--hub /path/to/lab` before the command when using another working directory.
+
+## When a read fails
+
+Use **Retry** after a failed preview, or **Open original file** for an HTML or PDF rendering
+problem. A failed conversation read does not mean the agent stopped. See
+[connection and read recovery](recovering-work.md#dashboard-and-supervisor-recovery).
 
 ## Publish a file
 
@@ -66,7 +73,7 @@ Use `--about RUN_ID` or `--about RUN_ID:CHILD_ID` to associate an explanation wi
 Use the publisher path in the remote run's brief, or its worker runtime:
 
 ```bash
-python "$NEWTS_WORKER_RUNTIME" artifact publish --title "Remote review" --file artifacts/review.html
+python "$ARLOTOPE_WORKER_RUNTIME" artifact publish --title "Remote review" --file artifacts/review.html
 ```
 
 Publication transfers the output to the owning Lab and waits for its acknowledgement. Retried controller requests reuse the recorded publication. The project stays remote. The runtime's `artifact list` and `artifact replies` commands access its study's publications and feedback.

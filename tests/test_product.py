@@ -37,7 +37,7 @@ def m(hub, monkeypatch, tmp_path):
         f"        command: {json.dumps([sys.executable, str(FAKE)])}\n", encoding="utf-8")
     (hub.root / "templates" / "loop").mkdir(parents=True)
     shutil.copy(REPO / "templates" / "loop" / "CAMPAIGN.md", hub.root / "templates" / "loop")
-    monkeypatch.setenv("NEWTS_HOME", str(tmp_path / "home"))
+    monkeypatch.setenv("ARLOTOPE_HOME", str(tmp_path / "home"))
     monkeypatch.syspath_prepend(str(REPO / "dashboard"))
     mod = load("dashboard/serve")
     monkeypatch.setattr(mod.ctx, "HUB", hub.root)
@@ -69,6 +69,21 @@ def test_free_form_run(m, hub):
     assert m.runops.launch_run({"prompt": "   ", "confirm": True})[1] == 400
     assert m.runops.launch_run({"prompt": "x" * 9000, "confirm": True})[1] == 400
     assert m.runops.launch_run({"prompt": "go", "chain": "loop", "confirm": True})[1] == 400
+
+
+def test_study_history_is_read_only_until_explicit_snapshot_save(m,hub):
+    K.studies.new(hub.root,'recorded',by='pi')
+    before=K.journal.path(hub.root).read_bytes()
+    data,status=m.decisions.history({'study':'recorded'})
+    assert status==200 and data['events'][0]['kind']=='new'
+    assert not (hub.root/'studies/recorded/history').exists()
+    saved,status=m.decisions.history({'study':'recorded'},save=True)
+    assert status==200 and Path(saved['path']).is_file()
+    assert K.journal.path(hub.root).read_bytes()==before
+    group=next(g for g in m.library.lib_tree()['groups'] if g.get('slug')=='recorded')
+    assert any(s['title']=='Workflow history' for s in group['sections'])
+    assert m.decisions.history({'study':'../bad'},save=True)[1]==400
+    assert '/api/study/history/save' in m.POST_ROUTES
 
 
 def test_free_form_run_inside_a_project(m, hub):
@@ -153,6 +168,45 @@ def test_decide_approves_moves_and_starts_the_next_steps_work(m, hub):
     assert "checkpoint_approved" in kinds
     out, code = m.decisions.decide(dict(body, confirm=True, decision="revoked"))
     assert code == 200 and not _appr(m).approved(hub.root, "idea-g", "finalize-paper")
+
+
+@pytest.mark.parametrize('session_id', [None, 'saved-session'])
+def test_unfinished_task_can_handoff_without_claiming_completion(m, hub, session_id):
+    hub.add_registry_row('handoff', state='proposal')
+    lab = m.executor.Lab(hub.root)
+    source = m.executor.enqueue(lab, m.executor.RunSpec('propose', target='handoff'))
+    path = m.executor.find_run(lab, source['run_id'])[2]
+    cursor = len(K.journal.events(hub.root, 'handoff'))
+    m.executor.manifest.transition(lab, path, source, 'completed', by='fixture', session_id=session_id,
+                                   assigned_step='proposal', assigned_journal_index=cursor)
+    result, code = m.runops._run_op('handoff', {'run_id':source['run_id'], 'confirm':True})
+    assert code == 200, result
+    new = _manifest(m, hub, result['run_id'])
+    assert new['run_id'] != source['run_id'] and new['parent'] == source['run_id']
+    assert new['context']['mode'] == 'fresh' and new['context']['method'] == 'handoff'
+    assert new['context']['source_run'] == source['run_id']
+    assert not new.get('session_id') and new['skill'] == source['skill']
+    new_path = m.executor.find_run(lab, new['run_id'])[2]
+    prompt = (m.executor.run_dir(new_path.parent, new['run_id']) / 'prompt.md').read_text(encoding='utf-8')
+    assert source['run_id'] in prompt and 'Your independent task:' in prompt
+    assert K.studies.study(hub.root, 'handoff')['step'] == 'proposal'
+    assert len(K.journal.events(hub.root, 'handoff')) == cursor
+
+
+def test_early_checkpoint_request_does_not_promise_a_workflow_transition(m, hub, monkeypatch):
+    """A run footer can ask for approval before the kernel receives the task outcome."""
+    hub.add_registry_row("early", state="proposal")
+    monkeypatch.setattr(m.decisions, "_asking", lambda *_: {"run_id": "requesting-run", "session": True})
+    ready, code = m.decisions.checkpoint_view({"study": "early", "id": "approve-proposal"})
+    assert code == 200 and ready["asking"] and not ready["waiting"]
+    out, code = m.decisions.decide({"study": "early", "checkpoint": "approve-proposal", "confirm": True, "start": True})
+    assert code == 200 and "moved" not in out and "launch" not in out
+    assert "no task was started" in out["warnings"][0]
+    assert hub.study("early")["step"] == "proposal"
+    assert _appr(m).approved(hub.root, "early", "approve-proposal")
+    # Approval is permission, not completion; only the task's outcome advances it.
+    moved = K.studies.move(hub.root, "early", "done")
+    assert moved["moved"] and moved["step"] == "setup"
 
 
 def test_decide_changes_requested_is_recorded_and_approves_nothing(m, hub):
@@ -259,7 +313,7 @@ def test_keys_are_stored_but_never_read_back(m, hub):
     assert "secret-123" not in json.dumps(st) and next(k for k in st["keys"] if k["key"] == "S2_API_KEY")["set"]
     assert "lab/.env.local" in (hub.root / ".gitignore").read_text(encoding="utf-8")
     assert "secret-123" not in json.dumps(_pi(hub))
-    assert m.keys.keys_set({"key": "NEWTS_RUN_ID", "value": "x"})[1] == 400
+    assert m.keys.keys_set({"key": "ARLOTOPE_RUN_ID", "value": "x"})[1] == 400
     sup = load("tools/executor/supervise.py") if False else None   # noqa: F841 — _env_local is tested below
     from executor.supervise import _env_local
     assert _env_local(m.executor.Lab(hub.root))["S2_API_KEY"] == "secret-123"
@@ -290,7 +344,7 @@ def test_programmatic_switch_inserts_a_missing_key(m, hub):
 
 def test_create_open_and_switch_labs(m, hub, tmp_path):
     # The suite may keep tmp_path inside the checkout; real Labs must live outside their template.
-    with TemporaryDirectory(prefix="newts-lab-test-") as directory:
+    with TemporaryDirectory(prefix="arlotope-test-") as directory:
         dest = Path(directory) / "second"
         out, code = m.labs.labs_create({"confirm": True, "name": "Second lab", "path": str(dest), "open": False})
         assert code == 200, out
@@ -329,7 +383,7 @@ def test_session_cookie_and_json_only(server):
     st, hd, _ = _req(port, "GET", "/")
     assert st == 200
     cookie = hd.get("Set-Cookie", "").split(";", 1)[0]
-    assert cookie.startswith(f"newts_{port}=") and "SameSite=Strict" in hd["Set-Cookie"] and "HttpOnly" in hd["Set-Cookie"]
+    assert cookie.startswith(f"arlotope_{port}=") and "SameSite=Strict" in hd["Set-Cookie"] and "HttpOnly" in hd["Set-Cookie"]
     assert _req(port, "GET", "/api/state", headers={"Cookie": cookie})[0] == 200
     assert _req(port, "GET", "/api/ping")[0] == 200                                        # the launcher's probe
     body = json.dumps({"target": "hub", "text": "hi"})
@@ -459,7 +513,7 @@ def test_notifications_are_stored_outside_config_and_masked(m, hub, inbox):
     st, _ = keys.notify_status()
     assert "secret-topic" not in st["ntfy"] and st["link"] == "http://pc:8787" and not st["webhook"]
     assert "secret-topic" not in (hub.lab / "config.yaml").read_text(encoding="utf-8")
-    assert [k["key"] for k in keys.keys_status()[0]["keys"] if k["key"].startswith("NEWTS_")] == []
+    assert [k["key"] for k in keys.keys_status()[0]["keys"] if k["key"].startswith("ARLOTOPE_")] == []
     out, code = keys.notify_test({})
     assert code == 200 and got and got[0]["path"] == "/secret-topic-123"
 

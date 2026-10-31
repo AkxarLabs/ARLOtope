@@ -191,7 +191,7 @@ def campaign_preflight(q: dict) -> tuple[dict, int]:
     root = lab.projects_root()
     try:
         root.mkdir(parents=True, exist_ok=True)
-        probe = root / ".newts-write-test"
+        probe = root / ".arlotope-write-test"
         probe.write_text("x", encoding="utf-8")
         probe.unlink()
         writable = True

@@ -4,6 +4,8 @@ An agent turn, an executor run and a workflow task are different things. A CLI c
 successfully while the assigned task still needs work. The Lab does not guess completion from a
 sentence such as “done.”
 
+Screenshots use demonstration data.
+
 ## What the status means
 
 | What you see | What happened | What to do |
@@ -15,7 +17,8 @@ sentence such as “done.”
 | A checkpoint | The workflow needs its configured decision | Review its evidence and decide the checkpoint |
 | **Queued** with a usage-limit hold | That backend is temporarily blocked from starting new work | Wait for the hold to expire, or use another configured agent where appropriate |
 
-![Run activity, messages and evidence](assets/current/agents-run.webp)
+![An unfinished task with its continuation options](assets/current/task-unfinished.webp)
+
 
 **Task unfinished** is a mechanical check for formally assigned tasks. For an ordered workflow, the
 Lab checks whether the assigned step has an accepted move, wait or finish since assignment. For a
@@ -24,13 +27,16 @@ workflow contract, so ending one does not prove that its goal was achieved or mi
 
 ## Continue the work
 
-1. Open the agent or its entry in **Agents**.
+1. Open the agent or its entry in **All agents**.
 2. Read the final message, actions, changed files and outputs. Existing files are retained after a
    timeout or stop; an interruption does not roll them back.
-3. Use **Continue task** for an unfinished assigned task. It sends a follow-up to the saved session.
-   If no resumable session exists, the available action is **New agent with handoff**.
-4. For a failed or stopped run with a saved session, use **Resume**, or reply with a more specific
-   instruction. If its conversation has already continued elsewhere, use that newer conversation.
+3. Use **Continue task** for an unfinished assigned task. The Inbox and run window send the same
+   follow-up to the saved session, asking it to check existing work and report the task's outcome.
+   **New agent with handoff** starts a separate agent instead. It remains available when a saved
+   session exists, including when its harness cannot load that session.
+4. For a failed or stopped run with a saved session, use **Resume**, or send a more specific message
+   from the run window. Resume asks it to check what happened and continue after the interruption.
+   If its conversation has already continued elsewhere, use that newer conversation.
 
 ![An interrupted task and recovery controls](assets/current/agents-recovery.webp)
 
@@ -39,11 +45,22 @@ and session ownership still matter. A new agent with a handoff gets a separate s
 relevant records; it does not inherit hidden context. Native session loading and forking depend on
 the backend's capabilities.
 
+You can reply to a completed workflow task to discuss or revise its output, including after the
+study finishes. The conversation keeps its original task binding; it does not reopen the study
+or advance another step. This requires a recorded completion for that exact run and task visit.
+It does not let an unfinished task pass a checkpoint, or resume a shelved study.
+
 An interrupted task must check what already happened before repeating work. A command may have
 finished, a file may already exist, or a workflow outcome may already have been recorded. The Lab
 does not silently mark the task done just to get past the interruption.
 
 ## Questions and approvals
+
+A checkpoint request in a run's message does not finish its workflow task. If the engine has not
+recorded a checkpoint wait, approval records permission only; continue the agent from its run.
+**Approve and start** appears when the engine is waiting at that checkpoint and can advance.
+When the study is held, only approval is offered; the hold remains until you release it. On small
+screens, approval actions stack, and each approval button shows its hold gesture.
 
 Supported live agents can send choice questions, free-text questions and permission requests.
 ACP agents can also supply negotiated question forms or an external interaction link. The dashboard
@@ -75,7 +92,25 @@ after timeout, recognized usage limit or transient failure. Usage-limit retries 
 two minutes after the reset or fallback. Authentication and installation failures need attention;
 ordinary research failures are not blindly retried. See [Autonomy](autonomy.md#campaigns).
 
-## If the dashboard or supervisor stops
+## In-browser terminal recovery
+
+If terminal output cannot be read, **Retry** continues reading the same process from the last
+received byte. It does not repeat your command or restart sign-in. If older output has fallen out
+of the terminal's bounded buffer, the terminal says so. A failed terminal-library load can also retry.
+
+If input could not be confirmed, the Lab pauses typing and asks you to check the output. **Continue
+input** enables typing again; it never resends the uncertain text. Terminal creation retries use the
+same request ID while the server retains the session, avoiding a second process after a lost response.
+Closing the terminal still stops its process. A server restart or expired session requires a new terminal.
+
+## Dashboard and supervisor recovery
+
+A failed file, record or preview read offers **Retry**. A failed refresh keeps the last loaded
+copy labelled; changing the selected item clears it. Retrying a read does not repeat an upload,
+restart an agent or rerun a command. **Open original file** can help with a browser PDF or HTML
+rendering problem; published HTML keeps its isolated preview permissions.
+
+If an interface script or stylesheet cannot load, a notice offers **Reload the page**, even when the main interface did not start. Reloading retries those files; it does not restart an agent or mark a task complete. If it happens again, inspect the browser's failed requests and server log rather than treating a partial interface as an empty Lab.
 
 Reloading the dashboard leaves supervised runs intact. The scheduler reconciles runs whose
 supervisor disappeared, using its process lock rather than assuming a quiet agent is dead. A lost
@@ -89,3 +124,19 @@ Workflow movement comes from the accepted journal outcome, not that footer. If t
 outcome, the assigned task stays unfinished. Required-output checks test the configured contract;
 they do not establish that a scientific conclusion is correct. See [Monitoring](monitoring.md) and
 [Research workflow limits](research-limits.md).
+
+## Study setup and attachment
+
+**Retry** on starter materials rereads the saved draft and keeps typed details. It does not repeat
+an upload or launch another analysis. If an upload response was lost, reload the materials before
+uploading again: the first upload may have succeeded. Creation waits until materials are readable.
+The form accepts 5 MB per file and 20 MB per draft.
+
+If the success screen cannot load a newly created study, use **Retry**. This rereads the study
+rather than creating another one. For GitHub, **Choose repository** lists up to 50 accessible
+repositories; type an exact name if yours is not shown.
+
+An attachment conflict names the folder and its recorded Lab or project identity. Open its owning
+Lab or choose a different folder. If identity files disagree, restore matching records from a known
+backup. Do not delete identity files to bypass ownership checks. Failed identity validation leaves
+existing registration records unchanged and creates no study. See [project identity](knowledge.md#what-to-keep-in-git).

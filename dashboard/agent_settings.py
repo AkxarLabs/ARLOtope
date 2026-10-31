@@ -1,5 +1,4 @@
 """Saved agent choices at Lab and study scope; no second agent manager."""
-import json
 import shutil
 from pathlib import Path
 import yaml
@@ -81,10 +80,22 @@ def save(body):
 def check(body):
     try:
         lab = Lab(ctx.HUB)
-        selected = assignments.resolve(lab, RunSpec('', preset=body.get('preset')))
+        if 'agent' in body:
+            agent = body['agent']
+            assignments.validate({'presets': {'preview': agent}})
+            backend = agent['backend']
+            selected = {'backend': backend, 'options': {
+                **((lab.prog().get('backends') or {}).get(backend) or {}), **agent}}
+        else:
+            selected = assignments.resolve(lab, RunSpec('', preset=body.get('preset')))
         command = backends.resolve_cli(selected['backend'], selected['options'])
         if not command or not (Path(command[0]).is_file() or shutil.which(command[0])):
             raise ValueError('This agent is not installed. Check its command in the preset.')
+        if selected['options'].get('api_provider'):
+            from native_providers import credential
+            if not credential(selected['options']['api_provider']):
+                raise ValueError('Connect this API provider on the execution machine first.')
+            return {'ok':True, 'message':'Agent and API key found. Model access and billing are checked when starting a task.'}, 200
         if selected['backend'] == 'acp':
             from executor.acp_probe import probe
             return {'ok':True, 'message':'ACP connected. Authentication and model access are checked when starting a task.',

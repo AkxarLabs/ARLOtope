@@ -114,3 +114,43 @@ def test_parallel_task_preserves_the_selected_conditional_connection(connection)
     assert source['next'] == nodes[0]['next']
     assert added['next'] == ['finish']
     assert next(n for n in updated if n['id'] == 'finish')['join']
+
+
+@pytest.mark.skipif(not shutil.which('node'), reason='node is needed')
+@pytest.mark.parametrize('action', ['delete', 'add'])
+def test_map_actions_preserve_valid_context_and_the_workflow_entry(action):
+    nodes = [{'id': 'a', 'label': 'A', 'next': ['b'], 'outcomes': {'revise': ['c']}},
+             {'id': 'b', 'label': 'B', 'next': ['c'], 'context': {'mode': 'continue', 'from': 'a'}},
+             {'id': 'c', 'label': 'C', 'next': [], 'context': {'mode': 'fresh', 'handoff': True, 'from': ['a', 'd']}},
+             {'id': 'd', 'label': 'D', 'next': ['a', 'c']}]
+    script = r"""
+      global.window=global;global.matchMedia=()=>({matches:false});
+      let hook=0,updated;
+      window.NL={html:(strings,...values)=>({strings:[...strings],values}),useEffect:()=>{},useRef:()=>({current:null}),
+        useState:initial=>[++hook===1?'a':typeof initial==='function'?initial():initial,()=>{}]};
+      eval(require('fs').readFileSync(FILE,'utf8'));
+      const tree=NL.WorkflowCanvas({nodes:NODES,rooms:[{id:'study'}],onChange:value=>updated=value});
+      function find(value){
+        if(Array.isArray(value))return value.map(find).find(Boolean);
+        if(value&&value.strings){
+          const index=value.strings.findIndex(s=>s.includes(LABEL));
+          if(index>=0)return ()=>value.values[index-1]();
+          return value.values.map(find).find(Boolean);
+        }
+      }
+      find(tree)();console.log(JSON.stringify(updated));
+    """.replace('FILE', json.dumps(str(REPO/'dashboard/static/ui/workflow-canvas.js'))).replace('NODES', json.dumps(nodes)).replace('LABEL', json.dumps('>Delete task' if action == 'delete' else '>+ Task'))
+    result = subprocess.run([shutil.which('node'), '-e', script], capture_output=True, text=True, timeout=15)
+    assert result.returncode == 0, result.stderr
+    updated = json.loads(result.stdout)
+    if action == 'add':
+        assert updated[:len(nodes)] == nodes
+        assert updated[-1]['next'] == [] and updated[-1]['id'].startswith('task-')
+    else:
+        by_id = {n['id']: n for n in updated}
+        assert set(by_id) == {'b', 'c', 'd'}
+        assert by_id['b']['context'] == {'mode': 'fresh'}
+        assert by_id['c']['context']['from'] == ['d']
+        assert by_id['d']['next'] == ['c']
+        from workflow_graph import validate
+        assert not validate(updated)

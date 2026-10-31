@@ -7,6 +7,8 @@ the dashboard's shared state (ctx.HUB / ctx.LAB), which serve and sources both r
 
 from __future__ import annotations
 
+import pytest
+
 from conftest import REPO, load
 
 
@@ -22,12 +24,59 @@ def _mod(hub, monkeypatch):
     return m
 
 
+@pytest.mark.parametrize('raw', [b'{', b'\xff', b'[' * 2000 + b'0' + b']' * 2000,
+                               b'{"n":' + b'9' * 5000 + b'}', b'[]', b'null'])
+def test_invalid_post_body_is_rejected_before_dispatch(hub, monkeypatch, raw):
+    m = _mod(hub, monkeypatch)
+    handler = object.__new__(m.Handler)
+    handler.path = '/test'
+    handler._raw_body = lambda: raw
+    sent, calls = [], []
+    handler._json = lambda body, code=200: sent.append((body, code))
+    monkeypatch.setattr(m, 'POST_ROUTES', {'/test': lambda body: (calls.append(body) or {'ok': True}, 200)})
+    handler._dispatch_post()
+    assert sent[0][1] == 400 and sent[0][0].get('error')
+    assert calls == []
+
+
+@pytest.mark.parametrize('raw, expected', [(b'', {}), (b'{}', {}), (b'{"note":"Hello"}', {'note': 'Hello'})])
+def test_valid_and_empty_post_bodies_keep_their_existing_contract(hub, monkeypatch, raw, expected):
+    m = _mod(hub, monkeypatch)
+    handler = object.__new__(m.Handler)
+    handler.path = '/test'
+    handler._raw_body = lambda: raw
+    sent, calls = [], []
+    handler._json = lambda body, code=200: sent.append((body, code))
+    monkeypatch.setattr(m, 'POST_ROUTES', {'/test': lambda body: (calls.append(body) or {'ok': True}, 200)})
+    handler._dispatch_post()
+    assert calls == [expected] and sent == [({'ok': True}, 200)]
+
+
 def test_empty_lab_snapshot_includes_machine_choices(hub, monkeypatch):
     m = _mod(hub, monkeypatch)
     monkeypatch.setattr(m.sources, 'parse_registry', lambda: [])
     snapshot = m.sources.snapshot()
     assert snapshot['cold'] and snapshot['items'] == []
     assert snapshot['machines'][0]['id'] == 'local'
+
+
+@pytest.mark.parametrize('dashboard',[False,True])
+def test_local_servers_bind_without_dns_and_own_their_port(hub,monkeypatch,dashboard):
+    import socket
+    from loopback_http import LoopbackHTTPServer
+    m=_mod(hub,monkeypatch)
+    def unavailable_dns(*args):
+        raise AssertionError('Local server startup must not resolve a hostname')
+    monkeypatch.setattr(socket,'getfqdn',unavailable_dns)
+    assert 'ssh -N -L' in load('arlo.py').tunnel_hint(8787)
+    server_type=m.LabServer if dashboard else LoopbackHTTPServer
+    server=server_type(('127.0.0.1',0),m.Handler)
+    try:
+        assert server.server_name=='127.0.0.1' and server.server_port==server.server_address[1]
+        with pytest.raises(OSError):
+            server_type(server.server_address,m.Handler)
+    finally:
+        server.server_close()
 
 
 def test_acp_command_setting_survives_snapshot(hub, monkeypatch):
@@ -41,6 +90,24 @@ def test_acp_command_setting_survives_snapshot(hub, monkeypatch):
     assert m.settings.attention.executor_status()['config']['acp_command'] == command
 
 
+def test_snapshot_refreshes_task_slots_without_reprobing_agents(hub, monkeypatch):
+    import time
+    attention = _mod(hub, monkeypatch).settings.attention
+    runs = [{'status': 'running'}, {'status': 'running', 'role': 'reviewer'},
+            {'status': 'waiting_input', 'pid': 42}]
+    monkeypatch.setattr(attention, '_EXEC_CACHE', {
+        'ts': time.time(), 'key': str(hub.root), 'value': {'clis': {}, 'slots_used': 99}})
+    monkeypatch.setattr(attention.executor, 'all_runs', lambda _lab: [(None, run) for run in runs])
+    monkeypatch.setattr(attention.executor, 'health', lambda _lab: pytest.fail('CLI probe was cached'))
+    result = attention.executor_status()
+    assert result['active'] == 3 and result['slots_used'] == 2 and result['waiting'] == 1
+    runs[0]['status'] = 'completed'
+    runs[1]['status'] = 'completed'
+    runs[2]['pid'] = None
+    result = attention.executor_status()
+    assert result['active'] == result['slots_used'] == 0 and result['waiting'] == 1
+
+
 def test_optional_module_is_served_as_javascript(hub, monkeypatch, tmp_path):
     m=_mod(hub,monkeypatch)
     path=tmp_path/'vendor/example/module.mjs'
@@ -52,6 +119,61 @@ def test_optional_module_is_served_as_javascript(hub, monkeypatch, tmp_path):
     handler._send=lambda *args:sent.append(args)
     handler._serve_static('vendor/example/module.mjs')
     assert sent[0][0]==200 and sent[0][2].startswith('application/javascript')
+
+
+def test_static_revalidation_keeps_edits_visible_and_preserves_renderer_isolation(hub,monkeypatch,tmp_path):
+    m=_mod(hub,monkeypatch)
+    asset=tmp_path/'example.js';asset.write_text('version one',encoding='utf-8')
+    monkeypatch.setattr(m,'STATIC',tmp_path)
+    handler=object.__new__(m.Handler);handler.headers={};sent=[]
+    handler._send=lambda *args:sent.append(args)
+    handler._serve_static('example.js')
+    first=sent[-1];assert first[0]==200 and first[3]['Cache-Control']=='no-cache'
+    handler.headers={'If-None-Match':first[3]['ETag']}
+    handler._serve_static('example.js')
+    assert sent[-1][0]==304 and sent[-1][1]==b''
+    assert int(sent[-1][3]['Content-Length'])==len(first[1])
+    asset.write_text('version two',encoding='utf-8');handler._serve_static('example.js')
+    assert sent[-1][0]==200 and sent[-1][1]==b'version two' and sent[-1][3]['ETag']!=first[3]['ETag']
+
+
+def test_api_responses_remain_uncached(hub,monkeypatch):
+    import io
+    m=_mod(hub,monkeypatch);handler=object.__new__(m.Handler);headers={}
+    handler.send_response=lambda code:None
+    handler.send_header=lambda key,value:headers.update({key:value})
+    handler.end_headers=lambda:None
+    handler.command='GET';handler.wfile=io.BytesIO()
+    handler._json({'private':'study data'})
+    assert headers['Cache-Control']=='no-store' and 'ETag' not in headers
+
+
+def test_renderer_is_opaque_and_static_modules_allow_its_origin(hub, monkeypatch):
+    m = _mod(hub, monkeypatch)
+    handler = object.__new__(m.Handler)
+    handler.path = '/static/lab-view.html?embedded=1'
+    sent = []
+    handler._send = lambda *args: sent.append(args)
+    handler._serve_static('lab-view.html')
+    assert sent[-1][3]['Content-Security-Policy'] == 'sandbox allow-scripts'
+    assert 'allow-same-origin' not in sent[-1][3]['Content-Security-Policy']
+    handler._serve_static('vendor/three/three.module.min.js')
+    assert sent[-1][3]['Access-Control-Allow-Origin'] == '*'
+
+
+def test_direct_room_preview_opens_the_dashboard_owner(hub, monkeypatch):
+    m = _mod(hub, monkeypatch)
+    handler = object.__new__(m.Handler)
+    handler.path = '/static/lab-view.html?roomdraft=study-123'
+    handler.headers = {'Host': '127.0.0.1:8787'}
+    sent = []
+    handler._send = lambda *args: sent.append(args)
+    handler._serve_static('lab-view.html')
+    assert sent[-1][0] == 302
+    assert sent[-1][3]['Location'] == '/?roomdraft=study-123'
+    handler.headers['Origin'] = 'null'
+    handler._serve_static('lab-view.html')
+    assert sent[-1][0] == 403
 
 
 
@@ -469,6 +591,24 @@ def test_withdraw_disambiguates_colliding_ids_by_ts(hub, monkeypatch):
     proj_lines = _read_jsonl(pbus / "directives.jsonl")
     assert any(r.get("kind") == "withdraw" for r in hub_lines)          # landed on the hub bus
     assert not any(r.get("kind") == "withdraw" for r in proj_lines)     # NOT the project's d-001
+
+
+@pytest.mark.parametrize('scope', ['hub', 'project'])
+def test_scoped_withdraw_disambiguates_identical_ids_and_timestamps(hub, monkeypatch, scope):
+    import json
+    m = _mod(hub, monkeypatch)
+    hub.add_registry_row('demo', state='proposal')
+    hub_bus = hub.lab / '.bus'
+    project_bus = hub.make_project('demo') / '.bus'
+    for bus in (hub_bus, project_bus):
+        bus.mkdir(parents=True, exist_ok=True)
+        (bus / 'directives.jsonl').write_text(json.dumps({'id': 'd-001', 'ts': '2026-10-19T10:00:00',
+            'target': 'demo', 'text': str(bus)}) + '\n', encoding='utf-8')
+    out, code = m.bus.withdraw_post({'target': 'demo', 'id': 'd-001', 'ts': '2026-10-19T10:00:00', 'scope': scope})
+    assert code == 200 and out['ok']
+    for name, bus in [('hub', hub_bus), ('project', project_bus)]:
+        assert any(r.get('kind') == 'withdraw' for r in _read_jsonl(bus / 'directives.jsonl')) == (name == scope)
+    assert m.bus.withdraw_post({'target': 'demo', 'id': 'd-001', 'scope': '../elsewhere'})[1] == 400
 
 
 def test_withdraw_falls_back_to_target_bus_for_unknown_ref(hub, monkeypatch):

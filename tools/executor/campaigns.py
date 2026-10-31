@@ -15,7 +15,7 @@ executor code, never an agent — does the rest:
     enqueues it as a normal executor run (parent = the cycle), so it is capped, traced, retried and shown
   * retries a dispatched run that hit a timeout / usage limit / transient error (up to 3 times)
   * marks a study as waiting when its run reports `needs_pi` — only that study waits; the campaign goes on
-  * after each pass, lets the lab profile act (tools/lab_profile.py after_cycle): for Newts' Lab, the
+  * after each pass, lets the lab profile act (tools/lab_profile.py after_cycle): for ARLOtope, the
     approvals its cycles asked for (`campaign_approve`) on checkpoints the PI delegated to this campaign —
     re-checked, their checks run by the keeper itself, recorded as the campaign's, and what they start
     started. Membership (the Campaign Log), the brief's parallelism and when a waiting study is resolved
