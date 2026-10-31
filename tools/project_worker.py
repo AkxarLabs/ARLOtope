@@ -37,6 +37,10 @@ def safe_id(value):
     return value
 
 
+def _is_lab(path):
+    return any((path / 'lab' / name).is_file() for name in ('config.defaults.yaml', 'config.yaml'))
+
+
 class Worker:
     def __init__(self, runtime=None):
         self.runtime = str(runtime or Path(sys.argv[0]).resolve())
@@ -52,14 +56,14 @@ class Worker:
         marker = root / '.arlotope' / 'project.json'
         with self.lock:
             if not marker.exists() and claim:
-                if (root / 'lab/config.yaml').is_file():
+                if _is_lab(root):
                     raise ValueError('This folder is a Lab. Connect that Lab instead of attaching it as a project.')
                 control = root / 'control.yaml'
                 if control.is_file():
                     import yaml
                     config = yaml.safe_load(control.read_text(encoding='utf-8')) or {}
                     old_hub = Path(config.get('hub_path') or '')
-                    if old_hub.is_absolute() and (old_hub / 'lab/config.yaml').is_file():
+                    if old_hub.is_absolute() and _is_lab(old_hub):
                         raise ValueError('This project is attached to an existing Lab. Connect that Lab instead.')
             if claim:
                 from project_identity import register
