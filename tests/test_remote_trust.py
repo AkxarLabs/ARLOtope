@@ -118,3 +118,20 @@ def test_remote_pdf_stays_viewable_but_unsniffed(monkeypatch):
 def test_remote_page_seed_is_json_or_null(monkeypatch, body, seed):
     handler, _ = _proxied(monkeypatch, 200, body, 'text/html')
     assert json.loads(handler._remote_seed()) == seed
+
+
+def test_room_draft_apply_stays_inside_lab_rooms(hub, monkeypatch, tmp_path):
+    monkeypatch.syspath_prepend(str(REPO/'dashboard'))
+    api = load('dashboard/room_design')
+    monkeypatch.setattr(api.ctx, 'HUB', hub.root)
+    monkeypatch.setattr(api.ctx, 'LAB', hub.lab)
+    created, _ = api.op({'action': 'create', 'room': 'lobby', 'text': 'x'})
+    folder = hub.lab/'.bus/room-drafts'/created['id']
+    for room in ('../../../escaped_room', str(tmp_path/'escaped_room'), None):
+        meta = json.loads((folder/'draft.json').read_text())
+        (folder/'draft.json').write_text(json.dumps({**meta, 'room': room}))  # the designer agent edits its draft
+        (folder/'extra.js').write_text('/* agent js */')
+        assert api.op({'action': 'apply', 'id': created['id'], 'confirm': True})[1] == 400
+        assert api.get({'id': created['id']})[1] == 400
+    assert not list(tmp_path.rglob('escaped_room')) and not (hub.lab/'rooms').exists()
+    assert api.drafts()[0]['drafts'] == []

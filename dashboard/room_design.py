@@ -18,7 +18,11 @@ def _draft(value):
 
 
 def _meta(folder):
-    return json.loads((folder / 'draft.json').read_text(encoding='utf-8'))
+    """The draft's record. The designer agent can edit it, so its room must still be a room ID."""
+    meta = json.loads((folder / 'draft.json').read_text(encoding='utf-8'))
+    if not isinstance(meta, dict) or not isinstance(meta.get('room'), str) or not R.ID.fullmatch(meta['room']):
+        raise ValueError('This draft names an invalid room.')
+    return meta
 
 
 def drafts(q=None):
