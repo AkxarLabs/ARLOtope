@@ -1,0 +1,79 @@
+name: release
+
+# Pushing a tag `v*` builds the release archive, checks that both installers can install it on
+# Linux, macOS and Windows, and publishes it with the installers as release assets. The one-liners
+# in docs/install.md download from the latest release.
+
+on:
+  push:
+    tags: ['v*']
+
+jobs:
+  archive:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: sh install/build-archive.sh arlotope.tar.gz
+      - uses: actions/upload-artifact@v4
+        with:
+          name: arlotope
+          path: arlotope.tar.gz
+
+  smoke:
+    needs: archive
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest, windows-latest]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v5
+      - uses: actions/download-artifact@v4
+        with:
+          name: arlotope
+          path: ${{ runner.temp }}
+      - name: Install into temporary folders   # the runner context is not available in a job's env
+        shell: bash
+        run: |
+          {
+            echo "ARLOTOPE_HOME=$RUNNER_TEMP${SEP}arlotope-home"
+            echo "ARLOTOPE_INSTALL_DIR=$RUNNER_TEMP${SEP}arlotope-install"
+            echo "ARLOTOPE_LAB_DIR=$RUNNER_TEMP${SEP}arlotope-lab"
+            echo "ARLOTOPE_BIN_DIR=$RUNNER_TEMP${SEP}arlotope-bin"
+            echo "ARLOTOPE_SHORTCUT_DIR=$RUNNER_TEMP${SEP}arlotope-shortcuts"
+            echo "ARLOTOPE_ARCHIVE=$RUNNER_TEMP${SEP}arlotope.tar.gz"
+            echo "ARLOTOPE_NO_PATH=1"
+          } >> "$GITHUB_ENV"
+        env:
+          SEP: ${{ runner.os == 'Windows' && '\' || '/' }}
+      - name: Install and open the Lab (Linux, macOS)
+        if: runner.os != 'Windows'
+        run: |
+          sh install/install.sh
+          "$ARLOTOPE_BIN_DIR/arlo" status
+          "$ARLOTOPE_BIN_DIR/arlo" --status
+      - name: Install and open the Lab (Windows)
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          ./install/install.ps1
+          & "$env:ARLOTOPE_INSTALL_DIR\bin\arlo.cmd" status
+          if ($LASTEXITCODE -ne 0) { exit 1 }
+          & "$env:ARLOTOPE_INSTALL_DIR\bin\arlo.cmd" --status
+          if ($LASTEXITCODE -ne 0) { exit 1 }
+
+  publish:
+    needs: smoke
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with:
+          name: arlotope
+      - name: Publish the release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh release create "$GITHUB_REF_NAME" arlotope.tar.gz install/install.sh install/install.ps1 --title "ARLOtope ${GITHUB_REF_NAME#v}" --generate-notes

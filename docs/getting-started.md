@@ -5,7 +5,8 @@ Screenshots use demonstration data.
 
 ## 1. Open the Lab and connect an agent
 
-Install [Git](https://git-scm.com/downloads) and
+If you used the [one-line installer](install.md), run `arlo` and skip to the next paragraph. Otherwise
+install [Git](https://git-scm.com/downloads) and
 [uv](https://docs.astral.sh/uv/getting-started/installation/), then run:
 
 ```bash
