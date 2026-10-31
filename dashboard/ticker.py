@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import os
 import threading
+import traceback
 
 import ctx
 import sources
@@ -16,6 +17,7 @@ executor = sources.executor   # tools/executor, or None (observe-and-sign only)
 
 
 _SCHED: dict = {"thread": None, "stop": None}
+_FAILED: dict = {}   # hub → the last error its pass raised (logged once while it repeats)
 
 
 _SCHED_HUBS: set = set()   # labs opened in this server session: their queues keep moving after a switch
@@ -43,8 +45,11 @@ def start_scheduler() -> bool:
                     lab = executor.Lab(hub)
                     executor.tick(lab)
                     busy = executor.scheduler.has_work(lab) or busy
-                except Exception:  # noqa: BLE001 — one bad pass must never kill the loop
-                    pass
+                    _FAILED.pop(hub, None)
+                except Exception as e:  # noqa: BLE001 — one bad pass must never kill the loop
+                    if _FAILED.get(hub) != repr(e):
+                        traceback.print_exc()
+                    _FAILED[hub] = repr(e)
             try:   # keep the computer awake while any lab this server schedules is working
                 if busy and awake.enabled(executor.Lab(ctx.HUB)):
                     awake.hold("the lab is working")

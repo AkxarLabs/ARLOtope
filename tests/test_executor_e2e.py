@@ -312,6 +312,45 @@ def test_stop_kills_a_live_run(hub, monkeypatch):
     assert m["attempts"][-1]["exit_code"] not in (0, None)
 
 
+def test_stopping_the_dashboard_leaves_its_agent_runs_going(hub, tmp_path, monkeypatch):
+    """`arlo.py --stop` ends the dashboard alone. The supervisor it started (detached) and that supervisor's agent
+    keep running, as --stop promises; on Windows a tree kill used to follow the parent links into both."""
+    import os
+    import socket
+    import subprocess
+    from executor import procs
+    launcher = load("arlo.py")
+    monkeypatch.setenv("ARLOTOPE_HOME", str(tmp_path / "home"))
+    monkeypatch.setenv("FAKE_MODE", "slow")
+    monkeypatch.setenv("FAKE_SLEEP", "120")
+    lab = setup(hub)
+    rid = executor.enqueue(lab, RunSpec(skill="lab-status"))["run_id"]
+    with socket.socket() as free:
+        free.bind(("127.0.0.1", 0))
+        port = free.getsockname()[1]
+    log = tmp_path / "dashboard.log"
+    with log.open("w") as out:
+        dashboard = subprocess.Popen([sys.executable, str(REPO / "arlo.py"), "--hub", str(hub.root), "--foreground",
+                                      "--no-browser", "--port", str(port)], env=os.environ.copy(), stdout=out, stderr=out)
+    m = {}
+    try:
+        deadline = time.time() + 60
+        while not (m.get("status") == "running" and m.get("pid")):   # the dashboard's own scheduler started it
+            assert dashboard.poll() is None and time.time() < deadline, log.read_text(errors="replace")
+            time.sleep(0.2)
+            m = executor.find_run(lab, rid)[3]
+        assert launcher.stop(hub.root)["ok"]
+        dashboard.wait(timeout=30)
+        assert not launcher.ping(port)
+        assert procs.pid_alive(m["supervisor_pid"]) and procs.pid_alive(m["pid"])
+        assert executor.find_run(lab, rid)[3]["status"] == "running"
+    finally:
+        if dashboard.poll() is None:
+            dashboard.kill()
+        for pid in (m.get("pid"), m.get("supervisor_pid")):
+            procs.kill_tree(pid)
+
+
 def test_crash_then_resume_continues_session(hub, monkeypatch):
     monkeypatch.setenv("FAKE_MODE", "crash")
     lab = setup(hub)

@@ -5,7 +5,7 @@
   const { html, useState, useEffect, cls } = NL;
 
   /* ── the inbox: one list, typed actions ─────────────────────────────────── */
-  const ICON = { followup: '↻', flag: '⚑', outcome: '⑂', question: '?', assumed: '≈', needs_pi: '✋', checkpoint: '◆', slipped: '◆', alert: '▲', permission: '🔐', denied: '⊘', crashed: '✕', report: '✓', escalation: '⚠', stalled: '◴', subagent: '◌', brake: '⏸', proposal: '✎', campaign: '⟳', artifact: '❏' };
+  const ICON = { followup: '↻', flag: '⚑', outcome: '⑂', question: '?', assumed: '≈', needs_pi: '✋', checkpoint: '◆', slipped: '◆', alert: '▲', permission: '🔐', denied: '⊘', crashed: '✕', report: '✓', escalation: '⚠', stalled: '◴', subagent: '◌', brake: '⏸', scheduler: '⚠', proposal: '✎', campaign: '⟳', artifact: '❏' };
   const PRIMARY = new Set(['answer', 'resume', 'checkpoint', 'allow', 'next', 'proposal', 'artifact', 'panel', 'move']);
   /** open what an attention item is about: its checkpoint, its panel, its run, its campaign, its study */
   NL.attOpen = it => {
