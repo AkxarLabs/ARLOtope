@@ -54,7 +54,8 @@ This procedure can also run at a step whose own procedure is another one (an int
      the comparison as inconclusive rather than treating the best run as a confirmed finding.
    - Be explicit about which comparisons were selected on validation, and confirm from PLAN.md's "Test-split access log" that the test split was read once per configuration, by the final-evaluation row (project rule test-once).
    - **Follow the frozen Analysis plan** (PLAN.md): apply its primary comparison, uncertainty method and exclusion rules as written, and map the outcome onto its decision rule (supports / refutes / inconclusive → the pre-agreed action). Anything the plan did not name is **EXPLORATORY**: say so in the analysis note, and carry the label into the paper (project rule analysis-plan).
-   - Report the number of configurations evaluated on validation to reach the headline result (the registry has them); the paper's appendix states it.
+   - **Baseline reproduction and sanity controls:** for each such row of PLAN.md (ranges from the Analysis plan), report observed vs expected range. A row outside its range voids the headline claim until explained.
+   - Report the number of configurations evaluated on validation to reach the headline result (the registry has them; the paper's appendix states it), and say whether the headline survives a Bonferroni or Holm adjustment at that count; if not, label it exploratory.
 3. **Interrogate the result:**
    - **Alternative explanations.** Could the gain come from a confound: extra compute, parameters or data, an eval artifact, lucky seeds?
    - **Load-bearing ablations.** Which ablations from the plan are now load-bearing? Are there kept but never-ablated changes stacked in the winning config?

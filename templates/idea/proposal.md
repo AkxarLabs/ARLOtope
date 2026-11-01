@@ -43,7 +43,7 @@
 | ID | Question it answers | Stage | Est. cost | Promotion / success criterion (written NOW, not after) |
 |----|---------------------|-------|-----------|--------------------------------------------------------|
 | exp-001 | pipeline works end-to-end | SMOKE | minutes | runs clean, artifacts written, metric computed |
-| exp-002 | baseline reproduces expected range | PILOT | | within X of published/expected value |
+| exp-002 | baseline reproduces expected range, and the sanity controls land in theirs | PILOT | | within X of published/expected value; controls inside the Analysis plan's ranges |
 | exp-003 | core hypothesis, small scale | PILOT | | effect ≥ Y over baseline |
 | exp-004 | core hypothesis, target scale | FULL (once approved) | | |
 | exp-005 | final evaluation: the selected config on the held-out test split, read once | FULL (once approved) | | reported with the plan's uncertainty; no selection after this |

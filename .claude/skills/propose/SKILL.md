@@ -55,8 +55,10 @@ Output: `studies/<slug>/proposal.md` (from `templates/idea/proposal.md`).
      and let the pilot's variance set the replicates. `/analyze` labels anything outside it exploratory
      (project rule analysis-plan); `checks/audit_prereg.py` reads it.
    - **Staged experiment table**: exp-001 is always a SMOKE, pilots answer the hypothesis cheaply, FULL
-     runs are few. Every row gets its promotion/success criterion written now — criteria invented after
-     seeing results are not criteria. It ends in one **final evaluation** row: the selected configuration
+     runs are few. A pilot row is required for **baseline reproduction** (the baseline lands within a stated
+     distance of its published or sanity number, with as many seeds as the method gets) and for the
+     Analysis plan's **sanity controls** (the same row may hold both), each against its expected range. Every row gets its
+     promotion/success criterion written now — criteria invented after seeing results are not criteria. It ends in one **final evaluation** row: the selected configuration
      on the held-out test split, read once (project rule test-once).
    - **Ablation plan**: every method component gets a removal test. With one component, plan the sanity
      ablations (e.g. against a random or shuffled control).

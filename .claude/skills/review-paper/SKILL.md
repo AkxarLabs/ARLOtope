@@ -58,13 +58,8 @@ consolidating the cycle, and an outcome. Cycle cap: `critique.max_review_cycles`
      or soften the wording. An unresolved one is a FAIL — this is the discovery-vs-rediscovery
      gate (the field's most public failures were rediscovery shipped as discovery). It must trace
      to the `/lit-review` novelty verdict, exactly as a number must trace to an artifact.
-   - **Paper-integrity audits (blocking):**
-     - `checks/audit_multiseed.py studies/<slug>/paper` — headline claims (`headline: true`) carry ≥
-       `seeds.multi_seed_n` distinct seeds (hard rule 6); a `multi_seed_waiver` routes to MANUAL.
-     - `checks/audit_ablation_coverage.py studies/<slug>/paper` — every planned ablation ran / was
-       waived / routed, none silently dropped.
-     - `checks/audit_eval_discipline.py studies/<slug>/paper` — the frozen protocol defines validation +
-       held-out test and no headline claim reports a validation-selected metric (hard rule 5).
+   - **Paper-integrity audits (blocking):** the other `audits:` of `workflow/rules.yaml`
+     (`multiseed`, `ablations`, `eval`, `prereg`), each on `studies/<slug>/paper`.
      Exit **1 = FAIL** · **2 = MANUAL** (resolve by hand; unresolved = FAIL) · 0 = clean.
 3. Run `uv run --with pyyaml python .claude/skills/lit-review/tools/s2.py verify studies/<slug>/paper/references.bib --threshold <writing.citation_match_threshold>` —
    **any nonzero exit blocks**: NOT-FOUND, RETRACTED, *and* MISMATCH (below-threshold title

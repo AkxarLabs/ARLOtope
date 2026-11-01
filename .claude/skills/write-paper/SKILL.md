@@ -103,6 +103,9 @@ These rules hold throughout:
   the script fills the entry and returns the key). Need a source not in the lit review? Add
   it to the lit review (with a note) first, or cut the sentence.
 - **Interpretation**: support each inference with evidence or label it as conjecture.
+- **Null result** (the brief's analysis says the hypothesis was not supported): the claim is the measured
+  negative, with its uncertainty and the sanity controls that show the test could have found an effect.
+  Title and abstract say so; the discussion offers diagnoses as conjecture, never as findings.
 
 ## 3. Verifier-gated reflection (max `writing.max_reflection_rounds`)
 
@@ -124,12 +127,11 @@ over-length gradually — one pass of tightening per round, never a single slash
    pointer, or softened *now* — it hard-blocks at `/review-paper` + `/finalize`)
    — after EVERY round, not just at the end. Revision is when fabrication happens: phantom
    experiments hide in ablation/analysis subsections. Any number the audit can't trace gets
-   deleted, not defended. Also run the three paper-integrity audits as a **WARN** here (they
-   hard-block later at `/review-paper` + `/finalize`, so surface the gaps while drafting):
-   `checks/audit_multiseed.py`, `checks/audit_ablation_coverage.py`, `checks/audit_eval_discipline.py`
-   (each on `studies/<slug>/paper`) — a headline result thin on seeds, a dropped ablation, or a
-   validation-selected number gets fixed now, not at finalization. Mark load-bearing claims
-   `headline: true` and add `split: test`/`multi_seed_waiver:` to `claims.yaml` as needed.
+   deleted, not defended. Also run the other `audits:` of `workflow/rules.yaml` on `studies/<slug>/paper`
+   as a **WARN** (they hard-block later at `/review-paper` + `/finalize`) — a headline result thin on
+   seeds, a dropped ablation, a validation-selected number or an unfilled Analysis-plan line gets fixed
+   now, not at finalization. Mark load-bearing claims `headline: true` and add
+   `split: test`/`multi_seed_waiver:` to `claims.yaml` as needed.
 3. **Read the PDF** (you can see it): figures render and are legible, tables are aligned, there are no
    orphaned floats, the sections flow.
 
