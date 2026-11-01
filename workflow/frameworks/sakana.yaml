@@ -1,8 +1,9 @@
 title: Sakana · Agentic Scientist
 command: [agsci]
-platforms: [linux, darwin]
+platforms: [linux]
 setup: https://github.com/SakanaAI/AI-Scientist-v3/blob/main/docs/install.md
-# Source-reviewed against df8313889a004f8a44a472e19a833cd547bb828a. No upstream code is vendored.
+# Source-reviewed against this revision; a run warns when the installed checkout differs. No upstream code is vendored.
+revision: df8313889a004f8a44a472e19a833cd547bb828a
 # One internal worker fits one ARLOtope task slot. Parallel campaign control needs a separate adapter test.
 inputs: [task]
 reserved_args: [task.dir, paths.run_dir, execution.phases, execution.dry_run, investigation.execution.workers]
@@ -19,11 +20,15 @@ activity:
     idea_bundle_loaded: {label_from: fields.idea_title, kind: plan, state: completed}
     attempt_summary: {label: Evaluation result, state_from: fields.attempt_status}
     finished: {label: Investigation finished, state: completed}
-check: [doctor, '{task}', '{args}', 'paths.run_dir={run_dir}', 'execution.phases={phase}', 'investigation.execution.workers=1']
-run: [run, '{task}', '{args}', 'paths.run_dir={run_dir}', 'execution.phases={phase}', 'investigation.execution.workers=1']
+    downstream_selection: {label_from: fields.selection_kind, kind: plan, state: completed}
+    optional_input_degraded: {label: Optional input degraded, state: degraded}
+    paper_final_outcome_override: {label: Final outcome policy override}
+    cost_summary: {label: Cost summary recorded, state: completed}
+check: [doctor, '{task}', paper.final_outcome_policy=allow_not_qualified, '{args}', 'paths.run_dir={run_dir}', 'execution.phases={phase}', 'investigation.execution.workers=1']
+run: [run, '{task}', paper.final_outcome_policy=allow_not_qualified, '{args}', 'paths.run_dir={run_dir}', 'execution.phases={phase}', 'investigation.execution.workers=1']
 phases:
   task_drafting:
-    outputs: [task/task.md, task/evaluate.py]
+    outputs: [task/task.md, task/evaluate.py, task/evaluate_final.py, task/task_contract.json]
   investigation:
     outputs: [.investigation_completion.json, investigation/best_program_manifest.json]
     accept:

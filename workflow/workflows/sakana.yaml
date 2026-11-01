@@ -100,5 +100,10 @@ checkpoints:
     title: Review the frozen selection
     before: external-eval
     approver: me
-    evidence: ['{project}/.arlotope/framework-runs/{study}/sakana/run/.investigation_completion.json']
-    means: Evaluate this selected program under the agreed final protocol.
+    evidence:
+    - '{project}/.arlotope/framework-runs/{study}/sakana/run/.investigation_completion.json'
+    - '{project}/.arlotope/framework-runs/{study}/sakana/run/investigation/best_program_manifest.json'
+    - '{project}/.arlotope/framework-runs/{study}/sakana/run/pipeline_events.jsonl'
+    - '{project}/.arlotope/framework-runs/{study}/sakana/run/ablations/pipeline_summary.json'
+    - '{project}/.arlotope/framework-runs/{study}/sakana/run/metrics/cost_summary.json'
+    means: Evaluate this selected program under the agreed final protocol. The selection record is the downstream_selection event in pipeline_events.jsonl.

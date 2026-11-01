@@ -34,6 +34,17 @@ def test_real_event_shape_filters_configuration_and_keeps_negative_results(tmp_p
     assert not (root.parent/'investigation.json').exists()  # Observations never create completion.
 
 
+def test_selection_and_degraded_events_are_shown(tmp_path):
+    definition,root=fixture(tmp_path)
+    rows=[{'event':'downstream_selection','timestamp':'1','fields':{'selection_kind':'retained_baseline'}},
+          {'event':'optional_input_degraded','timestamp':'2'},
+          {'event':'cost_summary','timestamp':'3'}]
+    (root/'pipeline_events.jsonl').write_text(json.dumps(rows[0])+chr(10)+json.dumps(rows[1])+chr(10)+json.dumps(rows[2]))
+    events=A.read(definition,tmp_path,'demo','investigation')['events']
+    assert [(e['label'],e['state']) for e in events]==[('retained baseline','completed'),
+        ('Optional input degraded','degraded'),('Cost summary recorded','completed')]
+
+
 def test_generic_fields_mapping_empty_and_bounded_tail(tmp_path):
     definition,root=fixture(tmp_path)
     definition['activity']={'files':['events.jsonl'],'fields':{'time':'when','event':'type','label':'text'},
