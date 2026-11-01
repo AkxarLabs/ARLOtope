@@ -8,7 +8,8 @@
   const LOGIN = { claude: 'Opens a window running `claude auth login`. Sign in with your Anthropic account in the browser it opens.',
     codex: 'Opens a window running `codex login`. Sign in with ChatGPT or an API key there.',
     opencode: 'Opens a window running `opencode auth login`. Pick a provider and add its key there.' };
-  const WHAT = { claude: 'Claude Code · the default agent', codex: 'OpenAI Codex CLI', opencode: 'opencode · any provider' };
+  const WHAT = { claude: 'Anthropic', codex: 'OpenAI', opencode: 'any provider' };
+  const GUIDE = { claude: 'https://code.claude.com/docs/en/setup', codex: 'https://developers.openai.com/codex/cli', opencode: 'https://opencode.ai/docs/' };
 
   /** One card per agent CLI: installed? version? signed in? — with Install / Sign in / Check again. */
   NL.AgentsSignIn = ({ compact }) => {
@@ -40,16 +41,17 @@
     return html`<div>${healthError ? html`<${NL.LoadState} error=${healthError} stale=${true} reload=${check} />` : null}<div class=${cls('clis', compact && 'compact')}>${['claude', 'codex', 'opencode'].map(b => {
       const c = clis[b] || {};
       if (NL.DEMO) return html`<div class="cli cli-unknown"><div class="cli-top"><b>${b}</b><${NL.Pill} tone="muted">demo: not checked</${NL.Pill}></div>
-        <div class="muted small">${WHAT[b]}</div><div class="muted small">The demo doesn't look at this computer's agents.</div></div>`;
+        <div class="muted small">${NL.AGENT_NAMES[b]} · ${WHAT[b]}</div><div class="muted small">The demo doesn't look at this computer's agents.</div></div>`;
       const st = !c.found ? 'missing' : c.logged_in === true ? 'ok' : c.logged_in === false ? 'out' : 'unknown';
       return html`<div class=${cls('cli', 'cli-' + st)}>
-        <div class="cli-top"><b>${b}</b><${NL.Pill} tone=${st === 'ok' ? 'ok' : st === 'missing' ? 'muted' : 'warn'}>${st === 'ok' ? 'signed in' : st === 'missing' ? 'not installed' : st === 'out' ? 'not signed in' : 'sign-in unknown'}</${NL.Pill}></div>
-        <div class="muted small">${WHAT[b]}${c.version ? ' · v' + c.version : ''}</div>
+        <div class="cli-top"><b>${NL.AGENT_NAMES[b]}</b><${NL.Pill} tone=${st === 'ok' ? 'ok' : st === 'missing' ? 'muted' : 'warn'}>${st === 'ok' ? 'signed in' : st === 'missing' ? 'not installed' : st === 'out' ? 'not signed in' : 'sign-in unknown'}</${NL.Pill}></div>
+        <div class="muted small">${WHAT[b]}${c.version ? ' · v' + c.version : ''}${c.found && NL.exec(s).backend === b ? ' · used by default' : ''}</div>
+        ${c.found && !compact ? html`<div class="muted small path-wrap" title=${c.path}>Found at <span class="mono">${c.path}</span></div>` : null}
         ${watch === b ? html`<div class="note small"><${NL.Spinner} /> Finish signing in in the terminal that opened. This updates by itself.</div>` : null}
-        <div class="row">${!c.found ? html`<${NL.Btn} small onClick=${() => term('install', b)}>Install…</${NL.Btn}>`
+        <div class="row">${!c.found ? html`<${NL.Btn} small onClick=${() => term('install', b)}>Install…</${NL.Btn}><a class="link small" href=${GUIDE[b]} target="_blank" rel="noopener">Install guide ↗</a>`
           : st !== 'ok' ? html`<${NL.Btn} small kind="primary" onClick=${() => term('login', b)} title=${LOGIN[b]}>Sign in…</${NL.Btn}>` : null}
           <button class="link small" onClick=${check} disabled=${busy}>${busy ? 'checking…' : 'check again'}</button></div>
-        ${!compact && st !== 'ok' ? html`<div class="muted small">${!c.found ? 'Opens a terminal window that installs it (you watch it run).' : LOGIN[b]} Your credentials go to the CLI, never to this page.</div>` : null}
+        ${!compact && st !== 'ok' ? html`<div class="muted small">${!c.found ? 'Install… opens a terminal window that installs it (you watch it run). Installed somewhere else? Set its program in Agents & models.' : LOGIN[b]} Your credentials go to the CLI, never to this page.</div>` : null}
       </div>`;
     })}</div></div>`;
   };
@@ -151,10 +153,10 @@
   NL.LaunchSwitch = () => {
     const s = NL.useLab();
     const on = NL.execOn(s);
-    return html`<${NL.Toggle} on=${on} label="Let the dashboard start agents for you" sub=${on ? 'On. Buttons here start Claude, Codex or opencode runs on this computer, as you.' : 'Off. The dashboard only records what you ask; you run it in your own terminal.'}
+    return html`<div class="launch-switch"><${NL.Toggle} on=${on} label="Let the dashboard start agents for you" sub=${on ? 'On. Start buttons run agents on this computer, as you.' : 'Off. Nothing starts from here until you turn this on.'}
       onChange=${async val => { if (await NL.confirm({ title: val ? 'Let this dashboard start agents?' : 'Stop starting agents from here?', ok: val ? 'Allow' : 'Turn off',
-        body: val ? 'Agents will run on this computer using your own login, within the limits below. Checkpoints still wait for your approval.' : 'Nothing new starts from here. Runs already going finish on their own.' }))
-        NL.act('/api/executor/enable', { enabled: val, confirm: true }, val ? 'Launching is on' : 'Launching is off'); }} />`;
+        body: val ? 'Start buttons will run agents with your own account, within the limits shown. Checkpoints still wait for your approval.' : 'Nothing new starts from here. Runs already going finish on their own.' }))
+        NL.act('/api/executor/enable', { enabled: val, confirm: true }, val ? 'Launching is on' : 'Launching is off'); }} />${NL.launchTerms(s)}</div>`;
   };
 
   const LabForm = () => {

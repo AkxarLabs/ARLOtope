@@ -373,14 +373,24 @@
   NL.needsYou = s => ((s && s.attention) || []).filter(a => a.sev !== 'info');
   NL.agentReady = s => NL.backends(s).some(b => b.found && b.logged_in !== false);
   NL.backends = s => { const c = (NL.exec(s).clis) || {}; return ['claude', 'codex', 'opencode', 'acp'].map(b => ({ id: b, ...(c[b] || {}) })); };
+  NL.AGENT_NAMES = { claude: 'Claude Code', codex: 'Codex', opencode: 'opencode', acp: 'your ACP agent' };
+  /* what letting the dashboard start agents means: said at the switch and when a Start asks for it */
+  NL.launchTerms = s => {
+    const x = NL.exec(s), c = x.caps || {}, minutes = (x.config || {}).max_minutes || 240;
+    const daily = [c.daily_runs ? NL.plural(c.daily_runs, 'run') : '', c.daily_minutes ? c.daily_minutes + ' agent-minutes' : ''].filter(Boolean).join(' and ');
+    return html`<ul class="launch-terms">
+      <li><b>What it allows.</b> Start buttons run ${NL.AGENT_NAMES[x.backend] || 'your agent'} on this computer, signed in as you. Nothing starts by itself, and checkpoints wait for you.</li>
+      <li><b>What it costs.</b> Each task uses your own agent account: your plan’s usage, or API billing if you use a key. ARLOtope adds no charge.</li>
+      <li><b>Limits now.</b> Up to ${NL.plural(c.total || 7, 'task')} at once, ${minutes} minutes each, ${daily ? daily + ' a day' : 'no daily cap'}. Change them in Limits & permissions.</li>
+      <li><b>How to stop.</b> ■ Stop in a task’s conversation, or Pause all under All agents. Turning this off starts nothing new.</li></ul>`;
+  };
 
   /* ── launching (every "start" button ends here) ────────────────────────── */
   NL.launch = async (body, opts) => {
     const s = NL.getState();
     if (s?.holds?.[body.target]) { NL.toast('This study is on hold. Release it from its study page to start new agents.', 'warn'); return null; }
     if (!NL.execOn(s)) {
-      const on = await NL.confirm({ title: 'Let this dashboard start agents?', ok: 'Allow',
-        body: 'Agents will run on this computer using your own login. You can turn this off in Settings, under Limits & permissions.' });
+      const on = await NL.confirm({ title: 'Let this dashboard start agents?', ok: 'Allow', body: NL.launchTerms(s) });
       if (!on) return null;
       const r = await NL.api('/api/executor/enable', { enabled: true, confirm: true });
       if (!r.ok) { NL.toast(r.error || 'Could not turn launching on. Check the lab server, then try again.', 'bad'); return null; }
