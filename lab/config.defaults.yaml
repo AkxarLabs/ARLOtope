@@ -195,6 +195,7 @@ agents:                         # ── subagent settings · PI-owned ──
         extra_args: ""          # appended to `codex exec` (advanced; --sandbox / -a / resume /
                                 # --dangerously-bypass-approvals-and-sandbox / --yolo are refused — use
                                 # the sandbox / approval keys above)
+        command: ""             # the CLI to run; blank = found automatically, as for claude above
       opencode:                 # SST opencode (`opencode run --format json`). OPTIONAL install — only
                                 # needed if selected: `curl -fsSL https://opencode.ai/install | bash` (or
                                 # `npm i -g opencode-ai`), then `opencode auth login`. Binary: `opencode`.
@@ -219,6 +220,7 @@ agents:                         # ── subagent settings · PI-owned ──
                                 # stable control. Turn on only if a host smoke shows the env alone stalls.
         extra_args: ""          # appended to `opencode run` (advanced; --format / --dir /
                                 # --dangerously-skip-permissions are refused — use the keys above)
+        command: ""             # the CLI to run; blank = found automatically, as for claude above
     presets: {}                 # optional named agent configurations
     default_preset: null
     role_presets: null
