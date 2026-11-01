@@ -19,12 +19,19 @@ The dashboard opens in your browser, normally at `http://127.0.0.1:8787`.
 Later, use `./arlo` on macOS/Linux, `.\arlo.cmd` on Windows, or the platform launcher.
 First use creates private settings for this clone; no frontend build is needed.
 
-The ARLO guide introduces the main pages. Reopen it with **?** in the header.
+The Lab opens with a **Get started** checklist: connect an agent, let the dashboard start agents,
+create a study, start its first task. Each step links to where it is done and ticks itself off.
+**Show me around** opens the ARLO guide; reopen it with **?** in the header.
 
 ![The first-visit ARLO guide](assets/current/arlo-guide.webp)
 
-In **Settings → Agents & models**, connect an installed agent and complete its sign-in.
-Use **Connect ACP agent** for another compatible tool. Enable launches in **Limits & permissions**.
+**Connect an agent** lists Claude Code, Codex and opencode: found (with its version and where), not
+installed (with **Install…** and the vendor's install guide), or not signed in (with **Sign in…**).
+Agents are found where their installers put them, even when that folder is not on your PATH. One
+agent is enough; when only one is installed, tasks use it. Below it, **Let the dashboard start
+agents for you** says what that allows, that each task uses your own agent account, the current
+limits, and how to stop. Use **Connect ACP agent** in **Settings → Agents & models** for another
+compatible tool.
 For OpenAI, Anthropic, Google, OpenRouter or another API key, use
 **Connect API provider** and [choose its agent](api-providers.md).
 You can create studies before connecting an agent.
@@ -69,8 +76,10 @@ Neither action launches an agent.
 
 ## 5. Start and follow work
 
-Choose **Open study**, then its next task. **Run ready tasks** starts eligible branches of a workflow.
-For a separate planning conversation, choose **Plan with an agent** instead.
+Choose **Start first task**, or **Open study** and its next task. **Run ready tasks** starts eligible
+branches of a workflow. For a separate planning conversation, choose **Plan with an agent** instead.
+If an agent cannot start or is not signed in, its conversation says so and offers **Sign in…** or
+**Agents & models**.
 
 ![The created study and its next actions](assets/current/start-created.webp)
 

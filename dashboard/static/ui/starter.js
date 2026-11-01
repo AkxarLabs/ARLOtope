@@ -165,13 +165,15 @@
     const reset = () => { setCreated(null); setStep(0); setTitle(''); setQuestion(''); setId(''); setTags([]); setLocal(''); setRepo(''); setResolved(null); setMaterials(null);setMaterialId('');materialRef.current='';setInstructions('');setMachine('');setAgentChoices({});setEntry(null);setAgent('');setApplied(false);setError('');setKind('topic'); };
     // A same-route New study click supplies a fresh query object. Keep unfinished drafts.
     useEffect(() => { if (created) reset(); }, [query]);
+    const createdItem = created && NL.item(lab, created.study), first = createdItem && NL.nextFor(lab, createdItem);
     if (created) return html`<div class="page starter-page"><div class="kicker">Study created</div><h1>${title}</h1>
-      
+      ${first?.task ? html`<p class="lede">Nothing has started yet. Its first task is ${first.task}: ${first.method}. The agent stops at checkpoints for your decision.</p>` : null}
       ${created.project ? html`<p class="mono path-wrap">${created.project}</p>` : null}
       ${created.project ? html`<${ProjectFiles}/>` : null}
-      ${!NL.item(lab,created.study)?html`<${NL.LoadState} error="Study saved. Reload its details to continue." reload=${NL.refresh}/>`:null}
-      <div class="starter-actions"><${NL.Btn} kind="primary" disabled=${!NL.item(lab,created.study)} onClick=${() => NL.go('study/' + created.study)}>Open study</${NL.Btn}>
-        <${NL.Btn} disabled=${!NL.item(lab,created.study)} onClick=${firstTask}>Plan with an agent</${NL.Btn}>
+      ${!createdItem?html`<${NL.LoadState} error="Study saved. Reload its details to continue." reload=${NL.refresh}/>`:null}
+      <div class="starter-actions">${first?.task ? html`<${NL.Btn} kind="primary" onClick=${() => { NL.go('study/' + created.study); first.run(); }}>Start first task</${NL.Btn}>` : null}
+        <${NL.Btn} kind=${first?.task ? '' : 'primary'} disabled=${!createdItem} onClick=${() => NL.go('study/' + created.study)}>Open study</${NL.Btn}>
+        <${NL.Btn} disabled=${!createdItem} onClick=${firstTask}>Plan with an agent</${NL.Btn}>
         <${NL.Btn} onClick=${reset}>Create another study</${NL.Btn}></div>
       <section class="process-primer"><h2>Workflow</h2><p>${flow?.title || 'Workflow'} · Edit tasks, instructions and checkpoints.</p>
         ${flow?html`<${NL.WorkflowOverview} workflow=${flow} entry=${selectedEntry}/>`:null}

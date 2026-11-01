@@ -24,6 +24,16 @@
       text:'The workspace assistant helps you understand the Lab, a study or an agent’s work. Choose its focus and agent in the conversation.',
       hint:'Answers are saved separately in the Library. A human note records context; an instruction asks a working agent to do something.'}
   ];
+  /* the first hour, from the Lab's real state: each step links to where it is done */
+  const firstSteps=s=>{
+    const clis=N.backends(s),ready=clis.find(b=>b.found&&b.logged_in!==false),installed=clis.find(b=>b.found),on=N.execOn(s);
+    const study=(s.items||[])[0],ran=(s.runs||[]).some(r=>r.subject&&r.subject!=='hub');
+    return [
+      {done:!!ready,title:'Connect an agent',href:'#/setup',detail:ready?N.AGENT_NAMES[ready.id]+(ready.version?' '+ready.version:'')+' is ready.':installed?'Sign in to '+N.AGENT_NAMES[installed.id]+'.':'Install Claude Code, Codex or opencode.'},
+      {done:on,title:'Let the dashboard start agents',href:'#/setup',detail:on?'On. Each task uses your own agent account.':'Off until you allow it. See what it allows and costs first.'},
+      {done:!!study,title:'Create your first study',href:'#/start',detail:study?study.title||study.id:'A question, a folder or a GitHub repository.'},
+      {done:ran,title:'Start its first task',href:study?'#/study/'+study.id:'#/start',detail:ran?'An agent has worked on it. Open the study to follow it.':'Press Start on the study. The agent stops at checkpoints for you.'}];
+  };
   N.openGuide=()=>window.dispatchEvent(new Event('arlo-guide'));
   N.Guide=({lab,home})=>{
     const key='arlo-guide:'+lab.lab_info.path;
@@ -34,10 +44,12 @@
     useEffect(()=>{window.addEventListener('arlo-guide',start);return()=>window.removeEventListener('arlo-guide',start)},[progress.status,step]);
     const close=status=>{update({status,step});requestAnimationFrame(()=>document.querySelector('[aria-label="Open ARLO guide"]')?.focus())};
     const move=next=>{update({status:'open',step:next});N.go(stops[next].route)};
-    if(progress.status!=='open')return home&&!N.DEMO&&progress.status==='new'?html`
-      <aside class="arlo-welcome" aria-label="Welcome to ARLOtope"><img class="arlotope-mark" src="static/brand/arlotope-mark.png" alt=""/>
-        <div class="grow"><h2>Meet ARLO</h2><p>A short guide to your agents, workflows and research workspace.</p></div>
-        <div class="row"><${N.Btn} small kind="primary" onClick=${start}>Show me around</${N.Btn}><a class="btn btn-sm" href="#/start">New study</a></div>
+    const steps=firstSteps(lab),left=steps.filter(x=>!x.done).length;
+    if(progress.status!=='open')return home&&!N.DEMO&&progress.status==='new'&&left?html`
+      <aside class="arlo-welcome" aria-label="Get started"><img class="arlotope-mark" src="static/brand/arlotope-mark.png" alt=""/>
+        <div class="grow"><h2>Get started <span class="muted small">${steps.length-left} of ${steps.length} done</span></h2>
+          <ol class="first-steps">${steps.map(x=>html`<li class=${x.done?'done':''}><a href=${x.href}><b>${x.title}</b><small>${x.detail}</small></a></li>`)}</ol></div>
+        <div class="row"><${N.Btn} small onClick=${start}>Show me around</${N.Btn}></div>
         <button type="button" class="iconbtn sm" aria-label="Dismiss welcome" onClick=${()=>close('done')}>×</button></aside>`:null;
     return html`<aside class="arlo-guide" aria-label="ARLO guide">
       <header><img class="arlotope-mark" src="static/brand/arlotope-mark.png" alt=""/><b>ARLO</b><span class="muted small">${step+1} / ${stops.length}</span>
