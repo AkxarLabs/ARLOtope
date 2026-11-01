@@ -114,7 +114,7 @@ def test_edits_go_to_a_draft_until_published_and_can_be_undone(m, hub):
     out, code = m.compose.op({"op": "publish", "note": "rename scope"})
     assert code == 200, out
     skill = (hub.root / ".claude/skills/scope/SKILL.md").read_text(encoding="utf-8")
-    assert "title: Scope it" in skill and "<!-- arlotope:contract" in skill and "`not-worth-it`" in skill
+    assert "title: Scope it" in skill and "<!-- arlotope:contract" in skill and "not-worth-it" in skill
     assert "scope" in K.model.step("proposal", hub.root)["also"]
     v = m.compose.view()[0]
     assert not v["draft"]["active"] and v["history"][0]["note"] == "rename scope"

@@ -260,7 +260,7 @@ or as a step's work. Then the generated docs are refreshed. The signature guard 
 ### `lab_docs.py` — the generated parts of the manuals
 
 Writes the spans between `<!-- arlotope:<name> … -->` markers from the lab's definition: the rules and
-workflows in `AGENTS.md`, the head of every SKILL.md (how it finishes, what it must produce), the steps
+workflows in `AGENTS.md`, the head of every SKILL.md (load the brief), the steps
 table in [The workflow](workflow.md), and the dashboard's built-in copy of the definition. `arlo docs`
 writes them; `arlo check` reports stale ones. It also writes the room brief (`arlo room <room>`).
 

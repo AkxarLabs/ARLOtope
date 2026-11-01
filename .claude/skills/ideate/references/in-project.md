@@ -51,13 +51,13 @@ framing. Skip silently in autonomous / `/autopilot` runs.
 - **Under a campaign the PI approved** with `campaign_auto`: apply `/autopilot`'s check for a
   delegated checkpoint (the campaign's bounds + an overseer `support` pass); within bounds →
   `/propose` → re-plan; outside bounds (or `in_project_approval: pi`) it queues for the PI **and
-  emits `uv run python tools/lab_bus.py escalate --detail "in-project approach needs PI"`**
+  emits `tools/lab_bus.py escalate --detail "in-project approach needs PI"`**
   (escalation requests attention, never grants an approval). `campaign_auto` never relaxes manual
   runs, never touches the frozen set, and never approves a checkpoint.
 
 **Caps & cost.** At most `ideation.in_project_rounds` rounds (divergence terminates by config,
 not convention); under a loop/campaign the round charges its minutes against the loop's budget
 (or the project's iteration budget). Emit `approach_ideate`
-(`uv run python tools/lab_bus.py emit approach_ideate --idea <slug> --detail "<n candidates → m routed>"`)
+(`tools/lab_bus.py emit approach_ideate --idea <slug> --detail "<n candidates → m routed>"`)
 and — when a survivor re-plans the project — emit `replan` so a mid-campaign pivot is visible at the hub
 (not only at loop exit). Record the round in the project's PLAN.md Re-planning log.

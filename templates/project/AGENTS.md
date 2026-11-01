@@ -12,6 +12,8 @@ methods live in `.agents/skills/<name>/SKILL.md`. Existing `.claude/skills/` and
 methods are also retained. A managed run names its exact saved copies: read those paths. For a
 method not copied here, consult `{{hub_path}}/.claude/skills/<name>/SKILL.md` or the installed Lab.
 Native slash commands and subagent roles depend on the harness; explicit files work across harnesses.
+Skills write hub scripts as `<hub>/arlo.py …` or `<hub>/tools/…` (`<hub>` = `{{hub_path}}`); run one as
+`uv run --with pyyaml python <script> …` (a managed run uses `$ARLOTOPE_PYTHON`).
 
 ## Orientation (start of every session, in this order)
 

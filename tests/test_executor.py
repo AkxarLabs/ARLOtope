@@ -226,7 +226,7 @@ def test_prompt_forms(hub):
     p = spec.profile.render_prompt(lab, v, spec.slash_command(v), spec.backends.get("codex").native_slash)
     assert "SKILL.md" in p and "/propose idea-a" in p                        # other agents read the file
     pre = spec.profile.preamble(lab, "rid-1", v, spec.backends.get("claude").ask_tool)
-    assert "run_report --run-id rid-1" in pre and "needs_pi=<none|other>" in pre and "AskUserQuestion" in pre
+    assert "run_report --run-id rid-1" in pre and "needs_pi=<none|checkpoint id|other>" in pre and "AskUserQuestion" in pre
     assert "## Checkpoints" in pre and "approve-proposal" in pre          # the study's checkpoints, in the brief
     assert "report its outcome" in pre and "move idea-a <outcome>" in pre   # how the study moves
     assert (hub.root / 'studies/idea-a').as_posix() in pre

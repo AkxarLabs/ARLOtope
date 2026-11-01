@@ -19,7 +19,7 @@ waits for its approval, within the PI's note), and a `Headline: yes` reopen esca
    Each proposed line is appended to PLAN.md tagged `(expand Rn)` **with a pre-written
    promotion criterion** (no criterion → not a valid row), then runs through the four
    operators above like any planned work. Emit `frontier_expand`; then run
-   `uv run --with pyyaml python <hub>/tools/guard.py plan-trace <slug>` — a BLOCKED means a row reads as
+   `<hub>/tools/guard.py plan-trace <slug>` — a BLOCKED means a row reads as
    a headline change and must re-enter `/propose`, not sit in PLAN.md.
 6. **revisit** (reopen a design decision — "discard a pre-conceived idea") — when artifacts
    satisfy the **`Revisit if:`** trigger (machine form: its **`Revisit predicate:`**, shape-checked

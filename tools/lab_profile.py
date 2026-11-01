@@ -277,9 +277,11 @@ def preamble(lab, run_id: str, v: dict, ask_tool: str | None) -> str:
          if interactive else "- Keep going until the procedure's own stop point."),
         f"- When you write for the PI (your run summary, questions, notes, pages), write in this style: {writing_style(lab)}",
         "- Before you end ANY turn in which the procedure finished or stopped, emit the run footer "
-        f'(one line): python "{bus}" emit run_report --run-id {run_id} --data needs_pi=<none|other> '
-        "--data summary=\"<≤200 chars: what you did and what the PI should look at>\" (needs_pi=other only for a "
-        "decision that is not one of the step's outcomes).",
+        f'(one line): python "{bus}" emit run_report --run-id {run_id} --data needs_pi=<none|checkpoint id|other> '
+        "--data summary=\"<≤200 chars: what you did and what the PI should look at>\" "
+        "--data next=<the command `arlo move` printed, or empty>. When `arlo move` says the study waits for the PI, "
+        "present what they should look at and stop: needs_pi is the checkpoint id it names (add --data study=<slug>); "
+        "needs_pi=other is only for a decision that is not one of the step's outcomes.",
     ]
     lines.append(f'- Publish useful milestones in Results: python "{runtime_file(lab.hub, "tools/artifact.py").as_posix()}" '
                  'publish --title "..." --file <path>. A requested visual summary can be one interactive HTML '

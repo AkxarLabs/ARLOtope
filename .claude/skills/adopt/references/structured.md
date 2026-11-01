@@ -9,7 +9,7 @@ and seed this interview from its Outcomes and open threads: carry the settled fr
 and don't re-ask what's already decided.
 
 Ask what exists (don't make the PI pick a step name; suggest a fit for review), and which workflow the study follows
-(the default unless the PI names one; `uv run --with pyyaml python arlo.py workflow` lists them).
+(the default unless the PI names one; `arlo.py workflow` lists them).
 Then read that workflow's `path` (`workflow/workflows/<id>.yaml`) and each step's `do:` procedure
 (`workflow/steps.yaml`), and find the step whose procedure is the next one the work needs:
 
@@ -27,14 +27,14 @@ existing work; do not force them into the table's research stages. Leave uncerta
 
 ## 2. File the study and scaffold
 
-1. File it: `uv run --with pyyaml python arlo.py new <slug> --title "<title>" [--workflow <id>]`.
+1. File it: `arlo.py new <slug> --title "<title>" [--workflow <id>]`.
    It lands at the workflow's first step.
 2. Create `studies/<slug>/IDEA.md` from `templates/idea/` carrying the PI's text verbatim (their
    words are the hypothesis source), plus the files the table lists for this entry point.
 3. Log the entry in the notebook (`lab/notebook/<date>-adopt.md`).
 
 **Adopting a repo** (registering external code as the study's project):
-1. Record it: `uv run --with pyyaml python arlo.py project <slug> <path>`. It may live anywhere;
+1. Record it: `arlo.py project <slug> <path>`. It may live anywhere;
    `lab.projects_root` is only the default for spawned projects.
 2. Only for the structured pipeline explicitly requested above, retrofit the project contract — copy from `templates/project/` **everything
    `scripts/check_project.py` requires** that is missing (it gates step 4, so the list must match):
@@ -59,7 +59,7 @@ Where an adopted study stands is the PI's decision: `arlo.py move <slug> --to <s
 - **With the PI in the session:** name the step and list the checkpoints the move passes over (the
   workflow's `before:` checkpoints at or before that step). Moving past them is the PI's decision,
   not an approval the agent infers from the interview. When the PI says yes, run
-  `uv run --with pyyaml python arlo.py move <slug> --to <step> --note "adopted: <what exists>" --yes`,
+  `arlo.py move <slug> --to <step> --note "adopted: <what exists>" --yes`,
   or let the PI move it in the dashboard.
 - **Headless:** the move is refused in a run. Say which step it should stand at and why, and stop
   (run footer `needs_pi=other`, summary naming the step).

@@ -101,7 +101,7 @@ def _ready_paper(hub, slug="idea-g"):
     hub.add_registry_row(slug, state="internal-review")
     K.studies.move(hub.root, slug, "done")
     paper = hub.root / "studies" / slug / "paper"
-    (paper / "reviews").mkdir(parents=True)
+    (paper / "reviews").mkdir(parents=True, exist_ok=True)
     (paper / "reviews" / "meta-review.md").write_text("# Meta\n\n## Decision\n\nAccept.\n", encoding="utf-8")
     (paper / "main.pdf").write_bytes(b"%PDF-1.4 fake")
     return paper

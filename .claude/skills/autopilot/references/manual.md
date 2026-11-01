@@ -2,7 +2,7 @@
 
 Use the common rules, Resume and Exit report in [the campaign skill](../SKILL.md).
 
-## Authorize a manual campaign
+## 1. Authorize a manual campaign
 
 1. Ask the PI: direction(s); how many ideas to carry; total compute/wall-clock budget; which of
    the workflow's checkpoints the campaign may approve (only those whose `approver` is
@@ -35,9 +35,9 @@ From a session, this session becomes a **coordinator** and hands each project to
 own run:
 
 ```bash
-uv run --with pyyaml python tools/executor_cli.py enqueue --target <slug> --prompt-file <brief>   # one per project; {{slug}} is substituted
-uv run --with pyyaml python tools/executor_cli.py list                                            # what is queued / running / waiting
-uv run --with pyyaml python tools/executor_cli.py stop --target <slug>                            # stop one project's runs
+tools/executor_cli.py enqueue --target <slug> --prompt-file <brief>   # one per project; {{slug}} is substituted
+tools/executor_cli.py list                                            # what is queued / running / waiting
+tools/executor_cli.py stop --target <slug>                            # stop one project's runs
 ```
 
 The executor caps concurrency itself (`agents.programmatic.max_concurrent*`), runs each project as a
@@ -57,7 +57,7 @@ The per-idea loop (run by this session, or by each launched session):
 
 ```
 per idea:  repeat
-             uv run --with pyyaml python arlo.py next <slug>   → the procedure to run
+             arlo.py next <slug>   → the procedure to run
              run that procedure for the study                   → it reports its outcome (arlo move)
            until `next` says the study waits for the PI, is shelved, or has finished
            when it waits at a checkpoint:

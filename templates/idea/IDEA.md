@@ -4,7 +4,7 @@ title: "{{title}}"
 created: {{date}}
 updated: {{date}}
 tags: []
-scores:            # 1–10, justified in Triage notes below
+scores:            # 1–10, justified in Triage notes below. 5 is typical; LLM scores run high, so re-derive any 8+ against the closest work
   novelty:
   feasibility:
   impact:

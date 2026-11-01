@@ -72,6 +72,7 @@ def test_a_step_of_its_own_between_analysis_and_writing(lab):
     assert any("replication" in r["steps"] for r in view["rooms"])
 
     studies.new(lab.root, "r1", "R1", at="analysis")
+    lab.produce("r1")
     assert studies.move(lab.root, "r1", "done")["step"] == "replication"     # done can't skip it
     assert studies.next_for(lab.root, "r1")["procedure"] == "replicate"
     text, _ = K.brief.brief(lab.root, "replicate", study="r1")

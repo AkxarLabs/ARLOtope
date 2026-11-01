@@ -281,7 +281,7 @@ def _set_skill_meta(name: str, fields: dict) -> None:
 
 
 PROC_FIELDS = {"title", "does", "stops", "description", "kind", "level", "mode", "args", "hint", "launchable",
-                 "dispatchable", "start", "outputs", "outcomes", "brief_note", "show_pi", "tags"}
+                 "dispatchable", "start", "outputs", "outcomes", "show_pi", "tags"}
 CP_FIELDS = ("title", "before", "during", "at", "approver", "checks", "watch", "evidence", "means", "tell", "confirm", 'judge', 'decisions')
 
 

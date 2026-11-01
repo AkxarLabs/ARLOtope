@@ -5,7 +5,7 @@
 
 Generated spans sit between `<!-- arlotope:<name> (generated …) -->` and `<!-- /arlotope:<name> -->` markers:
 the rule lists and the workflows in AGENTS.md, the project rules in the project template's AGENTS.md, the head of
-every procedure's SKILL.md (how it finishes, what it must produce), the steps table in docs/workflow.md, and the
+every procedure's SKILL.md (load the brief), the steps table in docs/workflow.md, and the
 dashboard's built-in copy of the definition (dashboard/static/ui/workflow-default.js, for demo pages).
 """
 
@@ -72,44 +72,19 @@ def steps_table(hub=None) -> str:
     return "\n".join(rows)
 
 
-def show_pi_line(p: dict, project: bool = False) -> str:
-    tool = '"$ARLOTOPE_HUB/tools/artifact.py"' if project else "tools/artifact.py"
-    return (f"**Show the PI** (`python {tool} publish --title \"…\" --file <path>`): {str(p['show_pi']).strip()}. "
-            "Publish once per milestone. Use `--question \"…\" --choices \"A;B\"` for feedback, never approval.")
-
-
-def does_a_step(proc: str, p: dict, hub=None) -> bool:
-    """A procedure that does a step's work — a step's `do`, a variant of one, or one a workflow swaps in for one.
-    It finishes by reporting an outcome; one only offered at a step (`also`), a driver or a utility doesn't."""
-    does = {s.get("do") for s in model.steps(hub).values()} - {None}
-    does |= {v for w in model.workflows(hub) for k, v in (w.get("use") or {}).items() if k in does}
-    return proc in does or p.get("like") in does
-
-
 def contract_block(proc: str, hub=None) -> str:
-    """The generated head of a procedure's SKILL.md: load the brief, how it finishes, what it must produce."""
+    """The generated head of a procedure's SKILL.md: load the brief (it states the outcomes, outputs and what to show the PI)."""
     p = model.procedure(proc, hub) or {}
-    study = "slug" in str(p.get("args", ""))
     project = p.get("level") == "project"
     arlo = "<hub>/arlo.py" if project else "arlo.py"
-    lines = [f"**First, load the brief:** `uv run --with pyyaml python {arlo} brief {proc}"
-             + (" --study <slug>`" if study else " [--study <slug>]`")
+    study = "slug" in str(p.get("args", ""))
+    lines = [f"**First, load the brief:** `{arlo} brief {proc}" + (" --study <slug>`" if study else " [--study <slug>]`")
              + (" (`<hub>` = this project's `control.yaml` `hub_path`)" if project else "")
-             + f"; skip when `ARLOTOPE BRIEF /{proc}` is already supplied. Follow its task ownership, additions and checkpoints."]
-    if study and does_a_step(proc, p, hub):
-        outs = ", ".join(f"`{o}`" for o in dict.fromkeys(["done", *p.get("outcomes", []), "park", "kill"]))
-        lines.append(f"\n**Finish by reporting one outcome** — {outs} — when the brief assigns this skill the task. Use "
-                     f"`uv run --with pyyaml python {arlo} move <slug> <outcome> --note \"…\"`; follow the brief's routes. "
-                     "Never edit the journal or registry.")
-    if p.get("outputs"):
-        lines.append("\n**It must produce:**")
-        lines += [f"- {o}" for o in p["outputs"]]
-    if p.get("show_pi"):
-        lines.append("\n" + show_pi_line(p, project))
+             + f"; skip when `ARLOTOPE BRIEF /{proc}` is already supplied. It states how to finish, what to produce and show the PI, "
+             "and the PI's additions and checkpoints."]
     if p.get("guide"):
         where = "<hub>/AGENT-GUIDE.md" if project else "AGENT-GUIDE.md"
-        lines.append(f"\n**Read first:** `{where}` — " + ", ".join(f"\"{g}\"" for g in p["guide"])
-                     + ".")
+        lines.append(f"**Read first:** `{where}` — " + ", ".join(f"\"{g}\"" for g in p["guide"]) + ".")
     return "\n".join(lines)
 
 

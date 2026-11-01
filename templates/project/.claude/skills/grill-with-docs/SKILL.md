@@ -9,6 +9,9 @@ arlotope:
   engineering: true
   title: Grill a plan (with docs)
   does: Stress-tests a plan and writes ADRs and a glossary as it goes.
+  uses:
+  - grilling
+  - domain-modeling
 ---
 
 Run a `/grilling` session, using the `/domain-modeling` skill.

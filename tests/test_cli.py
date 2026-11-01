@@ -45,6 +45,7 @@ def test_file_move_and_finish_from_the_terminal(hub, cli, capsys):
     assert cli("move", "demo", "--to", "analysis") == 1                     # the PI's move: confirm it
     assert cli("move", "demo", "--to", "analysis", "--yes", "--note", "skip ahead") == 0
     capsys.readouterr()
+    hub.produce("demo")
     assert cli("move", "demo", "done") == 0 and cli("move", "demo", "done") == 0
     assert "demo has finished its workflow." in capsys.readouterr().out
     assert cli("studies") == 0 and "finished" in capsys.readouterr().out

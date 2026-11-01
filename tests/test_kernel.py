@@ -298,6 +298,7 @@ def test_an_automatic_checkpoint_approves_itself_on_the_move_when_its_checks_pas
         {"id": "auto-gate", "title": "Auto gate", "before": "writing", "approver": "auto", "checks": ["the-audit"]}))
     _audits(lab, {"the_audit": 1})
     studies.new(lab.root, "f", "F", at="analysis")
+    lab.produce("f")
     assert studies.move(lab.root, "f", "done")["waiting"] == "auto-gate"                 # its check failed
     assert checkpoints.cached_checks(lab.root, "f", "auto-gate")["results"]["the-audit"]["code"] == 1   # on its sheet
     (lab.root / "checks" / "the_audit.py").write_text("import sys\nsys.exit(0)\n", encoding="utf-8")
@@ -575,11 +576,8 @@ def test_a_procedure_offered_at_a_step_is_told_to_leave_the_outcome_to_its_own(l
 def test_skills_report_outcomes_and_never_name_steps_or_checkpoints():
     """A skill is portable across workflows: it reports what happened (`arlo move <study> <outcome>`) and reads
     its checkpoints from the brief. So no skill names a step or a checkpoint of the shipped definition, moves a
-    study by hand, or calls the old lifecycle tools — and only the procedures that do a step's work are told, in
-    their generated contract, to report an outcome."""
+    study by hand, or calls the old lifecycle tools."""
     import re
-    sys.path.insert(0, str(REPO / "tools"))
-    import lab_docs
     m = model.load(REPO)
     procs = set(m["procedures"])
     named = {s for s in m["steps"] if s not in procs} | {c["id"] for w in m["workflows"] for c in w["checkpoints"]}
@@ -592,9 +590,6 @@ def test_skills_report_outcomes_and_never_name_steps_or_checkpoints():
         body = generated.sub("", text)
         bad += [f"{f.parent.name}: {x.group(0)}" for x in old.finditer(body)]
         bad += [f"{f.parent.name}: `{x}`" for x in re.findall(r"`([a-z][a-z0-9-]*)`", body) if x in named]
-        told = "Finish by reporting one outcome" in text
-        if told != lab_docs.does_a_step(f.parent.name, m["procedures"][f.parent.name], REPO):
-            bad.append(f"{f.parent.name}: its contract {'tells' if told else 'does not tell'} it to report an outcome")
     assert not bad, bad
     assert not list((REPO / ".claude" / "skills").glob("*/METHOD.md"))
 

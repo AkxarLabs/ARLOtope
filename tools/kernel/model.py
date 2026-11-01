@@ -41,7 +41,7 @@ APPROVERS = ("me", "me-or-campaign", "auto", 'agent')
 # what a skill's `arlotope:` block may leave out (a skill with no block at all is a launchable utility)
 PROC_DEFAULTS = {"kind": "utility", "level": "hub", "mode": "headless", "args": "text?", "launchable": True}
 KINDS = ("stage", "driver", "entry", "utility")
-_NOT_INHERITED = {"title", "does", "start", "brief_note", "like", "_own"}   # what a `like:` copy says for itself
+_NOT_INHERITED = {"title", "does", "start", "like", "_own"}   # what a `like:` copy says for itself
 SLUG = re.compile(r"^[a-z0-9][a-z0-9._-]{0,79}$")
 _FM = re.compile(r"\A---\n(.*?)\n---\n?", re.S)
 _cache: dict[str, tuple[tuple, dict]] = {}

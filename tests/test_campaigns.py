@@ -296,6 +296,7 @@ def test_the_pi_stops_a_campaign(camp):
 def _paper_ready(hub, slug="idea-a"):
     """The study's paper passed internal review: its agent reported `done`, and it waits for finalize-paper."""
     K.studies.move_to(hub.root, slug, "internal-review", by="pi")
+    hub.produce(slug)
     assert K.studies.move(hub.root, slug, "done")["waiting"] == "finalize-paper"
     p = hub.root / "studies" / slug / "paper"
     (p / "reviews" / "r1").mkdir(parents=True, exist_ok=True)

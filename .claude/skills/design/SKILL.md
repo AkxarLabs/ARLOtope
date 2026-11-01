@@ -48,7 +48,7 @@ and publishes it through **Workflow**.
    (`{label: "Collect evidence", role: analyst}`) offers a task starting point; tags only organize.
    External frameworks use `workflow/frameworks/<id>.yaml` and node `external` phase declarations,
    with project inputs/budgets in `.arlotope/frameworks.yaml`; do not add another scheduler.
-5. Run `uv run --with pyyaml python arlo.py check --design <folder>`. Fix errors and explain any
+5. Run `arlo.py check --design <folder>`. Fix errors and explain any
    changed checkpoint. Return the folder path and a short account of the proposed behavior.
 
 Write only in this proposal folder. Do not change live definitions, approvals, code or another
