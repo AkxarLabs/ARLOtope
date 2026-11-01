@@ -209,7 +209,9 @@ function place(anchor) {
   peek.style.top = Math.max(12, Math.min(h - ph - 12, y)) + 'px';
 }
 function hidePeek() { peek.hidden = true; }
-$('.x', peek).addEventListener('click', () => { hidePeek(); frame && frame.contentWindow.postMessage({ labView: 1, command: 'dismiss-agent' }, '*'); });
+const closePeek = () => { hidePeek(); frame && frame.contentWindow.postMessage({ labView: 1, command: 'dismiss-agent' }, '*'); };
+$('.x', peek).addEventListener('click', closePeek);
+document.addEventListener('keydown', e => { if (e.key === 'Escape' && !peek.hidden) closePeek(); });
 const facts = rows => `<div class="facts">${rows.filter(r => r[1]).map(([k, v]) => `<div><span>${esc(k)}</span><b>${esc(v)}</b></div>`).join('')}</div>`;
 function agentPeek(target, anchor) {
   if (target.kind === 'assistant') return showPeek(`<h4>The desk</h4><b>ARLO</b><p>The workspace assistant. Ask it about the lab, a study or an agent’s work; its answers are saved in the Library.</p>`, anchor);
@@ -247,12 +249,15 @@ function fallback(text, action) {
 }
 const webgl = () => { try { const c = document.createElement('canvas'); return !!(c.getContext('webgl2') || c.getContext('webgl')); } catch { return false; } };
 const script = src => new Promise((ok, fail) => document.head.append(Object.assign(document.createElement('script'), { src, onload: ok, onerror: fail })));
+let loading = false;
 async function load(force) {
-  if (frame) return;
+  if (frame || loading) return;
   if (!webgl()) return fallback('Your browser cannot show the 3D lab here, so this is a picture of it. The story still plays alongside.');
   if (!force && navigator.connection && navigator.connection.saveData) return fallback('Data saver is on, so this is a picture of the lab.', 'Load the live lab (about 1 MB)');
+  loading = true;   // two observers may ask at once
   try { if (!window.__WORKFLOW_DEFAULT__) await script('static/ui/workflow-default.js'); }
   catch { return fallback('The lab could not load, so this is a picture of it.'); }
+  finally { loading = false; }
   frame = Object.assign(document.createElement('iframe'), { title: 'The ARLOtope lab, playing a scripted demo', src: `static/lab-view.html?lamp=${lamp()}`, loading: 'eager' });
   frame.addEventListener('load', () => {
     // the frame lifts its controls clear of the dashboard's phone tab bar; this page has none (same origin)

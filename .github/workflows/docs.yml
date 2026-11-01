@@ -1,8 +1,8 @@
 name: docs
 
-# Build the ProperDocs site on every push/PR (with --strict, so a broken link or a
-# missing nav entry fails the check), and deploy it to GitHub Pages on a push to the
-# default branch.
+# Build the website (site/) and the ProperDocs docs on every push/PR (docs with --strict, so a
+# broken link or a missing nav entry fails the check), and deploy both to GitHub Pages on a push
+# to the default branch: the website at the root, the docs under /docs/ (site/DESIGN.md, section 8).
 #
 # One-time repo setting: Settings → Pages → "Build and deployment" → Source = "GitHub
 # Actions". Until that is set, the build still runs (and gates PRs) but the deploy job
@@ -34,11 +34,13 @@ jobs:
           enable-cache: true
       - name: Build docs (strict)
         run: uv run --with properdocs --with mkdocs-material properdocs build --strict
+      - name: Assemble the website and docs
+        run: uv run python site/pages.py build _pages --docs build/docs
       - name: Upload Pages artifact
         if: github.event_name == 'push'
         uses: actions/upload-pages-artifact@v3
         with:
-          path: site
+          path: _pages
 
   deploy:
     needs: build

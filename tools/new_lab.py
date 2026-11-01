@@ -17,7 +17,7 @@ import tarfile
 from pathlib import Path
 
 HUB = Path(__file__).resolve().parents[1]
-SKIP_TOP = {".github"}                      # the template's own CI is not the new lab's
+SKIP_TOP = {".github", "site"}              # the template's own CI and website are not the new lab's
 
 
 def _git(args: list[str], cwd: Path) -> subprocess.CompletedProcess:
@@ -51,7 +51,7 @@ def _export(template: Path, dest: Path) -> int:
                 elif source.is_dir():
                     shutil.copytree(source, target, ignore=ignore)
             continue
-        if item.name in SKIP_TOP or item.name in (".git", "site", ".venv", ".pytmp", ".pytest_cache", "output", "studies", "research", ".cache", ".playwright-cli") or item.name.startswith('.env'):
+        if item.name in SKIP_TOP or item.name in (".git", "build", ".venv", ".pytmp", ".pytest_cache", "output", "studies", "research", ".cache", ".playwright-cli") or item.name.startswith('.env'):
             continue
         if item.is_dir():
             shutil.copytree(item, dest / item.name, ignore=ignore)
