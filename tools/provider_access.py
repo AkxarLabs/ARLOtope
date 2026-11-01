@@ -8,7 +8,6 @@ from pathlib import Path
 import queue
 import re
 import secrets
-import shutil
 import subprocess
 import threading
 import time
@@ -44,10 +43,16 @@ def connect(action,provider,value=None,backend=None):
     return native_providers.key(action,provider,value)
 
 
+def _opencode():
+    """opencode where the agent check finds it (PATH or its usual install folders)."""
+    from executor.backends import resolve_cli
+    return (resolve_cli('opencode', {}) or [None])[0]
+
+
 @contextmanager
 def _server():
     from executor.procs import NO_WINDOW, kill_tree, popen
-    cli = shutil.which('opencode')
+    cli = _opencode()
     if not cli:
         raise ValueError('Install OpenCode to use API providers, then retry: https://opencode.ai/docs/')
     password = secrets.token_urlsafe(24)
@@ -107,7 +112,7 @@ def catalog(refresh=False):
             return _cache[1]
         if refresh:
             from executor.procs import NO_WINDOW, kill_tree, popen
-            cli = shutil.which('opencode')
+            cli = _opencode()
             if not cli:
                 raise ValueError('Install OpenCode to use API providers: https://opencode.ai/docs/')
             process = None

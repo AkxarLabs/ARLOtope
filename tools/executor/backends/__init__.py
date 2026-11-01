@@ -96,6 +96,7 @@ class Attempt:
 
 class Backend:
     name = ""
+    label = ""                   # what the PI calls it: "Claude Code"
     ask_tool = ""                # the question tool the preamble names
     native_slash = False         # runs hub procedures as /slash commands (else: "read SKILL.md and follow it")
     probe_version = False        # `--version` gates flags
@@ -166,20 +167,39 @@ def toml_str(v) -> str:
 
 # ── finding the CLI ───────────────────────────────────────────────────────────
 
+def _npm_prefix() -> Path | None:
+    """npm's global prefix when the user moved it (`npm config set prefix`): read from the environment or
+    ~/.npmrc, never by running npm (that takes seconds)."""
+    value = os.environ.get("NPM_CONFIG_PREFIX") or os.environ.get("npm_config_prefix")
+    if not value:
+        try:
+            lines = (Path.home() / ".npmrc").read_text(encoding="utf-8").splitlines()
+        except OSError:
+            lines = []
+        value = next((v.strip() for k, _, v in (line.partition("=") for line in lines) if k.strip() == "prefix"), "")
+    return Path(os.path.expandvars(value)).expanduser() if value else None
+
+
 def _candidates(name: str) -> list[Path]:
-    home = Path.home()
+    """Where each vendor's installers put the CLI, for a dashboard started without the user's shell PATH:
+    the Claude Code native installer (~/.local/bin), npm -g (default or moved prefix, nvm, Volta, pnpm),
+    Homebrew, WinGet, Chocolatey, Scoop, bun, and opencode's own installer (~/.opencode/bin)."""
+    home, env = Path.home(), os.environ.get
+    npm = _npm_prefix()
+    managed = [Path(env(v)) for v in ("NVM_SYMLINK", "PNPM_HOME") if env(v)]
     if os.name == "nt":
-        env = os.environ.get
-        roots = [home / ".local" / "bin",
-                 Path(env("APPDATA", str(home / "AppData" / "Roaming"))) / "npm",
-                 Path(env("LOCALAPPDATA", str(home / "AppData" / "Local"))) / "Programs" / name,
-                 Path(env("LOCALAPPDATA", str(home / "AppData" / "Local"))) / "Microsoft" / "WinGet" / "Links",
-                 Path(env("ProgramData", r"C:\ProgramData")) / "chocolatey" / "bin",
-                 home / ".bun" / "bin", home / f".{name}" / "bin"]
+        local = Path(env("LOCALAPPDATA", str(home / "AppData" / "Local")))
+        roots = [home / ".local" / "bin", Path(env("APPDATA", str(home / "AppData" / "Roaming"))) / "npm",
+                 *([npm] if npm else []), *managed, local / "Programs" / name, local / "Microsoft" / "WinGet" / "Links",
+                 Path(env("ProgramData", r"C:\ProgramData")) / "chocolatey" / "bin", home / "scoop" / "shims",
+                 home / ".volta" / "bin", home / ".bun" / "bin", home / f".{name}" / "bin"]
         return [r / f"{name}{ext}" for r in roots for ext in (".exe", ".cmd")]
-    roots = [home / ".local" / "bin", home / ".claude" / "local", home / ".npm-global" / "bin",
-             home / ".bun" / "bin", home / f".{name}" / "bin", Path("/opt/homebrew/bin"),
-             Path("/usr/local/bin"), Path("/usr/bin")]
+    nvm = sorted((home / ".nvm" / "versions" / "node").glob("*/bin"), reverse=True,
+                 key=lambda p: tuple(int(x) for x in re.findall(r"\d+", p.parent.name)))
+    roots = [home / ".local" / "bin", home / ".claude" / "local", *([npm / "bin"] if npm else []),
+             home / ".npm-global" / "bin", *managed, home / ".volta" / "bin", *nvm, home / ".bun" / "bin",
+             home / f".{name}" / "bin", Path("/opt/homebrew/bin"), Path("/home/linuxbrew/.linuxbrew/bin"),
+             home / ".linuxbrew" / "bin", Path("/usr/local/bin"), Path("/usr/bin"), Path("/snap/bin")]
     return [r / name for r in roots]
 
 
@@ -232,6 +252,18 @@ def resolve_cli(backend: str, bcfg: dict | None = None) -> list[str] | None:
         if c.is_file():
             return [str(c)]
     return None
+
+
+def default_backend(prog: dict, found=None) -> str:
+    """The agent a task gets when nothing more specific is chosen: the configured one — unless its CLI is
+    missing and exactly one other agent CLI is installed, which is then the obvious choice. `found(name)`
+    says whether a CLI is installed (default: look for it)."""
+    found = found or (lambda b: bool(resolve_cli(b, (prog.get("backends") or {}).get(b) or {})))
+    chosen = prog.get("backend") or DEFAULT
+    if chosen == "acp" or found(chosen):
+        return chosen
+    others = [b for b in ("claude", "codex", "opencode") if b != chosen and found(b)]
+    return others[0] if len(others) == 1 else chosen
 
 
 _VERSION_CACHE: dict[tuple, tuple[float, tuple | None]] = {}

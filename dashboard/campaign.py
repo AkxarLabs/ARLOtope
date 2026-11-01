@@ -173,7 +173,7 @@ def campaign_preflight(q: dict) -> tuple[dict, int]:
     lab = ex.Lab(ctx.HUB)
     prog = lab.prog()
     status = attention.executor_status()
-    backend = prog.get("backend") or "claude"
+    backend = status.get("backend") or "claude"
     cli = (status.get("clis") or {}).get(backend) or {}
     checks = [{"id": "launch", "ok": bool(prog.get("enabled")), "label": "Agents may be started from the dashboard",
                "detail": "Settings → Limits & permissions → Let the dashboard start agents for you", "fix": "settings/autonomy"},

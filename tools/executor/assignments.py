@@ -115,7 +115,7 @@ def resolve(lab, spec, subject=None, remote=None):
     elif task.get('backend'):
         selected, backend = False, task['backend']
     else:
-        selected, backend = bool(chosen), chosen.get('backend') or machine.get('default_agent') or lab.prog().get('backend') or backends.DEFAULT
+        selected, backend = bool(chosen), chosen.get('backend') or machine.get('default_agent') or backends.default_backend(lab.prog())
     if backend not in backends.REGISTRY:
         raise SpecError(f'Unknown harness {backend!r}.')
     base = ((lab.prog().get('backends') or {}).get(backend) or {}).copy()

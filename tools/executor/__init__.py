@@ -43,7 +43,7 @@ def health(lab: Lab) -> dict:
             clis[b]["logged_in"] = None if auth is None else (auth["logged_in"] or env_auth)
     return {
         "enabled": bool(prog.get("enabled")),
-        "backend": prog.get("backend") or backends.DEFAULT,
+        "backend": backends.default_backend(prog, lambda b: clis[b]["found"]),
         "permission_mode": prog.get("permission_mode") or "auto",
         "clis": clis,
         "caps": caps(lab),

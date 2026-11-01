@@ -77,7 +77,7 @@ def executor_status() -> dict:
     prog = lab.prog()
     runs = [m for *_x, m in executor.all_runs(lab)]
     # settings the PI can change here: always fresh (the cached part is only the CLI probes)
-    base.update(backend=prog.get("backend") or "claude", permission_mode=prog.get("permission_mode") or "auto",
+    base.update(backend=executor.backends.default_backend(prog, lambda b: (base.get("clis") or {}).get(b, {}).get("found")), permission_mode=prog.get("permission_mode") or "auto",
                 caps=executor.caps(lab), config={**(base.get('config') or {}),
                     **{k: prog.get(k) for k in executor.CONFIG_KEYS if k in prog},
                     'acp_command': ((prog.get('backends') or {}).get('acp') or {}).get('command') or []})

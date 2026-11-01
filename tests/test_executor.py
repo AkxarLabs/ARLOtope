@@ -24,7 +24,7 @@ K = kernel()
 
 sys.path.insert(0, str(REPO / "tools"))
 import executor  # noqa: E402
-from executor import RunSpec, SpecError, backends, manifest, procs, scheduler, spec  # noqa: E402
+from executor import RunSpec, SpecError, assignments, backends, manifest, procs, scheduler, spec  # noqa: E402
 
 FAKE = REPO / "tests" / "fake_claude.py"
 
@@ -345,6 +345,77 @@ def test_resolve_cli(tmp_path, monkeypatch):
     monkeypatch.setattr(backends, "_candidates", lambda name: [exe])
     assert backends.resolve_cli("claude") == [str(exe)]          # falls back to install locations
     assert backends.resolve_cli("not-a-backend") is None
+
+
+def _home(tmp_path, monkeypatch):
+    """A user home with nothing on PATH, as a dashboard started from a launcher sees it."""
+    home = tmp_path / "home"
+    home.mkdir()
+    for var in ("HOME", "USERPROFILE"):
+        monkeypatch.setenv(var, str(home))
+    for var in ("APPDATA", "LOCALAPPDATA", "NPM_CONFIG_PREFIX", "npm_config_prefix", "NVM_SYMLINK", "PNPM_HOME"):
+        monkeypatch.delenv(var, raising=False)
+    monkeypatch.setenv("PATH", str(tmp_path / "empty"))
+    monkeypatch.setattr(backends, "_app_bundled", lambda name: [])
+    user_only = backends._candidates   # this machine's own system-wide installs stay out of the test
+    monkeypatch.setattr(backends, "_candidates", lambda name: [p for p in user_only(name) if tmp_path in p.parents])
+    return home
+
+
+def _exe(folder: Path, name: str) -> Path:
+    folder.mkdir(parents=True, exist_ok=True)
+    exe = folder / (name + ".exe" if os.name == "nt" else name)
+    exe.write_text("", encoding="utf-8")
+    return exe
+
+
+def test_resolve_cli_finds_the_vendor_install_locations_off_path(tmp_path, monkeypatch):
+    home = _home(tmp_path, monkeypatch)
+    for b in ("claude", "codex", "opencode"):
+        assert backends.resolve_cli(b) is None                         # not installed
+    claude = _exe(home / ".local" / "bin", "claude")                  # Claude Code's native installer
+    opencode = _exe(home / ".opencode" / "bin", "opencode")           # opencode's install script
+    prefix = tmp_path / "npm-global"                                  # npm -g with a moved prefix
+    codex = _exe(prefix if os.name == "nt" else prefix / "bin", "codex")
+    (home / ".npmrc").write_text(f"fund=false\nprefix={prefix}\n", encoding="utf-8")
+    assert backends.resolve_cli("claude") == [str(claude)]
+    assert backends.resolve_cli("opencode") == [str(opencode)]
+    assert backends.resolve_cli("codex") == [str(codex)]
+    monkeypatch.setenv("NPM_CONFIG_PREFIX", str(tmp_path / "elsewhere"))    # the environment wins over .npmrc
+    assert backends.resolve_cli("codex") is None
+
+
+def test_default_backend_is_the_only_installed_agent(tmp_path, monkeypatch):
+    installed = set()
+    found = installed.__contains__
+    assert backends.default_backend({}, found) == "claude"                      # nothing installed: the default
+    installed.add("opencode")
+    assert backends.default_backend({}, found) == "opencode"                    # exactly one: that one
+    assert backends.default_backend({"backend": "codex"}, found) == "opencode"
+    installed.add("codex")
+    assert backends.default_backend({}, found) == "claude"                      # several: the configured one
+    assert backends.default_backend({"backend": "codex"}, found) == "codex"
+    installed.add("claude")
+    assert backends.default_backend({"backend": "opencode"}, found) == "opencode"
+    assert backends.default_backend({"backend": "acp"}, lambda b: False) == "acp"
+    home = _home(tmp_path, monkeypatch)                                         # by default it looks for the CLIs
+    _exe(home / ".local" / "bin", "codex")
+    assert backends.default_backend({"backend": "claude"}) == "codex"
+
+
+def test_only_installed_agent_runs_tasks_and_shows_as_default(hub, tmp_path, monkeypatch):
+    setup(hub)
+    lab = executor.Lab(hub.root)
+    home = _home(tmp_path, monkeypatch)
+    _exe(home / ".local" / "bin", "opencode")
+    monkeypatch.setattr(backends, "cli_version", lambda prefix: None)
+    monkeypatch.setattr(backends, "cli_auth", lambda prefix, **kw: None)
+    prog = lab.prog()
+    prog["backends"] = {}                                                       # no fake commands: look on disk
+    monkeypatch.setattr(executor.Lab, "prog", lambda self: prog)
+    health = executor.health(lab)
+    assert health["backend"] == "opencode" and health["clis"]["opencode"]["found"] and not health["clis"]["claude"]["found"]
+    assert assignments.resolve(lab, RunSpec("lab-status"))["backend"] == "opencode"
 
 
 def test_cli_version_parses_fake():
