@@ -56,7 +56,7 @@ uv run --with pyyaml python tools/profiles.py save my-preset  # snapshot current
 |---|---|---|---|
 | `ideation.candidates` / `critics_per_idea` | 4 / 1 | 8 / 2 | 16 / 3 |
 | `scoping.advocate_subagents` | false | true | true |
-| `critique.ensemble_own_draft` | 3 | 5 | 7 |
+| `critique.ensemble_own_draft` | 3 | 6 | 7 |
 | `experiment.num_drafts` / `max_parallel_subagents` | 2 / 1 | 3 / 3 | 5 / 6 |
 | `agents.tiers` (strong / standard / fast) | sonnet / haiku / haiku | inherit | opus / opus / sonnet |
 | `agents.programmatic.max_concurrent` | 1 | 7 | 7 |
@@ -79,11 +79,14 @@ See [Choose agents](agent-workflows.md#choose-agents) for precedence, saved laun
 | `lab.keep_awake` | `auto` | PI | hold the computer awake while agents work or a campaign runs; `off` never (Settings → Research defaults) |
 | `lab.stale_days` | 14 | PI | studies that have not moved for longer than this get flagged by `check_lab.py` |
 | `critique.ensemble_external` | 3 | PI | reviewer lenses for external-paper triage |
-| `critique.ensemble_own_draft` | 5 | PI | reviewer lenses for our own drafts |
+| `critique.ensemble_own_draft` | 6 | PI | reviewer lenses for our own drafts (all of them, including the process lens that reads the run trail) |
 | `critique.score_anchor_human_mean` | 5.4 | PI | calibration anchor `/critique-paper` substitutes into every reviewer prompt |
 | `critique.accept_bar` | 7 | PI | median Overall at/above this (+ zero unrefuted fatal flaws) = accept |
 | `critique.max_review_cycles` | 3 | PI | revision cycles before escalating to the PI |
 | `critique.claim_rel_tol` | 0.001 | PI | relative tolerance `checks/audit_claims.py` uses to match a paper number to its run artifact (looser of this · printed precision) — a rigor knob, mechanically PI-owned via the `critique.` prefix |
+| `limits.ideate_critics` · `limits.scope_advocates` | 100 · 40 | PI | the most critic / advocate subagents one `/ideate` / `/scope` run spawns; beyond it the skill argues the rest itself. Above anything the shipped profiles reach, so they only bind when lowered |
+| `limits.lit_review_critiques` | 1 | PI | papers `/lit-review` sends to `/critique-paper` per run (the most load-bearing one) |
+| `limits.review_followup_reviewers` | 3 | PI | reviewers `/review-paper` runs on cycle 2 and later; cycle 1 and the final accept check use the full `critique.ensemble_own_draft` |
 | `experiment.max_debug_depth` | 3 | agent-readable | consecutive debug attempts before record-and-move-on |
 | `experiment.num_drafts` | 3 | agent-readable | distinct solution lines `/improve` maintains |
 | `experiment.max_parallel_subagents` | 3 | agent-readable | concurrent worktree subagents (project may override) |

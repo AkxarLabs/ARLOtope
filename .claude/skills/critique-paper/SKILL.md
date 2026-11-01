@@ -57,7 +57,8 @@ Lens definitions + the calibration block live in `templates/review/critique-lens
   marked *own drafts*) for external papers; `critique.ensemble_own_draft` (every lens there) for
   own drafts.
 - Spawn one `fresh-context-reviewer` subagent per lens, **in parallel**. Each prompt
-  contains ONLY: the paper file path, the lens name + its definition and the calibration
+  contains ONLY: the paper file path (the `process` lens also gets the project's run-trail paths,
+  from `arlo.py studies --json`), the lens name + its definition and the calibration
   block (paste both from `critique-lenses.md`, **substituting the anchor value with
   `critique.score_anchor_human_mean`** so a re-tuned anchor actually takes effect), and the
   output file path.

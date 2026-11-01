@@ -145,8 +145,8 @@ via OpenAlex). **Any nonzero exit blocks** — NOT-FOUND, RETRACTED, *and* MISMA
 
 ## 5. Revision (cycles after a review)
 
-When a review exists, the worklist is the latest review's audit failure table (`reviews/review-N.md`)
-or its `reviews/response-N.md` — **ACCEPT items only**. REBUT items change nothing. NEEDS-EXPERIMENT items are written up only once
+When a review exists, the worklist is the latest audit failure table (`reviews/audit-N.md`)
+or `reviews/response-N.md` — **ACCEPT items only**. REBUT items change nothing. NEEDS-EXPERIMENT items are written up only once
 their experiments have actually run (artifacts exist; claims.yaml entries first). Then the
 full reflection gate (§3) runs again — the claims re-audit each round exists precisely
 because revision is when fabrication happens.

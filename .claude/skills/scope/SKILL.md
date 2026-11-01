@@ -68,7 +68,8 @@ constrains, framing first.
      parallel. Each gets a fresh context — the hypothesis, the lit positioning and its option, never your
      leaning — and one charge: *argue the strongest case for this option AND name its two most likely
      failure modes.*
-   - **Without advocates:** argue each side yourself, in writing.
+   - **Without advocates** (or once `limits.scope_advocates` advocates have been spawned this run): argue
+     each side yourself, in writing.
 3. Record the decision as a D-NNN entry in `decisions.md`:
    - a written rationale, a **rejected-because** line per alternative, and a **revisit-if** condition
      written so a later session can check it mechanically against run artifacts;

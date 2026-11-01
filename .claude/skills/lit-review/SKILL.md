@@ -63,8 +63,8 @@ every search hit. Keep the literature review and REFERENCES index as well.
 3. **Read and note** the relevant papers (typically 5–15).
    - Fetch the actual abstract or paper and record what it *actually shows* (scale, conditions, numbers),
      not what its title implies. These notes are the only permitted citation source later.
-   - Pick the 1–3 load-bearing papers the verdict hinges on and run `/critique-paper <link>` (external
-     mode) on each; store the output under `studies/<slug>/critiques/`. A "SOTA" that doesn't survive
+   - Pick the load-bearing papers the verdict hinges on, at most `limits.lit_review_critiques`, and run
+     `/critique-paper <link>` (external mode) on each; store the output under `studies/<slug>/critiques/`. A "SOTA" that doesn't survive
      critique changes the baseline obligations.
    - The deep notes stay in `lit-review.md`. Also add a **one-line pointer** for each keeper to
      `lab/knowledge/REFERENCES.md` (`| bibkey | Authors, "Title", venue year — link | one-line

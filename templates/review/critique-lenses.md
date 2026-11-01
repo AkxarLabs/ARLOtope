@@ -2,7 +2,7 @@
 
 Used by `/critique-paper`: each reviewer subagent gets exactly ONE lens plus the
 calibration block below. Ensemble sizes come from `lab/config.yaml` (`critique.*`):
-external triage uses the first 3 lenses; own drafts use all 5.
+external triage uses the first 3 lenses; own drafts use all 6.
 
 ## Lenses
 
@@ -25,11 +25,20 @@ noise)? Are alternative explanations (confounds: extra compute/params/data, eval
 artifacts) addressed? Pick the 3 most load-bearing claims and trace each to its
 table/figure. A headline claim whose own table contradicts it is a **fatal flaw**.
 
-### 4. clarity  *(own drafts)*
+### 4. process  *(own drafts; the one lens that sees the run trail)*
+Do the paper's claims match what was actually run? Besides the paper, you get the paths of
+`runs/registry.jsonl`, `EXPERIMENT_LOG.md`, `PLAN.md` and the project's git log and diff.
+Compare each headline number and described setup with the run behind it: best-of-N selection
+reported as one run, a result from a different run than the log shows, undisclosed deviations
+from PLAN.md (data subsampling, metric or split changes), stacked changes never ablated, failed
+attempts missing from the paper's "All experiments run". A headline claim the trail contradicts is
+a **fatal flaw**.
+
+### 5. clarity  *(own drafts)*
 Can a competent reader reproduce this from the paper alone? Are the method and setup
 unambiguous, figures readable, notation consistent, limitations honest?
 
-### 5. significance  *(own drafts)*
+### 6. significance  *(own drafts)*
 Who changes what they do because of this result? Is the problem real, the setting
 representative, the improvement worth its complexity? Would the closest-work authors
 care?

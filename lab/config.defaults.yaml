@@ -305,7 +305,7 @@ writing:                        # ── /write-paper · /make-figures ──
 
 critique:                       # ── /critique-paper · /review-paper · PI-owned ──
   ensemble_external: 3          # reviewer lenses for external-paper triage
-  ensemble_own_draft: 5         # reviewer lenses for our own paper drafts
+  ensemble_own_draft: 6         # reviewer lenses for our own paper drafts (all of them, the process lens included)
   score_anchor_human_mean: 5.4  # calibration anchor — the human-review average Overall
                                 # (mirrored in critique-lenses.md; /critique-paper substitutes it)
   accept_bar: 7                 # median Overall at/above this + zero unrefuted fatal flaws = accept
@@ -313,6 +313,16 @@ critique:                       # ── /critique-paper · /review-paper · PI-
   claim_rel_tol: 0.001          # relative tolerance checks/audit_claims.py uses to match a paper
                                 # number to its run artifact (looser of this · printed precision).
                                 # Written 0.001 not 1e-3 so YAML parses it as a float, not a string.
+
+limits:                         # ── fan-out ceilings: the most subagents one skill run spawns · PI-owned ──
+                                # Beyond a ceiling the skill does the rest itself, in writing. The first two are
+                                # above anything the shipped profiles reach (candidates x critics x rounds is 96 at
+                                # `high`), so they only bind if you lower them or raise the depth knobs.
+  ideate_critics: 100           # /ideate: critic subagents per run
+  scope_advocates: 40           # /scope: advocate subagents per run
+  lit_review_critiques: 1       # /lit-review: papers sent to /critique-paper per run (the most load-bearing)
+  review_followup_reviewers: 3  # /review-paper: reviewers on cycle 2 and later (cycle 1 and the final accept
+                                # check use the full critique.ensemble_own_draft)
 
 experiment:                     # ── experiment loop defaults · project-overridable via control.yaml ──
   max_debug_depth: 3            # consecutive debug attempts before record-and-move-on

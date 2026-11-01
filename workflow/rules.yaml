@@ -117,7 +117,7 @@ subagent_rules:      # every subagent, and every parent that spawns one (AGENTS.
     text: >-
       Max `experiment.max_parallel_subagents` concurrent **experiment (worktree) subagents** (default 3);
       review/critic ensembles are sized by their own config keys (`critique.ensemble_*`,
-      `ideation.critics_per_idea`, `scoping.options_per_decision`).
+      `ideation.critics_per_idea`, `scoping.options_per_decision`) and capped per run by `limits.*`.
   - id: inherit-rules
     text: >-
       Subagents inherit every hard rule — frozen budgets/evals especially.
@@ -222,6 +222,7 @@ pi_owned_config:
   - agents
   - oversight.level
   - critique
+  - limits
   - writing.page_limit
   - writing.venue
   - budgets

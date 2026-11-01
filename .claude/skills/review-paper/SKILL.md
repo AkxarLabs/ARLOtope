@@ -39,8 +39,8 @@ arlotope:
 <!-- /arlotope:contract -->
 
 Input: a drafted paper in `studies/<slug>/paper/`. Output: `studies/<slug>/paper/reviews/review-N.md`
-consolidating the cycle, and an outcome. Cycle cap: `critique.max_review_cycles` (count the existing
-`review-N.md` files).
+consolidating the cycle, and an outcome. Cycle cap: `critique.max_review_cycles`, counting
+the existing `review-N.md` files (Part A failures go to `audit-N.md` and are not review cycles).
 
 ## Part A — Claims audit (mechanical, blocking)
 
@@ -81,12 +81,15 @@ consolidating the cycle, and an outcome. Cycle cap: `critique.max_review_cycles`
      to author rationalization, and you wrote (or just saw written) this paper.
 
 **A paper failing any Part A check gets no qualitative review:** write the failure table to
-`reviews/review-N.md` and report `revise` (below).
+`reviews/audit-N.md` and report `revise` (below).
 
 ## Part B — Fresh-context critique ensemble
 
-Invoke `/critique-paper <slug>` (own-draft mode: full ensemble, meta-review with
-median scores and minority veto). Do not review the paper yourself — you've seen it
+Invoke `/critique-paper <slug>` (own-draft mode: meta-review with median scores and minority veto). The
+first cycle, and the check before reporting `done`, run the full ensemble. Cycles 2+ run only
+`limits.review_followup_reviewers` reviewers: the lenses that raised an unresolved fatal flaw or an open
+ACCEPT item last cycle, then the rest in lens order. If that smaller ensemble would accept, run the full
+one once before reporting `done`. Do not review the paper yourself — you've seen it
 written; that's exactly the bias the ensemble exists to remove.
 
 ## Part C — Author response
@@ -115,18 +118,26 @@ written; that's exactly the bias the ensemble exists to remove.
 
 1. Update the notebook with scores, the triage tally, and the outcome. Emit
    `uv run python tools/lab_bus.py emit review_verdict --idea <slug> --detail "median <X>, <outcome>"`.
-2. Report one outcome:
+2. Report one outcome. The meta-review's decision maps to it (accept needs median Overall ≥
+   `critique.accept_bar`; never `done` with an unrefuted fatal flaw):
+
+   | Meta-review decision | Outcome |
+   |---|---|
+   | accept | `done` |
+   | minor revision, ACCEPT items open | `revise` |
+   | minor revision, none open | `done` |
+   | major revision | `revise` |
+   | reject | `park` (or `revise` if the action items can rescue it) |
+
+   Three things override the table:
    - `more-experiments` — any NEEDS-EXPERIMENT item. First append the new rows to the project's
      `PLAN.md` (criteria written now), commit the project, and emit
      `uv run python tools/lab_bus.py emit replan --idea <slug> --detail "review NEEDS-EXPERIMENT"`.
      New claims require new runs; nothing gets "addressed" in prose that needed an experiment. Note:
      the experiments and the `response-N.md` path.
-   - `revise` — a Part A failure, or ACCEPT items remain. Note: the `review-N.md` / `response-N.md`
-     path that holds the worklist.
-   - `done` — meta-review **accept** AND zero unrefuted fatal flaws. Note: median Overall and the
-     `review-N.md` path.
-   - `park` — `critique.max_review_cycles` cycles reached with gaps remaining, or a **reject** the
-     action items cannot rescue. Note: the residual gaps, so the PI can decide.
-   - `kill` — only on the PI's word.
+   - `revise` — a Part A failure. Note: the `audit-N.md` path. Otherwise the note names the
+     `review-N.md` / `response-N.md` that holds the worklist, and `done` names median Overall and `review-N.md`.
+   - `park` — `critique.max_review_cycles` cycles reached with gaps remaining. Note: the residual gaps,
+     so the PI can decide. `kill` only on the PI's word.
 3. If `arlo move` says the study waits for the PI, present the PDF and the meta-review and stop
    (headless: `needs_pi=<that checkpoint's id>`, with `study=<slug>`). Use the configured checkpoint decision maker. A review file does not itself grant approval. The run footer's `next` is what `arlo move` printed.

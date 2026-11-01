@@ -70,7 +70,8 @@ already in the index), so the reading compounds.
 ## 2. The pipeline
 
 Generate at most `ideation.candidates` candidates, run at most `ideation.reflection_rounds` critique
-rounds, and combine only if `ideation.enable_combination`. A candidate killed along the way has any
+rounds, and combine only if `ideation.enable_combination`. Spawn at most `limits.ideate_critics` critics
+in all; past that, critique the remaining candidates yourself, in writing. A candidate killed along the way has any
 surviving thread harvested into `lab/knowledge/OPEN-QUESTIONS.md`.
 
 1. **Sources.**
