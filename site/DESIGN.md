@@ -11,216 +11,167 @@ marketing skin.
 |---|---|---|
 | Colour tokens, day and night | `dashboard/static/ui/ui.css` (`:root` shared, `:root, html[data-lamp=night]`, `html[data-lamp=day]`) | Linked directly. The site sets `html[data-lamp]` exactly like the dashboard and only *reads* `--bg --paper --paper-2/3 --edge --edge-2 --ink --ink-soft --ink-faint --accent --accent-2 --accent-ink --accent-wash --warm --ok --bad` and their washes. It defines no colour of its own except the ARLO gill tints (below). |
 | Type | `ui.css` `@font-face` + `--serif` / `--sans` / `--mono` | **Newsreader** carries the few big statements (h1, section titles, ARLO's narration in italics), **Instrument Sans** every word of structure, **IBM Plex Mono** kickers, commands, data. Fonts are the dashboard's bundled SIL OFL files; nothing loads from a CDN. |
-| Type scale | dashboard: h1 36 px serif 450, `.lede` 18 px serif, `.kicker` 11 px mono uppercase +.09em, body 14 px | Same ratios, scaled up one notch for a reading page: hero h1 `clamp(40px, 6vw, 72px)`, section h2 `clamp(30px, 4vw, 44px)` serif 450 with −.018em tracking, lede 20 px serif, body 16 px sans. |
-| Atoms | `ui.css` `.btn .btn-primary .btn-ghost .pill .kicker .kbd` | Used as-is (9 px radius buttons, slate-teal primary, pills). |
+| Type scale | dashboard: h1 36 px serif 450, `.lede` 18 px serif, body 14 px | Same faces and weights, scaled for a reading page: h1 `clamp(44px, 5.4vw, 80px)` with -.03em tracking, captions and section titles 28-60 px serif 450, body 16-17 px sans. The dashboard's mono kickers are *not* used above headings (see section 2). |
+| Atoms | `ui.css` `.btn .btn-primary .link .facts .x` | Used as-is. Class names the site defines are checked against `ui.css` so none collide (`.stage`, `.step`, `.tabs` and `.ask` did, and were renamed). |
 | Wordmark and mark | `docs/assets/brand/arlotope-wordmark.svg` (editable vector, `currentColor`), `dashboard/static/brand/arlotope-mark.png` | The header uses the SVG wordmark inline so it follows `--ink` in both lamps. Favicon is the mark PNG. |
-| ARLO | the SVG head in the wordmark (boxed axolotl, six gill loops, two dot eyes, small smile); `branding/arlotope/README.md` (ivory face, pink/lavender/teal gills) | ARLO is the same line drawing as a `<symbol>`, with gills split into two groups so they can wave. Ink is `currentColor`; the face fill is `--paper`. On hello, the gills take a faint pink / lavender / teal tint (the only non-token colours: `#e9a7b8`, `#b7a6e0`, `#8ccfc4` at low opacity). |
-| ARLO's voice | `dashboard/static/ui/guide.js` (“Meet ARLO”, “Show me around”, numbered stops, a title + one plain sentence + a small hint) and `docs/ui-copy.md` | ARLO narrates the demo in exactly the guide's shape: `ARLO  3 / 8`, a Newsreader title, one sentence of what is happening, a small hint about why it matters. Plain, concrete, never a slogan. |
+| ARLO | the SVG head in the wordmark (boxed axolotl, six gill loops, two dot eyes, small smile); `branding/arlotope/README.md` (ivory face, pink/lavender/teal gills) | The same line drawing without the box, inlined by `site.js`, with the gills split in two so they can wave. Ink is `currentColor`; the face fill is `--paper`. On hello the gills take a faint pink and teal tint (`#e9a7b8`, `#8ccfc4`, the only colours the site adds; the screenshot frames also use the screenshots' own paper, `#f8f5ee`). |
+| ARLO's voice | `dashboard/static/ui/guide.js` ("Meet ARLO", "Show me around") and `docs/ui-copy.md` | Short, plain, first person: "Hi, I'm ARLO. Scroll, and I'll show you around." The tour captions follow the guide's shape: a title and one or two concrete sentences. |
 | The lab | `dashboard/static/lab-view.html` + `ui/lab-view.js` + `world3d/*` (three.js) | The demo **is** the dashboard's own lab frame, fed scripted snapshots (§4). |
-| Product truth | `docs/assets/current/*.webp` screenshots, README “What you can do”, RELEASE_NOTES | Feature copy is the README's six points, tightened. Screenshots are the real ones the docs use. |
+| Product truth | `docs/assets/current/*` screenshots, README "What you can do", RELEASE_NOTES | Copy comes from the README's points, tightened. Screenshots are the real ones the docs use, cropped to the part worth reading. |
 
 Tone check against `docs/ui-copy.md`: concrete labels, the stored model's words (study, task,
 room, checkpoint, Inbox), movement only for real changes of place or activity, no hype adjectives.
 
-## 2. Moodboard
+## 2. Direction (second revision)
 
-*A research notebook on a sunny desk, with a toy lab beside it.* Warm paper (`#f8f5ee`) and
-near-black ink by day; dark slate (`#181b1d`) and soft ink by night. Editorial serif headlines
-like a quiet journal, a precise grotesk for everything you act on, monospace for anything you
-could type. Generous white space, hairline `--edge` rules instead of boxes, one slate-teal accent.
-The only bright colour on the page comes from the 3D lab itself — the green plots, the room
-colours, the little characters — so the eye goes to the thing that is alive. ARLO is a line
-drawing that occasionally peeks out of the margin, like a doodle in the notebook, and says one
-short thing. No gradients on the chrome, no glassmorphism, no stock illustration, no emoji.
+The first version was a stock marketing page: a hero, the lab in a bordered box with a side panel of
+controls, six feature cards, a CTA. The owner found it cluttered and the boxed lab toy-like. The
+second revision follows the advice that kept recurring in the references below: **open with the most
+characteristic thing in the product's world and lay the page out around it**, strip decoration that
+does not serve the subject, use one orchestrated moment rather than many small effects, and end with
+one contrasting call to action.
 
-## 3. Page structure and narrative
+* The live lab is the first screen and stays pinned, full-bleed and unframed, while the tour scrolls
+  past it. It is drawn larger than its box, so it bleeds off the right and bottom edges: a place you
+  are looking into, not a widget.
+* Scrolling *is* the control: no play/pause/next buttons, no beat list, no autoplay timer. Each
+  caption, as it reaches mid-screen, changes the lab. Inactive captions fade to 16 % opacity.
+* Removed: mono kickers above every heading, `A · B · C` meta strings, arrows on every link,
+  identical feature cards, hairline-ruled newspaper sections, the floating Inbox and narration cards.
+* Kept, because they are the product's own identity: the paper/slate palette, Newsreader + Instrument
+  Sans, the slate-teal primary, ARLO.
+* The one contrasting block is the installer: deep teal by day (`--accent-2`), `--paper-2` by night,
+  with ARLO looking over its top edge.
 
-1. **Header** (sticky, 60 px, hairline under it): wordmark · Lab demo · Features · Install · Docs ·
-   GitHub · lamp toggle (`◑ Dark` / `◑ Light`, the dashboard's own control).
-2. **Hero.** Kicker `Open source · Windows, macOS, Linux` (no version number to go stale).
-   Headline (Newsreader, two lines on desktop): *“Visually manage agent teams across your
-   research projects.”* Lede: the README's second paragraph, shortened. Buttons: **Install**
-   (primary, jumps to §5) · **Watch the lab** · GitHub. Kept short so the lab starts above the
-   fold on a 1440 × 900 screen.
-3. **The live lab** (the central object). A stage (16:11 on desktop, about square on phones)
-   holding the lab frame; beside it on desktop (below on narrower screens) ARLO peeking over its
-   narration card, then the mock **Inbox** card (directly under the narration, so “try it” is
-   always in view), then the storyboard of eight numbered beats (hidden below 1040 px, where the
-   `3 / 8` count and the arrows remain). Controls: play/pause, back, next, and the beat list.
-4. **What you can do.** Six features, three columns × two rows, each a mono kicker, a sans title,
-   two lines, and a “Read more →” to the matching docs page. Below: three real screenshots
-   (Inbox, a checkpoint, the workflow editor), lazy-loaded, captioned.
-5. **Install.** Two tabs, *Windows (PowerShell)* and *macOS and Linux*, pre-selected from the
-   visitor's platform; the one-liner in a mono block with a **Copy** button; “Then run `arlo`.”
-   Secondary links: all releases, install guide (where things live, updating, uninstalling),
-   from source. ARLO peeks from the edge when you copy: *“Copied. Paste it into a terminal.”*
-6. **Footer.** Docs · GitHub · Releases · License (AGPL-3.0-only) · AkxarLabs. A small ARLO
-   waves when it scrolls into view: *“See you in the lab.”*
+References read for this revision (opinion pieces, weighed as such): Evil Martians' study of 100
+developer-tool landing pages (hero with the product visual, a bold and a quiet CTA, a full-width
+final CTA, alternating screenshot rows for UI-heavy tools); capitalandcompute.net, "How to fix AI
+slop in web design, tell by tell" (both waves of tells, including the cream-serif-hairline "second
+wave" the first version had fallen into); ice-ice-bear, "Three design principles that strip the AI
+smell" (strip everything first, start from references, design for purpose); and the scrollytelling
+pattern (a sticky visual with captions scrolling past it, as in Apple's product pages).
 
-### Sketch A — desktop (≥ 1040 px)
+## 3. Page structure
 
-```
-┌──────────────────────────────────────────────────────────────────────────────┐
-│ [▢ ARLOtope]        Lab demo  Features  Install  Docs  GitHub      [◑ Dark]  │
-├──────────────────────────────────────────────────────────────────────────────┤
-│  OPEN SOURCE · WINDOWS, MACOS, LINUX                                          │
-│  Visually manage agent teams                                                  │
-│  across your research projects.                                               │
-│  Move several projects forward at once…                                       │
-│  [ Install ]  [ Watch the lab ]  GitHub ↗                                     │
-│  THE LAB, RUNNING                                                             │
-│  Watch a team at work                              ╭──────────╮  .-"-.        │
-│  This is the dashboard's own 3D lab…               │Hi, I'm   │ (◕‿◕)  ARLO    │
-│                                                    │ARLO.     │  peeks over   │
-├───────────────────────────────────────────────┬────╰──────────╯──────────────┤
-│                                               │ ARLO   3 / 8   ❚❚  ‹  ›      │
-│                                               │ A study moves on             │
-│        the real 3D lab (lab-view.html)        │ Triage finished. A newt      │
-│        rooms · cards · newts walking          │ carries Token routing's card │
-│        click a character → peek card          │ to the Study.                │
-│                                               │ ┌ Inbox · 1 ───────────────┐ │
-│                                               │ │ ? Lead Results with…     │ │
-│                                               │ │ [The scaling law][Ablat.]│ │
-│                                               │ └──────────────────────────┘ │
-│                                               │ 1 Your lab                   │
-│                                               │ 2 Agents at work             │
-│                                               │ 3 A study moves on ◉         │
-│                                               │ …                            │
-├───────────────────────────────────────────────┴──────────────────────────────┤
-│ WHAT YOU CAN DO   (3 × 2 feature grid)  ·  three screenshots                  │
-│ INSTALL  [Windows | macOS and Linux]  irm https://…/install.ps1 | iex  [Copy] │
-│ footer                                                    ARLO: See you…      │
-└──────────────────────────────────────────────────────────────────────────────┘
-```
+1. **Header**: clear over the lab at the top, solid with a hairline once the page moves. Wordmark;
+   Docs, GitHub, the lamp toggle (an icon), and **Install** as the one primary button.
+2. **The tour** (`.tour`): a sticky, full-height `.pin` holding the lab (`.world`, from 31 % of the
+   width to past the right edge; on phones, the top half), with nine captions (`.beat`) scrolling on
+   the left (on phones, underneath, over a soft fade):
+   0. the intro: *"A lab for your agent teams."*, the lede, **Install ARLOtope** and **Read the
+      guide**, and ARLO saying hello;
+   1. every room is a step; 2. agents work where the work is; 3. studies move on;
+   4. agents ask, you answer (a mock Inbox item with two real buttons); 5. back to work;
+   6. checkpoints are yours (a mock checkpoint with **Approve**); 7. approved, and recorded;
+   8. results come back with their evidence.
+3. **Three product rows** (`.work`): the Inbox, the workflow editor, a study's record; each a short
+   serif title, two sentences and one docs link, beside a real screenshot cropped to the part worth
+   reading, alternating sides.
+4. **A statement** (`.statement`): one large serif paragraph naming the agents and tools it works
+   with, the names in ink and the rest faint.
+5. **Install** (`.install`): the contrasting block: title, Windows / macOS and Linux tabs (the
+   visitor's platform first), the one-liner with **Copy**, then a sentence with the install guide,
+   releases and source links. ARLO peeks over the top edge and says *"Copied. Paste it into a
+   terminal."* after a copy.
+6. **Footer**: one line.
 
-### Sketch B — phone (375 px, 16 px gutters, one column)
+### Sketch: desktop
 
 ```
-┌───────────────────────────────────┐
-│ [▢ ARLOtope]              [◑]     │   in-page nav hidden; Docs/GitHub stay in hero + footer
-│ OPEN SOURCE · WINDOWS, MACOS, …   │
-│ Visually manage                   │
-│ agent teams across                │
-│ your research projects.           │
-│ [ Install ] [Watch the lab]       │
-│ Watch a team at work              │
-│ ┌───────────────────────────────┐ │
-│ │  lab frame, about square;     │ │   room names off below 560 px
-│ │  its controls at the bottom   │ │
-│ └───────────────────────────────┘ │
-│        ╭───────────╮ (◕‿◕)        │   ARLO peeks over the narration
-│ ARLO 3/8          ‹ ❚❚ ›          │
-│ A study moves on — Triage …       │
-│ ┌ Inbox ────────────────────────┐ │
-│ └───────────────────────────────┘ │
-│ features stacked · install · foot │
-└───────────────────────────────────┘
++------------------------------------------------------------------------------+
+| [#] ARLOtope                                     Docs  GitHub  o  [Install]  |
+|                                  /‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾ |
+|  A lab for your                 /  The Incubator   The Study    The Lab       |
+|  agent teams.                  /     [] []          [] [] *      [] [] *      |
+|  Move several research ...    /                                               |
+|  [Install ARLOtope] [Guide]  /      (trees)        (ARLO's desk)  The Bench   |
+|  (ARLO) Hi, I'm ARLO ...    /                                                 |
+|                            /   The Margins     The Archive   The Writing Room |
+|                           /   ... the lab runs on past the edges of the page  |
++------------------------------------------------------------------------------+
+   scroll: the left column's captions change; the lab stays pinned and acts them out
 ```
 
-### Sketch C — the install block
+### Sketch: phone (375 px)
 
 ```
- INSTALL
- One line, then run arlo
- ┌ Windows (PowerShell) │ macOS and Linux ┐
- │ irm https://github.com/AkxarLabs/ARLOtope/releases/latest/download/install.ps1 | iex   [Copy] │
- └──────────────────────────────────────────────────────────────────────────────────────────┘
- Then run arlo, or open the ARLOtope launcher.
- All releases ↗ · Install guide · Work from source
++--------------------------------+
+| [#] ARLOtope        o [Install]|
+| /‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾\ |  the lab, top half, wider than the screen
+|   rooms, characters, cards     |
+| \___________________________/ |
+| Agents ask; you answer         |  captions scroll up underneath
+| Codex is writing ...           |
+| +- Codex . Scaling laws note -+|
+| | Lead the Results with ...   ||
+| | [The scaling law] [Ablation]||
+| +-----------------------------+|
++--------------------------------+
 ```
 
 ## 4. The interactive lab
 
-**Reuse, not re-implementation.** The stage is an `<iframe>` of the dashboard's real
-`static/lab-view.html`. That page is already a *disposable renderer frame*: it never reads lab
-files, takes snapshots over `postMessage({labView:1, state, theme, cast, motion, labels})`, and
-posts back what the visitor clicked (`inspect-agent` with a screen anchor, `agent-anchor`,
-`study`, `checkpoint`, `inbox`, `dismiss-agent`). The dashboard's `app.js` is one host of that
-protocol; `site/demo.js` is a second, much smaller one. No world code is copied or forked.
+**Reuse, not re-implementation.** The lab is an `<iframe>` of the dashboard's real
+`static/lab-view.html`. That page is a *disposable renderer frame*: it never reads lab files, takes
+snapshots over `postMessage({labView:1, state, theme, cast, motion, labels})`, and posts back what the
+visitor clicked (`inspect-agent` with a screen anchor, `agent-anchor`, `study`, `checkpoint`,
+`dismiss-agent`). The dashboard's `app.js` is one host of that protocol; `site/demo.js` is a second,
+much smaller one. No world code is copied or forked.
 
-**The story** (`site/demo.js`) is eight beats. Each beat has a narration (title, sentence, hint)
-and a pure function that changes a small model (six studies, a handful of runs). The snapshot for
-beat *n* is rebuilt from the base model by applying beats 1…n, so back/next/jump are exact. The
-snapshot uses the shipped default workflow (`static/ui/workflow-default.js`, generated by
-`arlo docs`), so the rooms, steps and checkpoints are the real ones.
+**The story.** The captions live in the HTML. `demo.js` holds what each caption changes in a small
+model (six studies, a few runs); the snapshot for caption *n* is the base model with changes 1..n
+applied, so scrolling either way is exact. Moving forward one caption plays the change (characters
+walk, cards are carried); any other jump redraws it still, so nothing walks backwards. The shipped
+default workflow (`static/ui/workflow-default.js`, generated by `arlo docs`) supplies the real rooms,
+steps and checkpoints. The active caption is the last one whose heading has passed the reading line
+(55 % down the screen; 75 % on phones, below the lab), worked out on every scroll event (nine
+rectangles; no observer or animation-frame timing that background tabs would pause).
 
-| # | Beat | What changes in the world | Inbox card |
-|---|---|---|---|
-| 1 | Your lab | Rooms = workflow steps; six study cards on shelves; ARLO at the desk; one agent reading | empty |
-| 2 | Agents at work | Claude Code starts `/experiment` on *Sparse MoE routing*, briefs a subagent who walks to the bench | — |
-| 3 | A study moves on | *Token routing* advances Ideas → Study; a newt carries the card; opencode starts `/lit-review` | — |
-| 4 | An agent asks you | Codex, writing *Scaling laws note*, pauses with a question marker | the question with two real buttons |
-| 5 | You answer | the chosen answer is shown; the agent goes back to editing `main.tex` | answered |
-| 6 | Checkpoints wait | *Curriculum distillation* waits at the lantern for **Approve the proposal** | checkpoint with evidence + **Approve** |
-| 7 | Approved | the study is carried to the Lab; `/spawn-project` sets up its repo | approved, by you |
-| 8 | Results come back | the experiment finishes; a result is published; *Sparse MoE routing* moves to the Bench | an output to read |
+**Interaction.** Clicking a character opens a peek beside it (who: Claude Code / Codex / opencode,
+the task, what it is doing, the study); clicking a study card or a checkpoint lantern shows the
+study's step; clicking ARLO at the desk describes the workspace assistant. Escape or the close button
+closes it. Answering in step 4 or approving in step 6 records the choice in the page and scrolls to
+the next caption, which uses the answer. The frame's own camera bar is hidden (one same-origin style
+rule); room names are on when the lab is at least 600 px wide.
 
-Clicking an answer or **Approve** in the Inbox card advances the story with *your* choice;
-autoplay uses the first option after the beat's dwell (7.5 s per beat, 13 s on the two beats that
-invite an answer). At the end the stage fades, the
-world is reset with motion off (so cards are not carried backwards), and the loop restarts.
-
-**Interaction.** Click a character → a peek card over the stage (who: Claude Code / Codex /
-opencode, task, what it is doing, study). Click a study card → its title, step and what is next.
-Hover rooms → the renderer's own name tags. The frame's own controls (All rooms, Follow an agent,
-Names) stay, since they are the product's. Keyboard: the controls are buttons, the beat list is a
-list of buttons, `←`/`→` step when the story has focus, `Space` toggles play.
-
-**Fallbacks and performance.** Above the fold the page costs HTML + `ui.css` + `site.css` + two
-small scripts + two preloaded woff2 fonts. The frame (three.js ≈ 690 KB raw / ≈ 170 KB gzip, the
-world scripts ≈ 170 KB raw, the default workflow ≈ 24 KB) loads only when the lab is within 300 px
-of the viewport; until it reports `ready` the stage shows a spinner, then the frame fades in. If
-WebGL is unavailable, the frame reports an error, or the visitor saves data
-(`navigator.connection.saveData`, with a “Load the live lab” button), the stage shows the real lab
-screenshot for the current lamp (`lab-light.webp` / `lab-dark.webp`) with a one-line note, and the
-narration and Inbox card still step through the story. The story only counts time while the lab is
-at least a third on screen and the tab is visible; the frame is told `{active:false}` otherwise
-(it ignores snapshots while inactive, so waking it resends the current one).
-
-**Two small adaptations of the frame, both from the page side.** Room names (`labels`) are on
-when the stage is at least 560 px wide and off below, where they overlap. The frame lifts its
-controls 78 px on narrow screens to clear the dashboard's phone tab bar; the page has none, so
-after the frame loads it adds one same-origin style rule that puts them back at the bottom.
+**Loading and fallbacks.** The frame loads right after the page's `load` event, since it is the
+first screen. Until it reports `ready` the lab area shows a small spinner, then the frame fades in.
+Without WebGL, after a frame error, or with data saver on (with a "Load the live lab" button), the
+lab area shows the real screenshot for the current lamp, fitted inside the visible part, with a
+one-line note; the captions read the same. The frame is told `{active:false}` when the tour is off
+screen or the tab is hidden, and the current snapshot is resent when it wakes (it ignores snapshots
+while inactive).
 
 **Reduced motion.** With `prefers-reduced-motion: reduce` the frame gets `motion:false` (the
-renderer's own still mode: no walking, no carrying), the story does not autoplay (a Play button
-starts it), ARLO does not peek or wave — its bubbles simply appear — and smooth scrolling is off.
+renderer's still mode: no walking or carrying), captions change without fading, ARLO does not move,
+its bubbles simply appear, and scrolling is not smoothed.
 
-## 5. ARLO — where and how
+## 5. ARLO
 
-Three appearances, each once per page view, each triggered by the visitor (scroll into view or an
-action), never on a timer loop:
+Two appearances, each triggered once by the visitor, never on a loop:
 
-* **Narrator** — ARLO rises from behind the narration card (its chin stays behind the card's
-  edge), waves its gills and says *“Hi, I'm ARLO.”*; the bubble fades after 6 s. Clicking ARLO
-  waves again with the next line (*“I'll walk you through the lab.”*, *“Click anyone in the lab.
-  They don't mind.”*). A first draft put ARLO in the hero's right margin; it read as decoration
-  there, and next to the story it is the narrator. The card's header carries ARLO's small head
-  (`ARLO · 3 / 8`), exactly as in the dashboard's guide. In the 3D lab, ARLO is also the big
-  character at the PI's desk; clicking it opens a peek about the workspace assistant.
-* **Install** — after **Copy**, ARLO peeks from the code block's edge: *“Copied. Paste it into a
-  terminal.”*
-* **Footer** — a small ARLO waves once: *“See you in the lab.”*
+* **Hello**, under the intro's buttons: ARLO rises, waves its gills and says *"Hi, I'm ARLO. Scroll,
+  and I'll show you around."* (the bubble fades after a few seconds). Clicking ARLO waves again with
+  the next line. In the lab itself, ARLO is the big character at the PI's desk.
+* **Install**: ARLO always looks over the install block's top edge (its chin behind the block);
+  after **Copy** it waves and says *"Copied. Paste it into a terminal."*
 
-Bubbles are `role="status"` text so screen readers hear them once; ARLO's SVG is `aria-hidden`.
+Bubbles are `role="status"`, so screen readers hear them once; the drawing is `aria-hidden`.
 
 ## 6. Light and dark
 
-Default follows `prefers-color-scheme`; the `◑` toggle overrides it and is remembered in
+Default follows `prefers-color-scheme`; the lamp button overrides it and is remembered in
 `localStorage` (wrapped in try/catch). An inline script in `<head>` sets `html[data-lamp]` before
-first paint. The lab frame receives `theme` with every snapshot and switches its own lighting; the
-poster swaps between the day and night screenshots. The wordmark and ARLO use `currentColor`.
+first paint. The frame receives `theme` with every snapshot and relights the world; the install
+block switches between deep teal and slate.
 
 ## 7. Responsive and accessible
 
-Container `max-width: 1200px`, side gutter `clamp(16px, 4vw, 36px)` (16 px at 375). Grids use
-`minmax(0, 1fr)`; code blocks wrap (`overflow-wrap: anywhere`) rather than scroll the page.
-No horizontal page scroll at 375 px. Headings form one outline; skip link; every control is a
-`<button>` or `<a>`; focus rings are the dashboard's (`2px solid var(--accent)`); colour contrast
-is the dashboard's tokens (AA on both lamps). The iframe has a title, and the narration is the
-accessible version of the scene: it is `aria-live="polite"` after a manual step and `off` while
-autoplaying, so a screen reader is not interrupted every few seconds. The Inbox card is a live
-region, so a question or checkpoint arriving is announced.
+Gutter `clamp(16px, 4vw, 48px)`; below 860 px the lab takes the top half and the captions scroll
+underneath it as full-width text over a fade. No horizontal scroll at 375 px (checked). One `h1`,
+an `h2` per caption and section; a skip link past the tour; every control is a `<button>` or `<a>`;
+focus rings are the dashboard's. The captions are ordinary text in reading order, so the tour reads
+as a list without the 3D; the iframe has a title.
 
 ## 8. Hosting — the least disruptive option
 

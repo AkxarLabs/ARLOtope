@@ -1,4 +1,4 @@
-/* The ARLOtope website: the lamp, ARLO's hellos, and the installer tabs. The lab demo is demo.js. */
+/* The ARLOtope website: the lamp, the header, ARLO's hellos and the installer. The lab tour is demo.js. */
 (function () {
 'use strict';
 const $ = (sel, root = document) => root.querySelector(sel), $$ = (sel, root = document) => [...root.querySelectorAll(sel)];
@@ -6,15 +6,16 @@ const store = { get: k => { try { return localStorage.getItem(k); } catch { retu
 
 /* ── the lamp: day or night, as in the dashboard ───────────────────── */
 const lampButton = $('.lamp');
-const showLamp = () => {
-  const night = document.documentElement.dataset.lamp === 'night';
-  lampButton.lastElementChild.textContent = night ? 'Light' : 'Dark';
-  lampButton.setAttribute('aria-label', night ? 'Switch to light mode' : 'Switch to dark mode');
-};
+const showLamp = () => lampButton.setAttribute('aria-label', document.documentElement.dataset.lamp === 'night' ? 'Switch to light mode' : 'Switch to dark mode');
 const setLamp = lamp => { document.documentElement.dataset.lamp = lamp; showLamp(); dispatchEvent(new CustomEvent('arlo-lamp', { detail: lamp })); };
 lampButton.addEventListener('click', () => { const next = document.documentElement.dataset.lamp === 'night' ? 'day' : 'night'; store.set('arlo-site-lamp', next); setLamp(next); });
 matchMedia('(prefers-color-scheme: dark)').addEventListener('change', e => { if (!store.get('arlo-site-lamp')) setLamp(e.matches ? 'night' : 'day'); });
 showLamp();
+
+/* the header is clear over the top of the lab and solid once the page moves */
+const top = $('.top');
+const solid = () => top.classList.toggle('is-solid', scrollY > 8);
+addEventListener('scroll', solid, { passive: true }); solid();
 
 /* ── ARLO: the mark's line drawing without its box (docs/assets/brand/arlotope-wordmark.svg) ── */
 const ARLO = `<svg viewBox="12 33 138 101" aria-hidden="true" focusable="false"><g fill="none" stroke="currentColor" stroke-width="6.5" stroke-linecap="round" stroke-linejoin="round">
@@ -26,29 +27,21 @@ $$('.arlo').forEach(el => { el.innerHTML = ARLO; });
 
 const timers = new WeakMap();
 /** ARLO waves and says one line; the bubble goes after a while. Nothing repeats on its own. */
-const hello = (arlo, line, ms = 6000) => {
+const hello = (arlo, line, ms = 6500) => {
   const bubble = $('.bubble', arlo.parentElement);
   arlo.classList.remove('waving'); void arlo.offsetWidth; arlo.classList.add('waving', 'is-in');
-  arlo.parentElement.classList.add('is-in');
   bubble.textContent = line; bubble.classList.add('is-on');
   clearTimeout(timers.get(arlo));
   timers.set(arlo, setTimeout(() => { bubble.classList.remove('is-on'); arlo.classList.remove('waving'); }, ms));
 };
-const once = (el, fn) => {
-  if (!('IntersectionObserver' in window)) return fn();
-  const io = new IntersectionObserver(es => { if (es.some(e => e.isIntersecting)) { io.disconnect(); fn(); } }, { threshold: .6 });
-  io.observe(el);
-};
 
-const hero = $('.arlo-narrator'), lines = hero.dataset.say.split('|');
+const guide = $('.hello .arlo'), lines = guide.dataset.say.split('|');
 let said = 0;
-once(hero.parentElement, () => setTimeout(() => hello(hero, lines[0]), 450));
-hero.addEventListener('click', () => hello(hero, lines[said = (said + 1) % lines.length]));
-const foot = $('.arlo-foot');
-once(foot.parentElement, () => hello(foot, foot.dataset.say, 5000));
+setTimeout(() => hello(guide, lines[0]), 700);
+guide.addEventListener('click', () => hello(guide, lines[said = (said + 1) % lines.length]));
 
 /* ── install: tabs (the visitor's platform first) and copy ─────────── */
-const tabs = $$('.os-tabs [role=tab]');
+const tabs = $$('.os [role=tab]');
 const select = tab => tabs.forEach(t => {
   const on = t === tab;
   t.setAttribute('aria-selected', String(on)); t.tabIndex = on ? 0 : -1;
@@ -64,7 +57,7 @@ tabs.forEach((t, i) => {
 const platform = (navigator.userAgentData && navigator.userAgentData.platform) || navigator.platform || '';
 if (!/win/i.test(platform)) select(tabs[1]);
 
-const side = $('.arlo-side');
+const peeker = $('.peeker .arlo');
 const copy = async text => {
   try { await navigator.clipboard.writeText(text); return true; } catch {}
   const area = Object.assign(document.createElement('textarea'), { value: text });
@@ -74,12 +67,9 @@ const copy = async text => {
   area.remove(); return ok;
 };
 $$('.cmd .copy').forEach(button => button.addEventListener('click', async () => {
-  const ok = await copy($('code', button.parentElement).textContent.trim());
+  const code = $('code', button.parentElement), ok = await copy(code.textContent.trim());
   button.textContent = ok ? 'Copied' : 'Select it';
   setTimeout(() => { button.textContent = 'Copy'; }, 2000);
-  if (!ok) { getSelection().selectAllChildren($('code', button.parentElement)); return; }
-  hello(side, side.dataset.say, 4000);
-  clearTimeout(timers.get(side.parentElement));
-  timers.set(side.parentElement, setTimeout(() => side.parentElement.classList.remove('is-in'), 4200));
+  if (ok) hello(peeker, peeker.dataset.say, 4000); else getSelection().selectAllChildren(code);
 }));
 })();
