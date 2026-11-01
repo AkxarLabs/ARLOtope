@@ -1,18 +1,21 @@
 """Query runs/registry.jsonl — the committed run record. stdlib only.
 
     python scripts/compare.py list [--last 20]
+    python scripts/compare.py digest [--last 20]
     python scripts/compare.py best --metric toy_abs_error --minimize [--experiment exp-004] [--stage PILOT]
     python scripts/compare.py seeds --metric toy_abs_error [exp-004 ...]
     python scripts/compare.py experiments exp-003 exp-004 --metric toy_abs_error
 
 Output is markdown, pasteable into EXPERIMENT_LOG.md / analysis files. Non-completed
-runs are excluded everywhere except `list`.
+runs are excluded everywhere except `list`. `digest` is the bounded state card to read instead of the
+whole ledger and registry: the last ledger entries with their parents, the kill criteria, NOTES headings.
 """
 
 from __future__ import annotations
 
 import argparse
 import json
+import re
 import statistics
 import sys
 from pathlib import Path
@@ -20,7 +23,8 @@ from pathlib import Path
 if hasattr(sys.stdout, "reconfigure"):
     sys.stdout.reconfigure(encoding="utf-8", errors="replace")
 
-REGISTRY = Path(__file__).resolve().parents[1] / "runs" / "registry.jsonl"
+ROOT = Path(__file__).resolve().parents[1]
+REGISTRY = ROOT / "runs" / "registry.jsonl"
 
 
 def load(completed_only: bool = True) -> list[dict]:
@@ -58,6 +62,34 @@ def cmd_list(args) -> None:
     for r in rows:
         print(f"| {r.get('run_id', '?')} | {r.get('experiment_name', '?')} | {r.get('stage')} | {r.get('seed')} "
               f"| {r.get('status', '?')} | {r.get('wall_seconds')} |")
+
+
+def _read(name: str) -> str:
+    try:
+        return (ROOT / name).read_text(encoding="utf-8-sig")
+    except OSError:
+        return ""
+
+
+def _field(entry: str, label: str) -> str:
+    m = re.search(r"\*\*" + label + r":\*\*\s*(.*)", entry)
+    return m.group(1).strip() if m else ""
+
+
+def cmd_digest(args) -> None:
+    """The last ledger entries as a tree table (parent + operator), the kill criteria, NOTES headings."""
+    entries = re.split(r"(?m)^(?=## exp-)", _read("EXPERIMENT_LOG.md"))[1:][-args.last:]
+    print(f"**Ledger, last {len(entries)} entries**\n")
+    print("| entry | parent | decision | outcome |")
+    print("|---|---|---|---|")
+    for e in entries:
+        print(f"| {e.splitlines()[0][3:]} | {_field(e, 'Parent') or '-'} | {_field(e, 'Decision') or '-'} "
+              f"| {_field(e, 'Outcome') or '-'} |")
+    kill = re.search(r"(?ms)^## Kill criteria\s*$(.*?)(?=^## |\Z)", _read("PLAN.md"))
+    kill = re.sub(r"<!--.*?-->", "", kill.group(1), flags=re.S).strip() if kill else ""
+    print("\n**Kill criteria** (PLAN.md)\n\n" + (kill or "-"))
+    heads = [l.lstrip("#").strip() for l in _read("NOTES.md").splitlines() if l.startswith("#")]
+    print("\n**NOTES.md headings**\n\n" + ("\n".join(f"- {h}" for h in heads) or "-"))
 
 
 def cmd_best(args) -> None:
@@ -108,6 +140,8 @@ def main() -> int:
     sub = parser.add_subparsers(dest="cmd", required=True)
 
     p = sub.add_parser("list"); p.add_argument("--last", type=int, default=20); p.set_defaults(fn=cmd_list)
+
+    p = sub.add_parser("digest"); p.add_argument("--last", type=int, default=20); p.set_defaults(fn=cmd_digest)
 
     p = sub.add_parser("best")
     p.add_argument("--metric", required=True); p.add_argument("--minimize", action="store_true")
