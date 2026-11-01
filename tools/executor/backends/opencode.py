@@ -28,8 +28,9 @@ class Opencode(Backend):
     name = "opencode"
     ask_tool = "question"
     auth_args = ["providers", "list"]
-    sign_in_hint = ("opencode has no working provider for this model — run `opencode auth login`, or set "
-                    "agents.programmatic.backends.opencode.model to a provider/model you have")
+    label = "opencode"
+    sign_in_hint = ("opencode has no working provider for this model. Add one (in a terminal: `opencode auth login`) "
+                    "or choose a model you have in Settings → Agents & models, then resume this task.")
     forbid = ("--dangerously-skip-permissions", "--dir", "--format")
 
     def prepare(self, a: Attempt) -> None:

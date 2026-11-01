@@ -30,7 +30,8 @@ class Claude(Backend):
     waits_for_background = True  # `claude -p` waits for background subagents (the ceiling is lifted below)
     env_auth = ("ANTHROPIC_API_KEY", "CLAUDE_CODE_USE_BEDROCK", "CLAUDE_CODE_USE_VERTEX", "CLAUDE_CODE_USE_FOUNDRY")
     auth_args = ["auth", "status"]
-    sign_in_hint = "the claude CLI is not logged in — in a terminal run `claude`, then /login (your own account)"
+    label = "Claude Code"
+    sign_in_hint = "Claude Code is not signed in. Sign in with your own account (in a terminal: `claude`, then /login), then resume this task."
     forbid = ("--permission-mode", "--dangerously-skip-permissions", "--settings", "--mcp-config",
               "--permission-prompt-tool", "--resume", "--input-format", "--replay-user-messages", "--session-id",
               "--add-dir", "--continue", "--fork-session", "--append-system-prompt", "--append-system-prompt-file",

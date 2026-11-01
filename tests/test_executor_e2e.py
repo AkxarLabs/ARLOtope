@@ -469,15 +469,24 @@ def test_disabled_refuses_and_tick_starts_nothing(hub, monkeypatch):
 
 def test_missing_cli_refused_at_enqueue(hub):
     lab = setup(hub, backend_cmd=str(hub.root / "no-such-claude.exe"))   # a string = one executable path
-    with pytest.raises(SpecError, match="CLI was not found"):
+    with pytest.raises(SpecError, match="Claude Code was not found on this computer"):
         executor.enqueue(lab, RunSpec(skill="lab-status"))
+
+
+def test_cli_that_dies_at_start_up_says_so(hub):
+    """A CLI that exits before its session starts is the agent's problem, not the task's: the reason
+    names the agent and says what to check, and a campaign would pause instead of retrying."""
+    lab = setup(hub, backend_cmd=[sys.executable, "-c", "import sys; print('boom'); sys.exit(1)"])
+    m = wait_for(lab, executor.enqueue(lab, RunSpec(skill="lab-status"))["run_id"])
+    assert m["status"] == "failed" and m["failure_kind"] == "startup"
+    assert m["reason"].startswith("Claude Code stopped before it started working (exit 1)")
 
 
 def test_expired_login_gets_an_actionable_reason(hub, monkeypatch):
     monkeypatch.setenv("FAKE_MODE", "authfail")
     lab = setup(hub)
     m = wait_for(lab, executor.enqueue(lab, RunSpec(skill="lab-status"))["run_id"])
-    assert m["status"] == "failed" and "not logged in" in m["reason"] and "/login" in m["reason"]
+    assert m["status"] == "failed" and "Claude Code is not signed in" in m["reason"] and "/login" in m["reason"]
     it = next(i for i in executor.attention.collect(lab) if i["run_id"] == m["run_id"])
     assert it["kind"] == "crashed" and "/login" in it["body"]
 

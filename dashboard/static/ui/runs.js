@@ -338,7 +338,9 @@
         ${r.status === 'queued' ? html`<span>${r.not_before ? 'scheduled for ' + NL.hhmm(r.not_before) : 'Waiting to start'}</span>` : null}
         ${!r.explains ? html`<span class="grow"></span><${NL.Btn} small onClick=${() => NL.explain(r.run_id)} title="Start a separate explainer; this conversation continues unchanged">Visual summary</${NL.Btn}>` : null}
       </div>
-      ${r.reason && !active && !['completed', 'waiting_input', 'queued'].includes(r.status) ? html`<div class="note note-warn">${r.reason}</div>` : null}
+      ${r.reason && !active && !['completed', 'waiting_input', 'queued'].includes(r.status) ? html`<div class="note note-warn"><p>${r.reason}</p>
+        ${r.failure_kind === 'auth' && !r.remote && ['claude', 'codex', 'opencode'].includes(r.backend) ? html`<${NL.Btn} small kind="primary" onClick=${() => NL.runOnLabMachine('login', r.backend)}>Sign in…</${NL.Btn}>`
+          : ['cli_missing', 'startup'].includes(r.failure_kind) ? html`<a class="link small" href="#/settings/agents" onClick=${onClose}>Check the agent in Agents & models →</a>` : null}</div>` : null}
       ${r.remote ? html`<div class="small muted">${r.remote.machine} · ${r.remote.path} <button class="link" onClick=${()=>NL.openMachineSetup(r.remote.machine)}>Connection</button></div>` : null}
       ${r.remote_error ? html`<div class="note note-warn" role="status">${r.remote_error}</div>` : null}
       ${r.delivery_uncertain ? html`<div class="note note-warn">A message may not have reached the agent. Check the conversation before sending it again.</div>` : null}

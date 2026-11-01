@@ -95,8 +95,8 @@ def _enqueue(lab: Lab, spec: RunSpec) -> dict:
         if not (facts.get('clis', {}).get(backend) or {}).get('found'):
             raise SpecError(f'The {backend} agent was not found on this machine. Set it up in Machines.')
     elif not backends.resolve_cli(backend, bcfg):
-        raise SpecError(f"the {backend} CLI was not found on this machine — install it, or point "
-                        f"agents.programmatic.backends.{backend}.command at it")
+        raise SpecError(f"{backends.get(backend).label or backend} was not found on this computer. Install it, or choose "
+                        "another agent in Settings → Agents & models.")
     is_ask = v["skill"] == ASK
     prompt = v["prompt"] if is_ask else (spec.prompt_override or
                                          profile.render_prompt(lab, v, slash_command(v), backends.get(backend).native_slash))

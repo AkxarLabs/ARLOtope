@@ -388,7 +388,7 @@ def _account(lab: Lab, st: dict, last: dict) -> None:
     elif kind == "usage_limit":
         nb = (pos_float(last.get("limit_reset"), 0.0) or fin + 30 * 60) + 120
         _event(st, f"usage limit — the next cycle waits until {now(nb)[11:16]}")
-    elif kind in ("auth", "cli_missing"):
+    elif kind in ("auth", "cli_missing", "startup"):
         st["status"] = "paused"
         st["paused_reason"] = str(last.get("reason") or "the agent CLI needs you (sign in / install)")
         nb = None

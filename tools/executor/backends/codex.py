@@ -22,7 +22,8 @@ class Codex(Backend):
     probe_version = True
     env_auth = ("CODEX_API_KEY", "OPENAI_API_KEY")
     auth_args = ["login", "status"]
-    sign_in_hint = "the codex CLI is not signed in — in a terminal run `codex login` (your own account)"
+    label = "Codex"
+    sign_in_hint = "Codex is not signed in. Sign in with your own account (in a terminal: `codex login`), then resume this task."
     forbid = ("--sandbox", "-s", "-a", "--ask-for-approval", "--dangerously-bypass-approvals-and-sandbox",
               "--yolo", "--full-auto", "--approve-for-me", "--not-so-yolo", "--add-dir", "resume", "fork")
 

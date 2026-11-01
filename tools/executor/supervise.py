@@ -723,7 +723,8 @@ def _finish(lab: Lab, b, st: _State, workdir: Path, rd: Path, res: ProcResult, c
     total_wall = round(sum(pos_float(x.get("wall_seconds"), 0.0) for x in m["attempts"]), 1)
     reason = fkind = lreset = None
     if res.cli_missing:
-        reason = f"could not execute {cli[0]}"
+        reason = (f"{b.label or b.name} could not be started: {cli[0]} is missing or is not a program. "
+                  "Install it, or choose another agent in Settings → Agents & models.")
         m["last_message"] = f"backend CLI could not be executed: {' '.join(cli)}"
     elif status == "timeout":
         reason, fkind = f"max_minutes={max_minutes:g} breached", "timeout"
@@ -733,7 +734,11 @@ def _finish(lab: Lab, b, st: _State, workdir: Path, rd: Path, res: ProcResult, c
         # how to treat it: a campaign waits out a usage limit, backs off a transient error, pauses on sign-in
         blob = f"{res.last_message or ''} {json.dumps(res.result or {})[:4000]}"
         fkind = "cli_missing" if res.cli_missing else backends.failure_kind(blob)
-        reason = reason or {"auth": b.sign_in_hint, "usage_limit": "usage limit reached — resume later"}.get(fkind) \
+        if fkind == "logic" and not (res.started or res.result):   # it never got going: the CLI, not the task
+            fkind = "startup"
+        reason = reason or {"auth": b.sign_in_hint, "usage_limit": "usage limit reached — resume later",
+                            "startup": f"{b.label or b.name} stopped before it started working (exit {res.rc}). "
+                                       "Its output is below. Check that it runs in a terminal, then try again."}.get(fkind) \
             or f"exit {res.rc}"
         lreset = backends.limit_reset(blob) if fkind == "usage_limit" else None
     if status != "waiting_input":

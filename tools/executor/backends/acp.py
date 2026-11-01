@@ -17,7 +17,8 @@ from . import acp_forms
 class Acp(Backend):
     name = 'acp'
     live_only = True
-    sign_in_hint = 'Sign in with the configured ACP agent, then resume this run.'
+    label = 'The ACP agent'
+    sign_in_hint = 'Sign in with the configured ACP agent, then resume this task.'
 
     def command(self, a):
         if not a.live:
