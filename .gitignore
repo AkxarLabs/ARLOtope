@@ -28,6 +28,7 @@ provider-keys.*
 
 # Generated docs (properdocs site_dir), browser evidence and source-art previews.
 /build/
+/_pages/
 /output/
 /research/
 /.cache/

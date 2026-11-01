@@ -35,16 +35,18 @@ short thing. No gradients on the chrome, no glassmorphism, no stock illustration
 
 ## 3. Page structure and narrative
 
-1. **Header** (sticky, 56 px, hairline under it): wordmark · Lab demo · Features · Install · Docs ·
+1. **Header** (sticky, 60 px, hairline under it): wordmark · Lab demo · Features · Install · Docs ·
    GitHub · lamp toggle (`◑ Dark` / `◑ Light`, the dashboard's own control).
-2. **Hero.** Kicker `Open source · AGPL-3.0 · Windows, macOS, Linux` (no version number to go stale). Headline (Newsreader):
-   *“Visually manage agent teams across your research projects.”* Lede: the README's second
-   paragraph, shortened. Buttons: **Install** (primary, jumps to §5) · **Watch the lab** ·
-   GitHub. ARLO sits in the hero's right margin, peeks up once and says *“Hi, I'm ARLO.”*
-3. **The live lab** (the central object). Full-width stage (16:10 on desktop, 4:5 on phones)
-   holding the lab frame; beside it on desktop (below on phones) ARLO's narration card, the
-   storyboard (eight numbered beats) and a mock **Inbox** card that mirrors the dashboard's.
-   Controls: play/pause, back, next, and the beat list itself is clickable.
+2. **Hero.** Kicker `Open source · Windows, macOS, Linux` (no version number to go stale).
+   Headline (Newsreader, two lines on desktop): *“Visually manage agent teams across your
+   research projects.”* Lede: the README's second paragraph, shortened. Buttons: **Install**
+   (primary, jumps to §5) · **Watch the lab** · GitHub. Kept short so the lab starts above the
+   fold on a 1440 × 900 screen.
+3. **The live lab** (the central object). A stage (16:11 on desktop, about square on phones)
+   holding the lab frame; beside it on desktop (below on narrower screens) ARLO peeking over its
+   narration card, then the mock **Inbox** card (directly under the narration, so “try it” is
+   always in view), then the storyboard of eight numbered beats (hidden below 1040 px, where the
+   `3 / 8` count and the arrows remain). Controls: play/pause, back, next, and the beat list.
 4. **What you can do.** Six features, three columns × two rows, each a mono kicker, a sans title,
    two lines, and a “Read more →” to the matching docs page. Below: three real screenshots
    (Inbox, a checkpoint, the workflow editor), lazy-loaded, captioned.
@@ -61,26 +63,29 @@ short thing. No gradients on the chrome, no glassmorphism, no stock illustration
 ┌──────────────────────────────────────────────────────────────────────────────┐
 │ [▢ ARLOtope]        Lab demo  Features  Install  Docs  GitHub      [◑ Dark]  │
 ├──────────────────────────────────────────────────────────────────────────────┤
-│  OPEN SOURCE · AGPL-3.0 · WINDOWS, MACOS, LINUX                               │
-│  Visually manage agent teams                                    .-"-.         │
-│  across your research projects.                     ╭──────────╮(◕‿◕) ARLO   │
-│  Move several projects forward at once…             │Hi, I'm   │ peeks up     │
-│  [ Install ]  [ Watch the lab ]  GitHub ↗           │ARLO.     │              │
-├───────────────────────────────────────────────┬──────────────────────────────┤
+│  OPEN SOURCE · WINDOWS, MACOS, LINUX                                          │
+│  Visually manage agent teams                                                  │
+│  across your research projects.                                               │
+│  Move several projects forward at once…                                       │
+│  [ Install ]  [ Watch the lab ]  GitHub ↗                                     │
+│  THE LAB, RUNNING                                                             │
+│  Watch a team at work                              ╭──────────╮  .-"-.        │
+│  This is the dashboard's own 3D lab…               │Hi, I'm   │ (◕‿◕)  ARLO    │
+│                                                    │ARLO.     │  peeks over   │
+├───────────────────────────────────────────────┬────╰──────────╯──────────────┤
 │                                               │ ARLO   3 / 8   ❚❚  ‹  ›      │
 │                                               │ A study moves on             │
 │        the real 3D lab (lab-view.html)        │ Triage finished. A newt      │
 │        rooms · cards · newts walking          │ carries Token routing's card │
 │        click a character → peek card          │ to the Study.                │
-│                                               │ ─────────────────────────    │
-│                                               │ 1 Your lab        ●──        │
-│                                               │ 2 Agents at work  ●──        │
-│                                               │ 3 A study moves on ◉         │
-│                                               │ …                            │
 │                                               │ ┌ Inbox · 1 ───────────────┐ │
 │                                               │ │ ? Lead Results with…     │ │
 │                                               │ │ [The scaling law][Ablat.]│ │
 │                                               │ └──────────────────────────┘ │
+│                                               │ 1 Your lab                   │
+│                                               │ 2 Agents at work             │
+│                                               │ 3 A study moves on ◉         │
+│                                               │ …                            │
 ├───────────────────────────────────────────────┴──────────────────────────────┤
 │ WHAT YOU CAN DO   (3 × 2 feature grid)  ·  three screenshots                  │
 │ INSTALL  [Windows | macOS and Linux]  irm https://…/install.ps1 | iex  [Copy] │
@@ -92,19 +97,20 @@ short thing. No gradients on the chrome, no glassmorphism, no stock illustration
 
 ```
 ┌───────────────────────────────────┐
-│ [▢ ARLOtope]          [◑]  [≡]    │   nav collapses to a <details> menu
-│ OPEN SOURCE · AGPL-3.0            │
+│ [▢ ARLOtope]              [◑]     │   in-page nav hidden; Docs/GitHub stay in hero + footer
+│ OPEN SOURCE · WINDOWS, MACOS, …   │
 │ Visually manage                   │
 │ agent teams across                │
-│ your research                     │
-│ projects.            (◕‿◕)        │   ARLO smaller, bubble above it
+│ your research projects.           │
 │ [ Install ] [Watch the lab]       │
+│ Watch a team at work              │
 │ ┌───────────────────────────────┐ │
-│ │      lab frame, 4:5           │ │
+│ │  lab frame, about square;     │ │   room names off below 560 px
+│ │  its controls at the bottom   │ │
 │ └───────────────────────────────┘ │
-│ ❚❚ ‹ › ●●◉○○○○○                    │   beats as dots
-│ ARLO 3/8 — A study moves on       │
-│ Triage finished…                  │
+│        ╭───────────╮ (◕‿◕)        │   ARLO peeks over the narration
+│ ARLO 3/8          ‹ ❚❚ ›          │
+│ A study moves on — Triage …       │
 │ ┌ Inbox ────────────────────────┐ │
 │ └───────────────────────────────┘ │
 │ features stacked · install · foot │
@@ -115,7 +121,7 @@ short thing. No gradients on the chrome, no glassmorphism, no stock illustration
 
 ```
  INSTALL
- Get ARLOtope running in one line.
+ One line, then run arlo
  ┌ Windows (PowerShell) │ macOS and Linux ┐
  │ irm https://github.com/AkxarLabs/ARLOtope/releases/latest/download/install.ps1 | iex   [Copy] │
  └──────────────────────────────────────────────────────────────────────────────────────────┘
@@ -150,7 +156,8 @@ snapshot uses the shipped default workflow (`static/ui/workflow-default.js`, gen
 | 8 | Results come back | the experiment finishes; a result is published; *Sparse MoE routing* moves to the Bench | an output to read |
 
 Clicking an answer or **Approve** in the Inbox card advances the story with *your* choice;
-autoplay uses the first option after the beat's dwell (≈7 s). At the end the stage fades, the
+autoplay uses the first option after the beat's dwell (7.5 s per beat, 13 s on the two beats that
+invite an answer). At the end the stage fades, the
 world is reset with motion off (so cards are not carried backwards), and the loop restarts.
 
 **Interaction.** Click a character → a peek card over the stage (who: Claude Code / Codex /
@@ -159,14 +166,21 @@ Hover rooms → the renderer's own name tags. The frame's own controls (All room
 Names) stay, since they are the product's. Keyboard: the controls are buttons, the beat list is a
 list of buttons, `←`/`→` step when the story has focus, `Space` toggles play.
 
-**Fallbacks and performance.** Above the fold the page costs HTML + CSS + one small script + two
-woff2 fonts (target ≤ 150 KB transfer). The frame (three.js ≈ 690 KB raw / ≈ 170 KB gzip, the
-world scripts ≈ 170 KB raw) loads only when the stage is within 300 px of the viewport. Until it
-is ready — and permanently if WebGL is unavailable, the frame reports an error, or the visitor
-saves data (`navigator.connection.saveData`) — the stage shows the real lab screenshot for the
-current lamp (`lab-light.webp` / `lab-dark.webp`), and the narration and Inbox card still step
-through the story. The frame is paused (`{active:false}`) when the stage scrolls out of view or
-the tab is hidden.
+**Fallbacks and performance.** Above the fold the page costs HTML + `ui.css` + `site.css` + two
+small scripts + two preloaded woff2 fonts. The frame (three.js ≈ 690 KB raw / ≈ 170 KB gzip, the
+world scripts ≈ 170 KB raw, the default workflow ≈ 24 KB) loads only when the lab is within 300 px
+of the viewport; until it reports `ready` the stage shows a spinner, then the frame fades in. If
+WebGL is unavailable, the frame reports an error, or the visitor saves data
+(`navigator.connection.saveData`, with a “Load the live lab” button), the stage shows the real lab
+screenshot for the current lamp (`lab-light.webp` / `lab-dark.webp`) with a one-line note, and the
+narration and Inbox card still step through the story. The story only counts time while the lab is
+at least a third on screen and the tab is visible; the frame is told `{active:false}` otherwise
+(it ignores snapshots while inactive, so waking it resends the current one).
+
+**Two small adaptations of the frame, both from the page side.** Room names (`labels`) are on
+when the stage is at least 560 px wide and off below, where they overlap. The frame lifts its
+controls 78 px on narrow screens to clear the dashboard's phone tab bar; the page has none, so
+after the frame loads it adds one same-origin style rule that puts them back at the bottom.
 
 **Reduced motion.** With `prefers-reduced-motion: reduce` the frame gets `motion:false` (the
 renderer's own still mode: no walking, no carrying), the story does not autoplay (a Play button
@@ -177,11 +191,13 @@ starts it), ARLO does not peek or wave — its bubbles simply appear — and smo
 Three appearances, each once per page view, each triggered by the visitor (scroll into view or an
 action), never on a timer loop:
 
-* **Hero** — peeks up from behind the margin (translateY + 6° tilt, 500 ms), gills wave twice,
-  bubble *“Hi, I'm ARLO.”* that fades after 6 s. Clicking ARLO waves again and changes the line
-  (*“Want the tour? It's just below.”*).
-* **Narrator** — ARLO's head labels the narration card (`ARLO · 3 / 8`), exactly as in the
-  dashboard's guide. In the 3D lab, ARLO is also the big newt at the PI's desk.
+* **Narrator** — ARLO rises from behind the narration card (its chin stays behind the card's
+  edge), waves its gills and says *“Hi, I'm ARLO.”*; the bubble fades after 6 s. Clicking ARLO
+  waves again with the next line (*“I'll walk you through the lab.”*, *“Click anyone in the lab.
+  They don't mind.”*). A first draft put ARLO in the hero's right margin; it read as decoration
+  there, and next to the story it is the narrator. The card's header carries ARLO's small head
+  (`ARLO · 3 / 8`), exactly as in the dashboard's guide. In the 3D lab, ARLO is also the big
+  character at the PI's desk; clicking it opens a peek about the workspace assistant.
 * **Install** — after **Copy**, ARLO peeks from the code block's edge: *“Copied. Paste it into a
   terminal.”*
 * **Footer** — a small ARLO waves once: *“See you in the lab.”*
@@ -201,9 +217,10 @@ Container `max-width: 1200px`, side gutter `clamp(16px, 4vw, 36px)` (16 px at 37
 `minmax(0, 1fr)`; code blocks wrap (`overflow-wrap: anywhere`) rather than scroll the page.
 No horizontal page scroll at 375 px. Headings form one outline; skip link; every control is a
 `<button>` or `<a>`; focus rings are the dashboard's (`2px solid var(--accent)`); colour contrast
-is the dashboard's tokens (AA on both lamps). The iframe has a title and the narration is the
-accessible version of the scene (`aria-live="polite"` on the narration only while playing is
-avoided — it announces on manual steps only).
+is the dashboard's tokens (AA on both lamps). The iframe has a title, and the narration is the
+accessible version of the scene: it is `aria-live="polite"` after a manual step and `off` while
+autoplaying, so a screen reader is not interrupted every few seconds. The Inbox card is a live
+region, so a question or checkpoint arriving is announced.
 
 ## 8. Hosting — the least disruptive option
 
@@ -220,8 +237,9 @@ GitHub Pages currently serves the ProperDocs site at `akxarlabs.github.io/ARLOto
   redirect stub at `X/index.html` in the root pointing to `docs/X/` (meta refresh + canonical).
 * `properdocs.yml`: `site_url` gains `/docs/`, and `site_dir` moves from `site/` to `build/docs`
   (the website now owns `site/`; `/build/` is ignored instead).
-* Only two references to the Pages URL exist (README, `properdocs.yml`); the README's
-  Documentation link moves to `/docs/`.
+* The docs' `404.html` is also copied to the root, so unknown paths get the docs' not-found page.
+* Only two references to the Pages URL exist (README, `properdocs.yml`); the README now links
+  the website (root) and the documentation (`/docs/`).
 * No Pages setting changes: the source stays “GitHub Actions”.
 
 Why not a separate repo or a `gh-pages` branch: two deploy paths, two copies of the brand, and
@@ -229,8 +247,9 @@ the lab frame would have to be vendored by hand. Why not the site under `/home/`
 first thing people see.
 
 **Why copy at publish time rather than commit copies:** the site's HTML references `static/…`.
-`site/pages.py serve` maps `static/` → `dashboard/static/` and `docs/` → `docs/` on the fly for a
-local preview (no build step while editing), and `site/pages.py build` copies the same mapping
+`site/pages.py serve` maps `static/` → `dashboard/static/` (only the files the page borrows) and
+`docs/` → `build/docs/` if the docs were built, else the raw `docs/` folder (screenshots load;
+docs pages need a build) on the fly for a local preview (no build step while editing), and `site/pages.py build` copies the same mapping
 into a folder for Pages. The world, tokens and fonts therefore exist once, in the dashboard;
 when the dashboard's lab changes, the next deploy picks it up. The lab frame's room scripts are
 injected at the `<!-- arlotope:rooms3d -->` marker exactly as `dashboard/serve.py` does.
@@ -243,9 +262,17 @@ not copy it.
 ```
 site/
   DESIGN.md     this document
-  index.html    the page (content, ARLO symbol, structure)
+  index.html    the page: content and structure
   site.css      layout and components; reads ui.css tokens, defines none
-  site.js       lamp toggle, ARLO hellos, install tabs + copy
+  site.js       lamp toggle, ARLO (its SVG and hellos), install tabs + copy
   demo.js       the scripted lab story and its host side of the lab-frame protocol
   pages.py      preview server and Pages assembler (stdlib only)
+```
+
+## 10. Preview and publish
+
+```bash
+python site/pages.py serve            # http://127.0.0.1:8000/  (edit and reload; no build)
+uv run --with properdocs --with mkdocs-material properdocs build --strict   # optional: docs into build/docs
+python site/pages.py build _pages     # the folder the Pages workflow uploads
 ```
