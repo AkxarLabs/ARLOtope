@@ -59,8 +59,8 @@ pattern (a sticky visual with captions scrolling past it, as in Apple's product 
 
 1. **Header**: clear over the lab at the top, solid with a hairline once the page moves. Wordmark;
    Docs, GitHub, the lamp toggle (an icon), and **Install** as the one primary button.
-2. **The tour** (`.tour`): a sticky, full-height `.pin` holding the lab (`.world`, the right 62 % of
-   the screen under the header; on phones, the top half), with nine captions (`.beat`) scrolling on
+2. **The tour** (`.tour`): a sticky, full-height `.pin` holding the lab (`.world`, the right two
+   thirds of the screen under the header; on phones, the top half), with nine captions (`.beat`) scrolling on
    the left (on phones, underneath, over a soft fade):
    0. the intro: *"A lab for your agent teams."*, the lede, **Install ARLOtope** and **Read the
       guide**, and ARLO saying hello;
@@ -68,9 +68,13 @@ pattern (a sticky visual with captions scrolling past it, as in Apple's product 
    room to room; 4. when an agent needs you, it asks (a mock Inbox item with two real buttons);
    5. you answer, it carries on; 6. big decisions are yours (a mock checkpoint with **Approve**);
    7. approved; 8. results come back.
-3. **Three product rows** (`.work`): the Inbox, the workflow editor, a study's record; each a short
-   serif title, two sentences and one docs link, beside a real screenshot cropped to the part worth
-   reading, alternating sides.
+3. **Three product rows** (`.work`): the Inbox, the workflow editor, a checkpoint with its evidence;
+   each a short serif title, two sentences and one docs link, beside a `.showcase`: a tinted panel
+   with the component floating on it and running off its bottom edge. The images in `site/shots/`
+   are 2x captures of just that component from the dashboard's demo mode (`arlo --demo`), one for
+   each lamp; the page shows the one for the current lamp (the other, hidden and lazy, is never
+   fetched). To recapture, open the same views in demo mode at 2x: the Inbox sheet, the workflow
+   map (`.wf-map-scroll`) and the checkpoint sheet for *Curriculum distillation*.
 4. **A statement** (`.statement`): one large serif paragraph naming the agents and tools it works
    with, the names in ink and the rest faint.
 5. **Install** (`.install`): the contrasting block: title, Windows / macOS and Linux tabs (the
@@ -136,6 +140,17 @@ experiment, run a check, plan). Every 2.4 s the page sends the snapshot again wi
 some of the agents, staggered so they do not all move at once, and the renderer walks each one to the
 furniture for its call (shelves, benches, desks, the whiteboard). This only runs while the lab is on
 screen and not under reduced motion.
+
+**Whole at every angle.** The page puts two invisible, equal `data-world-inset` margins (19 % of the
+frame's width) inside the frame, the dashboard's own hook for keeping the camera clear of its side
+panels, and asks the frame to refit. The camera then fits the lab into the middle of the frame, which
+leaves room for it to turn a full circle, and tilt up to the steepest view a drag allows, without
+any part leaving the frame.
+
+**A slow turn.** The renderer has an idle turntable, `setSpin(rate)` (`world3d/world.js`), which the
+frame takes from the snapshot message's `spin`. The page asks for 0.05 radians a second, about one
+turn every two minutes. It only turns the whole-lab view, only while nobody is dragging it or
+following an agent, and never under reduced motion. The dashboard does not set it.
 
 **Anchored.** The page adds three things to the frame (same origin): a capturing wheel listener so
 the wheel scrolls the page instead of zooming the lab; after any click (a press and release that did
@@ -236,6 +251,7 @@ site/
   site.js       lamp toggle, ARLO (its SVG and hellos), install tabs + copy
   demo.js       the scripted lab story and its host side of the lab-frame protocol
   pages.py      preview server and Pages assembler (stdlib only)
+  shots/        2x captures for the product rows, a day and a night file each
 ```
 
 ## 10. Preview and publish

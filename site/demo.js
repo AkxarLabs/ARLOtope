@@ -106,6 +106,7 @@ const tour = $('.tour'), world = $('.world'), poster = $('.poster', world), note
 const steps = $$('.beat');
 let at = 0, model = base(), frame = null, live = false, onScreen = true, loading = false;
 
+const SPIN = 0.05;   // radians a second: the lab turns once every two minutes or so while nobody drags it
 const lamp = () => document.documentElement.dataset.lamp === 'night' ? 'night' : 'day';
 const showPoster = () => { if (world.dataset.state === 'poster') poster.src = poster.dataset[lamp()]; };
 addEventListener('arlo-lamp', () => { showPoster(); send(true); });
@@ -116,7 +117,7 @@ addEventListener('resize', () => { if (roomy() !== wasRoomy) { wasRoomy = roomy(
 function send(still) {
   if (!frame || !frame.contentWindow) return;
   frame.contentWindow.postMessage({ labView: 1, active: onScreen && !document.hidden, state: snapshot(model), theme: lamp(), cast: CAST,
-    motion: !reduced.matches && !still, labels: roomy() }, '*');
+    motion: !reduced.matches && !still, labels: roomy(), spin: SPIN }, '*');
 }
 
 /** Show step n. Moving forward one step plays the change; any other jump redraws it still (nothing walks backwards). */
@@ -183,7 +184,7 @@ addEventListener('message', e => {
   if (!frame || e.source !== frame.contentWindow || !e.data || e.data.labView !== 1) return;
   const d = e.data;
   if (d.error) return fallback('The 3D lab could not start in this browser, so this is a picture of it.');
-  if (d.kind === 'ready' && !live) { live = true; world.dataset.state = 'live'; note.hidden = true; }
+  if (d.kind === 'ready' && !live) { live = true; world.dataset.state = 'live'; note.hidden = true; refit(); }
   else if (d.kind === 'inspect-agent') agentPeek(d.target, d.anchor);
   else if (d.kind === 'agent-anchor' && !peek.hidden && d.anchor) place(d.anchor);
   else if (d.kind === 'dismiss-agent') hidePeek();
@@ -204,6 +205,9 @@ function anchor(f) {
   try {
     const w = f.contentWindow, d = f.contentDocument;
     d.head.insertAdjacentHTML('beforeend', '<style>.view-controls { display: none; } #scene { touch-action: pan-y; }</style>');
+    // equal margins the camera keeps clear (the dashboard's own data-world-inset hook), so the lab is
+    // drawn small enough to stay whole at every angle it can be turned to
+    for (const side of ['left', 'right']) d.body.insertAdjacentHTML('beforeend', `<div data-world-inset="${side}" aria-hidden="true" style="position:fixed;top:0;${side}:0;width:19vw;height:1px;visibility:hidden;pointer-events:none"></div>`);
     w.addEventListener('wheel', e => e.stopImmediatePropagation(), { capture: true });
     let down;
     w.addEventListener('pointerdown', e => { down = [e.clientX, e.clientY]; }, { capture: true });
@@ -211,6 +215,9 @@ function anchor(f) {
     w.addEventListener('pointerup', e => { if (down && Math.hypot(e.clientX - down[0], e.clientY - down[1]) < 4) setTimeout(() => d.querySelector('.view-back')?.click()); });
   } catch {}
 }
+/** fit the camera again (to the margins above) by way of the frame's own "All rooms" control */
+const refit = () => { try { frame.contentWindow.dispatchEvent(new Event('resize')); frame.contentDocument.querySelector('.view-back')?.click(); } catch {} };   // (insets are measured on resize)
+addEventListener('resize', () => live && refit());
 const webgl = () => { try { const c = document.createElement('canvas'); return !!(c.getContext('webgl2') || c.getContext('webgl')); } catch { return false; } };
 const script = src => new Promise((ok, fail) => document.head.append(Object.assign(document.createElement('script'), { src, onload: ok, onerror: fail })));
 async function load(force) {
