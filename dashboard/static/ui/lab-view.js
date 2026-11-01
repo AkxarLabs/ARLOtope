@@ -66,6 +66,7 @@
     document.documentElement.dataset.lamp = theme;
     world.setLamp(theme); world.setCast(cast); showLabels(message.labels===true);
     world.setMotion(motion && !matchMedia('(prefers-reduced-motion: reduce)').matches ? 'full' : 'reduced');
+    world.setSpin(message.spin);
     if (state) {
       const room={id:draft?.room,label:draft?.room,title:'Room preview',steps:[]};
       let view=draft&&!message.previewWide?{...state,items:[],agents:[],runs:[],workflow:{...state.workflow,rooms:[room],workflows:[]}}:

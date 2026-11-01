@@ -12,7 +12,7 @@
  * moves on, a newt carries its card along the streets to the next room (and waits at a checkpoint's lantern for the
  * signature). Nothing on the table is written out: names appear on hover or through setLabels.
  *
- * Lab3D.createWorld(canvas, {lamp, reduced}) → the world contract lab-view.js uses (sync, setPose, setLamp,
+ * Lab3D.createWorld(canvas, {lamp, reduced}) → the world contract lab-view.js uses (sync, setPose, setSpin, setLamp,
  * setView, goRoom, focusProject, back, viewInfo, highlight, layout, setAmbient, followWorker/stopFollow/
  * following, setLabels, on* callbacks). Nothing in here writes anything: clicks call back into the dashboard.
  */
@@ -42,7 +42,7 @@ L.createWorld = async function createWorld(canvas, opts) {
   let destroyed = false, active = true; const listeners = [];
   const listen = (target, event, fn, options) => { target.addEventListener(event, fn, options); listeners.push(() => target.removeEventListener(event, fn, options)); };
   const motion = () => reduced ? 'reduced' : ambient ? 'full' : 'still';
-  let snap = null, labels = false, pose = 'idle', highlightRole = null, followKey = null, view = { level: 'WORLD', room: null, label: '' };
+  let snap = null, labels = false, pose = 'idle', highlightRole = null, followKey = null, view = { level: 'WORLD', room: null, label: '' }, spin = 0;
   let onCheckpoint = null, onArtifact = null, onItem = null, onInbox = null, onWorker = null, onRun = null, onNewt = null, onView = null, onFollow = null;
   let staticSig = '', W = null, selectedKey = null; // the built table and current inspector selection
   const actors = new Map(), cards = new Map(), pickables = new Set(), resting = new Map();
@@ -731,6 +731,7 @@ L.createWorld = async function createWorld(canvas, opts) {
       }
       // the camera: follow, ease, keep clear of the rail
       if (followKey) { const a = actors.get(followKey); if (a) { camT.tx = a.pos[0]; camT.tz = a.pos[1]; } else { followKey = null; if (onFollow) onFollow(null); } }
+      if (spin && !drag && !followKey && view.level === 'WORLD' && motion() === 'full') camT.az += spin * dt;   // an idle turntable (setSpin)
       const k = motion() === 'full' ? 1 - Math.pow(0.002, dt) : 1;
       for (const key of ['az', 'el', 'r', 'tx', 'tz']) cam[key] += (camT[key] - cam[key]) * k;
       camera.position.set(cam.tx + cam.r * Math.cos(cam.el) * Math.sin(cam.az), cam.r * Math.sin(cam.el), cam.tz + cam.r * Math.cos(cam.el) * Math.cos(cam.az));
@@ -797,6 +798,7 @@ L.createWorld = async function createWorld(canvas, opts) {
       kick();
     },
     setPose(p) { pose = p; kick(); },
+    setSpin(rate) { spin = +rate || 0; kick(); },   // radians a second; turns the whole-table view while nobody drags it
     setLamp(m) {
       const next=m==='day'?'day':'night';
       if(next===theme)return;
