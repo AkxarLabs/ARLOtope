@@ -66,6 +66,27 @@ def test_generic_tool_execution_idempotency_and_evidence(tool):
         F.execute(value)
 
 
+def test_receipt_records_the_installed_revision_and_warns_when_it_is_not_the_reviewed_one(tool, monkeypatch, capsys):
+    project, definition, *_ = tool
+    monkeypatch.setattr(F, 'revision', lambda cwd: 'b' * 40)
+    result = F.execute(F.plan(dict(definition, revision='b' * 40), project, 'study-one', 'investigate'))
+    assert result['revision'] == 'b' * 40 and 'warning' not in result and not capsys.readouterr().err
+    result = F.execute(F.plan(dict(definition, revision='a' * 40), project, 'study-two', 'investigate'))
+    assert result['revision'] == 'b' * 40 and 'reviewed ' + 'a' * 40 in result['warning'] and 'warning' in capsys.readouterr().err
+    result = F.execute(F.plan(definition, project, 'study-three', 'investigate'))
+    assert 'warning' not in result  # a definition with no reviewed revision asserts nothing
+
+
+def test_revision_reads_a_checkouts_head_and_is_empty_elsewhere(tmp_path):
+    repo, plain = tmp_path / 'repo', tmp_path / 'plain'
+    repo.mkdir(), plain.mkdir()
+    git = ['git', '-C', str(repo), '-c', 'user.name=t', '-c', 'user.email=t@t']
+    subprocess.run(['git', '-C', str(repo), 'init', '-q'], check=True)
+    subprocess.run(git + ['commit', '-q', '--allow-empty', '-m', 'x'], check=True)
+    assert F.revision(repo) == subprocess.run(git + ['rev-parse', 'HEAD'], capture_output=True, text=True).stdout.strip()
+    assert F.revision(tmp_path / 'missing') == ''
+
+
 @pytest.mark.parametrize('argument', ['missing', 'bad'])
 def test_successful_exit_is_not_enough(tool, argument):
     project, definition, config, path = tool
@@ -211,7 +232,14 @@ def test_sakana_is_only_a_recipe_and_preserves_negative_outcomes():
     recipe = F.read(REPO / 'workflow/frameworks/sakana.yaml')
     assert recipe['command'] == ['agsci']
     assert 'completed_no_winner' in recipe['phases']['investigation']['accept']['.investigation_completion.json']['outcome']
-    assert 'win32' not in recipe['platforms']
+    assert 'win32' not in recipe['platforms'] and 'darwin' not in recipe['platforms']
+    assert len(recipe['revision']) == 40
+    for command in (recipe['check'], recipe['run']):   # a null result must not fail the paper phase; user args come later and win
+        assert command.index('paper.final_outcome_policy=allow_not_qualified') < command.index('{args}')
+    assert {'task/evaluate_final.py', 'task/task_contract.json'} <= set(recipe['phases']['task_drafting']['outputs'])
+    final = next(c for c in kernel().model.workflow('sakana', REPO)['checkpoints'] if c['id'] == 'sakana-final-evidence')
+    assert any(e.endswith(name) for name in ('best_program_manifest.json', 'pipeline_summary.json', 'cost_summary.json')
+               for e in final['evidence'])
     assert F.requirements(kernel().model.workflow('sakana', REPO)) == ['sakana']
 
 

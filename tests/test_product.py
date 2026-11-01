@@ -140,7 +140,7 @@ def test_checkpoint_sheet_shows_where_the_study_stands(m, hub):
     assert code == 200 and out["here"] and out["waiting"] and out["waits_at"] == "internal-review" and not out["approved"]
     ev = {e["name"]: e for e in out["evidence"]}
     assert ev["main.pdf"]["exists"] and ev["claims.yaml"]["exists"] is False
-    assert [c["name"] for c in out["checks"]] == ["claims", "multiseed", "ablations", "eval", "prereg"]
+    assert [c["name"] for c in out["checks"]] == ["claims", "multiseed", "ablations", "eval", "prereg", "spec"]
     assert all(c["code"] is None for c in out["checks"])            # not run yet
     assert m.decisions.checkpoint_view({"study": "idea-g", "id": "nope"})[1] == 400
     assert m.decisions.checkpoint_view({"study": "../x", "id": "finalize-paper"})[1] == 400

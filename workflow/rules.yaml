@@ -207,6 +207,7 @@ project_rules:       # every session inside a project repo (the project's AGENTS
       outcome. The paper's "All experiments run" appendix lists every row, kept or not, and the number of
       configurations evaluated on validation to reach the headline result.
   - id: data-provenance
+    checks: [audit_spec_conformance]
     text: >-
       **Data provenance.** `control.yaml` `data:` names the dataset's source, version and hash, the
       split-construction seed and the licence before any PILOT runs; the paper's data statement is written
@@ -242,6 +243,7 @@ audits:
   - {name: ablations, run: [audit_ablation_coverage.py, "{paper}"]}
   - {name: eval, run: [audit_eval_discipline.py, "{paper}"]}
   - {name: prereg, run: [audit_prereg.py, "{paper}"]}
+  - {name: spec, run: [audit_spec_conformance.py, "{paper}"]}
 
 # procedures whose whole job is changing PI-owned config WITH the PI (the signature guard lets them)
 config_procedures: [setup-lab, configure]

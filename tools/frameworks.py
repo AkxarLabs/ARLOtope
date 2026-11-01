@@ -188,11 +188,21 @@ def plan(definition, project, study, phase):
               'commands': [command + expand(parts, values, extra) for parts in
                            [definition['check'], selected.get('command', definition['run'])]],
               'outputs': selected.get('outputs', []), 'accept': selected.get('accept', {}),
+              'reviewed_revision': definition.get('revision', ''),
               'timeout_seconds': config.get('timeout_seconds')}
     timeout = result['timeout_seconds']
     if not isinstance(timeout, (int, float)) or isinstance(timeout, bool) or not 0 < timeout < float('inf'):
         raise ValueError('Set a positive timeout_seconds in .arlotope/frameworks.yaml; no budget is assumed.')
     return result
+
+
+def revision(cwd):
+    """The installed tool's git HEAD, or '' when its working directory is not a readable checkout."""
+    try:
+        done = subprocess.run(['git', '-C', str(cwd), 'rev-parse', 'HEAD'], capture_output=True, text=True, timeout=10)
+    except (OSError, subprocess.SubprocessError):
+        return ''
+    return done.stdout.strip() if done.returncode == 0 else ''
 
 
 def outputs(plan):
@@ -236,7 +246,11 @@ def execute(value, retry=False):
                 return old
             if not retry:
                 raise ValueError('An earlier attempt did not complete. Inspect its log and use --retry explicitly.')
-        state = dict(value, signature=signature, status='running', started=time.time())
+        state = dict(value, signature=signature, status='running', started=time.time(), revision=revision(value['cwd']))
+        if value['reviewed_revision'] and state['revision'] != value['reviewed_revision']:
+            state['warning'] = (f"Installed {value['framework']} is at {state['revision'] or 'an unreadable revision'}, "
+                                f"not the reviewed {value['reviewed_revision']}; its commands and evidence may differ.")
+            print('warning: ' + state['warning'], file=sys.stderr)
         write_json(receipt, state)
         previous = signal.getsignal(signal.SIGTERM)
         def interrupted(_signum, _frame):

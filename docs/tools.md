@@ -52,21 +52,23 @@ without a citation or `% Cnnn/Nnnn` evidence pointer. It is a conservative regex
 not a novelty judgment. The writing procedure surfaces warnings; review and finalization require
 them to be resolved against the literature notes. The word `novel` alone is not flagged.
 
-### `audit_multiseed.py` · `audit_ablation_coverage.py` · `audit_eval_discipline.py` · `audit_prereg.py` — paper integrity
+### `audit_multiseed.py` · `audit_ablation_coverage.py` · `audit_eval_discipline.py` · `audit_prereg.py` · `audit_spec_conformance.py` — paper integrity
 
 ```bash
 uv run --with pyyaml python checks/audit_multiseed.py         studies/<slug>/paper
 uv run --with pyyaml python checks/audit_ablation_coverage.py studies/<slug>/paper
 uv run --with pyyaml python checks/audit_eval_discipline.py   studies/<slug>/paper
 uv run --with pyyaml python checks/audit_prereg.py            studies/<slug>/paper
+uv run --with pyyaml python checks/audit_spec_conformance.py  studies/<slug>/paper
 ```
 
-Four focused audits that mechanize the hard rules `audit_claims.py` doesn't cover — each exits **0 clean · 2 needs-human-review · 1 violation**:
+Five focused audits that mechanize the hard rules `audit_claims.py` doesn't cover — each exits **0 clean · 2 needs-human-review · 1 violation**:
 
 - **multi-seed** (hard rule 6): a claim marked `headline: true` in `claims.yaml` must be backed by ≥ `seeds.multi_seed_n` (project) / `experiment.multi_seed_n` (lab, default 3) distinct seeds — resolved by mapping each artifact's `runs/<run_id>/…` to its seed in `runs/registry.jsonl`. A `multi_seed_waiver:` (rationale) routes to MANUAL.
 - **ablation coverage**: every bullet under the proposal's `### Planned ablations` must leave a trace in the project's `PLAN.md`/`EXPERIMENT_LOG.md`, be marked waived/N-A/dropped, or route back — none silently dropped (heuristic; the reviewer reads the table).
 - **eval discipline** (hard rule 5): the frozen `§4` protocol must define both a validation and a held-out test set, and no `headline` claim may declare `split: validation` (reporting a selection-time metric). Theory/simulation types relax to MANUAL (the TYPE card defines the analogue).
 - **pre-registration**: the proposal's frozen analysis plan names the primary comparison, the uncertainty method and the decision rule; `PLAN.md`'s test-split access log reads the held-out split once per configuration; every claim carries `status: confirmatory | exploratory`, and an exploratory one says so.
+- **spec conformance** (data provenance): each run a claim cites (`runs/<id>/config.resolved.yaml`) must use the frozen `control.yaml` `data:` (source, version, sha256, split seed) and `configs/base.yaml` `eval:` (primary metric, optional benchmark / validation / test); a headline claim's `metric:` must be the planned one; subsampled or synthetic data must be disclosed. A difference without a one-line `deviation:` on the claim (or, for subsampling and synthetic data, a sentence in `main.tex`) is a violation; a disclosed one, an underspecified plan or a run with no resolved config routes to MANUAL.
 
 New optional `claims.yaml` fields these read: `headline: true` (marks a load-bearing claim), `split: test|validation` (which set it's reported on), `multi_seed_waiver: <rationale>`. Wired **WARN** in `/write-paper` (surface gaps while drafting) and **blocking** in `/review-paper` Part A + `/finalize`.
 
