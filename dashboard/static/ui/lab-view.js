@@ -113,7 +113,7 @@
     world.onRun((id,sub) => inspect('run',id,sub));
     world.onWorker(id=>inspect('worker',id));
     world.onArtifact(id=>send({kind:'artifact',id}));
-    world.onFollow(id=>{const agent=(displayed?.agents||[]).find(a=>a.id===id||a.run_id===id||a.worker_id===id);following=agent?.id||id;followControls();send({kind:'following',id})});
+    world.onFollow(id=>{const agent=id&&(displayed?.agents||[]).find(a=>a.id===id||a.run_id===id||a.worker_id===id);following=agent?.id||id;followControls();send({kind:'following',id})});
     world.onCheckpoint((id, checkpoint) => send({ kind: 'checkpoint', id, checkpoint }));
     world.onNewt(()=>inspect('assistant'));
     let down;
