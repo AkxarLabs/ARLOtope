@@ -49,52 +49,58 @@
     <ol class="beats">
       <li class="beat intro" data-beat="0">
         <h1>A lab for your agent teams.</h1>
-        <p class="lede">Move several research projects forward at once. Build workflows, assign agents, and follow them as they work, room by room. You step in only where you are needed.</p>
+        <p class="lede">ARLOtope runs AI agents such as Claude Code, Codex and opencode on your research projects, and shows their work as a small lab you can watch. Projects move from room to room; you step in only when an agent needs you.</p>
         <div class="actions"><a class="btn btn-primary btn-lg" href="#install">Install ARLOtope</a><a class="btn btn-lg" href="docs/getting-started/">Read the guide</a></div>
-        <div class="hello"><button type="button" class="arlo" aria-label="Say hello to ARLO" data-say="Hi, I'm ARLO. Scroll, and I'll show you around.|This is a real lab, playing a short script.|Click anyone in the lab. They don't mind."></button><p class="bubble" role="status"></p></div>
+        <div class="hello"><button type="button" class="arlo" aria-label="Say hello to ARLO" data-say="Hi, I'm ARLO. Scroll, and I'll show you around.|This lab is playing a short, made-up story.|Drag the lab to turn it. Click anyone in it."></button><p class="bubble" role="status"></p></div>
       </li>
       <li class="beat" data-beat="1">
-        <h2>Every room is a step</h2>
-        <p>Ideas, reading, experiments, analysis, writing. Each study is a card on the shelf of the room it has reached, and all your studies share the same rooms.</p>
+        <h2>This is your lab</h2>
+        <p>A live picture of all your projects at once. Drag it to turn it.</p>
+        <dl class="key">
+          <div><dt>Rooms</dt><dd>the steps of your work: ideas, reading, experiments, analysis, writing</dd></div>
+          <div><dt>Cards</dt><dd>your projects, each in the room it has reached</dd></div>
+          <div><dt>Characters</dt><dd>AI agents at work</dd></div>
+          <div><dt>The middle</dt><dd>your desk, where ARLO helps</dd></div>
+        </dl>
       </li>
       <li class="beat" data-beat="2">
-        <h2>Agents work where the work is</h2>
-        <p>Claude Code starts the next experiment for <em>Sparse MoE routing</em>, briefs a subagent, and sends it to the bench. Click any character to see what it is doing.</p>
+        <h2>The characters are your agents</h2>
+        <p>Each one is an AI agent working on a project. They walk to what they need: shelves to read, benches to run code, desks to write. Click one to see what it is doing.</p>
       </li>
       <li class="beat" data-beat="3">
-        <h2>Studies move on</h2>
-        <p>Triage says <em>Token routing</em> is worth a look. Its card is carried from Ideas to the Study, and opencode starts the literature review. Studies move when a task reports its outcome, never on a timer.</p>
+        <h2>Projects move from room to room</h2>
+        <p>When an agent finishes a step, the project's card is carried to the next room. Here, <em>A new idea</em> moves on to reading, and another agent picks it up.</p>
       </li>
       <li class="beat" data-beat="4">
-        <h2>Agents ask; you answer</h2>
-        <p>Codex is writing <em>Scaling laws note</em> and needs a decision. It pauses, and the question waits in your Inbox.</p>
+        <h2>When an agent needs you, it asks</h2>
+        <p>The agent writing <em>Results report</em> isn't sure how to begin. It stops, and its question waits in your Inbox.</p>
         <div class="inbox" data-wait="question">
-          <small>Codex · Scaling laws note</small>
-          <b>Lead the Results section with the scaling law or with the ablation?</b>
-          <div class="row"><button type="button" class="btn btn-sm" data-answer="The scaling law">The scaling law</button><button type="button" class="btn btn-sm" data-answer="The ablation">The ablation</button></div>
+          <small>Codex · Results report</small>
+          <b>Start the report with the summary table or the chart?</b>
+          <div class="row"><button type="button" class="btn btn-sm" data-answer="The table">The table</button><button type="button" class="btn btn-sm" data-answer="The chart">The chart</button></div>
         </div>
       </li>
       <li class="beat" data-beat="5">
-        <h2>Back to work</h2>
-        <p>Your answer, <em class="answer">the scaling law</em>, goes into Codex's own conversation, and it returns to the Results section. Questions, permission requests and checkpoints all arrive in one Inbox.</p>
+        <h2>You answer, it carries on</h2>
+        <p>Your answer, <em class="answer">the table</em>, goes straight to that agent, and it gets back to work.</p>
       </li>
       <li class="beat" data-beat="6">
-        <h2>Checkpoints are yours</h2>
-        <p>The proposal for <em>Curriculum distillation</em> is written. Before any experiment starts, the study waits at the lantern for your approval. An agent never approves its own work.</p>
+        <h2>Big decisions are yours</h2>
+        <p>Before experiments start on <em>Better baselines</em>, its plan needs your approval. The project waits at the lantern until you say yes. Agents can't approve their own work.</p>
         <div class="inbox" data-wait="checkpoint">
-          <small>Checkpoint · Curriculum distillation</small>
-          <b>Approve the proposal</b>
-          <span class="evidence">proposal.md, lit-review.md and decisions.md are attached.</span>
+          <small>Checkpoint · Better baselines</small>
+          <b>Approve the plan</b>
+          <span class="evidence">The plan and the reading notes are attached.</span>
           <div class="row"><button type="button" class="btn btn-sm btn-primary" data-approve>Approve</button></div>
         </div>
       </li>
       <li class="beat" data-beat="7">
-        <h2>Approved, and recorded</h2>
-        <p>The study is carried to the Lab and Claude Code sets up its project repository. Your decision is kept with the study: who approved, and when.</p>
+        <h2>Approved</h2>
+        <p>The project moves to the experiments room, and an agent sets it up. Your approval is saved with the project.</p>
       </li>
       <li class="beat" data-beat="8">
-        <h2>Results come back with their evidence</h2>
-        <p>The pilot finishes and publishes its results, every number linked to the run that produced it. <em>Sparse MoE routing</em> moves to the Bench for analysis.</p>
+        <h2>Results come back</h2>
+        <p><em>Faster training</em> finishes its experiments. The agent shares what it found, with every number linked to the run behind it, and the project moves on to analysis.</p>
       </li>
     </ol>
   </section>

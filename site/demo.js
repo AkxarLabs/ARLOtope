@@ -10,24 +10,32 @@ const esc = s => String(s ?? '').replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '
 const reduced = matchMedia('(prefers-reduced-motion: reduce)');
 const CAST = { mode: 'backend', one: 'newt', claude: 'newt', codex: 'human', opencode: 'robot' };   // the dashboard's default cast
 const AGENT = { claude: 'Claude Code', codex: 'Codex', opencode: 'opencode' };
-const STEP = { seed: 'Ideas', 'lit-review': 'Literature review', scoping: 'Scoping', proposal: 'Proposal', setup: 'Setup', active: 'Experiments',
+const ACT = { read: 'Reading', search: 'Searching for related work', edit: 'Writing', run: 'Running an experiment', bash: 'Running a check', plan: 'Planning the next steps' };
+const TASK = { 'lit-review': 'Reading up', 'write-paper': 'Writing the report', experiment: 'Experiments', propose: 'Writing the plan', 'spawn-project': 'Setting up the project', analyze: 'Analysis' };
+const STEP = { seed: 'Idea', 'lit-review': 'Reading', scoping: 'Scoping', proposal: 'Plan', setup: 'Set-up', active: 'Experiments',
   analysis: 'Analysis', writing: 'Writing', 'internal-review': 'Internal review', final: 'Done' };
-const QUESTION = 'Lead the Results section with the scaling law or with the ablation?';
 
 /* ── the made-up lab ───────────────────────────────────────────────── */
+/* Each run has a cycle of calls; the lab moves on to the next one every few seconds, and the renderer walks
+   the agent to the furniture for it (a shelf to read, a bench to run code, a desk to write). */
+const READ = ['read', 'Read', 'notes/background.md'], SEARCH = ['search', 'WebSearch', 'related work'], EDIT = ['edit', 'Edit', 'draft.md'],
+  RUN = ['run', 'Bash', 'python run.py'], BASH = ['bash', 'Bash', 'python check.py'], PLAN = ['plan', 'TodoWrite', 'next steps'];
 const T0 = Date.now(), ago = min => new Date(T0 - min * 60e3).toISOString().slice(0, 19);
 const base = () => ({
   items: [
-    { id: 'routing', title: 'Token routing', state: 'seed' },
-    { id: 'distil', title: 'Distillation curricula', state: 'lit-review' },
-    { id: 'curriculum', title: 'Curriculum distillation', state: 'proposal' },
-    { id: 'moe', title: 'Sparse MoE routing', state: 'active', approved: ['approve-proposal', 'approve-full-runs'] },
-    { id: 'scaling', title: 'Scaling laws note', state: 'writing', approved: ['approve-proposal', 'approve-full-runs'] },
-    { id: 'quant', title: 'Quantization study', state: 'final', approved: ['approve-proposal', 'approve-full-runs', 'finalize-paper'] },
+    { id: 'idea', title: 'A new idea', state: 'seed' },
+    { id: 'reading', title: 'Reading list', state: 'lit-review' },
+    { id: 'baselines', title: 'Better baselines', state: 'proposal' },
+    { id: 'training', title: 'Faster training', state: 'active', approved: ['approve-proposal', 'approve-full-runs'] },
+    { id: 'report', title: 'Results report', state: 'writing', approved: ['approve-proposal', 'approve-full-runs'] },
+    { id: 'done', title: 'Last month’s study', state: 'final', approved: ['approve-proposal', 'approve-full-runs', 'finalize-paper'] },
   ],
   runs: [
-    { id: 'distil', skill: 'lit-review', subject: 'distil', backend: 'claude', doing: ['read', 'Read', 'papers/hinton-2015.pdf'] },
-    { id: 'scaling', skill: 'write-paper', subject: 'scaling', backend: 'codex', doing: ['edit', 'Edit', 'paper/main.tex § Method'] },
+    { id: 'reading', skill: 'lit-review', subject: 'reading', backend: 'claude', cycle: [READ, SEARCH, EDIT, READ] },
+    { id: 'report', skill: 'write-paper', subject: 'report', backend: 'codex', cycle: [EDIT, READ, EDIT, BASH] },
+    { id: 'training', skill: 'experiment', subject: 'training', backend: 'claude', cycle: [RUN, READ, EDIT, RUN],
+      subs: [{ id: 'runner', role: 'experiment-runner', label: 'Runs one experiment', cycle: [RUN, BASH, RUN] }] },
+    { id: 'baselines', skill: 'propose', subject: 'baselines', backend: 'opencode', cycle: [EDIT, PLAN, READ] },
   ],
   attention: [], artifacts: [],
 });
@@ -35,52 +43,57 @@ const item = (m, id) => m.items.find(i => i.id === id);
 const run = (m, id) => m.runs.find(r => r.id === id);
 
 /* ── what each step of the tour changes (steps 0 and 1 show the lab as it is) ── */
+const QUESTION = 'Start the report with the summary table or the chart?';
 const CHANGES = [null, null,
-  m => m.runs.push({ id: 'moe', skill: 'experiment', subject: 'moe', backend: 'claude', doing: ['spawn', 'Task', 'experiment runner for exp-015'],
-    subs: [{ id: 'runner', role: 'experiment-runner', label: 'Runs exp-015 at pilot scale', doing: ['run', 'Bash', 'uv run scripts/run.py --stage PILOT --seed 2'] }] }),
+  m => run(m, 'training').subs.push({ id: 'checker', role: 'overseer', label: 'Checks the results', cycle: [READ, BASH, READ] }),
   m => {
-    item(m, 'routing').state = 'lit-review';
-    m.runs.push({ id: 'routing', skill: 'lit-review', subject: 'routing', backend: 'opencode', doing: ['search', 'WebSearch', 'token routing in mixture-of-experts'] });
+    item(m, 'idea').state = 'lit-review';
+    m.runs.push({ id: 'idea', skill: 'lit-review', subject: 'idea', backend: 'opencode', cycle: [SEARCH, READ, EDIT] });
   },
   m => {
-    Object.assign(run(m, 'scaling'), { status: 'waiting_input', doing: null, question: QUESTION });
-    m.attention.push({ id: 'q:r-scaling', sev: 'block', kind: 'question', title: QUESTION, body: 'Scaling laws note', run_id: 'r-scaling', actions: [{ id: 'answer', label: 'answer' }] });
+    Object.assign(run(m, 'report'), { status: 'waiting_input', question: QUESTION });
+    m.attention.push({ id: 'q:r-report', sev: 'block', kind: 'question', title: QUESTION, body: 'Results report', run_id: 'r-report', actions: [{ id: 'answer', label: 'answer' }] });
   },
   m => {
-    Object.assign(run(m, 'scaling'), { status: 'running', question: null, doing: ['edit', 'Edit', 'paper/main.tex § Results'] });
+    Object.assign(run(m, 'report'), { status: 'running', question: null });
     m.attention = m.attention.filter(a => a.kind !== 'question');
   },
   m => {
-    item(m, 'curriculum').waiting = ['approve-proposal'];
-    m.attention.push({ id: 'cp:curriculum:approve-proposal', sev: 'block', kind: 'checkpoint', title: 'Approve the proposal', body: 'Curriculum distillation',
-      idea: 'curriculum', detail: { checkpoint: 'approve-proposal', study: 'curriculum' }, actions: [{ id: 'checkpoint', label: 'review' }] });
+    m.runs = m.runs.filter(r => r.id !== 'baselines');
+    item(m, 'baselines').waiting = ['approve-proposal'];
+    m.attention.push({ id: 'cp:baselines:approve-proposal', sev: 'block', kind: 'checkpoint', title: 'Approve the proposal', body: 'Better baselines',
+      idea: 'baselines', detail: { checkpoint: 'approve-proposal', study: 'baselines' }, actions: [{ id: 'checkpoint', label: 'review' }] });
   },
   m => {
-    Object.assign(item(m, 'curriculum'), { waiting: [], approved: ['approve-proposal'], state: 'setup', has_project: true });
+    Object.assign(item(m, 'baselines'), { waiting: [], approved: ['approve-proposal'], state: 'setup', has_project: true });
     m.attention = m.attention.filter(a => a.kind !== 'checkpoint');
-    m.runs.push({ id: 'curriculum', skill: 'spawn-project', subject: 'curriculum', backend: 'claude', doing: ['bash', 'Bash', 'tools/spawn_project.py curriculum-distillation'] });
+    m.runs.push({ id: 'baselines-setup', skill: 'spawn-project', subject: 'baselines', backend: 'claude', cycle: [BASH, EDIT, BASH] });
   },
   m => {
-    m.runs = m.runs.filter(r => r.id !== 'moe');
-    item(m, 'moe').state = 'analysis';
-    m.runs.push({ id: 'moe-analysis', skill: 'analyze', subject: 'moe', backend: 'codex', doing: ['bash', 'Bash', 'uv run scripts/compare.py'] });
-    m.artifacts.push({ id: 'a-pilot', title: 'Pilot results: sparse MoE routing', kind: 'md', study: 'moe', run_id: 'r-moe', skill: 'experiment', created: ago(1), question: null, choices: 0, seen: false, answered: false });
+    m.runs = m.runs.filter(r => r.id !== 'training');
+    item(m, 'training').state = 'analysis';
+    m.runs.push({ id: 'training-analysis', skill: 'analyze', subject: 'training', backend: 'codex', cycle: [BASH, READ, EDIT] });
+    m.artifacts.push({ id: 'a-results', title: 'Results: faster training', kind: 'md', study: 'training', run_id: 'r-training', skill: 'experiment', created: ago(1), question: null, choices: 0, seen: false, answered: false });
   },
 ];
 
 /* ── the model as the dashboard's snapshot ─────────────────────────── */
+let tick = 0;   // advanced by the ambient timer below; each agent moves on every other tick, staggered
 const call = ([kind, tool, summary]) => ({ kind, tool, summary, since: ago(0) });
+const doing = (x, k) => x.status === 'waiting_input' ? null : x.cycle[Math.floor((tick + k) / 2) % x.cycle.length];
 function snapshot(m) {
-  const runs = m.runs.map(r => ({ run_id: 'r-' + r.id, skill: r.skill, subject: r.subject, target: r.subject, backend: r.backend, status: r.status || 'running',
-    created: ago(12), session_id: 'S-' + r.id, transport: 'live', in_tool: r.doing ? call(r.doing) : null, last_action: { summary: r.doing ? r.doing[2] : '' },
-    pending_question: r.question ? { question: r.question } : null, subagents: [] }));
-  const agents = m.runs.flatMap(r => {
-    const id = 'run:r-' + r.id, title = (item(m, r.subject) || {}).title || '';
+  const runs = m.runs.map((r, k) => { const d = doing(r, k);
+    return { run_id: 'r-' + r.id, skill: r.skill, subject: r.subject, target: r.subject, backend: r.backend, status: r.status || 'running',
+      created: ago(12), session_id: 'S-' + r.id, transport: 'live', in_tool: d ? call(d) : null, last_action: { summary: d ? d[2] : '' },
+      pending_question: r.question ? { question: r.question } : null, subagents: [] }; });
+  const agents = m.runs.flatMap((r, k) => {
+    const id = 'run:r-' + r.id, title = (item(m, r.subject) || {}).title || '', d = doing(r, k);
     const shared = { run_id: 'r-' + r.id, backend: r.backend, subject: r.subject, target: r.subject, skill: r.skill, interactive: false };
     return [{ ...shared, id, parent: null, depth: 0, sub: null, worker_id: 'r-' + r.id, role: 'orchestrator', label: r.skill, display_label: `${title} · /${r.skill}`,
-      status: r.status === 'waiting_input' ? 'asking' : 'working', doing: r.doing ? call(r.doing) : null, last: r.doing ? r.doing[2] : '' },
-    ...(r.subs || []).map(s => ({ ...shared, id: `${id}/${s.id}`, parent: id, depth: 1, sub: s.id, worker_id: null, role: s.role, label: s.label,
-      display_label: s.label, status: 'working', doing: call(s.doing), last: s.doing[2] }))];
+      status: r.status === 'waiting_input' ? 'asking' : 'working', doing: d ? call(d) : null, last: d ? d[2] : '' },
+    ...(r.subs || []).map((s, j) => { const sd = doing(s, k + j + 1);
+      return { ...shared, id: `${id}/${s.id}`, parent: id, depth: 1, sub: s.id, worker_id: null, role: s.role, label: s.label,
+        display_label: s.label, status: 'working', doing: call(sd), last: sd[2] }; })];
   });
   return { workflow: window.__WORKFLOW_DEFAULT__, world_view: 'unified', now: ago(0), lab_info: { name: 'Demo lab' },
     items: m.items.map(i => ({ workflow: 'research', inflight: [], events: [], directives: [], slipped: [], waiting: [], ...i,
@@ -157,12 +170,12 @@ function agentPeek(target, anchor) {
   const a = snapshot(model).agents.find(x => x.id === target.agent_id); if (!a) return;
   const study = item(model, a.subject) || {};
   showPeek(`<h4>${a.parent ? 'Subagent' : 'Agent'}</h4><b>${esc(a.parent ? a.label : AGENT[a.backend])}</b>
-    <p>${a.status === 'asking' ? 'Waiting for your answer in the Inbox.' : esc(a.doing ? `${a.doing.tool}: ${a.doing.summary}` : 'Working')}</p>
-    ${facts([['Agent', a.parent ? AGENT[a.backend] : null], ['Role', a.parent ? a.role : null], ['Task', '/' + a.skill], ['Study', study.title]])}`, anchor);
+    <p>${a.status === 'asking' ? 'Waiting for your answer in the Inbox.' : esc(a.doing ? ACT[a.doing.kind] || 'Working' : 'Working')}</p>
+    ${facts([['Agent', a.parent ? AGENT[a.backend] : null], ['Role', a.parent ? a.role : null], ['Task', TASK[a.skill] || a.skill], ['Project', study.title]])}`, anchor);
 }
 function studyPeek(id) {
   const it = item(model, id); if (!it) return;
-  showPeek(`<h4>Study</h4><b>${esc(it.title)}</b><p>${(it.waiting || []).length ? 'Waiting for you to approve the proposal.' : 'A card on the shelf of the room for its step.'}</p>
+  showPeek(`<h4>Project</h4><b>${esc(it.title)}</b><p>${(it.waiting || []).length ? 'Waiting for you to approve its plan.' : 'A card in the room for the step it has reached.'}</p>
     ${facts([['Step', STEP[it.state] || it.state], ['Agents on it', String(model.runs.filter(r => r.subject === id).length)]])}`);
 }
 
@@ -184,6 +197,20 @@ function fallback(text, action) {
   note.hidden = false; note.textContent = text;
   if (action) { const b = Object.assign(document.createElement('button'), { type: 'button', className: 'link small', textContent: action }); b.onclick = () => { note.hidden = true; load(true); }; note.append(' ', b); }
 }
+/** The page keeps the whole lab in view: dragging still turns it, but the wheel scrolls the page instead of
+ *  zooming, a click never leaves the camera inside one room, and on touch screens a vertical swipe scrolls.
+ *  The frame is the dashboard's; this only adds listeners and one style rule to it (same origin). */
+function anchor(f) {
+  try {
+    const w = f.contentWindow, d = f.contentDocument;
+    d.head.insertAdjacentHTML('beforeend', '<style>.view-controls { display: none; } #scene { touch-action: pan-y; }</style>');
+    w.addEventListener('wheel', e => e.stopImmediatePropagation(), { capture: true });
+    let down;
+    w.addEventListener('pointerdown', e => { down = [e.clientX, e.clientY]; }, { capture: true });
+    // after the world's own click handling (it may zoom into a room), go back to the whole lab, keeping the turn
+    w.addEventListener('pointerup', e => { if (down && Math.hypot(e.clientX - down[0], e.clientY - down[1]) < 4) setTimeout(() => d.querySelector('.view-back')?.click()); });
+  } catch {}
+}
 const webgl = () => { try { const c = document.createElement('canvas'); return !!(c.getContext('webgl2') || c.getContext('webgl')); } catch { return false; } };
 const script = src => new Promise((ok, fail) => document.head.append(Object.assign(document.createElement('script'), { src, onload: ok, onerror: fail })));
 async function load(force) {
@@ -196,11 +223,7 @@ async function load(force) {
   finally { loading = false; }
   world.dataset.state = 'loading';
   frame = Object.assign(document.createElement('iframe'), { title: 'The ARLOtope lab, playing a scripted tour', src: `static/lab-view.html?lamp=${lamp()}` });
-  frame.addEventListener('load', () => {
-    // the page shows the lab open, without the dashboard's camera bar (same origin: one style rule)
-    try { frame.contentDocument.head.insertAdjacentHTML('beforeend', '<style>.view-controls { display: none; }</style>'); } catch {}
-    send(true);
-  });
+  frame.addEventListener('load', () => { anchor(frame); send(true); });
   world.prepend(frame);
 }
 
@@ -208,5 +231,7 @@ const activate = () => send(true);   // the frame ignores snapshots while it is 
 if ('IntersectionObserver' in window) new IntersectionObserver(([e]) => { onScreen = e.isIntersecting; activate(); }).observe(tour);
 document.addEventListener('visibilitychange', activate);
 reduced.addEventListener('change', () => send(true));
+// the lab keeps moving between captions: every agent moves on to its next call now and then (not when still)
+setInterval(() => { if (live && onScreen && !document.hidden && !reduced.matches) { tick++; send(); } }, 2400);
 if (document.readyState === 'complete') load(); else addEventListener('load', () => load(), { once: true });
 })();

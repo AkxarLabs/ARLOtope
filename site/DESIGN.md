@@ -31,9 +31,13 @@ characteristic thing in the product's world and lay the page out around it**, st
 does not serve the subject, use one orchestrated moment rather than many small effects, and end with
 one contrasting call to action.
 
-* The live lab is the first screen and stays pinned, full-bleed and unframed, while the tour scrolls
-  past it. It is drawn larger than its box, so it bleeds off the right and bottom edges: a place you
-  are looking into, not a widget.
+* The live lab is the first screen and stays pinned and unframed while the tour scrolls past it,
+  centred top to bottom in the right of the screen. It stays put: dragging turns it, but nothing
+  moves it off its anchor (see section 4).
+* The story is told in plain words with plain project names (*A new idea*, *Reading list*,
+  *Better baselines*, *Faster training*, *Results report*), and the first caption after the intro is
+  a key to the picture: rooms are the steps of your work, cards are your projects, characters are AI
+  agents, the middle is your desk.
 * Scrolling *is* the control: no play/pause/next buttons, no beat list, no autoplay timer. Each
   caption, as it reaches mid-screen, changes the lab. Inactive captions fade to 16 % opacity.
 * Removed: mono kickers above every heading, `A · B · C` meta strings, arrows on every link,
@@ -55,15 +59,15 @@ pattern (a sticky visual with captions scrolling past it, as in Apple's product 
 
 1. **Header**: clear over the lab at the top, solid with a hairline once the page moves. Wordmark;
    Docs, GitHub, the lamp toggle (an icon), and **Install** as the one primary button.
-2. **The tour** (`.tour`): a sticky, full-height `.pin` holding the lab (`.world`, from 31 % of the
-   width to past the right edge; on phones, the top half), with nine captions (`.beat`) scrolling on
+2. **The tour** (`.tour`): a sticky, full-height `.pin` holding the lab (`.world`, the right 62 % of
+   the screen under the header; on phones, the top half), with nine captions (`.beat`) scrolling on
    the left (on phones, underneath, over a soft fade):
    0. the intro: *"A lab for your agent teams."*, the lede, **Install ARLOtope** and **Read the
       guide**, and ARLO saying hello;
-   1. every room is a step; 2. agents work where the work is; 3. studies move on;
-   4. agents ask, you answer (a mock Inbox item with two real buttons); 5. back to work;
-   6. checkpoints are yours (a mock checkpoint with **Approve**); 7. approved, and recorded;
-   8. results come back with their evidence.
+   1. this is your lab (with the key); 2. the characters are your agents; 3. projects move from
+   room to room; 4. when an agent needs you, it asks (a mock Inbox item with two real buttons);
+   5. you answer, it carries on; 6. big decisions are yours (a mock checkpoint with **Approve**);
+   7. approved; 8. results come back.
 3. **Three product rows** (`.work`): the Inbox, the workflow editor, a study's record; each a short
    serif title, two sentences and one docs link, beside a real screenshot cropped to the part worth
    reading, alternating sides.
@@ -127,12 +131,26 @@ steps and checkpoints. The active caption is the last one whose heading has pass
 (55 % down the screen; 75 % on phones, below the lab), worked out on every scroll event (nine
 rectangles; no observer or animation-frame timing that background tabs would pause).
 
-**Interaction.** Clicking a character opens a peek beside it (who: Claude Code / Codex / opencode,
-the task, what it is doing, the study); clicking a study card or a checkpoint lantern shows the
+**Always moving.** Each run in the model has a short cycle of calls (read, search, write, run an
+experiment, run a check, plan). Every 2.4 s the page sends the snapshot again with the next call for
+some of the agents, staggered so they do not all move at once, and the renderer walks each one to the
+furniture for its call (shelves, benches, desks, the whiteboard). This only runs while the lab is on
+screen and not under reduced motion.
+
+**Anchored.** The page adds three things to the frame (same origin): a capturing wheel listener so
+the wheel scrolls the page instead of zooming the lab; after any click (a press and release that did
+not move), the frame's own "All rooms" control, so a click on a room never leaves the camera inside
+it; and `touch-action: pan-y` on the canvas, so a vertical swipe on a phone scrolls the page.
+Dragging still turns the lab around its centre. Building this found a dashboard bug, fixed in
+`ui/lab-view.js`: "All rooms" reported `onFollow(null)`, which matched any subagent (their
+`worker_id` is null), so the camera started following a subagent.
+
+**Interaction.** Clicking a character opens a peek beside it in plain words (who: Claude Code /
+Codex / opencode, what it is doing, its task, its project); clicking a study card or a checkpoint lantern shows the
 study's step; clicking ARLO at the desk describes the workspace assistant. Escape or the close button
 closes it. Answering in step 4 or approving in step 6 records the choice in the page and scrolls to
-the next caption, which uses the answer. The frame's own camera bar is hidden (one same-origin style
-rule); room names are on when the lab is at least 600 px wide.
+the next caption, which uses the answer. The frame's own camera bar is hidden; room names
+are on when the lab is at least 600 px wide.
 
 **Loading and fallbacks.** The frame loads right after the page's `load` event, since it is the
 first screen. Until it reports `ready` the lab area shows a small spinner, then the frame fades in.
