@@ -57,7 +57,7 @@ checkpoints:
     title: Finalize the paper
     before: final
     approver: me-or-campaign
-    checks: [claims, multiseed, ablations, eval, prereg]
+    checks: [claims, multiseed, ablations, eval, prereg, spec]
     evidence: ['studies/{study}/paper/main.pdf', 'studies/{study}/paper/reviews', 'studies/{study}/paper/claims.yaml']
     means: the reviewed paper is final; reproducibility pass, artifacts locked, knowledge written back
     tell: Stop when internal review accepts; finalization starts only after approval.

@@ -32,6 +32,7 @@ A check takes one of two forms:
 | `audit_multiseed.py` | headline claims are multi-seed | the same |
 | `audit_ablation_coverage.py` | every planned ablation ran, was waived, or was routed back | the same |
 | `audit_eval_discipline.py` | tuned on validation, reported on held-out test | the same |
+| `audit_spec_conformance.py` | cited runs used the planned data, split, metric and benchmark, or say otherwise | the same |
 
 **Adding a rule with a check:** add the rule to `workflow/rules.yaml` (with `checks: [<name>]`), drop the
 check here, call it from the skills that need it, and run `arlo docs`. A lab that

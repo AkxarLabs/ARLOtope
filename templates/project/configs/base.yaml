@@ -12,6 +12,7 @@ seed: 0
 
 eval:
   primary_metric: toy_abs_error   # replace with the project's frozen metric
+  # optional, checked by checks/audit_spec_conformance.py when set: benchmark, validation, test
   # validation/test definitions live here once the domain is set; the experiment loop
   # may read validation, never test.
 
