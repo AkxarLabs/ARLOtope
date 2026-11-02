@@ -66,6 +66,7 @@
     document.documentElement.dataset.lamp = theme;
     world.setLamp(theme); world.setCast(cast); showLabels(message.labels===true);
     world.setMotion(motion && !matchMedia('(prefers-reduced-motion: reduce)').matches ? 'full' : 'reduced');
+    world.setSpin(message.spin);
     if (state) {
       const room={id:draft?.room,label:draft?.room,title:'Room preview',steps:[]};
       let view=draft&&!message.previewWide?{...state,items:[],agents:[],runs:[],workflow:{...state.workflow,rooms:[room],workflows:[]}}:
@@ -113,7 +114,7 @@
     world.onRun((id,sub) => inspect('run',id,sub));
     world.onWorker(id=>inspect('worker',id));
     world.onArtifact(id=>send({kind:'artifact',id}));
-    world.onFollow(id=>{const agent=(displayed?.agents||[]).find(a=>a.id===id||a.run_id===id||a.worker_id===id);following=agent?.id||id;followControls();send({kind:'following',id})});
+    world.onFollow(id=>{const agent=id&&(displayed?.agents||[]).find(a=>a.id===id||a.run_id===id||a.worker_id===id);following=agent?.id||id;followControls();send({kind:'following',id})});
     world.onCheckpoint((id, checkpoint) => send({ kind: 'checkpoint', id, checkpoint }));
     world.onNewt(()=>inspect('assistant'));
     let down;

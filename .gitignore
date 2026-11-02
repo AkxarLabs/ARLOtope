@@ -26,8 +26,9 @@ provider-keys.*
 *.key
 .claude/settings.local.json
 
-# Generated docs, browser evidence and source-art previews.
-/site/
+# Generated docs (properdocs site_dir), browser evidence and source-art previews.
+/build/
+/_pages/
 /output/
 /research/
 /.cache/

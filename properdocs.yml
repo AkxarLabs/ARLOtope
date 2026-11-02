@@ -1,6 +1,7 @@
 site_name: ARLOtope
 site_description: Visually manage agent teams and iterate across research projects.
-site_url: https://akxarlabs.github.io/ARLOtope/
+site_url: https://akxarlabs.github.io/ARLOtope/docs/
+site_dir: build/docs
 docs_dir: docs
 exclude_docs: |
   /plans/

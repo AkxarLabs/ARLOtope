@@ -1,0 +1,171 @@
+<!doctype html>
+<html lang="en" data-lamp="day">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>ARLOtope — a lab for your agent teams</title>
+<meta name="description" content="Visually manage agent teams across your research projects. Build workflows, assign agents, and follow them as they work in a shared 3D lab. Open source.">
+<meta property="og:title" content="ARLOtope — a lab for your agent teams">
+<meta property="og:description" content="Visually manage agent teams across your research projects.">
+<meta property="og:image" content="docs/assets/current/lab-light.webp">
+<meta name="color-scheme" content="light dark">
+<script>
+/* The lamp is set before first paint: the visitor's choice, else their system's. */
+(() => { let lamp; try { lamp = localStorage.getItem('arlo-site-lamp'); } catch {}
+  document.documentElement.dataset.lamp = lamp === 'day' || lamp === 'night' ? lamp : matchMedia('(prefers-color-scheme: dark)').matches ? 'night' : 'day'; })();
+</script>
+<link rel="icon" type="image/png" href="static/brand/arlotope-mark.png">
+<link rel="preload" href="static/vendor/fonts/newsreader-opsz-normal.woff2" as="font" type="font/woff2" crossorigin>
+<link rel="preload" href="static/vendor/fonts/instrument-sans-wght-normal.woff2" as="font" type="font/woff2" crossorigin>
+<link rel="stylesheet" href="static/ui/ui.css">
+<link rel="stylesheet" href="site.css">
+</head>
+<body>
+<a class="skip" href="#work">Skip the lab tour</a>
+
+<header class="top">
+  <a class="brand" href="./" aria-label="ARLOtope home">
+    <svg viewBox="4 12 153 136" aria-hidden="true"><g fill="none" stroke="currentColor" stroke-width="6.5" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="17" width="143" height="126" rx="23"/><path d="M47 65C44 55 51 42 45 40C37 37 34 49 36 54C21 44 17 58 27 64L39 72C20 63 14 76 25 82L38 87C18 83 17 98 29 99L43 97M114 65C117 55 110 42 116 40C124 37 127 49 125 54C140 44 144 58 134 64L122 72C141 63 147 76 136 82L123 87C143 83 144 98 132 99L118 97"/><path d="M45 73C61 48 100 48 116 73C136 106 111 129 81 129C50 129 25 106 45 73Z"/><path d="M76 109Q81 117 86 109"/></g><g fill="currentColor"><circle cx="62" cy="99" r="5"/><circle cx="100" cy="99" r="5"/></g></svg>
+    <span>ARLOtope</span>
+  </a>
+  <nav aria-label="Site">
+    <a href="docs/">Docs</a>
+    <a href="https://github.com/AkxarLabs/ARLOtope">GitHub</a>
+    <button type="button" class="lamp" aria-label="Switch to dark mode"><svg viewBox="0 0 20 20" aria-hidden="true"><circle cx="10" cy="10" r="6.5"/><path d="M10 3.5a6.5 6.5 0 0 1 0 13z"/></svg></button>
+    <a class="btn btn-primary" href="#install">Install</a>
+  </nav>
+</header>
+
+<main>
+  <section class="tour" aria-label="A tour of the lab">
+    <div class="pin">
+      <div class="world" data-state="loading">
+        <img class="poster" alt="The ARLOtope lab: rooms for each workflow step, with study cards on their shelves and agents at work." data-day="docs/assets/current/lab-light.webp" data-night="docs/assets/current/lab-dark.webp" width="1440" height="1000">
+        <p class="stage-note" hidden></p>
+        <div class="peek" role="dialog" aria-label="Details" hidden><button type="button" class="x" aria-label="Close">×</button><div class="peek-body"></div></div>
+      </div>
+    </div>
+
+    <ol class="beats">
+      <li class="beat intro" data-beat="0">
+        <h1>A lab for your agent teams.</h1>
+        <p class="lede">ARLOtope runs AI agents such as Claude Code, Codex and opencode on your research projects, and shows their work as a small lab you can watch. Projects move from room to room; you step in only when an agent needs you.</p>
+        <div class="actions"><a class="btn btn-primary btn-lg" href="#install">Install ARLOtope</a><a class="btn btn-lg" href="docs/getting-started/">Read the guide</a></div>
+        <div class="hello"><button type="button" class="arlo" aria-label="Say hello to ARLO" data-say="Hi, I'm ARLO. Scroll, and I'll show you around.|This lab is playing a short, made-up story.|Drag the lab to turn it. Click anyone in it."></button><p class="bubble" role="status"></p></div>
+      </li>
+      <li class="beat" data-beat="1">
+        <h2>This is your lab</h2>
+        <p>A live picture of all your projects at once. Drag it to turn it.</p>
+        <dl class="key">
+          <div><dt>Rooms</dt><dd>the steps of your work: ideas, reading, experiments, analysis, writing</dd></div>
+          <div><dt>Cards</dt><dd>your projects, each in the room it has reached</dd></div>
+          <div><dt>Characters</dt><dd>AI agents at work</dd></div>
+          <div><dt>The middle</dt><dd>your desk, where ARLO helps</dd></div>
+        </dl>
+      </li>
+      <li class="beat" data-beat="2">
+        <h2>The characters are your agents</h2>
+        <p>Each one is an AI agent working on a project. They walk to what they need: shelves to read, benches to run code, desks to write. Click one to see what it is doing.</p>
+      </li>
+      <li class="beat" data-beat="3">
+        <h2>Projects move from room to room</h2>
+        <p>When an agent finishes a step, the project's card is carried to the next room. Here, <em>A new idea</em> moves on to reading, and another agent picks it up.</p>
+      </li>
+      <li class="beat" data-beat="4">
+        <h2>When an agent needs you, it asks</h2>
+        <p>The agent writing <em>Results report</em> isn't sure how to begin. It stops, and its question waits in your Inbox.</p>
+        <div class="inbox" data-wait="question">
+          <small>Codex · Results report</small>
+          <b>Start the report with the summary table or the chart?</b>
+          <div class="row"><button type="button" class="btn btn-sm" data-answer="The table">The table</button><button type="button" class="btn btn-sm" data-answer="The chart">The chart</button></div>
+        </div>
+      </li>
+      <li class="beat" data-beat="5">
+        <h2>You answer, it carries on</h2>
+        <p>Your answer, <em class="answer">the table</em>, goes straight to that agent, and it gets back to work.</p>
+      </li>
+      <li class="beat" data-beat="6">
+        <h2>Big decisions are yours</h2>
+        <p>Before experiments start on <em>Better baselines</em>, its plan needs your approval. The project waits at the lantern until you say yes. Agents can't approve their own work.</p>
+        <div class="inbox" data-wait="checkpoint">
+          <small>Checkpoint · Better baselines</small>
+          <b>Approve the plan</b>
+          <span class="evidence">The plan and the reading notes are attached.</span>
+          <div class="row"><button type="button" class="btn btn-sm btn-primary" data-approve>Approve</button></div>
+        </div>
+      </li>
+      <li class="beat" data-beat="7">
+        <h2>Approved</h2>
+        <p>The project moves to the experiments room, and an agent sets it up. Your approval is saved with the project.</p>
+      </li>
+      <li class="beat" data-beat="8">
+        <h2>Results come back</h2>
+        <p><em>Faster training</em> finishes its experiments. The agent shares what it found, with every number linked to the run behind it, and the project moves on to analysis.</p>
+      </li>
+    </ol>
+  </section>
+
+  <section id="work" class="work" aria-label="A closer look">
+    <article class="feature">
+      <div class="feature-text">
+        <h2>One Inbox for everything that needs you</h2>
+        <p>Questions, permission requests, checkpoints and interrupted work from every project, in one list. Answer from there, or open the agent's conversation.</p>
+        <a class="link" href="docs/running-work/">Start and follow work</a>
+      </div>
+      <figure class="showcase" style="--w: 60%; --l: 20%">
+        <img class="shot-day" loading="lazy" src="shots/inbox-day.webp" alt="The Inbox: three checkpoints to review, an agent's question to answer, and two experiments that need a look" width="1080" height="1400">
+        <img class="shot-night" loading="lazy" src="shots/inbox-night.webp" alt="" width="1080" height="1400">
+      </figure>
+    </article>
+    <article class="feature">
+      <div class="feature-text">
+        <h2>Your process, drawn as tasks</h2>
+        <p>Connect tasks in order or in parallel, give each one a skill or written instructions, and put checkpoints where you want a say. Research workflows are included to start from.</p>
+        <a class="link" href="docs/agent-workflows/">Tasks, agents and rooms</a>
+      </div>
+      <figure class="showcase" style="--w: 86%; --l: 7%">
+        <img class="shot-day" loading="lazy" src="shots/workflow-day.webp" alt="The workflow editor: ten connected tasks from Idea to Final, with loops back for more experiments" width="1228" height="1104">
+        <img class="shot-night" loading="lazy" src="shots/workflow-night.webp" alt="" width="1228" height="1104">
+      </figure>
+    </article>
+    <article class="feature">
+      <div class="feature-text">
+        <h2>Every decision shows its evidence</h2>
+        <p>A checkpoint opens with the files behind it and the agent's own case. Approve it, ask for changes, or leave a note that every later agent on the project will read.</p>
+        <a class="link" href="docs/monitoring/">Approvals and evidence</a>
+      </div>
+      <figure class="showcase" style="--w: 58%; --l: 21%">
+        <img class="shot-day" loading="lazy" src="shots/checkpoint-day.webp" alt="A checkpoint: Approve the proposal, with its three files, the agent's summary, and hold-to-approve buttons" width="1240" height="1740">
+        <img class="shot-night" loading="lazy" src="shots/checkpoint-night.webp" alt="" width="1240" height="1740">
+      </figure>
+    </article>
+  </section>
+
+  <section class="statement" aria-label="Agents and tools">
+    <p>Bring <b>Claude Code</b>, <b>Codex</b>, <b>opencode</b> or any <b>ACP</b> agent, signed in with its own account or an API key. Keep <b>your repositories</b>, environments and runners. Work on <b>this computer</b> or on a machine <b>over SSH</b>.</p>
+  </section>
+
+  <section id="install" class="install" aria-labelledby="install-title">
+    <div class="install-inner">
+      <div class="peeker"><span class="arlo" aria-hidden="true" data-say="Copied. Paste it into a terminal."></span><p class="bubble" role="status"></p></div>
+      <h2 id="install-title">Install in one line</h2>
+      <div class="os" role="tablist" aria-label="Operating system">
+        <button type="button" role="tab" id="tab-win" aria-controls="cmd-win" aria-selected="true">Windows</button>
+        <button type="button" role="tab" id="tab-unix" aria-controls="cmd-unix" aria-selected="false" tabindex="-1">macOS and Linux</button>
+      </div>
+      <div class="cmd" role="tabpanel" id="cmd-win" aria-labelledby="tab-win"><code>irm https://github.com/AkxarLabs/ARLOtope/releases/latest/download/install.ps1 | iex</code><button type="button" class="copy">Copy</button></div>
+      <div class="cmd" role="tabpanel" id="cmd-unix" aria-labelledby="tab-unix" hidden><code>curl -fsSL https://github.com/AkxarLabs/ARLOtope/releases/latest/download/install.sh | sh</code><button type="button" class="copy">Copy</button></div>
+      <p>Then open a new terminal and run <code>arlo</code>. The dashboard opens in your browser. <a href="docs/install/">Where things live and how to update</a>, <a href="https://github.com/AkxarLabs/ARLOtope/releases">all releases</a>, or <a href="https://github.com/AkxarLabs/ARLOtope#get-started">run from source</a>.</p>
+    </div>
+  </section>
+</main>
+
+<footer class="foot">
+  <span>ARLOtope, by AkxarLabs. Open source under <a href="docs/licensing/">AGPL-3.0</a>.</span>
+  <nav aria-label="More"><a href="docs/">Docs</a><a href="https://github.com/AkxarLabs/ARLOtope">GitHub</a><a href="https://github.com/AkxarLabs/ARLOtope/releases">Releases</a></nav>
+</footer>
+
+<script src="site.js"></script>
+<script src="demo.js"></script>
+</body>
+</html>

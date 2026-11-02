@@ -9,7 +9,7 @@ Move several research projects forward at once. Build workflows, assign teams, a
 agents in a shared 3D lab. See who is working, where your input is needed, and what each project
 has produced—all while keeping your existing repositories and tools.
 
-[Documentation](https://akxarlabs.github.io/ARLOtope/) ·
+[Website](https://akxarlabs.github.io/ARLOtope/) · [Documentation](https://akxarlabs.github.io/ARLOtope/docs/) ·
 [Install](docs/install.md) ·
 [First study](docs/getting-started.md) · [Build a workflow](docs/agent-workflows.md)
 
