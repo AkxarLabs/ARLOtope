@@ -29,7 +29,7 @@ def test_catalog_keeps_only_public_metadata_and_refreshes_on_request(monkeypatch
     assert 'private' not in json.dumps(first) and 'apiKey' not in json.dumps(first)
     assert P.catalog() is first and len(calls)==2
     refresh=[]
-    monkeypatch.setattr(P.shutil,'which',lambda _: '/opencode')
+    monkeypatch.setattr(P,'_opencode',lambda: '/opencode')
     monkeypatch.setattr(P.subprocess,'Popen',lambda args,**kw: refresh.append(args) or type('R',(),{'wait':lambda self,timeout:0,'poll':lambda self:0})())
     P.catalog(refresh=True)
     assert refresh==[['/opencode','models','--refresh']] and len(calls)==4
@@ -43,7 +43,7 @@ def test_refresh_timeout_reaps_the_native_process_tree(monkeypatch):
         def wait(self,timeout):
             if timeout==60:raise P.subprocess.TimeoutExpired('opencode',timeout)
             return 0
-    monkeypatch.setattr(P.shutil,'which',lambda _: '/opencode')
+    monkeypatch.setattr(P,'_opencode',lambda: '/opencode')
     monkeypatch.setattr(P.subprocess,'Popen',lambda *a,**kw:Process())
     from executor import procs
     monkeypatch.setattr(procs,'kill_tree',lambda pid:killed.append(pid))
