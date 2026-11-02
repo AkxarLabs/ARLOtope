@@ -27,10 +27,10 @@ NEW_GROUP = ({"creationflags": subprocess.CREATE_NEW_PROCESS_GROUP} if os.name =
 # A supervisor must outlive the process that spawned it (the dashboard, a CLI tick): detach it from
 # the parent's console/session entirely, and never pop a console window on Windows.
 if os.name == "nt":
-    # DETACHED_PROCESS: no console inherited from the parent (closing the dashboard's terminal can't
-    # take the supervisor down). Its own children are console apps, so the supervisor spawns them with
-    # NO_WINDOW — otherwise Windows would allocate a visible console for each agent CLI.
-    DETACHED = {"creationflags": subprocess.CREATE_NEW_PROCESS_GROUP | subprocess.DETACHED_PROCESS}
+    # CREATE_NO_WINDOW: a console of its own, hidden, not the parent's (closing the dashboard's terminal
+    # can't take the supervisor down). Never DETACHED_PROCESS: a venv python.exe is a launcher that starts
+    # the real interpreter as a console child, and with no console to inherit Windows pops a visible one.
+    DETACHED = {"creationflags": subprocess.CREATE_NEW_PROCESS_GROUP | getattr(subprocess, "CREATE_NO_WINDOW", 0)}
     NO_WINDOW = {"creationflags": subprocess.CREATE_NEW_PROCESS_GROUP | getattr(subprocess, "CREATE_NO_WINDOW", 0)}
 else:
     DETACHED = {"start_new_session": True}
