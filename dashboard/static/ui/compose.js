@@ -122,6 +122,7 @@
     const link=k=>html`<a class=${cls('cmp-link',on(k.id)&&'on')} href=${href(k.id)}><span class="grow">${k.label}</span>${k.dirty(d)?html`<i class="cmp-dot" title="Changed in draft"></i>`:null}<span class="cmp-n">${k.n(d)}</span></a>`;
     return html`<nav class="cmp-nav" aria-label="Workflow"><div class="cmp-nav-sec">Your process</div>
       <a class=${cls('cmp-link',(!where||where==='map')&&'on')} href=${href('map')}>Workflows</a>
+      <a class="cmp-link" href="#/workflow/map?create=1"><${NL.Icon} name="plus" /> Create workflow</a>
       ${KINDS.filter(k=>['procedures','rooms'].includes(k.id)).map(link)}
       <details class="cmp-advanced" open=${['steps','step','roles','role','rules','rule','checks','check','types','type','domain','instruments'].includes(where)}><summary>More settings</summary>
         ${KINDS.filter(k=>!['procedures','rooms'].includes(k.id)).map(link)}
@@ -218,8 +219,9 @@
     useEffect(()=>{if(wanted&&workflows.some(w=>w.id===wanted))setSelected(wanted)},[wanted]);
     const choose=id=>{setSelected(id);NL.go(NL.focusHref('workflow/map?workflow='+encodeURIComponent(id),study?.workflow===id?focus:{}))};
     useEffect(()=>{if(selected)NL.ls.set('workflow-editor-id',selected)},[selected]);
+    useEffect(()=>{if(query.create==='1'){NL.open(NewWorkflow,{onMade:choose},{kind:'dialog',key:'wf-new'});history.replaceState(null,'','#/workflow/map'+(selected?'?workflow='+encodeURIComponent(selected):''));window.dispatchEvent(new HashChangeEvent('hashchange'))}},[query.create]);
     const w=workflows.find(w=>w.id===selected)||workflows[0];
-    return html`<div class="cmp-page process-page"><header class="cmp-hero"><h1>Workflow</h1></header>
+    return html`<div class="cmp-page process-page"><header class="cmp-hero"><div><h1>Workflows</h1><p class="muted">Build your own sequence of tasks, agents and approval checkpoints.</p></div><${NL.Btn} kind="primary" onClick=${()=>NL.open(NewWorkflow,{onMade:choose},{kind:'dialog',key:'wf-new'})}><${NL.Icon} name="plus" /> Create workflow</${NL.Btn}></header>
       <details class="process-guide"><summary>How workflows work</summary>
         <div class="process-concepts"><div><span>01</span><h3>Tasks & agents</h3><p>Give each task a skill or instructions. Connect tasks in order or in parallel; change agents when needed.</p></div>
           <div><span>02</span><h3>Shared rooms</h3><p>A task's room is where its agent appears. Tasks and studies share rooms; arrows control what runs next.</p></div>
@@ -227,7 +229,7 @@
         <p class="muted small">Edits stay in a draft. Review and publish when ready; the latest publication can be undone.</p>
         <button type="button" class="link small" onClick=${e=>{e.currentTarget.closest('details').open=false;}}>Got it</button></details>
       <div class="process-toolbar"><${NL.WorkflowPicker} label="Research workflow" workflows=${workflows} value=${w?.id||''} onChange=${choose} blocked=${x=>NL.frameworkBlocked(x,tools.data)}/>
-        <${NL.Btn} onClick=${()=>NL.open(NewWorkflow,{onMade:choose}, {kind:'dialog',key:'wf-new'})}>New workflow</${NL.Btn}></div>
+        <span class="muted small">Shared workflow edits apply when you review and publish.</span></div>
       <${NL.FrameworkTools} read=${tools} machine=${machine} onMachine=${setMachine} onInspect=${id=>choose(workflows.find(x=>NL.requiredFrameworks(x).includes(id))?.id||selected)}/>
       ${w ? html`<${Line} d=${d} w=${w} first=${w.default} n=${(s.items||[]).filter(i=>i.workflow===w.id&&!i.finished&&!NL.isShelved(i.state)).length} onCopy=${choose} />` : null}
       <details class="process-agent"><summary>Draft with an agent</summary><p class="muted">Review the draft before publishing.</p>
@@ -404,14 +406,14 @@
       const r = await edit({ op: 'workflow', id: wid, new: true, preset:how==='single'?'single-agent':undefined, like: how === 'copy' ? like : undefined, fields: { title } }, `Added ${title} to your draft`);
       if (r.ok) { onClose(); onMade?.(wid); if (how === 'blank') { const w = (C.d.workflows || []).find(x => x.id === wid); if (w) NL.open(StepsEditor, { w }, { kind: 'dialog', key: 'wf-steps' }); } }
     };
-    return html`<div class="dialog dialog-wide"><h3>New workflow</h3>
+    return html`<div class="dialog dialog-wide"><h3>Create workflow</h3><p class="muted">Start from scratch, copy a workflow, or describe what you need. Review and publish the draft before using it in a study.</p>
       <${NL.ChoiceTiles} value=${how} onChange=${setHow} columns=${2} options=${[{ value: 'blank', glyph: 'plus', title: 'Blank', desc: 'Pick its steps; add checkpoints after.' },
         {value:'single',glyph:'agent',title:'One lead agent',desc:'Chain skills and instructions in one task.'}, { value: 'copy', glyph: 'metro', title: 'A copy', desc: 'Copy a workflow and adapt it.' }, { value: 'describe', glyph: 'spark', title: 'Describe it', desc: 'The designer drafts it from your words, for you to look at.' }]} />
       ${how === 'describe' ? html`<${NL.Field} label="What should it be like?"><${NL.Textarea} rows=${4} value=${say} onInput=${setSay} autofocus placeholder="e.g. A theory workflow: ideas, a literature pass, a proof sketch I approve, then writing. No experiments." /></${NL.Field}>`
         : html`${how === 'copy' ? html`<${NL.Field} label="Copy"><${NL.Picker} value=${like} onChange=${setLike} options=${(d.workflows || []).map(w => ({ value: w.id, label: w.title || w.id, hint: w.blurb, glyph: 'metro' }))} /></${NL.Field}>` : null}
           <${NL.Field} label="Workflow name"><${NL.Input} value=${title} onInput=${setTitle} autofocus placeholder="e.g. Replication study" /></${NL.Field}>
           <details><summary>Workflow ID</summary><${NL.Field} label="Workflow ID" hint="Generated from the name. Change it if needed; use lower-case letters and dashes."><${NL.Input} mono value=${wid} onInput=${setId} /></${NL.Field}></details>`}
-      <div class="dialog-actions"><${NL.Btn} onClick=${onClose}>Cancel</${NL.Btn}><${NL.Btn} kind="primary" disabled=${how === 'describe' ? !say.trim() : !title.trim() || !wid} onClick=${make}>${how === 'describe' ? 'Ask the designer' : 'Add to draft'}</${NL.Btn}></div></div>`;
+      <div class="dialog-actions"><${NL.Btn} onClick=${onClose}>Cancel</${NL.Btn}><${NL.Btn} kind="primary" disabled=${how === 'describe' ? !say.trim() : !title.trim() || !wid} onClick=${make}>${how === 'describe' ? 'Ask the designer' : 'Create draft'}</${NL.Btn}></div></div>`;
   };
 
   const ListHead = ({ k, children }) => html`<header class="cmp-head"><div class="grow"><a class="kicker" href=${href()}>Workflow</a><h1>${k.label}</h1><p class="lede">${k.blurb}</p></div>
@@ -746,7 +748,7 @@
 
   /* ── roles ────────────────────────────────────────────────────────────────── */
   const RolesList = ({ d, k }) => html`<div class="cmp-page"><${ListHead} k=${k} />
-    <p class="muted small">Which model each kind of subagent runs is under <a class="link" href="#/settings/agents">Settings → Agents & models</a>.</p>
+    <p class="muted small">Which model each kind of subagent runs is under <a class="link" href="#/settings/agents">Settings → Models & effort</a>.</p>
     <div class="cmp-rows">${d.roles.map(r => html`<a class="cmp-row" href=${href('role', r.name)}><${NL.RoleDot} role=${r.name} />
       <div class="cmp-row-main"><div class="row"><b>${r.label}</b><span class="mono muted small">${r.name}</span>${touched(d, `agent-roles/${r.name}.`, `lab/workflow/roles/${r.name}.`) ? html`<i class="cmp-dot"></i>` : null}</div><div class="muted small clip">${r.description}</div></div>
       <div class="cmp-row-side">${(d.custom.roles || {})[r.name] ? html`<span class="pill pill-state">+ instructions</span>` : null}${r.origin === 'yours' ? html`<${Origin} o="yours" like=${r.like} />` : null}</div></a>`)}</div></div>`;

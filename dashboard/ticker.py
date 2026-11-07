@@ -68,12 +68,15 @@ def start_scheduler() -> bool:
 
 def handoff_scheduler() -> None:
     """The dashboard is going away: if any lab it scheduled still has queued runs or a campaign to keep, hand
-    the scheduling to a detached `executor_cli serve --until-idle` so the work doesn't stall."""
+    the scheduling to a detached `executor_cli serve --until-idle` so the work doesn't stall.
+    A lab configured for observe-and-sign never starts a scheduler on shutdown either."""
     if executor is None:
         return
     for hub in {ctx.HUB, *_SCHED_HUBS}:
         try:
             lab = executor.Lab(hub)
+            if (lab.config().get("dashboard") or {}).get("executor", True) is False:
+                continue
             if executor.scheduler.has_work(lab):
                 (lab.lab / ".bus" / "scheduler.lease").unlink(missing_ok=True)   # our lease ends with us
                 if executor.scheduler.ensure_ticker(lab):

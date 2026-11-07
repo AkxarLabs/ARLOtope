@@ -38,7 +38,42 @@
     };
     const runChecks = async () => { setChecking(true); const x = await NL.api('/api/checkpoint/checks', { study, checkpoint: id }); setChecking(false);
       if (x.error) NL.toast(x.error, 'bad'); load(); };
-    const readAll = async () => NL.open(NL.SectionsSheet, { title: `${cp.title} · the evidence`, data: await NL.api('/api/read', { what: 'checkpoint', idea: study, checkpoint: id }) });
+    const evidenceDoc = value => {
+      let path = String(value || '').replace(/\\/g, '/');
+      if (path.startsWith('arlotope+ssh://')) {
+        try {
+          if (decodeURIComponent(path).split('/').some(part => part === '..' || part === '.')) return null;
+          const url = new URL(path);
+          if (url.search || url.hash || url.username || url.password) return null;
+          path = `arlotope+ssh://${url.host}${decodeURIComponent(url.pathname)}`;
+        } catch { return null; }
+      }
+      if (path.split('/').some(part => part === '..' || part === '.')) return null;
+      const under = base => {
+        const prefix = String(base || '').replace(/\\/g, '/').replace(/\/+$/, '') + '/';
+        return base && path.startsWith(prefix) ? path.slice(prefix.length) : null;
+      };
+      const studyRoot = `studies/${study}`;
+      const rel = under(studyRoot) || (s.lab_info?.path && under(`${s.lab_info.path}/${studyRoot}`));
+      if (rel) return { scope: 'study', slug: study, rel };
+      const remote = it.remote_project;
+      for (const root of [it.project_dir, remote && `arlotope+ssh://${remote.machine || it.machine}${remote.path}`]) {
+        const rel = under(root);
+        if (rel) return { scope: 'project', slug: study, rel };
+      }
+      return null;
+    };
+    const readAll = async () => {
+      const data = await NL.api('/api/read', { what: 'checkpoint', idea: study, checkpoint: id });
+      NL.open(NL.SectionsSheet, { title: `${cp.title} · the evidence`, data: data?.ok ? {
+        ...data, sections: (data.sections || []).map(sec => ({ ...sec, doc: evidenceDoc(sec.path) || evidenceDoc(sec.title) }))
+      } : data });
+    };
+    const readExhibit = e => {
+      const doc = e.exists && !e.dir && evidenceDoc(e.path);
+      if (!doc) return readAll();
+      NL.open(NL.SectionsSheet, { title: e.name, data: { ok: true, sections: [{ title: e.path, doc }] } });
+    };
     // a `before` checkpoint the study waits at: approving moves it there, and can start that step's procedure
     const graph=it.active_steps!=null,waiting=cp.before&&r?.waiting;
     const held = !!s.holds?.[study];
@@ -62,7 +97,7 @@
         ${(it.slipped || []).some(x => x.id === id) ? html`<div class="note note-bad">Work went past this checkpoint without your approval: ${(it.slipped.find(x => x.id === id) || {}).why}.</div>` : null}
 
         <section class="permit-sec"><h4>Exhibits <button type="button" class="link small" onClick=${readAll}>read them all</button></h4>
-          <div class="exhibits">${((r && r.evidence) || []).map((e, i) => html`<button type="button" class=${cls('exhibit', !e.exists && 'missing')} onClick=${readAll}>
+          <div class="exhibits">${((r && r.evidence) || []).map((e, i) => html`<button type="button" class=${cls('exhibit', !e.exists && 'missing')} onClick=${() => readExhibit(e)}>
             <span class="ex-l">${LETTERS[i]}</span><span class="grow clip"><b>${e.name}</b><small class="mono">${e.path}</small></span><span class="muted small">${e.exists ? (e.dir ? 'folder' : 'open') : 'not yet'}</span></button>`)}
             ${r && !(r.evidence || []).length ? html`<div class="muted small">This checkpoint names no evidence. Its workflow can add some (Workflow → the checkpoint).</div>` : null}
             ${!r ? html`<${NL.Spinner} />` : null}</div></section>

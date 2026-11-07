@@ -49,8 +49,7 @@
 
   /* the content, by kind */
   const Body = ({ a, d }) => {
-    if (a.kind === 'md') return html`<${NL.Markdown} text=${d.text || '(empty)'} className="md-doc" />`;
-    if (a.kind === 'text') return html`<pre class="plain">${d.text || '(empty)'}</pre>`;
+    if (a.kind === 'md' || a.kind === 'text') return html`<${NL.DocumentText} key=${a.id} text=${d.text} kind=${a.kind} name=${a.file || a.source_path || a.title} />`;
     if (a.kind === 'image') return html`<figure class="art-fig"><${NL.FilePreview} kind="image" url=${NL.DEMO && d.src ? d.src : fileUrl(a)} title=${a.title} /></figure>`;
     if (a.kind === 'pdf') return html`<${NL.FilePreview} kind="pdf" className="art-frame tall" url=${fileUrl(a)} title=${a.title} />`;
     if (a.kind === 'html') return html`<${NL.FilePreview} kind="html" className="art-frame" url=${fileUrl(a)} srcdoc=${NL.DEMO ? d.html || '' : undefined} title=${a.title} />`;
@@ -183,7 +182,7 @@
         : f.kind === 'pdf' ? html`<${NL.FilePreview} kind="pdf" className="art-frame tall" url=${raw} title=${f.name} />`
         : f.kind === 'html' ? html`<${NL.FilePreview} kind="html" className="art-frame" url=${raw} title=${f.name} />`
         : html`${!d || g.error ? html`<${NL.LoadState} ...${g} stale=${!!g.previous} />` : null}
-          ${d ? (d.kind === 'md' ? html`<${NL.Markdown} text=${d.text || '(empty)'} className="md-doc" />` : html`<pre class="plain">${d.text}</pre>`) : null}`}
+          ${d ? html`<${NL.DocumentText} key=${f.path} text=${d.text} kind=${d.kind} name=${f.path || f.name} />` : null}`}
     </${NL.Sheet}>`;
   };
   NL.RunFiles = ({ r }) => {

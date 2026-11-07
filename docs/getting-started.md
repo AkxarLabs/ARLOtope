@@ -30,7 +30,7 @@ installed (with **Install…** and the vendor's install guide), or not signed in
 Agents are found where their installers put them, even when that folder is not on your PATH. One
 agent is enough; when only one is installed, tasks use it. Below it, **Let the dashboard start
 agents for you** says what that allows, that each task uses your own agent account, the current
-limits, and how to stop. Use **Connect ACP agent** in **Settings → Agents & models** for another
+limits, and how to stop. Use **Connect ACP agent** in **Settings → Models & effort** for another
 compatible tool.
 For OpenAI, Anthropic, Google, OpenRouter or another API key, use
 **Connect API provider** and [choose its agent](api-providers.md).
@@ -79,7 +79,7 @@ Neither action launches an agent.
 Choose **Start first task**, or **Open study** and its next task. **Run ready tasks** starts eligible
 branches of a workflow. For a separate planning conversation, choose **Plan with an agent** instead.
 If an agent cannot start or is not signed in, its conversation says so and offers **Sign in…** or
-**Agents & models**.
+**Models & effort**.
 
 ![The created study and its next actions](assets/current/start-created.webp)
 

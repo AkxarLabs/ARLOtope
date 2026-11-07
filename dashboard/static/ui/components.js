@@ -329,6 +329,24 @@
     return html`<div ref=${ref} class=${cls('md', className)} dangerouslySetInnerHTML=${{ __html: markup }}></div>`;
   };
 
+
+  /** File metadata decides whether a document is Markdown; logs and code are never guessed from their text. */
+  NL.isMarkdownDoc = ({ format, kind, name, path } = {}) =>
+    ['markdown', 'md', 'text/markdown'].includes(String(format || kind || '').toLowerCase())
+    || /\.(md|markdown)$/i.test(String(path || name || '').split(/[?#]/)[0]);
+
+  /** Documents open formatted. Source is an explicit, local view of the same content. */
+  NL.DocumentText = ({ text, name, path, format, kind, sel, className }) => {
+    const key = [path || name || '', sel?.scope || '', sel?.slug || '', sel?.rel || ''].join(':');
+    const [view, setView] = useState({ key, source: false });
+    if (!NL.isMarkdownDoc({ format, kind, name, path })) return html`<pre class="plain">${text || '(empty)'}</pre>`;
+    const source = view.key === key && view.source;
+    return html`<div class="document-text"><div class="row" role="group" aria-label="Document display" style=${{justifyContent:'flex-end',marginBottom:'12px'}}>
+      <button type="button" class=${cls('lens', !source && 'on')} aria-pressed=${!source} onClick=${() => setView({ key, source: false })}>Rendered</button>
+      <button type="button" class=${cls('lens', source && 'on')} aria-pressed=${source} onClick=${() => setView({ key, source: true })}>Markdown source</button></div>
+      ${source ? html`<pre class="plain">${text || '(empty)'}</pre>` : html`<${NL.Markdown} text=${text || '(empty)'} sel=${sel} className=${className || 'md-doc'} />`}</div>`;
+  };
+
   /* ── editor deep links (the dashboard is local: vscode://file/… etc.) ───── */
   NL.editorUri = (abs, line, machine) => {
     const s = NL.getState(); const ed = (s && s.editor) || 'vscode';

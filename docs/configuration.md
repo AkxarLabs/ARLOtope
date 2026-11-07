@@ -20,7 +20,7 @@ it reads `compute.scheduler` from the hub named by `hub_path`, then applies proj
 overrides. Check those settings on the execution host; see [Machines & compute](compute.md).
 Agent sessions and the dashboard executor use Lab launch, model and permission settings.
 
-For everyday changes, use **Settings → Agents & models**, **Limits & permissions**, or
+For everyday changes, use **Settings → Models & effort**, **Limits & permissions**, or
 **Research defaults**. Workflow tasks, gates and instructions are edited in **Workflow**.
 The tables below are the file reference, not a setup checklist.
 

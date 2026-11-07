@@ -46,7 +46,7 @@ L.createWorld = async function createWorld(canvas, opts) {
   let onCheckpoint = null, onArtifact = null, onItem = null, onInbox = null, onWorker = null, onRun = null, onNewt = null, onView = null, onFollow = null;
   let staticSig = '', W = null, selectedKey = null; // the built table and current inspector selection
   const actors = new Map(), cards = new Map(), pickables = new Set(), resting = new Map();
-  let settled = false;
+  let settled = false, travelSpeed = 1, dragMode = 'pan', cameraManual = false;
   const knownRooms = new Set();
 
   // ── what the table holds: the workflow's shared rooms ─────────────────────────────────────────
@@ -225,7 +225,7 @@ L.createWorld = async function createWorld(canvas, opts) {
     }
     group.traverse(m => { if (m.isMesh && m.geometry && m.geometry.type === 'PlaneGeometry') m.castShadow = false; });
     W = { group, rooms, districts, bridgeZ, XS, ZS, colW, rowH, EXT, SPAN, hub, inbox, bigNewt, gates, sun, fireflies, glowLines, hubExits: Object.values(DIR).map(d => [d[0] * colW[0] / 2, d[1] * rowH[0] / 2]) };
-    fitCamera(true);
+    if (!cameraManual && !followKey) fitCamera(true);
     return true;
   }
 
@@ -399,7 +399,7 @@ L.createWorld = async function createWorld(canvas, opts) {
     return a;
   }
   function sendTo(a, target) {
-    if (motion() !== 'full') { a.pos = target.at.slice(); a.ry = target.ry || 0; a.room = target.room; a.dest = target; a.path = []; return; }
+    if (motion() !== 'full' || travelSpeed === 0) { a.pos = target.at.slice(); a.ry = target.ry || 0; a.room = target.room; a.dest = target; a.path = []; return; }
     a.path = route({ room: a.room, at: a.pos }, target);
     a.dest = target;
   }
@@ -504,6 +504,7 @@ L.createWorld = async function createWorld(canvas, opts) {
       : { right: rr && rr.width ? rr.width + 12 : 0, left: lr && lr.width ? lr.right + 12 : 0, bottom: bh, top: 72, k: 0.5, cut: innerHeight - bh };
   }
   function setViewState(level, room) {
+    zooming = false; releaseFollow(); cameraManual = false;
     view = { level, room: room || null, label: room && W && W.rooms[room] ? W.rooms[room].title : '' };
     fitCamera(false); if (onView) onView({ level: level === 'ROOM' ? 'REGION' : 'WORLD', room, label: view.label }); kick();
   }
@@ -533,13 +534,79 @@ L.createWorld = async function createWorld(canvas, opts) {
     return null;
   }
   const blocked = e => e.target !== canvas;
-  listen(window, 'pointerdown', e => { if (blocked(e) || e.button !== 0) return; drag = { x: e.clientX, y: e.clientY, az: camT.az, el: camT.el, moved: false }; });
-  listen(window, 'pointerup', e => { if (drag && !drag.moved && !blocked(e)) click(pickAt(e.clientX, e.clientY)); drag = null; });
+  // Zoom against the tabletop, never the scene meshes: constant work regardless of lab size.
+  // Reuse scratch objects and the real projection (including its UI inset/view offset).
+  const zoomCamera = new THREE.PerspectiveCamera(), zoomRay = new THREE.Raycaster();
+  const zoomPointer = new THREE.Vector2(), zoomAnchor = new THREE.Vector3(), zoomHit = new THREE.Vector3();
+  let zooming = false;
+  function groundAt(pose, pointer, out) {
+    zoomCamera.projectionMatrixInverse.copy(camera.projectionMatrixInverse);
+    zoomCamera.position.set(pose.tx + pose.r * Math.cos(pose.el) * Math.sin(pose.az),
+      pose.r * Math.sin(pose.el), pose.tz + pose.r * Math.cos(pose.el) * Math.cos(pose.az));
+    zoomCamera.lookAt(pose.tx, 0.6, pose.tz); zoomCamera.updateMatrixWorld();
+    zoomRay.setFromCamera(pointer, zoomCamera);
+    const { origin, direction } = zoomRay.ray;
+    if (direction.y >= -0.0001) return false; // Above the horizon or nearly parallel.
+    const distance = -origin.y / direction.y;
+    if (!Number.isFinite(distance) || distance < 0 || distance > pose.r * 20) return false;
+    out.set(origin.x + direction.x * distance, 0, origin.z + direction.z * distance);
+    return Number.isFinite(out.x) && Number.isFinite(out.z);
+  }
+  function anchorZoom(pose) {
+    if (!groundAt(pose, zoomPointer, zoomHit)) return false;
+    pose.tx += zoomAnchor.x - zoomHit.x; pose.tz += zoomAnchor.z - zoomHit.z;
+    return true;
+  }
+  function easeCamera(k) {
+    for (const key of ['az', 'el', 'r', 'tx', 'tz']) cam[key] += (camT[key] - cam[key]) * k;
+    if (!zooming) return;
+    // An endpoint-only correction drifts while the radius and viewing angle ease.
+    if (!anchorZoom(cam)) { zooming = false; return; }
+    if (Math.abs(cam.r - camT.r) < 0.002 && Math.abs(cam.az - camT.az) < 0.00001
+      && Math.abs(cam.el - camT.el) < 0.00001 && Math.abs(cam.tx - camT.tx) < 0.002
+      && Math.abs(cam.tz - camT.tz) < 0.002) {
+      Object.assign(cam, camT); zooming = false; // No anchor calculations once settled.
+    }
+  }
+  function releaseFollow() {
+    if (!followKey) return;
+    followKey = null; if (onFollow) onFollow(null);
+  }
+  function freeView() { zooming = false; releaseFollow(); cameraManual = true; kick(); }
+  function panCamera(origin, dx, dy) {
+    const height = Math.max(1, canvas.getBoundingClientRect().height);
+    const scale = 2 * origin.r * Math.tan(camera.fov * Math.PI / 360) / height;
+    const depth = dy / Math.max(.2, Math.sin(origin.el));
+    camT.tx = origin.tx - scale * (dx * Math.cos(origin.az) + depth * Math.sin(origin.az));
+    camT.tz = origin.tz + scale * (dx * Math.sin(origin.az) - depth * Math.cos(origin.az));
+  }
+  listen(canvas, 'contextmenu', e => e.preventDefault());
+  listen(window, 'pointerdown', e => {
+    if (blocked(e) || ![0,1,2].includes(e.button)) return;
+    e.preventDefault(); canvas.focus({preventScroll:true});
+    canvas.setPointerCapture?.(e.pointerId);
+    drag = { id:e.pointerId, x:e.clientX, y:e.clientY, origin:{...camT},
+      mode:e.button===2||e.shiftKey?'rotate':e.button===1?'pan':dragMode, button:e.button, moved:false };
+  });
+  listen(window, 'pointerup', e => {
+    if (!drag || drag.id!==e.pointerId) return;
+    if (!drag.moved && drag.button===0 && !blocked(e)) click(pickAt(e.clientX,e.clientY));
+    if(canvas.hasPointerCapture?.(e.pointerId))canvas.releasePointerCapture(e.pointerId);
+    drag=null;
+  });
   listen(window, 'pointermove', e => {
-    if (drag) { const dx = e.clientX - drag.x, dy = e.clientY - drag.y; if (Math.abs(dx) + Math.abs(dy) > 4) drag.moved = true; camT.az = drag.az - dx * 0.006; camT.el = clamp(drag.el + dy * 0.004, 0.35, 1.35); kick(); }
+    if (drag && drag.id===e.pointerId) {
+      const dx=e.clientX-drag.x,dy=e.clientY-drag.y;
+      if (!drag.moved && Math.abs(dx)+Math.abs(dy)>4) {drag.moved=true;freeView();}
+      if(drag.moved){
+        if(drag.mode==='pan')panCamera(drag.origin,dx,dy);
+        else {camT.az=drag.origin.az-dx*.006;camT.el=clamp(drag.origin.el+dy*.004,.25,1.45);}
+        hovered=null;tip.style.display='none';canvas.style.cursor='grabbing';kick();return;
+      }
+    }
     if (blocked(e)) { tip.style.display = 'none'; canvas.style.cursor = ''; hovered = null; kick(); return; }
     const was = hovered && (hovered.key || hovered.kind);
-    hovered = pickAt(e.clientX, e.clientY); canvas.style.cursor = hovered ? 'pointer' : '';
+    hovered = pickAt(e.clientX, e.clientY); canvas.style.cursor = hovered ? 'pointer' : 'grab';
     if (hovered && hovered.kind === 'actor' && hovered.key !== was) poke(hovered.key, false);
     if (hovered && hovered.kind === 'newt' && was !== 'newt' && W) { W.bigNewt.poke = performance.now() / 1000; kick(); }
     const html = hovered && describe(hovered);
@@ -547,15 +614,37 @@ L.createWorld = async function createWorld(canvas, opts) {
     if (!html) { tip.style.display = 'none'; return; }
     tip.innerHTML = html; tip.style.display = 'block'; tip.style.left = Math.min(innerWidth - 330, e.clientX + 16) + 'px'; tip.style.top = (e.clientY + 14) + 'px';
   });
-  listen(canvas, 'wheel', e => { e.preventDefault(); if (!W) return; camT.r = clamp(camT.r * (1 + Math.sign(e.deltaY) * 0.1), 9, W.SPAN * 4); kick(); }, { passive: false });
-  listen(window, 'pointercancel', () => { drag = null; });
+  listen(canvas, 'wheel', e => {
+    e.preventDefault(); if (!W || !Number.isFinite(e.deltaY) || !e.deltaY) return;
+    const rect = canvas.getBoundingClientRect(); if (!rect.width || !rect.height) return;
+    const pixels = e.deltaY * (e.deltaMode === 1 ? 16 : e.deltaMode === 2 ? rect.height : 1);
+    const radius = clamp(camT.r * Math.exp(clamp(pixels, -240, 240) * 0.0015), 9, Math.max(camT.r, W.SPAN * 4));
+    if (radius === camT.r) { releaseFollow(); cameraManual = true; kick(); return; }
+    freeView();
+    zoomPointer.set((e.clientX - rect.left) / rect.width * 2 - 1, 1 - (e.clientY - rect.top) / rect.height * 2);
+    // Re-sample the visible camera for each gesture event; retain the pending radius for rapid input.
+    zooming = groundAt(cam, zoomPointer, zoomAnchor);
+    camT.r = radius;
+    if (zooming) zooming = anchorZoom(camT);
+    hovered = null; tip.style.display = 'none'; kick();
+  }, { passive: false });
+  const cancelDrag=()=>{drag=null;canvas.style.cursor='grab';};
+  listen(window, 'pointercancel', cancelDrag);
+  listen(canvas, 'lostpointercapture', cancelDrag);
+  listen(window, 'blur', cancelDrag);
   listen(canvas, 'pointerleave', () => {hovered=null;tip.style.display='none';kick()});
   listen(canvas, 'blur', () => {hovered=null;tip.style.display='none';kick()});
-  canvas.tabIndex = 0; canvas.setAttribute('aria-label', 'World: use arrow keys to select, Enter to open, Escape for the overview');
+  canvas.tabIndex = 0; canvas.setAttribute('aria-label', 'Lab map: drag to pan, Shift-drag to rotate, scroll to zoom at the pointer. W A S D moves the view. Arrow keys select objects, Enter opens, Home shows all rooms, Escape leaves follow mode.');
   let selected = -1;
   listen(canvas, 'keydown', e => {
+    if (e.metaKey || e.ctrlKey || e.altKey) return; // Keep browser and operating-system shortcuts available.
     const choices = [...new Set([...pickables].map(o => o.userData.pick).filter(Boolean))];
-    if (e.key === 'Escape') { hovered=null;setViewState('WORLD'); tip.style.display = 'none'; kick(); }
+    if (e.key === 'Escape') { e.preventDefault();freeView();hovered=null;tip.style.display='none'; }
+    else if(e.key==='Home'||e.key==='0'){e.preventDefault();setViewState('WORLD');}
+    else if(['w','a','s','d'].includes(e.key.toLowerCase())){
+      e.preventDefault();freeView();const key=e.key.toLowerCase();panCamera({...camT},key==='a'?60:key==='d'?-60:0,key==='w'?60:key==='s'?-60:0);kick();
+    }
+    else if(['+','=','-','_'].includes(e.key)&&W){e.preventDefault();freeView();camT.r=clamp(camT.r*(['-','_'].includes(e.key)?1.1:.9),9,Math.max(camT.r,W.SPAN*4));kick();}
     else if (e.key === 'Enter' && choices[selected]) { e.preventDefault(); click(choices[selected]); }
     else if (['ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown'].includes(e.key) && choices.length) {
       e.preventDefault(); selected = (selected + (e.key === 'ArrowLeft' || e.key === 'ArrowUp' ? -1 : 1) + choices.length) % choices.length;
@@ -658,7 +747,7 @@ L.createWorld = async function createWorld(canvas, opts) {
   function frame(now, quiet) {     // quiet: move the world on without drawing it (fast-forward)
     if (!quiet) raf = 0;
     if (destroyed || contextLost || !active) return;
-    const raw = Math.max(0, (now - last) / 1000), dt = Math.min(0.05, raw), dtWalk = Math.min(0.1, raw); last = now;   // walks keep pace on a slow machine
+    const raw = Math.max(0, (now - last) / 1000), dt = Math.min(0.05, raw), dtWalk = Math.min(0.1, raw) * travelSpeed; last = now;   // walks keep pace on a slow machine
     const t = now / 1000;
     if (W && snap) {
       // actors walk their paths; leavers fade
@@ -731,9 +820,9 @@ L.createWorld = async function createWorld(canvas, opts) {
       }
       // the camera: follow, ease, keep clear of the rail
       if (followKey) { const a = actors.get(followKey); if (a) { camT.tx = a.pos[0]; camT.tz = a.pos[1]; } else { followKey = null; if (onFollow) onFollow(null); } }
-      if (spin && !drag && !followKey && view.level === 'WORLD' && motion() === 'full') camT.az += spin * dt;   // an idle turntable (setSpin)
+      if (spin && !cameraManual && !drag && !followKey && view.level === 'WORLD' && motion() === 'full') camT.az += spin * dt;   // an idle turntable until the viewer takes control
       const k = motion() === 'full' ? 1 - Math.pow(0.002, dt) : 1;
-      for (const key of ['az', 'el', 'r', 'tx', 'tz']) cam[key] += (camT[key] - cam[key]) * k;
+      easeCamera(k);
       camera.position.set(cam.tx + cam.r * Math.cos(cam.el) * Math.sin(cam.az), cam.r * Math.sin(cam.el), cam.tz + cam.r * Math.cos(cam.el) * Math.cos(cam.az));
       camera.lookAt(cam.tx, 0.6, cam.tz);
       for (const o of Object.values(W.rooms)) if (o.rising) { o.g.scale.y += (1 - o.g.scale.y) * Math.min(1, dt * 1.6); if (o.g.scale.y > 0.995) { o.g.scale.y = 1; o.rising = false; } }
@@ -757,11 +846,12 @@ L.createWorld = async function createWorld(canvas, opts) {
     const r = canvas.getBoundingClientRect();
     if(!r.width||!r.height)return;
     const w=r.width,h=r.height,changed=w!==viewportWidth||h!==viewportHeight;
+    if (changed || refit) zooming = false;
     viewportWidth=w;viewportHeight=h;
     renderer.setSize(w, h, false); camera.aspect = w / h;
     measureInsets();
     camera.setViewOffset(w, h, (insets.right - insets.left) / 2, (insets.bottom - insets.top) / 2 * insets.k, w, h);
-    camera.updateProjectionMatrix(); if(refit||changed)fitCamera(false); kick();
+    camera.updateProjectionMatrix(); if((refit||changed)&&!cameraManual&&!followKey)fitCamera(false); kick();
   }
   listen(window, 'resize', ()=>resize());
 
@@ -784,7 +874,7 @@ L.createWorld = async function createWorld(canvas, opts) {
     setMotion(mode) { reduced = mode === 'reduced'; ambient = mode === 'full';
       if (motion() !== 'full') { for (const a of actors.values()) if (a.dest) sendTo(a, a.dest); if (W) for (const o of Object.values(W.rooms)) { o.rising = false; o.g.scale.y = 1; } }
       kick(); },
-    _debug: () => ({ W, actors, cards, snap, view, labels, click, pickAt, toScreen,annotations:notes.inspect(), step(sec, fps) { const f = fps || 20; for (let i = 0; i < sec * f; i++) frame(last + 1000 / f, true); } }),
+    _debug: () => ({ W, actors, cards, snap, view, labels, click, pickAt, toScreen,annotations:notes.inspect(), camera:{...camT}, cameraManual, travelSpeed, dragMode, step(sec, fps) { const f = fps || 20; for (let i = 0; i < sec * f; i++) frame(last + 1000 / f, true); } }),
     async boot() { resize(); kick(); },
     async sync(s) {
       if (destroyed) return;const changed=snap&&snap.world_view!==s.world_view; snap = s;
@@ -834,9 +924,20 @@ L.createWorld = async function createWorld(canvas, opts) {
     followWorker(id) {
       const ag = ((snap && snap.agents) || []).find(x => x.id === id || x.worker_id === id || (x.run_id === id && !x.parent));
       const key = ag ? ag.id : [...actors.keys()].find(k => k === 'run:' + id || k === 'w:' + id);
-      if (key && actors.has(key)) { followKey = key; camT.r = 22; if (onFollow) onFollow(id); kick(); }
+      if (key && actors.has(key)) { zooming = false; cameraManual = false; followKey = key; camT.r = 22; if (onFollow) onFollow(id); kick(); }
     },
-    stopFollow() { followKey = null; if (onFollow) onFollow(null); kick(); }, following() { return followKey; },
+    stopFollow() { freeView(); }, following() { return followKey; },
+    setDragMode(mode) { dragMode=mode==='rotate'?'rotate':'pan'; },
+    setTravelSpeed(value) { travelSpeed=[0,1,4].includes(Number(value))?Number(value):1;if(travelSpeed===0)this.skipTravel();kick(); },
+    skipTravel() {
+      for(const a of actors.values())if(a.dest){
+        a.pos=a.dest.at.slice();a.ry=a.dest.ry??a.ry;a.room=a.dest.room;a.path=[];a.speed=0;
+        a.n.group.position.set(a.pos[0],a.y??.14,a.pos[1]);a.n.group.rotation.y=a.ry;
+        if(a.leaving)a.fade=1;
+      }
+      // This only moves the display. Task state, execution and budgets are untouched.
+      kick();
+    },
     layout() {                         // the plan of the table, for the minimap
       if (!W) return null;
       const boxes = Object.values(W.rooms).map((o, i) => ({ key: o.id, x: o.x - o.ex / 2, y: o.z - o.ez / 2, w: o.ex, h: o.ez, label: o.title, n: i + 1 }));

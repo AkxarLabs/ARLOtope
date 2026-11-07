@@ -107,7 +107,7 @@ def _opts(batch: bool) -> list[str]:
     if os.name == "posix":   # reuse one sign-in (MFA once, then quiet) — OpenSSH on Windows can't multiplex
         cdir = ctx.labfiles.home_path("ssh")
         cdir.mkdir(parents=True, exist_ok=True)
-        o += ["-o", "ControlMaster=auto", "-o", f"ControlPath={cdir}/%C", "-o", "ControlPersist=8h"]
+        o += ["-o", "ControlMaster=auto", "-o", f'ControlPath="{cdir}/%C"', "-o", "ControlPersist=8h"]
     return o
 
 

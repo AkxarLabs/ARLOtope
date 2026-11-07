@@ -470,7 +470,8 @@ def test_disabled_refuses_and_tick_starts_nothing(hub, monkeypatch):
 def test_missing_cli_refused_at_enqueue(hub):
     lab = setup(hub, backend_cmd=str(hub.root / "no-such-claude.exe"))   # a string = one executable path
     with pytest.raises(SpecError, match="Claude Code was not found on this computer"):
-        executor.enqueue(lab, RunSpec(skill="lab-status"))
+        # Pin the requested backend: default-agent discovery may find another installed CLI.
+        executor.enqueue(lab, RunSpec(skill="lab-status", backend="claude"))
 
 
 def test_cli_that_dies_at_start_up_says_so(hub):
