@@ -20,6 +20,7 @@ import pytest
 from conftest import REPO, kernel, load
 
 BASH = shutil.which("bash")
+SSH = shutil.which("ssh")
 needs_bash = pytest.mark.skipif(os.name != "posix" or not BASH,
     reason="the fake SSH integration needs a POSIX host and bash (Windows bash may use WSL paths)")
 
@@ -65,6 +66,25 @@ def test_dashboard_port_probe_matches_http_server_reuse():
                 accepted.shutdown(socket.SHUT_WR)
                 assert client.recv(1) == b""
     assert launcher.port_free(port)
+
+
+@pytest.mark.skipif(os.name != "posix" or not SSH, reason="OpenSSH multiplexing needs POSIX and ssh")
+@pytest.mark.parametrize("batch", [False, True])
+def test_ssh_control_path_with_spaces_survives_openssh_config_parsing(tmp_path, monkeypatch, batch):
+    """Exercise OpenSSH's own -o parser without connecting or reading the user's SSH config."""
+    runtime = tmp_path / "Application Support" / "ARLOtope runtime"
+    monkeypatch.setenv("ARLOTOPE_HOME", str(runtime))
+    monkeypatch.syspath_prepend(str(REPO / "dashboard"))
+    machines = load("dashboard/machines")
+    result = subprocess.run(
+        [SSH, "-G", "-F", os.devnull, *machines._opts(batch), "example.invalid"],
+        capture_output=True, text=True, timeout=10)
+
+    assert result.returncode == 0, result.stderr
+    control_path = next(line.partition(" ")[2] for line in result.stdout.splitlines()
+                        if line.startswith("controlpath "))
+    assert control_path.startswith(str(runtime / "ssh") + "/"), control_path
+    assert '"' not in control_path, "Quotes delimit the option; they must not become part of the socket path"
 
 
 @pytest.fixture

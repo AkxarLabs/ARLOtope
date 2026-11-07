@@ -10,7 +10,7 @@ Choose a provider for API billing and an agent to do the work. Install that agen
 
 OpenAI and Anthropic can also use OpenCode when selected under **Run with**.
 
-1. Open **Settings → Agents & models → Connect API provider**.
+1. Open **Settings → Models & effort → Connect API provider**.
 2. Choose the execution machine and provider. OpenAI, Anthropic, Google, OpenRouter, xAI,
    DeepSeek, Mistral and Groq appear first. Other providers are available through OpenCode.
 3. Enter a key, choose a model and **Save agent**. Leave the key blank to use an existing connection.

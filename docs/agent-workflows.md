@@ -46,16 +46,16 @@ For an API key, use **Connect API provider**. OpenAI defaults to Codex, Anthropi
 and other providers to OpenCode; **Run with** lets you choose another supported harness.
 [Provider setup](api-providers.md) covers keys, models and remote hosts.
 
-Open **Settings → Agents & models → Agent choices** to save named agent configurations (presets).
+Open **Settings → Models & effort** to save named agent configurations (presets).
 Each selects an agent and, when needed, a model or effort. Several saved choices may use the same
 tool. For another compatible agent, choose **Connect ACP agent**, enter its program and arguments,
 **Check connection**, then
-**Save agent**. Checking initializes the protocol without sending a model prompt; model access is
+**Save model preset**. Checking initializes the protocol without sending a model prompt; model access is
 tested when work starts. See [ACP setup](acp.md#connect-an-acp-agent) for commands, sign-in and limits.
 
 ![Role-to-agent choices](assets/current/agent-role-rows.png)
 
-Choose a Lab default and role-specific choices under **Task agent assignments**. **New study → Study settings** saves study preferences; existing studies expose **Agents**. A general study default preserves inherited specialist choices. **Use study default** on a role deliberately removes that inherited specialization. **Workflow → Subagent roles** edits specialist child-agent instructions; their model settings are under **Tool defaults & subagents**.
+Choose a Lab default and role-specific choices under **Model presets by task role**. **New study → Study models, effort & tags** saves study preferences; existing studies expose **Models & effort**. A general study default preserves inherited specialist choices. **Use study default** on a role deliberately removes that inherited specialization. **Workflow → Subagent roles** edits specialist child-agent instructions; their model settings are under **Tool defaults & subagents**.
 
 For fresh tasks, selection order is:
 

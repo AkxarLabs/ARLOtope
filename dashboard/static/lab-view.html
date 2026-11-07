@@ -4,33 +4,46 @@
 <title>Lab view</title><link rel="stylesheet" href="ui/ui.css"><link rel="stylesheet" href="ui/research.css">
 <style>
 body{overflow:hidden}
-#scene{position:fixed;inset:0;width:100%;height:100%;visibility:hidden}
+#scene{position:fixed;inset:0;width:100%;height:100%;visibility:hidden;touch-action:none;cursor:grab}
 html[data-ready=true] #scene{visibility:visible}
 .world-labels{position:fixed;inset:0;pointer-events:none}
 .world-tip{position:fixed;pointer-events:none}
 .wl-machine{max-width:38vw}.wl-machine b{overflow:hidden;text-overflow:ellipsis;font-size:clamp(12px,1.5vw,18px)}
-.view-controls{position:fixed;bottom:24px;left:50%;transform:translateX(-50%);z-index:3;display:flex;align-items:center;gap:6px;max-width:calc(100% - 320px);padding:6px;background:var(--paper);color:var(--ink);border:1px solid var(--edge);border-radius:8px;box-shadow:0 4px 20px #0002;font:12px var(--sans)}
+.view-controls{flex-wrap:wrap;position:fixed;bottom:24px;left:50%;transform:translateX(-50%);z-index:3;display:flex;align-items:center;gap:6px;width:max-content;max-width:calc(100% - 32px);padding:6px;background:var(--paper);color:var(--ink);border:1px solid var(--edge);border-radius:8px;box-shadow:0 4px 20px #0002;font:12px var(--sans)}
 .view-controls button{display:flex;align-items:center;justify-content:center;gap:7px;min-height:36px;padding:8px 10px;border:0;border-radius:4px;background:transparent;color:var(--ink-soft);font:inherit;white-space:nowrap;cursor:pointer}
 .view-controls button:hover,.view-controls button[aria-pressed=true]{background:var(--paper-2);color:var(--ink)}
 .view-controls :focus-visible{outline:2px solid var(--accent);outline-offset:2px}
 .view-controls svg{width:16px;height:16px;flex:none;fill:none;stroke:currentColor;stroke-width:1.5;stroke-linecap:round;stroke-linejoin:round}
 .view-agent{display:flex;align-items:center;gap:8px;min-width:0;border-inline:1px solid var(--edge);padding-inline:12px}
 .view-agent>svg{color:var(--ink-faint)}
-.view-agent-fields{min-width:0;width:200px}
+.view-agent-fields{min-width:0;width:180px}
 .view-follow{display:block;width:100%;border:0;background:transparent;color:var(--ink);font:500 12px var(--sans);height:32px;cursor:pointer;text-overflow:ellipsis}
 .view-follow:disabled{color:var(--ink-faint);cursor:default}
 .view-follow option{background:var(--paper);color:var(--ink)}
 .view-activity{display:block;max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:var(--ink-soft);font-size:11px;line-height:1.4;padding-bottom:5px}
 .view-activity:empty{display:none}
 .view-controls .view-stop{width:30px;min-height:30px;padding:0;color:var(--ink-soft)}
+.view-controls .view-free[aria-pressed=true]{color:var(--ink);background:var(--paper-2);font-weight:600}
+.view-gesture{display:flex;align-items:center;border-left:1px solid var(--edge);padding-left:6px}
+.view-travel-label{display:flex;align-items:center;gap:6px;padding-inline:10px;border-left:1px solid var(--edge);color:var(--ink-soft)}
+.view-travel{color:var(--ink);font:inherit;background:var(--paper);border:1px solid var(--edge);border-radius:4px;padding:7px 5px;min-height:34px}
+.view-help{flex-basis:100%;text-align:center;color:var(--ink-faint);font-size:11px;padding:1px 8px 4px}
+.view-travel-status{position:absolute;width:1px;height:1px;overflow:hidden;clip-path:inset(50%)}
 .view-controls [hidden]{display:none}
-@media(max-width:700px){.view-controls{bottom:78px;width:calc(100% - 32px);max-width:480px;gap:3px}.view-agent{flex:1;padding-inline:8px}.view-agent-fields{width:auto;flex:1}.view-controls button{padding-inline:8px}.view-labels span{display:none}.view-back span{font-size:11px}.view-activity{max-width:42vw}}
+@media(max-width:1050px){.view-controls{max-width:calc(100% - 24px);justify-content:center}.view-help{font-size:10px}.view-agent-fields{width:150px}.view-controls button{padding-inline:8px}}
+@media(max-width:700px){.view-controls{bottom:78px;width:calc(100% - 32px);max-width:480px;gap:3px}.view-agent{flex:1;min-width:200px;padding-inline:8px}.view-gesture{border-left:0}.view-travel-label{border-left:0}.view-help{line-height:1.5}.view-agent-fields{width:auto;flex:1}.view-controls button{padding-inline:8px}.view-labels span{display:none}.view-back span{font-size:11px}.view-activity{max-width:42vw}}
 </style>
 </head><body data-page="home"><canvas id="scene" aria-label="Studies and agents in the lab"></canvas>
 <nav class="view-controls" aria-label="Lab camera">
+  <button type="button" class="view-free" aria-pressed="true" title="Free view: drag to explore">Free view</button>
   <button type="button" class="view-back" title="Show all rooms"><svg viewBox="0 0 20 20" aria-hidden="true"><rect x="3" y="3" width="5" height="5" rx="1"/><rect x="12" y="3" width="5" height="5" rx="1"/><rect x="3" y="12" width="5" height="5" rx="1"/><rect x="12" y="12" width="5" height="5" rx="1"/></svg><span>All rooms</span></button>
   <div class="view-agent"><svg viewBox="0 0 20 20" aria-hidden="true"><circle cx="10" cy="10" r="5"/><path d="M10 2v3m0 10v3M2 10h3m10 0h3"/></svg><div class="view-agent-fields"><select class="view-follow" aria-label="Follow an agent" disabled><option value="">No agents running</option></select><span class="view-activity"></span></div><button type="button" class="view-stop" aria-label="Stop following" title="Stop following" hidden><svg viewBox="0 0 20 20" aria-hidden="true"><path d="m6 6 8 8m0-8-8 8"/></svg></button></div>
+  <div class="view-gesture" role="group" aria-label="Drag action"><button type="button" class="view-pan" aria-pressed="true" title="Drag to move across the map">Pan</button><button type="button" class="view-rotate" aria-pressed="false" title="Drag to turn the map">Rotate</button></div>
+  <label class="view-travel-label">Travel<select class="view-travel" aria-label="Walking animation speed"><option value="1">Normal</option><option value="4">4× faster</option><option value="0">Instant</option></select></label>
+  <button type="button" class="view-skip" title="Move all displayed agents to their destination immediately">Skip walks</button>
   <button type="button" class="view-labels" aria-label="Room names" aria-pressed="false" title="Show room names"><svg viewBox="0 0 20 20" aria-hidden="true"><path d="M3 4h9l5 6-5 6H3z"/><circle cx="6.5" cy="10" r="1"/></svg><span>Names</span></button>
+  <div class="view-help" id="view-help">Drag to pan · Shift-drag or right-drag to rotate · Scroll to zoom at pointer · Dragging leaves follow mode</div>
+  <span class="view-travel-status" role="status" aria-live="polite"></span>
 </nav>
 <script type="module">import * as THREE from './vendor/three/three.module.min.js';window.THREE=THREE;dispatchEvent(new Event('three:ready'));</script>
 <script src="agent-view.js"></script><script src="world3d/kit.js"></script><script src="world3d/newt.js"></script><script src="world3d/characters.js"></script>

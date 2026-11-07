@@ -1,5 +1,5 @@
 {
-  "updated": "2026-10-29",
+  "updated": "2026-11-07",
   "method": "Playwright CLI with Chrome, 1440x1000 viewport. Original Sakana test image retained.",
   "limits": "Screenshots demonstrate UI, not scientific findings or provider/SSH certification. Example records and paths are synthetic.",
   "images": [
@@ -466,6 +466,42 @@
       "sha256": "6d3d3f2ec4a73f9a2b22a58af6c1eb3009f5ac27f927d826a3f2b769faa7a94d",
       "captured": "2026-10-29",
       "source": "Disposable Lab; OpenAI with native Codex model discovery. Empty key field; no inference."
+    },
+    {
+      "file": "checkpoint-markdown.jpg",
+      "size": [
+        1440,
+        1000
+      ],
+      "bytes": 69051,
+      "sha256": "37141d254aaf19f7bf5f019cb4f844c441865ab15c3286d26f10d20c0a8d9e2c",
+      "captured": "2026-11-07",
+      "source": "Current dashboard in an isolated example Lab through the in-app browser at the 1440x1000 desktop breakpoint. Synthetic study and preset data only; agent launching and dashboard execution disabled. No credentials, remote connections or research runs.",
+      "method": "cua_repl native JPEG screenshot; also checked 390x844 responsive layout, light/dark themes and keyboard focus."
+    },
+    {
+      "file": "study-model-effort.jpg",
+      "size": [
+        1440,
+        1000
+      ],
+      "bytes": 85825,
+      "sha256": "1617be5a855cd98897aa70f21a7d55557720acf602b9c7af28936f37a0f07144",
+      "captured": "2026-11-07",
+      "source": "Current dashboard in an isolated example Lab through the in-app browser at the 1440x1000 desktop breakpoint. Synthetic study and preset data only; agent launching and dashboard execution disabled. No credentials, remote connections or research runs.",
+      "method": "cua_repl native JPEG screenshot; also checked 390x844 responsive layout, light/dark themes and keyboard focus."
+    },
+    {
+      "file": "free-camera-controls.jpg",
+      "size": [
+        1440,
+        1000
+      ],
+      "bytes": 93570,
+      "sha256": "5ac935ea91d2a55e4a5f90313943808bfce65ff8b7c0a09c44554f47201baf4c",
+      "captured": "2026-11-07",
+      "source": "Current dashboard in an isolated example Lab through the in-app browser at the 1440x1000 desktop breakpoint. Synthetic study and preset data only; agent launching and dashboard execution disabled. No credentials, remote connections or research runs.",
+      "method": "cua_repl native JPEG screenshot; also checked 390x844 responsive layout, light/dark themes and keyboard focus."
     }
   ]
 }

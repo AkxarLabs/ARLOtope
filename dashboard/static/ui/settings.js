@@ -51,7 +51,7 @@
         <div class="row">${!c.found ? html`<${NL.Btn} small onClick=${() => term('install', b)}>Install…</${NL.Btn}><a class="link small" href=${GUIDE[b]} target="_blank" rel="noopener">Install guide ↗</a>`
           : st !== 'ok' ? html`<${NL.Btn} small kind="primary" onClick=${() => term('login', b)} title=${LOGIN[b]}>Sign in…</${NL.Btn}>` : null}
           <button class="link small" onClick=${check} disabled=${busy}>${busy ? 'checking…' : 'check again'}</button></div>
-        ${!compact && st !== 'ok' ? html`<div class="muted small">${!c.found ? 'Install… opens a terminal window that installs it (you watch it run). Installed somewhere else? Set its program in Agents & models.' : LOGIN[b]} Your credentials go to the CLI, never to this page.</div>` : null}
+        ${!compact && st !== 'ok' ? html`<div class="muted small">${!c.found ? 'Install… opens a terminal window that installs it (you watch it run). Installed somewhere else? Set its program in Models & effort.' : LOGIN[b]} Your credentials go to the CLI, never to this page.</div>` : null}
       </div>`;
     })}</div></div>`;
   };
@@ -146,7 +146,7 @@
       ${EXEC_GROUPS.filter(([g]) => g !== 'advanced').map(([g, title]) => html`<${NL.Section} key=${g} title=${title}><div class="grid2">${EXEC.filter(x => x[5] === g).map(field)}</div></${NL.Section}>`)}
       <button type="button" class="link small" onClick=${() => setAdv(!adv)}>${adv ? 'Hide advanced' : 'Advanced…'}</button>
       ${adv ? html`<div class="grid2">${EXEC.filter(x => x[5] === 'advanced').map(field)}</div>` : null}
-      <p class="muted small">Which tool and model the agents use: <a class="link" href="#/settings/agents">Agents & models</a>. A campaign’s spending cap is set when you start it.</p>
+      <p class="muted small">Which tool and model the agents use: <a class="link" href="#/settings/agents">Models & effort</a>. A campaign’s spending cap is set when you start it.</p>
       <div class="row end">${diff.length ? html`<span class="muted small">${NL.plural(diff.length, 'change')}</span><${NL.Btn} onClick=${() => setV(init())}>Reset</${NL.Btn}>` : null}<${NL.Btn} kind="primary" disabled=${!diff.length} onClick=${save}>Save changes…</${NL.Btn}></div></div>`;
   };
 
@@ -375,7 +375,8 @@
     </div>`;
   };
   const AgentsPage = ({query}) => html`<div class="agents-page">
-    <${NL.Section} title="Agent choices"><${NL.AgentAssignments} compact connect=${query?.connect}/></${NL.Section}>
+    <p class="muted">Set the model and reasoning effort together in a saved preset, then choose where to use it. Changes apply to new tasks.</p>
+    <${NL.Section} title="Models & effort for new tasks"><${NL.AgentAssignments} compact connect=${query?.connect}/></${NL.Section}>
     <${NL.Section} title="Installed agents"><p class="muted small">Sign in with each agent you want to use.</p><${NL.AgentsSignIn} /></${NL.Section}>
     <details><summary>Tool defaults & subagents</summary><${DefaultAgent}/><${AgentModels}/></details>
     <${Cast} />
@@ -390,7 +391,7 @@
 
   // group: 'lab' = saved in the lab's config, for everyone who opens it · 'browser' = this browser only
   const SECTIONS = [
-    { id: 'agents', label: 'Agents & models', group: 'lab', C: AgentsPage, blurb: 'Which tools run the agents, and which model each uses.' },
+    { id: 'agents', label: 'Models & effort', group: 'lab', C: AgentsPage, blurb: 'Lab defaults, saved model presets and task-role choices.' },
     { id: 'autonomy', label: 'Limits & permissions', group: 'lab', C: () => html`<${NL.PausedBar} /><${NL.LaunchSwitch} /><${ExecForm} />`, blurb: 'What agents may do on their own, how many at once, for how long.' },
     { id: 'lab', label: 'Research defaults', group: 'lab', C: LabForm, blurb: 'The lab’s name, venue, page limit, loop mode, training runs at once.' },
     { id: 'system', label: 'This machine & compute', group: 'lab', C: System, blurb: 'The computer the lab runs on, its scheduler and keep-awake.' },

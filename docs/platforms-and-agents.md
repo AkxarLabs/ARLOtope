@@ -10,10 +10,10 @@ permission and recording paths. API billing is an explicit saved agent choice.
 
 ## Set up an agent
 
-Open **Settings → Agents & models**. Install or sign in through the agent’s own flow, then choose
-**Check again**. Choose **Add agent preset** for a named configuration of an installed agent, or
+Open **Settings → Models & effort**. Install or sign in through the agent’s own flow, then choose
+**Check again**. Choose **Add model preset** for a named configuration of an installed agent, or
 **Connect ACP agent** for another compatible tool. Enter its name and settings, use **Check connection**,
-then **Save agent**. Adding one leaves the Lab default unchanged. A role assignment chooses which
+then **Save model preset**. Adding one leaves the Lab default unchanged. A role assignment chooses which
 saved agent new tasks use; it does not keep an agent running or change its conversation history.
 
 ![Connect and check an agent before saving](assets/current/acp-connect.png)

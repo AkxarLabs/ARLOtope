@@ -14,21 +14,21 @@
     const s = NL.useLab();
     const x = NL.exec(s);
     const agents=NL.useAgentSettings(target&&target!=='hub'?target:null);
-    const chosen=agents?.presets?.find(p=>p.id===opts.preset)||agents?.resolved?.[opts.role||'general'];
-    const backend=opts.backend||chosen?.backend||x.backend;
+    const chosen=opts.backend?null:agents?.presets?.find(p=>p.id===opts.preset)||agents?.resolved?.[opts.role||'general'];
+    const backend=opts.backend||chosen?.backend||x.backend,chosenEffort=NL.agentEffort(chosen);
     const set = (k, v) => setOpts(o => ({ ...o, [k]: v }));
-    return html`<details class="opts"><summary>Options <span class="muted">· ${opts.backend||chosen?.label||backend||'Agent default'}${opts.model ? ' · ' + opts.model : ''}${opts.max_minutes ? ' · ' + opts.max_minutes + ' min' : ''}${opts.chain === 'off' ? ' · then stop' : opts.chain ? ' · then ' + (opts.chain === 'next' ? 'the next step' : 'keep going') : ''}</span></summary>
+    return html`<details class="opts" open><summary>Model, effort & run settings <span class="muted">· ${opts.backend||chosen?.label||backend||'Agent default'}${opts.model||chosen?.model ? ' · ' + (opts.model||chosen?.model) : ''}${opts.effort||chosenEffort ? ' · ' + NL.agentEffortLabel(opts.effort||chosenEffort)+' effort' : ''}${opts.max_minutes ? ' · ' + opts.max_minutes + ' min' : ''}${opts.chain === 'off' ? ' · then stop' : opts.chain ? ' · then ' + (opts.chain === 'next' ? 'the next step' : 'keep going') : ''}</span></summary>
       <div class="grid2">
         <${NL.AgentChoice} study=${target&&target!=='hub'?target:null} role=${opts.role||'general'} value=${opts.preset?'preset:'+opts.preset:opts.backend?'backend:'+opts.backend:''} onChange=${v=>setOpts(o=>({...o,preset:v.startsWith('preset:')?v.slice(7):'',backend:v.startsWith('backend:')?v.slice(8):'',model:'',effort:''}))}/>
         <${NL.Field} label="Role"><${NL.Select} value=${opts.role||''} onChange=${v=>set('role',v)} options=${[{value:'',label:'Task default'},...Object.entries(agents?.roles||{}).map(([value,label])=>({value,label}))]}/></${NL.Field}>
-        <${NL.Field} label="Model" hint="Use selected agent settings"><${NL.Input} value=${opts.model} onInput=${v => set('model', v)} placeholder=${chosen?.model||'Agent default'} mono /></${NL.Field}>
-        ${['claude','codex'].includes(backend)?html`<${NL.Field} label="Effort"><${NL.Select} value=${opts.effort} onChange=${v => set('effort', v)} options=${[{ value: '', label: 'default' }, 'low', 'medium', 'high', 'xhigh', 'max']} /></${NL.Field}>`:null}
+        <${NL.Field} label="Model override" hint="Optional; applies only to this task."><${NL.Input} value=${opts.model} onInput=${v => set('model', v)} placeholder=${chosen?.model||'Agent default'} mono /></${NL.Field}>
+        ${['claude','codex'].includes(backend)?html`<${NL.Field} label="Effort override"><${NL.Select} value=${opts.effort} onChange=${v => set('effort', v)} options=${[{ value: '', label: 'Use selected settings'+(chosenEffort?' ('+NL.agentEffortLabel(chosenEffort)+')':'') }, ...NL.agentEffortOptions(backend).filter(x=>x.value&&x.value!=='ultra')]} /></${NL.Field}>`:null}
         <${NL.Field} label="Time limit (min)" hint=${'default ' + Math.round((x.config || {}).max_minutes || 240)}><${NL.Input} type="number" min="5" value=${opts.max_minutes} onInput=${v => set('max_minutes', v)} /></${NL.Field}>
         ${allowChain ? html`<${NL.Field} label="When it finishes"><${NL.Select} value=${opts.chain} onChange=${v => set('chain', v)}
           options=${[{ value: '', label: 'As the lab is set' }, { value: 'off', label: 'Stop and report' }, { value: 'next', label: 'Run the next step' }, { value: 'loop', label: 'Keep going until a checkpoint' }]} /></${NL.Field}>` : null}
         ${allowRepeat ? html`<${NL.Field} label="Repeat every (min)" hint="blank = once · stops at a checkpoint or a failure"><${NL.Input} type="number" min="5" value=${opts.repeat_minutes} onInput=${v => set('repeat_minutes', v)} /></${NL.Field}>` : null}
         ${allowRepeat && opts.repeat_minutes ? html`<${NL.Field} label="At most (times)"><${NL.Input} type="number" min="1" value=${opts.max_repeats} onInput=${v => set('max_repeats', v)} /></${NL.Field}>` : null}
-      </div></details>`;
+      </div><p class="muted small">These overrides apply only to this task. <a class="link" href="#/settings/agents">Manage saved models & effort</a>${backend==='codex'?'. Choose a saved Ultra preset to use Ultra effort.':''}</p></details>`;
   };
   const optBody = o => {
     const b = {};

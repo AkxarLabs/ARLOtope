@@ -7,7 +7,7 @@ Screenshots use demonstration data.
 
 ## Start a task
 
-1. Connect an installed harness in **Settings → Agents & models** and enable launching in
+1. Connect an installed harness in **Settings → Models & effort** and enable launching in
    **Limits & permissions**. Each harness uses its own account and model access.
 2. Choose **New study**, review its details and create it. For an existing study, open **Studies**.
 3. Choose the next task, or write a direct instruction. The task button shows its skill underneath.

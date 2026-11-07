@@ -46,3 +46,28 @@
 .assistant-launch{position:fixed;right:22px;bottom:20px;z-index:35;display:flex;align-items:center;gap:9px;border:1px solid var(--edge);background:var(--paper);color:var(--ink);padding:11px 16px;border-radius:7px;box-shadow:0 4px 18px #0002;font:500 13px var(--sans,sans-serif);cursor:pointer}.assistant-launch>span{font:24px Georgia,serif}.workspace-assistant{max-width:840px;margin:auto}.assistant-conversation{padding-block:20px;max-height:45vh;overflow:auto}.assistant-question{background:var(--paper-2);border-radius:5px;padding:10px 14px;margin-left:30px}.assistant-answer{line-height:1.7}.assistant-suggestions{display:flex;flex-wrap:wrap;gap:7px}.assistant-auto{display:block;border-top:1px solid var(--edge);padding-top:18px;margin-top:22px;font-size:13px}.assistant-auto small{display:block;margin-left:23px}.lab-view .world-status{display:flex;gap:14px;align-items:center}.lab-view .world-status a{font-size:12px}@media(max-width:640px){.assistant-launch{right:14px;bottom:12px;padding:9px 12px}.assistant-question{margin-left:12px}}
 
 .agent-assignments{max-width:760px}.agent-assignments details,.study-agent-settings{padding-block:16px;border-block:1px solid var(--edge);margin-block:12px}.agent-assignments details>.field{margin-top:14px}.preset-list{margin-block:24px}.preset-row{display:flex;gap:18px;align-items:center;border-bottom:1px solid var(--edge);padding:16px 0}.preset-row small{display:block;margin-top:4px}.preset-list fieldset{padding:20px;margin-top:20px;border:1px solid var(--edge)}.agent-assignments .input{max-width:100%}
+
+/* Direct navigation and study actions: labels stay visible without an assistant. */
+.settings-link{display:flex;align-items:center;gap:7px;color:var(--ink-soft);font-size:12px;text-decoration:none;padding:8px;border-radius:5px;white-space:nowrap}
+.settings-link:hover{color:var(--ink);background:var(--paper-2)}
+.lab-header{gap:24px}.lab-nav{gap:24px;min-width:0}
+.studies-intro{font-size:14px;margin:12px 0 0;max-width:58ch}
+.ledger .lens-head{align-items:center;margin-bottom:26px}
+.next-action-label{font-size:11px;color:var(--ink-faint)}
+.lrow-act{justify-content:center;gap:9px;min-width:175px;padding-left:18px;text-align:right}
+.lrow-act>.link{font-size:12px}
+.study-breadcrumbs{display:flex;justify-content:space-between;align-items:center;gap:16px;flex-wrap:wrap}
+.study-breadcrumbs nav{display:flex;gap:20px;font-size:12px}.study-breadcrumbs nav a{text-underline-offset:4px;color:var(--ink-soft)}
+.study-current-status{display:flex;align-items:center;gap:14px;flex-wrap:wrap;margin:12px 0 20px;font-size:13px;color:var(--ink-soft)}
+.study-current-status>a{font-size:12px;color:var(--ink-soft);text-underline-offset:4px}
+.dossier-head h1{font-size:clamp(32px,3.3vw,46px)}
+@media(max-width:1150px){.lab-header{gap:12px}.lab-nav{gap:17px}.settings-link{padding-inline:5px}.settings-link>span{display:none}}
+@media(max-width:900px){.settings-link>span{display:inline}.lab-nav{justify-content:space-between;gap:22px}.lab-header .lab-nav a{flex:none}}
+@media(max-width:640px){.settings-link>span{display:none}.lrow-act{padding-left:0;min-width:0;align-items:flex-start;text-align:left}.next-action-label{display:none}.lrow-act>.link{padding:4px 0}.study-current-status{gap:10px}.study-breadcrumbs nav{gap:16px}.lab-nav{justify-content:flex-start;gap:23px}.lab-header .lab-tools>.iconbtn:first-child{display:none}}
+
+.ledger-tools>.chips{flex-basis:100%}.ledger-tools>.select{width:auto;min-width:150px;max-width:240px}.ledger-tools>.search{margin-left:auto}
+.lrow-top>.lrow-title{white-space:normal;overflow:visible;overflow-wrap:anywhere;text-overflow:clip}
+@media(min-width:641px) and (max-width:800px){.lrow{flex-direction:column;gap:16px}.lrow-act{padding-left:0;align-items:flex-start;text-align:left;min-width:0;flex-direction:row;align-items:center;flex-wrap:wrap;gap:12px}.lrow-act .next-action-label{display:none}.lrow-act>.link{margin-left:auto}}
+@media(max-width:640px){.ledger-tools>.select{flex:1;min-width:130px;max-width:none}.ledger-tools>.search{flex-basis:100%;margin:0}.lens-head>.btn{flex:none}}
+
+.cmp-hero{display:flex;align-items:flex-start;justify-content:space-between;gap:20px;flex-wrap:wrap}.cmp-hero>div{flex:1;min-width:min(100%,260px)}.cmp-hero>div>p{max-width:60ch;margin:12px 0 0;font-size:14px}.cmp-hero>.btn{margin-top:5px;flex:none}

@@ -3,6 +3,22 @@
   const NL = window.NL;
   const { html, useState, useEffect } = NL;
 
+  // Codex presets may carry native reasoning_effort (for example ultra).
+  // Keep that setting visible and preserve it when changing unrelated fields.
+  NL.agentEffort=agent=>agent?.effort||agent?.reasoning_effort||'';
+  NL.agentEffortLabel=value=>({minimal:'Minimal',low:'Low',medium:'Medium',high:'High',xhigh:'Extra high',max:'Max',ultra:'Ultra'}[value]||value||'Agent default');
+  NL.setAgentEffort=(agent,value)=>{
+    const next={...agent};delete next.effort;delete next.reasoning_effort;
+    if(value)next[agent.backend==='codex'&&value==='ultra'?'reasoning_effort':'effort']=value;
+    if(agent.backend==='codex'&&value==='ultra')next.effort='';
+    return next;
+  };
+  NL.agentEffortOptions=(backend,saved)=>{
+    const values=backend==='codex'?['low','medium','high','xhigh','max','ultra']:['low','medium','high','xhigh','max'];
+    if(saved&&!values.includes(saved))values.push(saved);
+    return [{value:'',label:'Agent default'},...values.map(value=>({value,label:NL.agentEffortLabel(value)}))];
+  };
+  const agentDescription=p=>(p.model||'Agent model default')+' · '+NL.agentEffortLabel(NL.agentEffort(p))+' effort';
   const agentCache=new Map();
   NL.useAgentSettings=study=>{
     const key=study||'', [revision,setRevision]=useState(0);
@@ -18,7 +34,7 @@
       ...(data?.presets||[]).map(p=>({value:'preset:'+p.id,label:(p.label||p.id)+' · '+p.backend+(p.api_provider?' · API':'')})),
       ...(custom?NL.backends(lab).map(b=>({value:'backend:'+b.id,label:b.id+' · custom settings'})):[])];
     return html`<${NL.Field} label=${label}><${NL.Select} value=${value} onChange=${onChange} options=${options}/>
-      ${!value&&resolved?html`<small class="muted">${resolved.backend}${resolved.model?' · '+resolved.model:''} · ${resolved.source}</small>`:null}
+      ${!value&&resolved?html`<small class="muted">${resolved.backend} · ${agentDescription(resolved)} · ${resolved.source}</small>`:null}
       ${data?.error?html`<${NL.LoadState} error=${data.error} reload=${data.reload} stale=${!!data.presets} />`:null}</${NL.Field}>`;
   };
   const CommandFields=({value=[],onChange})=>html`<${NL.Field} label="Program"><${NL.Input} value=${value[0]||''} onInput=${v=>onChange([v,...value.slice(1)])} placeholder="Executable name or path"/></${NL.Field}>
@@ -93,30 +109,32 @@
     const test=async agent=>{const request=++checkSeq.current;setBusy(true);setError('');setMessage('');setConnection(null);const r=await NL.api('/api/agent-settings/check',{agent:cleanAgent(agent)});if(request!==checkSeq.current)return;setBusy(false);setMessage(r.message||'');setError(r.error||'');if(r.connection)setConnection(r.connection)};
     return html`<div class="agent-assignments">
       ${data.error?html`<${NL.LoadState} error=${data.error} reload=${data.reload} stale />`:null}
-      <${NL.Field} label=${study||onDraft?'Default agent':'Lab default agent'}><${NL.Select} value=${draft.default_preset||''} onChange=${v=>change({...draft,default_preset:v||null})} options=${[{value:'',label:'Use existing '+(study||onDraft?'Lab':'harness')+' settings'},...choices]}/></${NL.Field}>
-      ${data.resolved?.general?html`<p class="muted small">Saved default: ${data.resolved.general.label||data.resolved.general.backend} · ${data.resolved.general.model||'tool’s model default'}</p>`:null}
-      <details><summary>Task agent assignments <span class="muted small">${Object.keys(draft.role_presets||{}).length?'· '+NL.plural(Object.keys(draft.role_presets).length,'custom choice'):''}</span></summary><p class="muted small">Choose agents for task roles. Specialist child agents use the tool’s subagent settings.</p>
+      <p class="muted small">${study||onDraft?'Choose model presets for this study. Role choices below can override its default.':'Choose reusable model presets and a Lab default. A study or an individual task can override these choices.'} ${study||onDraft?html`<a class="link" href="#/settings/agents">Manage saved models & effort</a>`:null}</p>
+      <${NL.Field} label=${study||onDraft?'Study default model preset':'Lab default model preset'}><${NL.Select} value=${draft.default_preset||''} onChange=${v=>change({...draft,default_preset:v||null})} options=${[{value:'',label:'Use existing '+(study||onDraft?'Lab':'harness')+' settings'},...choices]}/></${NL.Field}>
+      ${data.resolved?.general?html`<p class="muted small">Saved default: ${data.resolved.general.label||data.resolved.general.backend} · ${agentDescription(data.resolved.general)}</p>`:null}
+      <details><summary>Model presets by task role <span class="muted small">${Object.keys(draft.role_presets||{}).length?'· '+NL.plural(Object.keys(draft.role_presets).length,'custom choice'):''}</span></summary><p class="muted small">Choose agents for task roles. Specialist child agents use the tool’s subagent settings.</p>
         <div class="agent-role-rows">${Object.entries(data.roles).map(([id,label])=>html`<${NL.Field} key=${id} label=${label}><${NL.Select} value=${Object.hasOwn(draft.role_presets||{},id)?draft.role_presets[id]??'@default':'@inherit'} onChange=${v=>setRole(id,v)} options=${[{value:'@inherit',label:study||onDraft?'Use Lab role setting':'Use general default'},...(study||onDraft?[{value:'@default',label:'Use study default'}]:[]),...choices]}/></${NL.Field}>`)}</div>
       </details>
-      ${!study&&!onDraft?html`<section class="preset-list"><header class="row wrap"><h3 class="grow">Saved agents</h3><${NL.Btn} small disabled=${!!editing||api} onClick=${()=>setApi(true)}>Connect API provider</${NL.Btn}><${NL.Btn} small disabled=${!!editing||api} onClick=${()=>begin('acp')}>Connect ACP agent</${NL.Btn}><${NL.Btn} small kind="ghost" disabled=${!!editing||api} onClick=${()=>begin('codex')}>Add agent preset</${NL.Btn}></header>
+      ${!study&&!onDraft?html`<section class="preset-list"><header class="row wrap"><h3 class="grow">Saved model choices</h3><${NL.Btn} small disabled=${!!editing||api} onClick=${()=>setApi(true)}>Connect API provider</${NL.Btn}><${NL.Btn} small disabled=${!!editing||api} onClick=${()=>begin('acp')}>Connect ACP agent</${NL.Btn}><${NL.Btn} small kind="ghost" disabled=${!!editing||api} onClick=${()=>begin('codex')}>Add model preset</${NL.Btn}></header>
         ${api?html`<${ApiProviderForm} onCancel=${()=>setApi(false)} onSave=${async(p,makeDefault)=>{let id='api-'+p.model.replace(/[^a-zA-Z0-9_-]/g,'-').slice(0,65),n=2,base=id;while(current[id])id=base+'-'+n++;const ok=await save({...draft,presets:{...current,[id]:p},...(makeDefault?{default_preset:id}:{})});if(ok)setApi(false);return ok;}}/>`:null}
-        ${Object.entries(current).map(([id,p])=>html`<div class="preset-row"><div class="grow"><b>${p.label||id}</b><small class="muted">${p.backend}${p.api_provider?' · API':''}${p.model?' · '+p.model:''}</small></div><button class="link" disabled=${!!editing||busy||api} onClick=${()=>openPreset(id,{...p})}>Edit</button><button class="link" onClick=${()=>test(p)} disabled=${busy||!!editing||api}>Test</button><button class="link" disabled=${!!editing||busy||api} aria-label=${'Remove '+(p.label||id)} onClick=${()=>{const next={...current};delete next[id];change({...draft,presets:next})}}>Remove</button></div>`)}
-        ${editing?html`<fieldset class="agent-connect"><legend>${preset.backend==='acp'?'Connect an ACP agent':'Agent preset'}</legend>
+        ${Object.entries(current).map(([id,p])=>html`<div class="preset-row"><div class="grow"><b>${p.label||id}</b><small class="muted">${p.backend}${p.api_provider?' · API':''} · ${agentDescription(p)}</small></div><button class="link" disabled=${!!editing||busy||api} onClick=${()=>openPreset(id,{...p})}>Edit</button><button class="link" onClick=${()=>test(p)} disabled=${busy||!!editing||api}>Test</button><button class="link" disabled=${!!editing||busy||api} aria-label=${'Remove '+(p.label||id)} onClick=${()=>{const next={...current};delete next[id];change({...draft,presets:next})}}>Remove</button></div>`)}
+        ${editing?html`<fieldset class="agent-connect"><legend>${preset.backend==='acp'?'Connect an ACP agent':'Model preset'}</legend>
         <${NL.Field} label="Name"><${NL.Input} value=${preset.label||''} onInput=${v=>setPreset({...preset,label:v})} placeholder="e.g. My research agent" autofocus/></${NL.Field}>
-        <${NL.Field} label="Agent type"><${NL.Select} value=${preset.backend} onChange=${v=>{setPreset({...preset,backend:v,model:'',effort:'',auth_method:'',api_provider:undefined});setConnection(null)}} options=${[{value:'claude',label:'Claude'},{value:'codex',label:'Codex'},{value:'opencode',label:'opencode'},{value:'acp',label:'Other agent (ACP)'}]}/></${NL.Field}>
+        <${NL.Field} label="Agent type"><${NL.Select} value=${preset.backend} onChange=${v=>{setPreset({...preset,backend:v,model:'',effort:'',reasoning_effort:'',auth_method:'',api_provider:undefined});setConnection(null)}} options=${[{value:'claude',label:'Claude'},{value:'codex',label:'Codex'},{value:'opencode',label:'opencode'},{value:'acp',label:'Other agent (ACP)'}]}/></${NL.Field}>
         ${['codex','claude'].includes(preset.backend)?html`<${NL.Field} label="Authentication"><${NL.Select} value=${preset.api_provider||''} onChange=${v=>setPreset({...preset,api_provider:v||undefined})} options=${[{value:'',label:'Agent’s existing sign-in'},{value:preset.backend==='codex'?'openai':'anthropic',label:'API connection'}]}/></${NL.Field}>`:null}
         ${preset.backend==='acp'?html`<${CommandFields} value=${preset.command} onChange=${v=>{setPreset({...preset,command:v});setConnection(null)}}/><p class="muted small">Use the agent’s ACP program. For <code>opencode acp</code>, enter <code>opencode</code> as the program and <code>acp</code> as its argument. Sign in through the agent’s own login.</p>`:null}
-        <details><summary>Model & advanced settings</summary>
+        <div class="grid2 model-preset-fields">
           <${NL.Field} label="Model" hint="Leave blank to use the agent’s default."><${NL.Input} value=${preset.model||''} onInput=${v=>setPreset({...preset,model:v})} placeholder="Agent default"/></${NL.Field}>
-          ${['claude','codex'].includes(preset.backend)?html`<${NL.Field} label="Effort"><${NL.Select} value=${preset.effort||''} onChange=${v=>setPreset({...preset,effort:v})} options=${[{value:'',label:'Agent default'},'low','medium','high','xhigh','max']}/></${NL.Field}>`:null}
+          ${['claude','codex'].includes(preset.backend)?html`<${NL.Field} label="Effort"><${NL.Select} value=${NL.agentEffort(preset)} onChange=${v=>setPreset(NL.setAgentEffort(preset,v))} options=${NL.agentEffortOptions(preset.backend,NL.agentEffort(preset))}/></${NL.Field}>`:null}
+        </div><details><summary>Connection & advanced settings</summary>
           ${preset.backend==='acp'?html`<${NL.Field} label="Sign-in method" hint="Check the connection to discover available methods. Leave blank if already signed in.">${connection?.authMethods?.length?html`<${NL.Select} value=${preset.auth_method||''} onChange=${v=>setPreset({...preset,auth_method:v})} options=${[{value:'',label:'Use existing sign-in'},...connection.authMethods.filter(m=>!m.type||m.type==='agent').map(m=>({value:m.id,label:m.name||m.id}))]}/>`:html`<${NL.Input} value=${preset.auth_method||''} onInput=${v=>setPreset({...preset,auth_method:v})} placeholder="Use existing sign-in"/>`}</${NL.Field}>`:
             html`<${CommandFields} value=${preset.command} onChange=${v=>setPreset({...preset,command:v})}/>`}
           <${NL.Field} label="Preset ID"><${NL.Input} value=${editing} disabled=${!!current[editing]} onInput=${setEditing}/></${NL.Field}>
         </details>
         ${connection?.agentInfo?html`<p class="muted small" role="status">Connected to ${connection.agentInfo.title||connection.agentInfo.name}${connection.agentInfo.version?' · '+connection.agentInfo.version:''}</p>`:null}
-        <div class="row end wrap"><${NL.Btn} small onClick=${()=>{markClean(draftDirty);setEditing('');setMessage('');setError('');if(connect)NL.go('settings/agents')}}>Cancel</${NL.Btn}><${NL.Btn} small busy=${busy} onClick=${()=>test({...preset})}>Check connection</${NL.Btn}><${NL.Btn} small kind="primary" busy=${busy} onClick=${async()=>{try{const next={...draft,presets:{...current,[editing]:presetValue()}};if(await save(next)){setEditing('');if(connect)NL.go('settings/agents')}}catch(e){setError(e.message)}}}>Save agent</${NL.Btn}></div></fieldset>`:null}</section>`:null}
+        <div class="row end wrap"><${NL.Btn} small onClick=${()=>{markClean(draftDirty);setEditing('');setMessage('');setError('');if(connect)NL.go('settings/agents')}}>Cancel</${NL.Btn}><${NL.Btn} small busy=${busy} onClick=${()=>test({...preset})}>Check connection</${NL.Btn}><${NL.Btn} small kind="primary" busy=${busy} onClick=${async()=>{try{const next={...draft,presets:{...current,[editing]:presetValue()}};if(await save(next)){setEditing('');if(connect)NL.go('settings/agents')}}catch(e){setError(e.message)}}}>Save model preset</${NL.Btn}></div></fieldset>`:null}</section>`:null}
       ${error?html`<p role="alert" class="note note-warn">${error}</p>`:null}${message?html`<p role="status" class="muted small">${message}</p>`:null}
-      ${!onDraft&&!editing&&!api?html`<div class="row end"><${NL.Btn} kind="primary" busy=${busy} onClick=${()=>save()}>Save agent choices</${NL.Btn}></div>`:null}
+      ${!onDraft&&!editing&&!api?html`<div class="row end"><${NL.Btn} kind="primary" busy=${busy} onClick=${()=>save()}>Save model choices</${NL.Btn}></div>`:null}
     </div>`;
   };
   NL.placeAgentPeek=(panel,anchor)=>{

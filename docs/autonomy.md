@@ -111,7 +111,7 @@ can flag violations afterwards. See [Monitoring and guardrails](monitoring.md) f
 
 The executor runs a launchable procedure or a free-form instruction using **Claude, Codex, opencode
 or an ACP agent**. Enable launching in **Settings → Limits & permissions**, then select installed
-agents in **Settings → Agents & models**. ACP support depends on capabilities the agent negotiates;
+agents in **Settings → Models & effort**. ACP support depends on capabilities the agent negotiates;
 it does not make every CLI feature interchangeable.
 
 ![Agent limits and permissions](assets/current/settings-limits.webp)

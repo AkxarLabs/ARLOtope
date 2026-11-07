@@ -161,8 +161,8 @@ def test_held_study_primary_action_keeps_existing_work_and_checkpoint_access():
     result = subprocess.run([NODE, '-e', script], capture_output=True, text=True, encoding='utf-8', timeout=60)
     assert result.returncode == 0, result.stderr
     out = json.loads(result.stdout)
-    assert out['labels'] == ['View hold', 'Review: Evidence', 'Show in lab']
-    assert out['opened'] == ['study/held/controls', ['held', 'review'], 'follow:active']
+    assert out['labels'] == ['View hold', 'Review: Evidence', 'View task']
+    assert out['opened'] == ['study/held/controls', ['held', 'review'], 'active']
 
 
 @pytest.mark.skipif(not NODE, reason='node is needed')

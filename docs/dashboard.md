@@ -11,13 +11,17 @@ across teams. Screenshots use demonstration data.
 | **Lab** | Follow working agents and see what needs attention |
 | **Studies** | Open a question, its workflow, instructions and history |
 | **Library** | Read outputs, documents, notes, sources and saved answers |
-| **Workflow** | Build tasks, reuse skills, assign agents and configure checkpoints |
+| **Workflows** | Build tasks, reuse skills, assign agents and configure checkpoints |
+| **Models & effort** | Manage model presets, effort levels and Lab defaults |
 | **New study** | Start from a question, existing folder or GitHub repository |
 | **Inbox** | Answer questions, review permissions and make decisions |
 | **Assistant** | Ask a separate agent about selected work |
 
 **All agents**, **History** and **Machines** are in the footer. **Settings** holds agent and
 execution options. Ctrl/Cmd+K opens search; **?** reopens the ARLO guide.
+
+**Create workflow** is available in the footer and the Workflows page. It opens a creation dialog;
+opening it does not change or publish a workflow. A study also has an **Edit workflow** shortcut.
 
 ## Keep your place
 
@@ -31,8 +35,17 @@ Unsent messages survive switching inspectors in the same browser tab, but not a 
 
 ## Follow work in the Lab
 
-Use the bottom selector to follow an agent or recorded child. **Show in lab** focuses its character
-and task panel. **All rooms** returns to the overview; closing follow leaves the camera in place.
+Use **Follow an agent** to follow a character or recorded child. **Free view** leaves follow mode,
+and **All rooms** frames the whole Lab. Drag to pan; use **Rotate**, Shift-drag or right-drag to turn
+the view. Scrolling zooms toward the location under the pointer. Manual navigation leaves follow
+mode and keeps the view where you put it. The focused map also accepts WASD; browser shortcuts
+such as Ctrl/Cmd+W retain their normal behavior.
+
+**Travel** offers Normal, 4× faster and Instant walking. **Skip walks** immediately brings displayed
+characters to their destinations. These controls change the animation only; task execution is unchanged.
+Reduced-motion preferences also skip the walks.
+
+![Free camera and travel controls in an isolated example Lab](assets/current/free-camera-controls.jpg)
 
 ![A character's task panel](assets/current/agent-task-preview.webp)
 
@@ -66,11 +79,15 @@ Open a study from **Studies**, a run or an output. Its primary action shows the 
 Expand **Workflow map** and select a task to read its instructions, context, outputs and checkpoints.
 
 - **Instructions** adds study-specific guidance.
-- **Agents** sets agent preferences for that study.
+- **Agents** opens agent conversations and task results.
+- **Models & effort** sets the study default and task-role model presets. Manage the reusable presets
+  and their model/effort fields from the matching top-level navigation link. Changes apply to future runs.
 - **History** groups task passes, agent attempts, notes, decisions and outputs. **Save history to study** creates a readable snapshot.
 - **More actions** holds other procedures, notes and controls. **Pending instructions** shows requests awaiting an agent.
 
 ![A study overview](assets/current/study-overview.webp)
+
+![Model and effort controls in an isolated example study](assets/current/study-model-effort.jpg)
 
 On narrow screens, **Study section** switches these views. See
 [starting and steering work](running-work.md) for launches, holds and multiple studies.
@@ -78,7 +95,11 @@ On narrow screens, **Study section** switches these views. See
 ## Answer and recover
 
 Open **Inbox** or the producing run for questions and tool permissions. Checkpoint decisions have
-their own evidence sheet. Terminal sessions observed by the Lab still receive input in their terminal.
+their own evidence sheet. Open an exhibit individually, or choose **read them all**, to read the full document.
+Markdown opens rendered, with **Markdown source** available for inspecting the original text.
+Terminal sessions observed by the Lab still receive input in their terminal.
+
+![Rendered proposal evidence in an isolated example Lab](assets/current/checkpoint-markdown.jpg)
 
 An agent that stops without its task outcome stays unfinished. Inspect its work before
 **Continue task** or **New agent with handoff**. See [recovery](recovering-work.md).

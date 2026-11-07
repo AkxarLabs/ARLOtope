@@ -13,6 +13,8 @@ import json
 from pathlib import Path
 import sys
 
+import pytest
+
 from conftest import REPO, kernel, load
 
 K = kernel()
@@ -43,6 +45,29 @@ def _mod(hub, monkeypatch, *, enabled=True, dashboard_extra: str = ""):
 def _pi_actions(hub):
     f = hub.lab / ".bus" / "pi-actions.jsonl"
     return [json.loads(x) for x in f.read_text(encoding="utf-8").splitlines()] if f.exists() else []
+
+
+@pytest.mark.parametrize("dashboard_executor", [False, True, None])
+def test_shutdown_hands_off_pending_work_only_when_dashboard_scheduling_is_enabled(hub, monkeypatch, dashboard_executor):
+    extra = "" if dashboard_executor is None else f"  executor: {str(dashboard_executor).lower()}\n"
+    m = _mod(hub, monkeypatch, dashboard_extra=extra)
+    monkeypatch.setattr(m.ticker, "_SCHED_HUBS", set())
+    lab = m.executor.Lab(hub.root)
+    lease = lab.lab / ".bus" / "scheduler.lease"
+    lease.parent.mkdir(parents=True, exist_ok=True)
+    lease.write_text('{"pid": 123, "by": "dashboard"}')
+    calls = []
+    monkeypatch.setattr(m.ticker.executor.scheduler, "has_work", lambda _lab: True)
+    monkeypatch.setattr(m.ticker.executor.scheduler, "ensure_ticker", lambda other: calls.append(other.hub) or True)
+
+    m.ticker.handoff_scheduler()
+
+    if dashboard_executor is False:
+        assert calls == [], "An observe-only dashboard must not dispatch pending work when it closes"
+        assert lease.exists(), "Observe-only shutdown must not take over the scheduler's lease"
+    else:
+        assert calls == [hub.root], "Normal dashboard shutdown must preserve its scheduler handoff"
+        assert not lease.exists()
 
 
 # ── launch ────────────────────────────────────────────────────────────────────

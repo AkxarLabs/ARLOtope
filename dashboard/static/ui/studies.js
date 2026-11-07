@@ -12,7 +12,7 @@
   NL.nextFor = (s, it) => {
     if (!it) return null;
     const live = NL.runsOf(s, it.id).find(r => NL.RUN_ACTIVE.has(r.status) || r.status === 'queued' || r.status === 'waiting_input');
-    if (live) return { label: live.status === 'waiting_input' ? 'Answer its question' : live.status==='queued'?'View queued task':'Show in lab', glyph: live.status === 'waiting_input' ? 'chat' : 'agents', run: () => live.status==='waiting_input'||live.status==='queued'?NL.openRun(live.run_id):NL.followAgent(live.run_id), live };
+    if (live) return { label: live.status === 'waiting_input' ? 'Answer its question' : live.status==='queued'?'View queued task':'View task', glyph: live.status === 'waiting_input' ? 'chat' : 'agents', run: () => NL.openRun(live.run_id), live };
     const w = (it.waiting || [])[0];
     if (w) { const c = NL.checkpoint(w, it) || { title: w }; return { label: `Review: ${c.title}`, glyph: 'diamond', run: () => NL.openCheckpoint(it.id, w), checkpoint: w }; }
     if (s.holds?.[it.id]) return { label: 'View hold', glyph: 'pause', run: () => NL.go('study/' + it.id + '/controls') };
@@ -58,10 +58,10 @@
     const nx = NL.nextFor(s, it);
     return html`<article class=${cls('lrow', 'st-' + (tone || 'idle'))}>
       <div class="lrow-main">
-        <span class="lrow-top"><a class="clip" href=${'#/study/' + it.id}><b>${it.title || it.id}</b></a><span class=${cls('lrow-st', tone)}>${tone === 'live' ? html`<i class="dot-live"></i>` : null}${word}</span></span>
+        <span class="lrow-top"><a class="lrow-title" href=${'#/study/' + it.id}><b>${it.title || it.id}</b></a><span class=${cls('lrow-st', tone)}>${tone === 'live' ? html`<i class="dot-live"></i>` : null}${word}</span></span>
         <${NL.Tags} value=${it.tags||[]}/><${NL.Metro} it=${it} compact />
         <span class="lrow-sub muted small">${NL.workflowOf(it).title || ''} · ${NL.taskLabel(it)} · ${(u => u ? NL.ago(u) || NL.when(u) : '')(lastTouched(s, it))}${pendingFor(it).length ? ' · ' + NL.plural(pendingFor(it).length, 'pending instruction') : ''}</span></div>
-      <div class="lrow-act">${nx ? html`<${NL.Btn} small kind=${nx.checkpoint ? 'primary' : ''} onClick=${nx.run}>${nx.label}</${NL.Btn}>` : null}
+      <div class="lrow-act"><span class="next-action-label">${nx ? 'Next action' : NL.isTerminal(it.state) ? 'Study record' : 'Continue here'}</span>${nx ? html`<${NL.Btn} small kind=${nx.checkpoint ? 'primary' : ''} onClick=${nx.run}>${nx.label}</${NL.Btn}>` : html`<a class="btn btn-sm" href=${'#/study/'+it.id}>Open study</a>`}<a class="link small" href=${'#/study/'+it.id+'/history'}>Progress & history</a>
 </div></article>`;
   };
 
@@ -69,25 +69,24 @@
     const s = NL.useLab();
     useEffect(() => { if (query && query.campaign) NL.openCampaign(query.campaign); }, [query && query.campaign]);
     const camps = NL.campaignsOf(s).filter(c => !['done', 'stopped'].includes(c.status) || (Date.now() - new Date(c.created)) < 3 * 86400e3);
-    const [f, setF] = useState(NL.ls.get('nl-ledger-f', 'all'));
-    const [q, setQ] = useState('');
+    const [f, setF] = useState(() => { const saved=NL.ls.get('nl-ledger-f','all'); return ['all','you','work','idle','done'].includes(saved)?saved:'all'; });
+    const [q, setQ] = useState(''), [workflowFilter,setWorkflowFilter]=useState('');
     const tag = query?.tag || '';
     const setTag = value => { const search = NL.qs({ ...query, tag: value || null }); NL.go('studies' + (search ? '?' + search : '')); };
     const setFilter = v => { setF(v); NL.ls.set('nl-ledger-f', v); };
-    const all = (s.items || []).filter(i => (!tag||(i.tags||[]).includes(tag))&&(!q || (i.title+' '+i.id+' '+(i.tags||[]).join(' ')).toLowerCase().includes(q.toLowerCase())));
-    const FILTERS = [['all', 'All', () => true], ['you', 'Inbox', i => statusOf(s, i)[0] === 'warm' || statusOf(s, i)[0] === 'bad'],
+    const all = (s.items || []).filter(i => (!workflowFilter||NL.workflowOf(i).id===workflowFilter)&&(!tag||(i.tags||[]).includes(tag))&&(!q || (i.title+' '+i.id+' '+(i.tags||[]).join(' ')).toLowerCase().includes(q.toLowerCase())));
+    const FILTERS = [['all', 'All', () => true], ['you', 'Needs you', i => statusOf(s, i)[0] === 'warm' || statusOf(s, i)[0] === 'bad'],
       ['work', 'At work', i => statusOf(s, i)[0] === 'live'], ['idle', 'Idle', i => statusOf(s, i)[0] === ''],
-      ...NL.WORKFLOWS.length > 1 ? NL.WORKFLOWS.map(w => [w.id, w.title || w.id, i => NL.workflowOf(i).id === w.id]) : [],
       ['done', 'Done & set aside', i => NL.isTerminal(i.state)]];
     const pred = (FILTERS.find(x => x[0] === f) || FILTERS[0])[2];
     const items = all.filter(i => f === 'done' || f === 'all' || !NL.isTerminal(i.state)).filter(pred)
       .sort((a, b) => ['bad', 'warm', 'live', '', 'ok', 'muted'].indexOf(statusOf(s, a)[0]) - ['bad', 'warm', 'live', '', 'ok', 'muted'].indexOf(statusOf(s, b)[0]) || lastTouched(s, b).localeCompare(lastTouched(s, a)));
     return html`<div class="ledger">
-      <header class="lens-head"><div class="grow"><div class="kicker">Research workspace</div><h1>Studies</h1></div>
+      <header class="lens-head"><div class="grow"><h1>Studies</h1><p class="muted studies-intro">See what needs you, follow progress, and choose the next action.</p></div>
         <${NL.Btn} kind="primary" onClick=${() => NL.openStartOrb()}>＋ New study</${NL.Btn}></header>
       ${camps.length ? html`<div class="camp-row">${camps.map(c => html`<${NL.CampaignCard} key=${c.name} c=${c} compact />`)}</div>` : null}
       <div class="ledger-tools"><div class="chips">${FILTERS.map(([v, l, fn]) => html`<button type="button" aria-pressed=${f === v} class=${cls('chip-btn', f === v && 'on')} onClick=${() => setFilter(v)}>${l} <span class="count">${all.filter(i=>v==='done'||v==='all'||!NL.isTerminal(i.state)).filter(fn).length}</span></button>`)}</div>
-        <${NL.Select} ariaLabel="Filter studies by tag" value=${tag} onChange=${setTag} options=${[{value:'',label:'All tags'},...(s.tags||[]).map(t=>({value:t,label:t}))]}/><input class="input search" aria-label="Find a study" placeholder="Find a study…" value=${q} onInput=${e => setQ(e.target.value)} /></div>
+        <${NL.Select} ariaLabel="Filter studies by workflow" value=${workflowFilter} onChange=${setWorkflowFilter} options=${[{value:'',label:'All workflows'},...NL.WORKFLOWS.map(w=>({value:w.id,label:w.title||w.id}))]}/><${NL.Select} ariaLabel="Filter studies by tag" value=${tag} onChange=${setTag} options=${[{value:'',label:'All tags'},...(s.tags||[]).map(t=>({value:t,label:t}))]}/><input class="input search" aria-label="Find a study" placeholder="Find a study…" value=${q} onInput=${e => setQ(e.target.value)} /></div>
       ${!(s.items || []).length ? html`<${NL.Empty} title="No studies yet">Choose New study to start with a question or an existing project.</${NL.Empty}>`
         : html`<div class="ledger-rows">${items.map(it => html`<${LedgerRow} key=${it.id} it=${it} />`)}${!items.length ? html`<div class="muted pad">Nothing here.</div>` : null}</div>`}
     </div>`;
@@ -131,14 +130,15 @@
       ...(it.has_paper || it.paper ? [{ id: 'paper', label: 'Paper' }] : []),
       { id: 'panels', label: 'Instruments' },
       { id: 'instructions', label: 'Instructions', count: Object.keys(((((s.workflow || {}).study_custom || {})[it.id]) || {}).procedures || {}).length || null },
-      { id: 'controls', label: 'Controls' }];
+      { id: 'models', label: 'Models & effort' }, { id: 'controls', label: 'Controls' }];
     return html`<div class="dossier">
       <header class="dossier-head">
-        <div class="crumbs"><a class="link" href="#/studies">Studies</a> ›</div>
+        <div class="study-breadcrumbs"><div class="crumbs"><a class="link" href="#/studies">Studies</a> ›</div><nav aria-label="Study configuration"><a href=${'#/study/'+it.id+'/models'}>Models & effort</a><a href=${NL.focusHref('workflow/map?workflow='+encodeURIComponent(NL.workflowOf(it).id),{study:it.id})}>Edit workflow</a></nav></div>
         <div class="row"><span class="kicker grow">${wfs.length > 1 ? html`<${NL.Picker} small value=${NL.workflowOf(it).id} label="Workflow"
             onChange=${async v => { if (v !== NL.workflowOf(it).id && await NL.confirm({ title: `Move this study to “${(wfs.find(w => w.id === v) || {}).title}”?`, body: 'Its steps and checkpoints change from its next step on. Approvals it already has stay recorded.', ok: 'Move it' })) NL.act('/api/study/workflow', { study: it.id, workflow: v }, 'Workflow changed'); }}
             options=${wfs.map(w => ({ value: w.id, label: w.title || w.id, hint: w.blurb, glyph: 'metro' }))} />` : (NL.workflowOf(it).title || '')}</span></div>
         <h1>${it.title || it.id}</h1>
+        <p class="study-current-status"><span class=${cls('pill',statusOf(s,it)[0])}>${statusOf(s,it)[1]}</span><span>Current step: <b>${NL.taskLabel(it)}</b></span><a href=${'#/study/'+it.id+'/history'}>Progress & history</a></p>
         ${it.remote_project?html`<p class="muted small">${it.machine} · ${it.remote_project.path} · <button class="link" onClick=${()=>NL.openMachineSetup(it.machine)}>Connection</button></p>`:null}
         <${NL.StudyTags} it=${it}/><${NL.Metro} it=${it} />
         <p class="study-position"><span class="muted">Workflow position</span> · <b>${NL.taskLabel(it)}</b></p>
@@ -155,12 +155,13 @@
       <div class="tabpane">
         ${tab === 'overview' ? html`<${Overview} key=${it.id} it=${it} />` : null}
         ${tab === 'docs' ? html`<${Documents} key=${it.id} it=${it} rel=${args.slice(2).join('/')} />` : null}
-        ${tab === 'runs' ? html`<details class="study-agent-settings"><summary>Agent choices for this study</summary><${NL.AgentAssignments} key=${it.id} study=${it.id} compact/></details><div class="runlist">${runs.length ? runs.slice().sort((a, b) => (b.created || '').localeCompare(a.created || '')).map(r => html`<${NL.RunRow} key=${r.run_id} r=${r} />`) : html`<${NL.Empty}>No agents have worked on it yet.</${NL.Empty}>`}</div>` : null}
+        ${tab === 'runs' ? html`<p class="muted small">Agent conversations and task results. <a href=${'#/study/'+it.id+'/models'}>Set models & effort</a></p><div class="runlist">${runs.length ? runs.slice().sort((a, b) => (b.created || '').localeCompare(a.created || '')).map(r => html`<${NL.RunRow} key=${r.run_id} r=${r} />`) : html`<${NL.Empty}>No agents have worked on it yet.</${NL.Empty}>`}</div>` : null}
         ${tab==='history'?html`<${WorkflowHistory} key=${it.id} it=${it}/>`:null}
         ${tab === 'experiments' ? html`<${Experiments} key=${it.id} it=${it} />` : null}
         ${tab === 'paper' ? html`<${PaperPane} key=${it.id} it=${it} />` : null}
         ${tab === 'panels' ? html`<${StudyPanels} key=${it.id} it=${it} />` : null}
         ${tab === 'instructions' ? html`<${NL.StudyInstructions} key=${it.id} it=${it} />` : null}
+        ${tab === 'models' ? html`<section aria-label="Study models and effort"><h2>Models & effort</h2><p class="muted">Choose the saved agent setting for this study and its task roles. Changes apply to future runs.</p><${NL.AgentAssignments} key=${it.id} study=${it.id} /><p class="muted small"><a href="#/settings/agents">Edit saved models and Lab defaults</a></p></section>` : null}
         ${tab === 'controls' ? html`<${Controls} key=${it.id} it=${it} />` : null}
       </div></div>`;
   };
@@ -337,7 +338,8 @@
   };
 
   NL.SectionsSheet = ({ title, data, onClose }) => html`<${NL.Sheet} wide title=${title} onClose=${onClose}>${!data || !data.ok ? html`<div class="note note-warn">${(data && data.error) || 'nothing to show'}</div>` :
-    (data.sections || []).map(sec => html`<${NL.Section} title=${sec.title}><pre class="plain">${sec.text}</pre></${NL.Section}>`)}</${NL.Sheet}>`;
+    (data.sections || []).map(sec => html`<${NL.Section} title=${sec.title}>${sec.doc ? html`<${NL.DocReader} ...${sec.doc} bare />`
+      : html`<${NL.DocumentText} text=${sec.text} name=${sec.path || sec.title} format=${sec.format} />`}</${NL.Section}>`)}</${NL.Sheet}>`;
 
   /* ── paper ─────────────────────────────────────────────────────────────── */
   const PaperPane = ({ it }) => {

@@ -55,7 +55,7 @@ uv run --with pyyaml python arlo.py
 
 The dashboard opens in your browser. No frontend build is needed. Works on Windows, macOS and Linux.
 
-1. Connect an installed agent in **Settings → Agents & models** and enable launches in **Limits & permissions**.
+1. Connect an installed agent in **Settings → Models & effort** and enable launches in **Limits & permissions**.
 2. Choose **New study**. Start with a question, browse to an existing folder, or choose a GitHub repository. Add a brief or other files if useful.
 3. Review the workflow, create the study, then start its first task.
 

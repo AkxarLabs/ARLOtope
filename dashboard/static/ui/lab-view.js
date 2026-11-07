@@ -10,7 +10,14 @@
   document.getElementById('scene').addEventListener('webglcontextlost', () => {graphicsLost=true;report(new Error('The graphics context was lost.'))});
   document.getElementById('scene').addEventListener('webglcontextrestored', () => {graphicsLost=false;sync().catch(report)});
   const followSelect=document.querySelector('.view-follow'),followActivity=document.querySelector('.view-activity'),stopButton=document.querySelector('.view-stop');
-  const labelsButton=document.querySelector('.view-labels');
+  const labelsButton=document.querySelector('.view-labels'),freeButton=document.querySelector('.view-free');
+  const panButton=document.querySelector('.view-pan'),rotateButton=document.querySelector('.view-rotate'),travelSelect=document.querySelector('.view-travel');
+  let travelSpeed='1';try{travelSpeed=localStorage.getItem('arlotope.lab.travel')||'1'}catch{}
+  if(!['0','1','4'].includes(travelSpeed))travelSpeed='1';travelSelect.value=travelSpeed;
+  const travelStatus=document.querySelector('.view-travel-status');
+  const travelHelp=()=>{travelStatus.textContent=travelSpeed==='0'?'Walks skipped':travelSpeed==='4'?'Walks at 4× speed':'Normal walking speed'};
+  travelHelp();
+  const dragMode=mode=>{world?.setDragMode(mode);panButton.setAttribute('aria-pressed',String(mode==='pan'));rotateButton.setAttribute('aria-pressed',String(mode==='rotate'));document.querySelector('.view-help').textContent=(mode==='pan'?'Drag to pan · Shift-drag or right-drag to rotate':'Drag to rotate · Middle-drag to pan')+' · Scroll to zoom at pointer · Dragging leaves follow mode'};
   const showLabels=on=>{labelsButton.setAttribute('aria-pressed',String(on));labelsButton.title=on?'Hide room names':'Show room names';world?.setLabels(on)};
   let rosterKey='';
   const followControls=()=>{
@@ -20,7 +27,7 @@
       followSelect.replaceChildren(new Option(agents.length?'Follow an agent':'No agents running',''),
         ...agents.map(a=>new Option((a.parent?'↳ ':'')+(a.display_label||a.label||a.role||a.id),a.id)));
     }
-    followSelect.disabled=!agents.length;followSelect.value=following||'';stopButton.hidden=!following;
+    followSelect.disabled=!agents.length;followSelect.value=following||'';stopButton.hidden=!following;freeButton.setAttribute('aria-pressed',String(!following));freeButton.title=following?'Stop following and move the camera freely':'Free view: drag to explore';
     const agent=agents.find(a=>a.id===following);
     const status=agent&&(ArloAgents.attention(displayed,agent)?.label||agent.doing?.summary||Lab3D.model.ACTS[agent.doing?.kind]?.[1]||({working:'Working',idle:'Idle'}[agent.status]))||'';
     followActivity.textContent=following?status:'';followActivity.title=followActivity.textContent;
@@ -98,7 +105,7 @@
     if (e.source !== parent || e.data?.labView !== 1) return;
     if(typeof e.data.active==='boolean'){
       active=e.data.active;world?.setActive(active);
-      if(!active){focusKey='';inspected=null;world?.selectAgent(null);cancelAnimationFrame(anchorFrame);return}
+      if(!active){inspected=null;world?.selectAgent(null);cancelAnimationFrame(anchorFrame);return}
     }
     if(e.data.command==='dismiss-agent'){inspected=null;world?.selectAgent(null);cancelAnimationFrame(anchorFrame);return}
     if(e.data.command==='clear-hover'){world?.clearHover();return}
@@ -121,7 +128,12 @@
     addEventListener('pointerdown',e=>{down=[e.clientX,e.clientY]});
     addEventListener('pointerup',e=>{if(inspected&&down&&e.target.id==='scene'&&Math.hypot(e.clientX-down[0],e.clientY-down[1])<4)closeInspection()},true);
     addEventListener('keydown',e=>{if(e.key==='Escape')closeInspection()});
-    document.querySelector('.view-back').onclick = () => {following=null;world.stopFollow();world.back()};
+    document.querySelector('.view-back').onclick = () => {following=null;world.stopFollow();world.back();followControls()};
+    freeButton.onclick=()=>{following=null;world.stopFollow();followControls()};
+    panButton.onclick=()=>dragMode('pan');rotateButton.onclick=()=>dragMode('rotate');
+    travelSelect.onchange=e=>{travelSpeed=e.target.value;world.setTravelSpeed(travelSpeed);try{localStorage.setItem('arlotope.lab.travel',travelSpeed)}catch{}travelHelp()};
+    document.querySelector('.view-skip').onclick=()=>{world.skipTravel();travelStatus.textContent='Current walks skipped'};
+    world.setTravelSpeed(travelSpeed);dragMode('pan');
     followSelect.onchange=e=>focusAgent(e.target.value);
     stopButton.onclick=()=>{following=null;world.stopFollow();followControls();followSelect.focus()};
     labelsButton.onclick=()=>{const on=labelsButton.getAttribute('aria-pressed')!=='true';showLabels(on);send({kind:'labels',value:on})};

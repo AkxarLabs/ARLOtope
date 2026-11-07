@@ -3,7 +3,7 @@
   'use strict';
   const NL = window.NL;
   const { html, render, useState, useEffect, useLayoutEffect, useRef } = NL;
-  const NAV = [['', 'Lab'], ['studies', 'Studies'], ['library', 'Library'], ['workflow', 'Workflow']];
+  const NAV = [['', 'Lab'], ['studies', 'Studies'], ['library', 'Library'], ['workflow', 'Workflows'], ['settings/agents', 'Models & effort']];
   const PAGES = { home: () => LabView, overview: () => NL.Home, studies: () => NL.StudiesPage, study: () => NL.StudyPage,
     runs: () => NL.RunsPage, run: () => NL.RunsPage, library: () => NL.LibraryPage,
     artifacts: () => NL.LibraryPage, history: () => NL.HistoryPage,
@@ -24,6 +24,8 @@
       { title: 'New study', sub: 'Page', run: () => NL.go('start') },
       { title: 'ARLO guide', sub: 'Help', run: () => NL.openGuide() },
       { title: 'Documents', sub: 'Library', run: () => NL.go('library?view=documents') },
+      { title: 'Models & effort', sub: 'Lab defaults and saved agent choices', run: () => NL.go('settings/agents') },
+      { title: 'Create workflow', sub: 'Custom tasks and checkpoints', run: () => NL.go('workflow/map?create=1') },
       { title: 'Settings', sub: 'Page', run: () => NL.go('settings') }];
     const list = all.filter(x => (x.title + ' ' + x.sub).toLowerCase().includes(q.trim().toLowerCase())).slice(0, 12);
     const at = Math.min(selected, list.length - 1);
@@ -150,10 +152,10 @@
         <span>ARLOtope</span></a>
         <button type="button" class="theme-switch" aria-label=${NL.themeNow()==='day'?'Switch to dark mode':'Switch to light mode'} title=${NL.themeNow()==='day'?'Switch to dark mode':'Switch to light mode'} onClick=${()=>NL.setPref('theme',NL.themeNow()==='day'?'night':'day')}>${NL.themeNow()==='day'?'◑ Dark':'◐ Light'}</button>
         <nav class="lab-nav" aria-label="Main navigation">${NAV.map(([path, title]) => html`<a href=${NL.focusHref(path,focus)}
-          aria-current=${(GROUP[page] ?? page) === path ? 'page' : null}>${title}</a>`)}</nav>
+          aria-current=${(path === 'settings/agents' ? page === 'settings' && (!route.args[0] || route.args[0] === 'agents') : (GROUP[page] ?? page) === path) ? 'page' : null}>${title}</a>`)}</nav>
         <div class="lab-tools"><button type="button" class="iconbtn" onClick=${NL.openGuide} aria-label="Open ARLO guide" title="ARLO guide">?</button><button type="button" class="iconbtn" onClick=${NL.openPalette} aria-label="Search" title="Search (Ctrl+K)"><${NL.Glyph} name="lens" size=${18} /></button>
           <button type="button" class="needs-button" onClick=${() => NL.open(NL.InboxSheet, {}, { key: 'inbox' })}>Inbox${needs ? html`<span class="count">${needs}</span>` : null}</button>
-          <a class="iconbtn" href="#/settings" aria-label="Settings" title="Settings"><${NL.Glyph} name="gear" size=${18} /></a>
+          <a class="settings-link" href="#/settings" aria-label="Settings" title="Settings"><${NL.Glyph} name="gear" size=${18} /><span>Settings</span></a>
           <${NL.Btn} kind="primary" onClick=${() => NL.go('start')}>New study</${NL.Btn}></div></header>
       <main ref=${main} id="main-content" class="stage" tabIndex="-1"><${NL.PausedBar} />
         ${s.lab_info?.path?html`<${NL.Guide} key=${s.lab_info.path} lab=${s} home=${showLab}/>`:null}
@@ -161,7 +163,7 @@
         ${connection === 'offline' || connection === 'reconnecting' ? html`<div class="connection-note" role="status">Reconnecting. Showing the last known state.</div>` : null}
         ${labSeen.current ? html`<div class="lab-mount" hidden=${!showLab}><${NL.Boundary}><${LabView} active=${showLab} /><${NL.LabDesk}/></${NL.Boundary}></div>` : null}
         ${!showLab ? html`<${NL.Boundary} key=${page}><${Component} args=${route.args} query=${route.query} error=${route.error} /></${NL.Boundary}>` : null}
-        <footer class="lab-footer"><nav aria-label="Resources"><a href="#/runs">All agents</a><a href="#/history">History</a><a href="#/labs">Machines</a></nav></footer>
+        <footer class="lab-footer"><nav aria-label="Resources"><a href="#/runs">All agents</a><a href="#/history">History</a><a href="#/labs">Machines</a><a href="#/settings/agents">Models & effort</a><a href="#/workflow/map?create=1">Create workflow</a></nav></footer>
       </main><${NL.AssistantButton}/><${NL.OverlayHost} /><${NL.Toasts} />`;
   };
   let seen = null;
